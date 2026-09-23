@@ -1,0 +1,4 @@
+// QtSmartCabinet Windows resource file
+// 作者：袁燕  2026-06-21  程序exe图标
+// app.rc 自身在 resources/ 目录下，icon.ico 使用相对路径
+IDI_ICON1   ICON    "icon.ico"

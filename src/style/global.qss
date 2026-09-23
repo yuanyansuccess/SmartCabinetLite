@@ -1,0 +1,51 @@
+/* ═══════════════════════════════════════════════════
+   智能柜Qt Widget 2.0  全局QSS样式
+   作者：袁燕  2026-06-21
+   触屏优化：按钮≥48px、输入框48px、字体16-18px
+   ═══════════════════════════════════════════════════ */
+
+/* ── 全局 ── */
+QMainWindow { background: #f5f6fa; }
+QWidget { font-family: "WenQuanYi Micro Hei","Noto Sans CJK SC","Microsoft YaHei",sans-serif; }
+/* [V8.1 2026-06-25] 全局消除QLabel文字下方黑色底色 */
+QLabel { background: transparent; }
+
+/* ── 按钮 ── */
+QPushButton { border-radius: 12px; font-size: 16px; min-height: 48px; padding: 8px 20px; }
+QPushButton:hover { opacity: 0.9; }
+QPushButton:pressed { opacity: 0.75; }
+QPushButton:disabled { background: #ccc; color: #999; }
+
+/* ── 输入框 ── */
+QLineEdit { min-height: 48px; font-size: 16px; padding: 0 16px;
+            border: 2px solid #dcdfe6; border-radius: 12px; background: #fff; color: #333; }
+QLineEdit:focus { border-color: #409eff; }
+QLineEdit:disabled { background: #f5f7fa; color: #c0c4cc; }
+
+/* ── 下拉框 ── */
+QComboBox { min-height: 48px; font-size: 16px; padding: 0 12px;
+            border: 2px solid #dcdfe6; border-radius: 12px; background: #fff; }
+QComboBox:focus { border-color: #409eff; }
+QComboBox::drop-down { border: none; width: 32px; }
+QComboBox QAbstractItemView { font-size: 16px; min-height: 36px; }
+
+/* ── 表格 ── */
+QTableWidget { font-size: 15px; border: 1px solid #ebeef5; border-radius: 8px;
+               gridline-color: #ebeef5; background: #fff; outline: none; }
+/* [2026-06-27] 去除表格单元格选中时的虚线焦点框，全局兜底 */
+QTableWidget::item { padding: 12px 8px; min-height: 44px; outline: none; border: none; }
+QTableWidget::item:focus { outline: none; border: none; }
+QHeaderView::section { background: #f5f7fa; color: #606266; font-size: 15px; font-weight: bold;
+                       padding: 12px 8px; border: none; border-bottom: 2px solid #dcdfe6; }
+
+/* ── 滚动条 ── */
+QScrollBar:vertical { width: 10px; background: #f5f7fa; }
+QScrollBar::handle:vertical { background: #c0c4cc; border-radius: 5px; min-height: 40px; }
+QScrollBar::handle:vertical:hover { background: #909399; }
+
+/* ── 提示框 ── */
+QToolTip { background: #303133; color: #fff; border: none; font-size: 14px;
+           padding: 8px 12px; border-radius: 8px; }
+
+/* ── 状态标签 ── */
+QStatusBar { background: #1a1a2e; color: #a0a0b8; font-size: 14px; padding: 4px 16px; }

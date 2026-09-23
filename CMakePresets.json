@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "mingw",
+      "displayName": "MinGW Compiler",
+      "description": "使用MinGW编译器",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build-mingw",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mingw",
+      "configurePreset": "mingw"
+    }
+  ]
+}

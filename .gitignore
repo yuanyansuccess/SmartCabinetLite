@@ -1,0 +1,45 @@
+# 构建产物
+build/
+Makefile
+Makefile.*
+*.qmake.stash
+*.pro.user
+*.pro.user.*
+*.user*
+
+# 第三方依赖 / 冗余副本
+tools/
+node_modules/
+# 根下嵌套同名目录（QtSmartCabinet.rar 解压出的完整冗余副本，含安装包）
+QtSmartCabinet/
+
+# 临时 / 日志
+temp/
+*.tmp
+*.log
+.vs/
+
+# 文本日志：排除所有 .txt，但保留主 CMakeLists.txt
+*.txt
+!CMakeLists.txt
+
+# 归档 / 安装包（体积大）
+*.rar
+*.msi
+*.zip
+
+# IDE / 构建残留
+CMakeLists.txt.backup
+CMakeLists_*.txt
+
+# AI 工具数据（不入库）
+.codebuddy/
+
+# 含凭证文件（数据库明文密码等）
+*verify.txt
+
+# 误操作产生的垃圾文件
+/0
+/1
+/107
+/{console.log*
