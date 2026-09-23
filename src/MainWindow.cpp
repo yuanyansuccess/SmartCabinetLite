@@ -111,6 +111,12 @@ void MainWindow::setupUI() {
     m_stack->addWidget(m_maintenancePage);  // [V2.03g] 系统维护(索引10)
     m_stack->addWidget(m_settingsPage);     // 系统设置(索引11)
 
+    // [2026-09-24] 普通用户流程遮罩页(索引12)：登录后入口页/借用归还会话期间主界面停在本页，
+    //   避免两个全屏弹窗切换间隙露出背后的登录页（闪现按键页面问题）
+    m_userFlowCover = new QWidget();
+    m_userFlowCover->setStyleSheet("background:" + StyleHelper::bgColor() + ";");
+    m_stack->addWidget(m_userFlowCover);
+
     contentLayout->addWidget(m_stack, 1);
     mainLayout->addWidget(m_contentArea, 1);
 
@@ -391,6 +397,10 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     //   "退出登录"→回登录页
     bool isAdmin = (user["role"].toString() == "admin");
     if (!isAdmin) {
+        // [2026-09-24] 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏，
+        //   防止入口页与借用归还会话两个全屏弹窗切换间隙闪现登录页
+        if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
+        m_sidebar->setVisible(false);
         while (true) {
             UserEntryDialog entry(user, this);
             UserEntryDialog::Choice choice = entry.execChoice();
@@ -401,6 +411,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
                 continue;
             }
             // Query兜底（查询按钮已改为弹出对话框不再accept，理论不可达）
+            updateSidebarVisibility();  // 恢复侧边栏后再进首页
             showPage("dashboard");
             emit userLoggedIn(user);
             return;

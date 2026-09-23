@@ -63,6 +63,7 @@ private:
     QStackedWidget* m_stack;
     QWidget* m_sidebar;
     QWidget* m_contentArea;  // sidebar + stack 的容器
+    QWidget* m_userFlowCover = nullptr;  // [2026-09-24] 普通用户流程遮罩页（防弹窗间隙闪现登录页）
 
     QVBoxLayout* m_sidebarNav;
     QList<QPushButton*> m_navButtons;
