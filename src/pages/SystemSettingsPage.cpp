@@ -132,7 +132,11 @@ void SystemSettingsPage::setupUI() {
         tab->setAlignment(Qt::AlignCenter);
         tab->installEventFilter(this);
         m_tabLabels.append(tab);
-        tabBar->addWidget(tab);
+        //yy  隐藏告警日志
+        if (i != 1)
+        {
+            tabBar->addWidget(tab);
+        }        
     }
     tabBar->addStretch();
     mainLayout->addWidget(tabContainer);
@@ -541,12 +545,12 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
         return cb;
     };
 
-    m_maxBorrowSpin = new QSpinBox();
-    m_maxBorrowSpin->setRange(1, 20);
-    m_maxBorrowSpin->setValue(5);
-    m_maxBorrowSpin->setSuffix(QStringLiteral(" 件"));
-    m_maxBorrowSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("单次最大借出数量")), m_maxBorrowSpin);
+    //m_maxBorrowSpin = new QSpinBox();
+    //m_maxBorrowSpin->setRange(1, 20);
+    //m_maxBorrowSpin->setValue(5);
+    //m_maxBorrowSpin->setSuffix(QStringLiteral(" 件"));
+    //m_maxBorrowSpin->setStyleSheet(StyleHelper::settingSpinBox());
+    //form->addRow(makeLabel(QStringLiteral("单次最大借出数量")), m_maxBorrowSpin);
 
     m_defaultPeriodSpin = new QSpinBox();
     m_defaultPeriodSpin->setRange(1, 168);
@@ -886,7 +890,8 @@ void SystemSettingsPage::onSaveBorrow() {
     // [v19] 保存借还配置到本地INI文件
     // [V2.03c] 已删除3项：manualUnlock/lockTime/faceSensitivity
     auto& cfg = AppConfig::instance();
-    cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
+    // [2026-09-24fix] m_maxBorrowSpin创建已注释，空守卫防崩溃
+    if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
     cfg.setBorrowBrightness(m_brightnessSlider->value());
@@ -1406,7 +1411,8 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_autoConfirmCheck->setChecked(cfg.alertAutoConfirm());
 
     // 借还设置
-    m_maxBorrowSpin->setValue(cfg.borrowMaxCount());
+    // [2026-09-24fix] m_maxBorrowSpin创建已注释(功能删除)，必须空守卫防崩溃
+    if (m_maxBorrowSpin) m_maxBorrowSpin->setValue(cfg.borrowMaxCount());
     m_defaultPeriodSpin->setValue(cfg.borrowDefaultPeriod());
     m_returnBufferSpin->setValue(cfg.borrowReturnBuffer());
     m_brightnessSlider->setValue(cfg.borrowBrightness());
@@ -1453,7 +1459,8 @@ bool SystemSettingsPage::saveConfigToIni() {
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
 
     // 借还设置
-    cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
+    // [2026-09-24fix] m_maxBorrowSpin创建已注释，空守卫防崩溃
+    if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
     cfg.setBorrowBrightness(m_brightnessSlider->value());

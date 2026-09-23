@@ -137,9 +137,11 @@ set(SERVICE_SOURCES
 set(PAGE_SOURCES
     src/pages/LoginPage.cpp
     src/pages/DashboardPage.cpp
+    src/pages/CabinetSessionDialog.cpp
     src/pages/UserManagementPage.cpp
     src/pages/BatchImportDialog.cpp
     src/pages/FaceEnrollPage.cpp
+    src/pages/UserEntryDialog.cpp
     src/pages/ToolManagementPage.cpp
     src/pages/ToolBorrowPage.cpp
     src/pages/ToolReturnPage.cpp
@@ -245,6 +247,7 @@ set(ALL_HEADERS
     # Pages (版本B)
     src/pages/LoginPage.h
     src/pages/DashboardPage.h
+    src/pages/CabinetSessionDialog.h
     src/pages/UserManagementPage.h
     src/pages/BatchImportDialog.h      # [2026-06-26] 批量导入用户对话框
     src/pages/ToolManagementPage.h
@@ -257,6 +260,7 @@ set(ALL_HEADERS
     src/pages/SystemSettingsPage.h
     src/pages/SystemMaintenancePage.h
     src/pages/FaceEnrollPage.h
+    src/pages/UserEntryDialog.h
     # Utils (版本B)
     src/utils/StyleHelper.h
     # Components (版本A)

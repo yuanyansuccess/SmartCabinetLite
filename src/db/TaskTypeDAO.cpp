@@ -107,4 +107,39 @@ QList<TaskType> TaskTypeDAO::findAll() {
     return list;
 }
 
+// [2026-09-23] 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
+//   JOIN映射表取实际在库位置（一个位置一个工具），供开柜页"我的任务工具"只读展示
+//   入参：typeId 任务类型ID；machineGroupId 机组ID（>0时启用机组隔离）
+//   返回：[{toolName, toolCode, cabinetName, layer, position}]
+QJsonArray TaskTypeDAO::findInStockToolsByType(int typeId, int machineGroupId)
+{
+    QSqlDatabase db = getDb();
+    QSqlQuery q(db);
+    QString sql =
+        "SELECT ti.tool_name, ti.tool_code, COALESCE(cb.cabinet_name,'') AS cabinet_name, "
+        "       m.layer, m.position "
+        "FROM task_type_tool tt "
+        "JOIN tool_info ti ON tt.tool_id = ti.tool_id "
+        "JOIN tool_position_mapping m ON m.tool_id = ti.tool_id AND m.status = 'in_stock' "
+        "LEFT JOIN tool_cabinet cb ON m.cabinet_id = cb.cabinet_id "
+        "WHERE tt.type_id = :tid ";
+    if (machineGroupId > 0) sql += " AND ti.machine_group_id = :mgid ";
+    sql += " ORDER BY m.cabinet_id, m.layer, m.position";
+    q.prepare(sql);
+    q.bindValue(":tid", typeId);
+    if (machineGroupId > 0) q.bindValue(":mgid", machineGroupId);
+    safeExec(q);
+    QJsonArray arr;
+    while (q.next()) {
+        QJsonObject o;
+        o["toolName"]    = q.value("tool_name").toString();
+        o["toolCode"]    = q.value("tool_code").toString();
+        o["cabinetName"] = q.value("cabinet_name").toString();
+        o["layer"]       = q.value("layer").toString();
+        o["position"]    = q.value("position").toString();
+        arr.append(o);
+    }
+    return arr;
+}
+
 } // namespace db

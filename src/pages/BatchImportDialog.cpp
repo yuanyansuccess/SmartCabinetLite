@@ -301,9 +301,9 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     }
     file.write((escapedHeaders.join(",") + "\n").toUtf8());
 
-    // [2026-06-27] 工号自增：查询DB中已存在的CF格式最大工号，生成5行递增示例数据
-    //   工号规则：CF + 3位数字（CF001~CF999）
-    //   生成5行示例（CF008~CF012 假设当前最大是CF007），用户可直接修改或删除示例行
+    // [2026-09-23] 工号自增：查询DB中已存在的最大数字工号，生成5行递增示例数据
+    //   工号规则：纯数字3位补零（001~999，超999自然进位4位）
+    //   生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
     QStringList exampleDepartments = {
         QStringLiteral("技术部"), QStringLiteral("维修一部"), QStringLiteral("维修二部"),
         QStringLiteral("质检部"), QStringLiteral("维修三部")
@@ -312,21 +312,20 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
         QStringLiteral("张三"), QStringLiteral("李四"), QStringLiteral("王五"),
         QStringLiteral("赵六"), QStringLiteral("钱七")
     };
-    int startIdx = 1;  // 默认从1开始（DB无CF工号时）
+    int startIdx = 1;  // 默认从1开始（DB无数字工号时）
     QString nextWorkNo = generateNextWorkNo();
     if (!nextWorkNo.isEmpty()) {
-        // 解析CF+数字中的数字部分
-        QRegularExpression re("CF(\\d+)", QRegularExpression::CaseInsensitiveOption);
-        auto m = re.match(nextWorkNo);
-        if (m.hasMatch()) {
-            startIdx = m.captured(1).toInt() + 1;  // 当前最大+1
+        // 解析纯数字工号
+        static QRegularExpression re("^\\d+$");
+        if (re.match(nextWorkNo).hasMatch()) {
+            startIdx = nextWorkNo.toInt();  // generateNextWorkNo已返回最大+1
         }
     }
     // 生成5行递增示例数据
     for (int i = 0; i < 5; ++i) {
         int num = startIdx + i;
         if (num > 999) break;  // 超过3位数停止
-        QString workNo = QStringLiteral("CF%1").arg(num, 3, 10, QChar('0'));
+        QString workNo = QStringLiteral("%1").arg(num, 3, 10, QChar('0'));
         QString name = (i < exampleNames.size()) ? exampleNames[i] : QStringLiteral("用户%1").arg(num);
         QString dept = (i < exampleDepartments.size()) ? exampleDepartments[i] : QStringLiteral("技术部");
         QString phone = QStringLiteral("138%1%2").arg(num, 4, 10, QChar('0')).arg(num, 4, 10, QChar('0')).right(8);
@@ -341,7 +340,7 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     return true;
 }
 
-// 查询DB中CF格式最大工号，返回下一个可用工号（CF001~CF999），委托UserDAO执行
+// 查询DB中最大数字工号，返回下一个可用工号（001~999），委托UserDAO执行
 QString BatchImportDialog::generateNextWorkNo() const
 {
     db::UserDAO userDao;
@@ -425,15 +424,15 @@ void BatchImportDialog::onConfirm()
         existingWorkNos.append(u.workNo.trimmed());
     }
 
-    // 用户名格式校验正则（与UserController::validateUsername一致）
-    static QRegularExpression usernameRe("^[a-zA-Z0-9][a-zA-Z0-9_]{1,31}$");
+    // 工号格式校验正则（与UserController::validateUsername一致）[2026-09-23] 改纯数字
+    static QRegularExpression usernameRe("^[0-9]{1,32}$");
 
     for (const auto& row : m_parsedRows) {
         QString workNo = row.workNo.trimmed();
 
         // 1. 校验工号格式（作为username必须符合格式要求）
         if (!usernameRe.match(workNo).hasMatch()) {
-            importErrors.append(QStringLiteral("第%1行：%2(%3) 工号格式不合法（需2-32位字母/数字/下划线，首字符为字母或数字）")
+            importErrors.append(QStringLiteral("第%1行：%2(%3) 工号格式不合法（需1-32位纯数字）")
                 .arg(row.lineNumber).arg(row.realName).arg(workNo));
             continue;
         }

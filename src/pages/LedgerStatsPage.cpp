@@ -57,16 +57,16 @@ void LedgerStatsPage::setupUI() {
     titleBar->addWidget(m_exportLedgerBtn);
 
     // USB导出按钮 [2026-06-26] 尺寸对齐人员管理"新增人员"
-    m_exportUSBBtn = new QPushButton(QStringLiteral("💾 USB导出"));
-    m_exportUSBBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
-        "QPushButton:hover{background:#3d8ae0;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_exportUSBBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_exportUSBBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportToUSB);
-    titleBar->addWidget(m_exportUSBBtn);
+    //m_exportUSBBtn = new QPushButton(QStringLiteral("💾 USB导出"));
+    //m_exportUSBBtn->setStyleSheet(
+    //    "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
+    //    "padding:10px 22px;font-size:14px;font-weight:700;}"
+    //    "QPushButton:hover{background:#3d8ae0;}"
+    //    "QPushButton:pressed{transform:scale(0.96);}"
+    //);
+    //m_exportUSBBtn->setCursor(Qt::PointingHandCursor);
+    //connect(m_exportUSBBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportToUSB);
+    //titleBar->addWidget(m_exportUSBBtn);
 
     mainLayout->addLayout(titleBar);
 

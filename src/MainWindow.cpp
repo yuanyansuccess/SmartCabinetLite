@@ -18,6 +18,8 @@
 #include "pages/AlertLogsPage.h"
 #include "pages/SystemSettingsPage.h"
 #include "pages/SystemMaintenancePage.h"  // [V2.03g] 系统维护页面
+#include "pages/CabinetSessionDialog.h"   // [V2.06] 普通用户智能柜会话（开柜提示+关柜清单）
+#include "pages/UserEntryDialog.h"        // [V2.07] 普通用户功能选择页（借用/归还、查询）
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"          // [2026-06-27] 读取锁屏时间/备份配置
 #include "common/DatabaseManager.h"    // [2026-06-27] 备份检查
@@ -72,9 +74,9 @@ void MainWindow::setupUI() {
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
 
-    // 左侧边栏
+    // 左侧边栏 [2026-09-23] 8寸屏适配：宽度240→264px配合菜单项加大
     m_sidebar = createSidebar();
-    m_sidebar->setFixedWidth(240);
+    m_sidebar->setFixedWidth(264);
     contentLayout->addWidget(m_sidebar);
 
     // 右侧页面栈
@@ -156,10 +158,10 @@ QWidget* MainWindow::createSidebar() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // 标题区
+    // 标题区 [2026-09-23] 8寸屏适配：标题22→24px，高度72→76px
     QLabel* title = new QLabel(QStringLiteral("  智能工具柜"));
-    title->setStyleSheet("color:white; font-size:22px; font-weight:bold; padding:20px 12px; background:#151528;");
-    title->setFixedHeight(72);
+    title->setStyleSheet("color:white; font-size:24px; font-weight:bold; padding:20px 12px; background:#151528;");
+    title->setFixedHeight(76);
     layout->addWidget(title);
 
     // 分隔线
@@ -175,15 +177,15 @@ QWidget* MainWindow::createSidebar() {
     navWidget->setStyleSheet("background:transparent;");
     m_sidebarNav = new QVBoxLayout(navWidget);
     m_sidebarNav->setContentsMargins(8, 8, 8, 8);
-    m_sidebarNav->setSpacing(4);
+    m_sidebarNav->setSpacing(6);  // [2026-09-23] 4→6，菜单项间距加大防误触
 
     struct NavItem { QString id; QString label; };
     QList<NavItem> items = {
         {"dashboard",  QStringLiteral("📊 系统概览")},
         {"users",      QStringLiteral("👥 人员管理")},
         {"tools",      QStringLiteral("🔧 工具管理")},
-        {"borrow",     QStringLiteral("📤 工具借用")},
-        {"return",     QStringLiteral("📥 工具归还")},
+        // [2026-09-23] 管理员借用/归还入口合并为一项，点击进入模拟数据智能柜会话
+        {"borrowreturn", QStringLiteral("📤 工具借用/归还")},
         {"checkin",    QStringLiteral("📦 工具入库")},
         {"checkout",   QStringLiteral("📋 工具出库")},
         {"ledger",     QStringLiteral("📈 台账统计")},
@@ -196,14 +198,19 @@ QWidget* MainWindow::createSidebar() {
         QPushButton* btn = new QPushButton("  " + item.label);
         btn->setObjectName(item.id);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setMinimumHeight(52);
+        // [2026-09-23] 8寸屏适配：菜单项高度52→60px，字体16→18px，触控目标加大防误触
+        btn->setMinimumHeight(60);
         btn->setStyleSheet(
-            "QPushButton { color:#c0c0d0; font-size:16px; text-align:left; padding-left:16px; "
+            "QPushButton { color:#c0c0d0; font-size:18px; text-align:left; padding-left:18px; "
             "border:none; border-radius:10px; background:transparent; }"
             "QPushButton:hover { background:#2a2a5e; color:white; }"
             "QPushButton[active=\"true\"] { background:#4da3ff; color:white; font-weight:bold; }"
         );
-        connect(btn, &QPushButton::clicked, this, [this, id = item.id] { navigateToPage(id); });
+        connect(btn, &QPushButton::clicked, this, [this, id = item.id] {
+            // [2026-09-23] 借用/归并入口不进页面栈，直接启动模拟会话
+            if (id == "borrowreturn") { openBorrowReturnSession(); return; }
+            navigateToPage(id);
+        });
         m_sidebarNav->addWidget(btn);
         m_navButtons.append(btn);
     }
@@ -215,6 +222,14 @@ QWidget* MainWindow::createSidebar() {
 }
 
 void MainWindow::showPage(const QString& name) {
+    // [V2.07 权限拦截] 普通用户仅允许访问 系统概览/工具机组查询，
+    //   防止其他入口（如告警跳转）绕过侧边栏限制
+    bool isAdmin = (m_user["role"].toString() == "admin");
+    if (!m_user.isEmpty() && !isAdmin && name != "dashboard" && name != "tools") {
+        qInfo() << "[MainWindow] 普通用户无权访问页面:" << name << "，重定向到 dashboard";
+        showPage("dashboard");
+        return;
+    }
     // [2026-06-24v4] 覆盖层遮罩切换：overlay盖住页面→切换→overlay淡出→透出新页
     static QMap<QString, int> map = {
         {"login", 0}, {"dashboard", 1}, {"users", 2}, {"tools", 3},
@@ -315,6 +330,8 @@ void MainWindow::showPage(const QString& name) {
 
 void MainWindow::updateSidebarActive(const QString& name) {
     for (auto* btn : m_navButtons) {
+        // [2026-09-24] 防御：跳过空指针（防异常构建状态下脏指针导致崩溃）
+        if (!btn) continue;
         bool active = (btn->objectName() == name);
         btn->setProperty("active", active ? "true" : "false");
         btn->style()->unpolish(btn);
@@ -328,9 +345,16 @@ void MainWindow::updateSidebarVisibility() {
     for (auto* btn : m_navButtons) {
         QString id = btn->objectName();
         bool isAdmin = m_user["role"].toString() == "admin";
-        bool show = (id == "dashboard" || id == "tools" || id == "borrow" || id == "return" || id == "alerts")
-                    || (isAdmin && (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
-                                     || id == "maintenance" || id == "settings"));  // [V2.03g] 管理员可见系统维护
+        bool show;
+        if (isAdmin) {
+            // [2026-09-23] 借用/归还合并为borrowreturn入口（模拟会话）
+            show = (id == "dashboard" || id == "tools" || id == "borrowreturn" || id == "alerts")
+                || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
+                     || id == "maintenance" || id == "settings");  // [V2.03g] 管理员可见系统维护
+        } else {
+            // [V2.07 权限] 普通用户仅开放 系统概览/工具机组查询
+            show = (id == "dashboard" || id == "tools");
+        }
         btn->setVisible(show);
     }
 }
@@ -359,6 +383,32 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     m_alertsPage->setUser(user);
     // [2026-06-27] 登录成功后刷新TopBar版本号显示（从INI读取最新版本）
     m_topBar->refreshVersionLabel();
+
+    // [V2.07] 普通用户登录成功后进入功能选择页（普通用户首页）：
+    //   [2026-09-23] 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
+    //   "借用/归还"→进入智能柜会话，会话结束→循环回本页
+    //   "查询/告警日志"→弹出明细对话框（不关闭本页）
+    //   "退出登录"→回登录页
+    bool isAdmin = (user["role"].toString() == "admin");
+    if (!isAdmin) {
+        while (true) {
+            UserEntryDialog entry(user, this);
+            UserEntryDialog::Choice choice = entry.execChoice();
+            if (choice == UserEntryDialog::Choice::Logout) break;   // 退出登录→登录页
+            if (choice == UserEntryDialog::Choice::BorrowReturn) {
+                CabinetSessionDialog session(user, this);
+                session.startSession();                             // 流程结束→循环回功能选择页
+                continue;
+            }
+            // Query兜底（查询按钮已改为弹出对话框不再accept，理论不可达）
+            showPage("dashboard");
+            emit userLoggedIn(user);
+            return;
+        }
+        onLogout();  // 退出登录 → 登录页
+        return;
+    }
+
     showPage("dashboard");
     emit userLoggedIn(user);
 }
@@ -372,11 +422,37 @@ void MainWindow::onLogout() {
     // [V6.3致命修复] 退出登录必须重置LoginPage所有状态
     //   否则残留"身份验证通过"、张三识别信息、m_autoJumpTimer未停等问题
     m_loginPage->resetPageState();
-    showPage("login");
+    // [2026-09-24fix] 注销必须可靠回到登录刷脸页：直接切索引，
+    //   绕过showPage的遮罩/动画/异步刷新链路（此前出现过未切换停留原页的情况）
+    m_stack->setCurrentIndex(0);
+    m_topBar->setPageTitle(QStringLiteral(""));
+    m_topBar->setUserAreaVisible(false);
+    updateSidebarActive(QStringLiteral("login"));
+    // [2026-09-24fix] 注销后抑制自动刷脸登录：人未离开摄像头画面时不立即自动回登，
+    //   离开画面后恢复（onFaceLost清除），保证注销后稳定停在刷脸页面
+    m_loginPage->suppressAutoLoginAfterLogout();
     emit userLoggedOut();
 }
 
-void MainWindow::navigateToPage(const QString& name) { showPage(name); }
+// [2026-09-24 袁燕] 快捷操作/侧边栏的"工具借用/归还"入口统一在转交处拦截：
+//   borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到系统概览
+void MainWindow::navigateToPage(const QString& name) {
+    if (name == QStringLiteral("borrowreturn")) {
+        openBorrowReturnSession();
+        return;
+    }
+    showPage(name);
+}
+
+// [2026-09-23] 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
+//   CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
+//   [2026-09-23fix] 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
+void MainWindow::openBorrowReturnSession() {
+    if (m_user.isEmpty()) return;
+    CabinetSessionDialog session(m_user, this);
+    session.startSession();
+    showPage("dashboard");  // 管理员流程结束 → 回系统概览（管理页面）
+}
 
 // [2026-06-27] 自动锁屏超时：退出登录回到登录页
 void MainWindow::onAutoLockTimeout() {

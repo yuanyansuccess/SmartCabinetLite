@@ -3,13 +3,12 @@
  * @brief 登录页面实现 - 双栏布局+刷脸登录+密码降级 (1:1复刻Vue版Login.vue)
  * @author 袁燕
  *
- * [2026-06-14] 完善BS端复刻：接入SoftKeyboard、状态圆点、陌生人卡片、密码表单提示
+ * [2026-06-14] 完善BS端复刻：接入状态圆点、陌生人卡片、密码表单提示
  * [2026-06-21v3] 人脸识别改走后端API：发送face image→后端face-api.js提取特征→余弦比对
  *           修复本地纹理哈希与Web版face-api.js特征不兼容导致刷脸进不去的致命问题
  */
 #include "LoginPage.h"
 #include "components/FaceCameraWidget.h"
-#include "components/SoftKeyboard.h"
 #include "components/NumKeypad.h"
 #include "utils/StyleHelper.h"
 #include "services/AuthService.h"
@@ -24,6 +23,7 @@
 #include <QMouseEvent>
 #include <QDateTime>
 #include <QDebug>
+#include <QRegularExpression>  // [2026-09-23] 工号纯数字校验
 #include <QPixmap>
 #include <QCoreApplication>
 #include <QNetworkAccessManager>
@@ -35,30 +35,22 @@
 #include <QApplication>  // [V2.03u] qApp->quit()退出系统
 
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
-    m_faceCamera(nullptr), m_softKeyboard(nullptr) {
+    m_faceCamera(nullptr) {
     // 暗蓝渐变背景 (复刻Vue版) [2026-06-21] stop0.5→0.4对齐Vue版40%断点
     setStyleSheet("background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0d1b2a,stop:0.4 #162d45,stop:1 #1e3f5e);");
     setupUI();
 
-    // 初始化软键盘
-    // [2026-06-26v4] SoftKeyboard仅处理用户名输入，密码输入由NumKeypad独立负责
-    m_softKeyboard = new SoftKeyboard(this);
-    connect(m_softKeyboard, &SoftKeyboard::confirmed, this, [this]() {
-        // 用户名确认：记录用户名 → 关闭键盘 → 切换到密码NumKeypad
-        m_usernameEdit->setText(m_softKeyboard->currentText());
-        m_passwordEdit->clear();
-        m_softKeyboard->hide();
-        m_activeField = "password";
-        QTimer::singleShot(150, this, &LoginPage::onPasswordFieldClicked);
-    });
-    connect(m_softKeyboard, &SoftKeyboard::cancelled, this, [this]() {});
-
-    // [2026-06-26v2] 独立数字键盘 - 顶层Popup弹窗，不受父布局裁剪
+    // 初始化数字键盘
+    // [2026-09-23] 账号改为纯数字工号：用户名/密码统一由NumKeypad输入，移除字母软键盘
     m_numKeypad = new NumKeypad(this);
-    m_numKeypad->attach(m_passwordEdit);
     connect(m_numKeypad, &NumKeypad::confirmed, this, [this]() {
         m_numKeypad->hide();
-        if (m_passwordEdit->text().length() >= 6) {
+        if (m_activeField == "username") {
+            // 工号确认 → 切换到密码输入
+            m_passwordEdit->clear();
+            m_activeField = "password";
+            QTimer::singleShot(150, this, &LoginPage::onPasswordFieldClicked);
+        } else if (m_passwordEdit->text().length() >= 6) {
             onPasswordLogin();
         }
     });
@@ -92,9 +84,6 @@ LoginPage::~LoginPage() {
     if (m_faceCamera) {
         m_faceCamera->disconnect();
         m_faceCamera->stopCamera();
-    }
-    if (m_softKeyboard) {
-        m_softKeyboard->disconnect();
     }
     if (m_numKeypad) {
         m_numKeypad->disconnect();
@@ -230,7 +219,7 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
     layout->addStretch(4);  // [2026-06-26v2] 3→4 加大弹性比例，描述文字更下沉
 
     // 品牌描述 (复刻Vue版 .brand-desc) [触屏优化 2026-06-15]
-    auto* desc = new QLabel(QStringLiteral("智能化工具管理系统\nRFID+视觉识别 · 刷脸认证 · 秒级盘点"));
+    auto* desc = new QLabel(QStringLiteral("智能化工具管理系统\n视觉识别 · 刷脸认证 · 秒级盘点"));
     desc->setAlignment(Qt::AlignCenter);
     desc->setWordWrap(true);
     desc->setStyleSheet("color:rgba(255,255,255,0.8); font-size:16px; background:transparent; line-height:1.8; margin-bottom:12px;");  // [2026-06-26] 字号15→16，行高1.7→1.8，视觉下沉更沉稳
@@ -404,8 +393,8 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     m_errorLabel->setVisible(false);
     pfLayout->addWidget(m_errorLabel);
 
-    // 用户名标签 → "用户名 / 工号" (Web: .form-label 14px #555)
-    auto* unameLabel = new QLabel(QStringLiteral("用户名 / 工号"));
+    // 工号标签 (Web: .form-label 14px #555) [2026-09-23] 账号改纯数字工号
+    auto* unameLabel = new QLabel(QStringLiteral("工号"));
     unameLabel->setStyleSheet(QString("font-size:14px; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
     pfLayout->addWidget(unameLabel);
 
@@ -423,7 +412,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     unameWrapLayout->setSpacing(0);
 
     m_usernameEdit = new QLineEdit();
-    m_usernameEdit->setPlaceholderText(QStringLiteral("请输入用户名 / 工号"));
+    m_usernameEdit->setPlaceholderText(QStringLiteral("请输入工号（纯数字）"));
     m_usernameEdit->setReadOnly(true);
     m_usernameEdit->setCursor(Qt::PointingHandCursor);
     m_usernameEdit->setMinimumHeight(46);
@@ -783,6 +772,8 @@ void LoginPage::onFaceDetected() {
 }
 
 void LoginPage::onFaceLost() {
+    // [2026-09-24] 人离开摄像头画面 → 清除注销抑制，恢复正常自动刷脸登录
+    m_logoutSuppressed = false;
     if (m_faceResult == "scanning") {
         m_cameraStatusText->setText(QStringLiteral("正在检测人脸，请对准摄像头..."));
     }
@@ -795,6 +786,14 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     //   作者：袁燕
     if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] onFaceCaptured ignored: already in success/pending state";
+        return;
+    }
+
+    // [2026-09-24] 注销后抑制自动登录：人未离开画面时不自动识别回登，避免注销被立即弹回
+    if (m_logoutSuppressed) {
+        m_cameraStatusText->setText(QStringLiteral("已注销，请离开摄像头画面后重新刷脸登录"));
+        m_faceCamera->reset();
+        m_faceResult = "scanning";
         return;
     }
 
@@ -1059,25 +1058,21 @@ void LoginPage::onCameraError(const QString& msg) {
 
 void LoginPage::onFaceStateChanged(int state) {}
 
-// ============ 密码登录 (复刻Vue版 + SoftKeyboard) ============
+// ============ 密码登录 (复刻Vue版 + NumKeypad数字键盘) ============
 
 void LoginPage::onUsernameFieldClicked() {
     m_activeField = "username";
-    // [2026-06-26v4] 先隐藏数字键盘防止穿透残留
-    if (m_numKeypad) m_numKeypad->hide();
-    if (m_softKeyboard) {
-        // [v2] 复刻Web版：mode="full", confirmText="确 认 用 户 名"
-        m_softKeyboard->setMode(SoftKeyboard::ModeEn);
-        m_softKeyboard->setConfirmText(QStringLiteral("确 认 用 户 名"));
-        m_softKeyboard->attach(m_usernameEdit);
-        m_softKeyboard->show();
+    // [2026-09-23] 工号改纯数字：统一使用数字键盘（不随机打乱、明文显示）
+    if (m_numKeypad) {
+        m_numKeypad->setShuffle(false);
+        m_numKeypad->setShowPassword(true);
+        m_numKeypad->attach(m_usernameEdit);
+        m_numKeypad->show();
     }
 }
 
 void LoginPage::onPasswordFieldClicked() {
     m_activeField = "password";
-    // [2026-06-26v4] 先隐藏字母键盘防止穿透残留
-    if (m_softKeyboard) m_softKeyboard->hide();
     // [2026-06-26v2] NumKeypad作为顶层Popup弹窗显示，不受布局约束
     if (m_numKeypad) {
         m_numKeypad->setShuffle(true);
@@ -1091,14 +1086,16 @@ void LoginPage::onPasswordLogin() {
     QString username = m_usernameEdit->text().trimmed();
     QString password = m_passwordEdit->text();
 
-    // [完善] 前端校验 (复刻Vue版)
+    // [完善] 前端校验
     if (username.isEmpty()) {
-        m_errorLabel->setText(QStringLiteral("请输入用户名或工号"));
+        m_errorLabel->setText(QStringLiteral("请输入工号"));
         m_errorLabel->setVisible(true);
         return;
     }
-    if (username.length() < 2 || username.length() > 32) {
-        m_errorLabel->setText(QStringLiteral("用户名长度应在2-32个字符之间"));
+    // [2026-09-23] 工号改为纯数字（与数字键盘输入、DB存储格式统一）
+    static const QRegularExpression workNoRe(QStringLiteral("^\\d{1,32}$"));
+    if (!workNoRe.match(username).hasMatch()) {
+        m_errorLabel->setText(QStringLiteral("工号应为1-32位纯数字"));
         m_errorLabel->setVisible(true);
         return;
     }
@@ -1184,9 +1181,9 @@ void LoginPage::resetPageState() {
     // 8. 清空所有输入和采集数据
     clearAllForms();
 
-    // 9. 隐藏软键盘（如果正在显示）
-    if (m_softKeyboard) {
-        m_softKeyboard->hide();
+    // 9. 隐藏数字键盘（如果正在显示）
+    if (m_numKeypad) {
+        m_numKeypad->hide();
     }
     m_activeField.clear();
 

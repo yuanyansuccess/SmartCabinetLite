@@ -645,8 +645,12 @@ void UserManagementPage::createUserDialog() {
     m_dlgRealName->setStyleSheet(inputStyle);
 
     m_dlgWorkNo = new QLineEdit();
-    m_dlgWorkNo->setPlaceholderText(QStringLiteral("如CF007"));
+    // [2026-09-23] 工号改纯数字，点击弹出数字键盘输入
+    m_dlgWorkNo->setPlaceholderText(QStringLiteral("纯数字，如007"));
+    m_dlgWorkNo->setReadOnly(true);
+    m_dlgWorkNo->setCursor(Qt::PointingHandCursor);
     m_dlgWorkNo->setStyleSheet(inputStyle);
+    m_dlgWorkNo->installEventFilter(this);
 
     m_dlgDept = new QComboBox();
     m_dlgDept->setEditable(true);
@@ -927,6 +931,17 @@ bool UserManagementPage::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
         if (obj == m_searchEdit) {
             onSearchFieldClicked();
+            return true;
+        }
+        // [2026-09-23] 工号改纯数字：点击弹出数字键盘（不随机打乱、明文显示）
+        if (obj == m_dlgWorkNo) {
+            if (m_softKeyboard) m_softKeyboard->hide();
+            if (m_numKeypad) {
+                m_numKeypad->setShuffle(false);
+                m_numKeypad->setShowPassword(true);
+                m_numKeypad->attach(m_dlgWorkNo);
+                m_numKeypad->show();
+            }
             return true;
         }
     }

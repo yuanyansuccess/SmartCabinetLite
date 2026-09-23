@@ -371,18 +371,17 @@ QWidget* DashboardPage::createQuickActionsPanel() {
     for (int col = 0; col < 3; ++col) grid->setColumnStretch(col, 1);
 
     struct QuickAction { QString icon; QString text; QString path; bool isAdd; };
-    // [2026-06-23] 对齐Web端 quickActions: 工具借用/归还/管理/人员管理/台账统计/出库管理 + 系统设置
+    // [2026-09-24 袁燕] 快捷操作精简：工具借用与工具归还合并为一个"工具借用/归还"入口
+    //   路径 borrowreturn 与侧边栏一致，由MainWindow转交智能柜借用/归还会话；删除出库管理快捷入口
     QuickAction actions[] = {
-        {QStringLiteral("📤"), QStringLiteral("工具借用"), QStringLiteral("borrow"), false},
-        {QStringLiteral("📥"), QStringLiteral("工具归还"), QStringLiteral("return"), false},
+        {QStringLiteral("📤"), QStringLiteral("工具借用/归还"), QStringLiteral("borrowreturn"), false},
         {QStringLiteral("🔧"), QStringLiteral("工具管理"), QStringLiteral("tools"), false},
         {QStringLiteral("👥"), QStringLiteral("人员管理"), QStringLiteral("users"), false},
         {QStringLiteral("📊"), QStringLiteral("台账统计"), QStringLiteral("ledger"), false},
-        {QStringLiteral("📦"), QStringLiteral("出库管理"), QStringLiteral("checkout"), false},
         {QStringLiteral("⚙"), QStringLiteral("系统设置"), QStringLiteral("settings"), true},  // 虚线边框特殊样式
     };
 
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 5; ++i) {
         auto* btn = new QPushButton();
         btn->setCursor(Qt::PointingHandCursor);
         btn->setMinimumHeight(72);
@@ -855,7 +854,11 @@ QWidget* DashboardPage::createFunctionCards() {
     };
 
     // [v5.1修复] Web版3卡片一行(grid-template-columns:repeat(3,1fr))，Qt之前用2列(i/2,i%2)是错误的
+    // [V2.07 权限] 普通用户仅显示"工具机组查询"卡片（居中显示），借用/归还入口只走入口页
+    bool isAdmin = (m_user["role"].toString() == "admin");
+    int col = 0;
     for (int i = 0; i < 3; ++i) {
+        if (!isAdmin && cards[i].path != "tools") continue;
         auto* card = new QPushButton();
         card->setCursor(Qt::PointingHandCursor);
         // [v5.1修复] 移除setMinimumHeight(120)，让内容自适应高度，对齐Web版无min-height
@@ -890,7 +893,8 @@ QWidget* DashboardPage::createFunctionCards() {
             emit navigateRequested(path);
         });
         // [v5.1修复] 3列布局对齐Web版 grid-template-columns: repeat(3, 1fr)
-        layout->addWidget(card, 0, i);  // 全部放第0行，i=0,1,2各占一列
+        // [V2.07 权限] 普通用户的唯一卡片放中间列，管理员三卡依次排列
+        layout->addWidget(card, 0, isAdmin ? col++ : 1);
     }
     // [V6.2] 确保3列等宽，防止卡片文字因列宽不均导致截断
     layout->setColumnStretch(0, 1);
@@ -1059,6 +1063,4 @@ void DashboardPage::updateUserReturnReminders(const QJsonArray& reminders) {
     }
 }
 
-void DashboardPage::onQuickBorrow() { emit navigateRequested("borrow"); }
-void DashboardPage::onQuickReturn() { emit navigateRequested("return"); }
 void DashboardPage::onQuickLedger() { emit navigateRequested("ledger"); }

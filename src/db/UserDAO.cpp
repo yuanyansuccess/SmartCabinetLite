@@ -419,9 +419,18 @@ int UserDAO::insertUser(const User& user) {
 }
 
 bool UserDAO::updateUser(const User& user) {
+    // 解析部门ID：编辑弹窗只传部门名称，dept_id按名称从部门表解析，
+    //   避免把无效值0写库触发外键约束fk_user_dept导致保存失败；解析不到写NULL
+    int deptId = user.deptId;
+    if (deptId <= 0) {
+        QSqlQuery dq = query("SELECT dept_id FROM sys_department WHERE dept_name = ? LIMIT 1",
+                             {user.department});
+        if (dq.next()) deptId = dq.value(0).toInt();
+    }
+    QVariant deptIdVal = (deptId > 0) ? QVariant(deptId) : QVariant();
     QString sql = "UPDATE sys_user SET real_name=?, work_no=?, dept_id=?, department=?, "
                   "role=?, phone=?, email=?, status=? WHERE user_id=?";
-    return execute(sql, {user.realName, user.workNo, user.deptId, user.department,
+    return execute(sql, {user.realName, user.workNo, deptIdVal, user.department,
                    user.role, user.phone, user.email, user.status, user.userId});
 }
 
@@ -446,30 +455,24 @@ bool UserDAO::updateLastLogin(int userId) {
     return execute("UPDATE sys_user SET last_login_at = CURRENT_TIMESTAMP WHERE user_id = ?", {userId});
 }
 
-// 查询DB中CF格式最大工号，返回下一个可用工号（CF001~CF999）
+// 查询DB中最大数字工号，返回下一个可用工号（001起步，3位补零，超999自然进位4位）
 QString UserDAO::generateNextWorkNo()
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
-    // 先用SQLite兼容的GLOB语法；MySQL 5.7不支持GLOB，会fallback到ORDER BY
-    q.prepare("SELECT work_no FROM sys_user WHERE work_no LIKE 'CF%' AND LENGTH(work_no) >= 3 "
-              "AND SUBSTR(work_no, 3) GLOB '[0-9]*' ORDER BY CAST(SUBSTR(work_no, 3) AS INTEGER) DESC LIMIT 1");
-    if (!safeExec(q) || !q.next()) {
-        q.prepare("SELECT work_no FROM sys_user WHERE work_no LIKE 'CF%' AND LENGTH(work_no) >= 3 "
-                  "ORDER BY work_no DESC LIMIT 1");
-        if (!safeExec(q) || !q.next()) {
-            return QStringLiteral("CF001");
+    // [2026-09-23] 工号改为纯数字格式，数字项在C++侧用正则过滤后取最大值
+    //   不依赖GLOB/REGEXP，SQLite与MySQL 5.7均兼容
+    q.prepare("SELECT work_no FROM sys_user WHERE status != 'deleted'");
+    if (!safeExec(q)) return QStringLiteral("001");
+    int maxNum = 0;
+    QRegularExpression re("^\\d+$");
+    while (q.next()) {
+        const QString workNo = q.value(0).toString().trimmed();
+        if (re.match(workNo).hasMatch()) {
+            maxNum = qMax(maxNum, workNo.toInt());
         }
     }
-    QString maxWorkNo = q.value(0).toString();
-    QRegularExpression re("CF(\\d+)", QRegularExpression::CaseInsensitiveOption);
-    auto m = re.match(maxWorkNo);
-    if (m.hasMatch()) {
-        int nextNum = m.captured(1).toInt() + 1;
-        if (nextNum > 999) nextNum = 1;
-        return QString("CF%1").arg(nextNum, 3, 10, QChar('0'));
-    }
-    return QStringLiteral("CF001");
+    return QString("%1").arg(maxNum + 1, 3, 10, QChar('0'));
 }
 
 } // namespace db

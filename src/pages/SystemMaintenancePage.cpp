@@ -77,6 +77,9 @@ void SystemMaintenancePage::createTabBar(QVBoxLayout* mainLayout) {
         m_tabLabels.append(tab);
         tabBar->addWidget(tab);
     }
+    // [2026-09-23 袁燕] 隐藏"工具维护""工具对照关系"两个选项卡（保留索引占位，恢复时删除此两行即可）
+    m_tabLabels[1]->hide();
+    m_tabLabels[2]->hide();
     tabBar->addStretch();
     mainLayout->addWidget(tabContainer);
     updateTabStyles();

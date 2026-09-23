@@ -36,8 +36,6 @@ signals:
     void navigateRequested(const QString& name);
 
 private slots:
-    void onQuickBorrow();
-    void onQuickReturn();
     void onQuickLedger();
 
 private:

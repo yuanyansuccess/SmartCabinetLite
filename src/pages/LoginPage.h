@@ -25,7 +25,6 @@
 #include <QStackedWidget>
 
 class FaceCameraWidget;
-class SoftKeyboard;
 class NumKeypad;
 
 class LoginPage : public QWidget {
@@ -44,6 +43,8 @@ public:
     void resetPageState();
     /// [2026-06-23] 公开停止摄像头方法，供MainWindow在登录成功后兜底调用
     void stopFaceRecognitionPublic() { stopFaceRecognition(); }
+    /// [2026-09-24] 注销后抑制自动刷脸登录：人未离开画面时不自动回登，onFaceLost清除
+    void suppressAutoLoginAfterLogout() { m_logoutSuppressed = true; }
 
 signals:
     void loginSuccess(QJsonObject user);
@@ -119,6 +120,7 @@ private:
     QLabel* m_strangerStatusText = nullptr;
     int m_captureCount = 0;
     static const int MAX_CAPTURES = 3;
+    bool m_logoutSuppressed = false;  // [2026-09-24] 注销后抑制自动登录（人离开画面后清除）
 
     // 采集样本
     struct FaceSample {
@@ -163,8 +165,8 @@ private:
     QTimer* m_autoJumpTimer;
 
     // 软键盘
-    SoftKeyboard* m_softKeyboard;
-    NumKeypad* m_numKeypad = nullptr;   // [2026-06-26] 独立数字键盘，嵌入式零穿透
+    // [2026-09-23] 账号改纯数字工号，用户名/密码统一由NumKeypad输入，移除字母软键盘
+    NumKeypad* m_numKeypad = nullptr;   // 独立数字键盘，顶层Popup零穿透
     QString m_activeField; // "username" or "password"
 
     // 待登录用户(识别成功后暂存)

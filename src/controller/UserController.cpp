@@ -23,8 +23,8 @@ User UserController::getUserById(int userId) {
 int UserController::createUser(const User& user, const QString& password) {
     // [2026-06-27] 增加诊断日志，定位批量导入失败的具体原因
     if (!validateUsername(user.username)) {
-        qWarning() << "[createUser] 用户名格式不合法:" << user.username
-                   << "(规则: 字母/数字开头, 2-32位, 仅含字母数字下划线)";
+        qWarning() << "[createUser] 工号格式不合法:" << user.username
+                   << "(规则: 1-32位纯数字)";
         return -1;
     }
     if (!validateWorkNo(user.workNo)) {
@@ -119,8 +119,8 @@ QStringList UserController::allRoles() {
 }
 
 bool UserController::validateUsername(const QString& username) {
-    // [2026-06-27] 放宽正则：支持数字开头（很多企业工号为纯数字），2-32位
-    static QRegularExpression re("^[a-zA-Z0-9][a-zA-Z0-9_]{1,31}$");
+    // [2026-09-23] 工号改为纯数字（登录账号与数字键盘输入统一），1-32位
+    static QRegularExpression re("^[0-9]{1,32}$");
     return re.match(username).hasMatch();
 }
 

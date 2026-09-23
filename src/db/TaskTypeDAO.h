@@ -23,6 +23,9 @@ public:
     // QJsonObject API（Service层使用）
     QJsonArray findAllActive();
     QJsonArray findRecommendedToolsByTypes(const QList<int>& typeIds, int machineGroupId = 0);
+    // [2026-09-23] 按任务类型查询本机组在库工具（位置维度，每个在库位置一行，开柜页只读展示用）
+    //   返回字段：toolName/toolCode/cabinetName/layer/position
+    QJsonArray findInStockToolsByType(int typeId, int machineGroupId = 0);
 
     // 实体类API（Controller层使用）— 从dao/TaskTypeDAO合并
     QList<TaskType> findAll();

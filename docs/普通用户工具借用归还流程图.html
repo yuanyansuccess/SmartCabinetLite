@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能工具柜 · 普通用户工具借用/归还全流程图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: #eef2f8;
+    padding: 28px 24px 48px;
+  }
+  .sheet {
+    max-width: 1700px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 6px 30px rgba(30, 50, 90, .10);
+    padding: 28px 24px 36px;
+  }
+  h1 { font-size: 26px; color: #1e2a44; text-align: center; letter-spacing: 1px; }
+  .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-top: 8px; }
+  .legend {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+    margin: 18px auto 6px; padding: 10px 18px;
+    background: #f6f8fc; border-radius: 12px; width: fit-content;
+  }
+  .legend span { font-size: 13px; color: #475569; display: inline-flex; align-items: center; gap: 6px; }
+  .chip { width: 18px; height: 12px; border-radius: 4px; display: inline-block; }
+  .chip.dashed { background: repeating-linear-gradient(45deg, #cbd5e1 0 4px, #fff 4px 8px); border: 1.5px dashed #94a3b8; }
+  .diamond-chip { width: 14px; height: 14px; background: linear-gradient(180deg,#f6a723,#d97e06); transform: rotate(45deg) scale(.8); border-radius: 3px; display: inline-block; }
+  .svg-wrap { overflow-x: auto; }
+  svg { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>智能工具柜 · 普通用户工具借用 / 归还全流程图</h1>
+  <div class="subtitle">登录 → 功能选择 → 开柜前校验 → 开柜取 / 放工具 → 关柜差异比对 → 清单确认（含各环节判断与用户提示）</div>
+  <div class="legend">
+    <span><i class="chip" style="background:linear-gradient(180deg,#3ecf95,#1e9e6e)"></i>开始 / 结束</span>
+    <span><i class="chip" style="background:linear-gradient(180deg,#5b9bff,#2f6fe0)"></i>处理步骤</span>
+    <span><i class="diamond-chip"></i>判断节点</span>
+    <span><i class="chip" style="background:linear-gradient(180deg,#917fff,#6d4de0)"></i>全屏提示页</span>
+    <span><i class="chip" style="background:linear-gradient(180deg,#ea5a63,#c93a44)"></i>拦截 / 告警提示</span>
+    <span><i class="chip dashed"></i>虚线节点 = 产品设计（待传感器接入）</span>
+  </div>
+  <div class="svg-wrap"><div id="flow"></div></div>
+</div>
+
+<script>
+/* ================= 数据区（节点 / 连线） ================= */
+
+const PALETTES = {
+  green:  ['#1e9e6e', '#3ecf95'],
+  blue:   ['#2f6fe0', '#5b9bff'],
+  amber:  ['#d97e06', '#f6a723'],
+  purple: ['#6d4de0', '#917fff'],
+  red:    ['#c93a44', '#ea5a63'],
+  orange: ['#d96a08', '#f5923e'],
+  gray:   ['#64748b', '#8b98ab'],
+};
+
+const CANVAS = { w: 1660, h: 2200 };
+
+/* type: rect=处理步骤 capsule=开始/结束 diamond=判断
+   dash=true 表示产品设计节点（待传感器/落库接入），tag 为节点右上角标签 */
+const NODES = [
+  { id:'start',  x:230, y:36,   w:340, h:60,  type:'capsule', pal:'green',  lines:['开始 · 用户站到智能柜前'] },
+  { id:'login',  x:230, y:140,  w:340, h:84,  type:'rect', pal:'blue',
+    lines:['登录验证 LoginPage','人脸识别（相似度≥94%）或 账号密码'] },
+  { id:'chkpass',x:250, y:276,  w:300, h:92,  type:'diamond', pal:'amber', lines:['身份验证通过？'] },
+  { id:'retry',  x:880, y:280,  w:400, h:84,  type:'rect', pal:'red',
+    lines:['提示：身份验证失败，请重新验证','人脸宁误拒不误识 · 可切换账号密码'] },
+
+  { id:'chkuser',x:250, y:412,  w:300, h:92,  type:'diamond', pal:'amber', lines:['普通用户？'] },
+  { id:'admin',  x:880, y:416,  w:400, h:76,  type:'rect', pal:'blue',  tag:'管理员',
+    lines:['进入管理主界面（系统首页）'] },
+  { id:'entry',  x:230, y:556,  w:340, h:104, type:'rect', pal:'blue',
+    lines:['功能选择页 UserEntryDialog','借用 / 归还 ｜ 查询 ｜ 退出登录'] },
+  { id:'query',  x:880, y:560,  w:400, h:76,  type:'rect', pal:'blue',
+    lines:['弹出此用户的借用清单','本人借用 / 归还记录（只读查看）'] },
+  { id:'backLogin', x:960, y:664, w:240, h:56, type:'capsule', pal:'gray', lines:['返回登录页'] },
+
+  { id:'prechk', x:190, y:740,  w:420, h:140, type:'diamond', pal:'amber', dash:true, tag:'产品设计',
+    lines:['开柜前校验通过？','账号正常 · 柜体在线/门关好','无超期未归还工具'] },
+  { id:'blocked',x:880, y:744,  w:420, h:128, type:'rect', pal:'red', dash:true, tag:'产品设计',
+    lines:['拦截提示（不允许开柜）','· 账号已禁用，请联系管理员','· 柜体离线 / 门未关好，请稍后再试','· 有 N 件工具超期未归还，请先归还'] },
+  { id:'noborrow', x:960, y:900, w:300, h:56, type:'capsule', pal:'gray', lines:['不开柜 · 返回登录页'] },
+
+  { id:'snapshot', x:210, y:900, w:380, h:76, type:'rect', pal:'blue', dash:true, tag:'产品设计',
+    lines:['记录开柜前柜内库存快照','产品化：柜体传感器上报库存'] },
+
+  { id:'openpage', x:230, y:1024, w:340, h:110, type:'rect', pal:'purple',
+    lines:['开柜提示页（全屏）','智能柜已开启','您好，XX，您可以自行借用或归还工具'] },
+  { id:'takeput',  x:230, y:1186, w:340, h:100, type:'rect', pal:'blue',
+    lines:['用户自行取放工具','借用：取走所需工具 ｜ 归还：放回原位','产品化：传感器自动感知取放'] },
+  { id:'closeclk', x:230, y:1338, w:340, h:64,  type:'rect', pal:'blue',
+    lines:['用户点击「关闭智能柜」'] },
+
+  { id:'diff', x:190, y:1454, w:420, h:140, type:'diamond', pal:'amber',
+    lines:['关柜差异比对','开柜快照 vs 关柜柜内状态','产品化：传感器逐位比对'] },
+  { id:'borrow', x:880, y:1436, w:420, h:88, type:'rect', pal:'orange', tag:'落库',
+    lines:['本次借用 N 件 → 生成借用清单','借用记录落库 · 位置状态→已借出'] },
+  { id:'ret',    x:880, y:1560, w:420, h:88, type:'rect', pal:'green', tag:'落库',
+    lines:['本次归还 N 件 → 生成归还清单','归还记录落库 · 位置状态→在库'] },
+  { id:'misput', x:880, y:1684, w:420, h:88, type:'rect', pal:'red', tag:'落库',
+    lines:['告警：检测到 N 件工具放错位置','请在清单中确认 · 告警日志落库'] },
+
+  { id:'confirm', x:230, y:1840, w:340, h:110, type:'rect', pal:'blue',
+    lines:['关柜清单确认页','借用清单（橙）· 归还清单（绿）· 告警（红）','用户核对后点「确认关闭」'] },
+  { id:'end',     x:230, y:2010, w:340, h:60,  type:'capsule', pal:'green',
+    lines:['会话结束 · 注销返回登录页'] },
+  { id:'timeout', x:880, y:1180, w:420, h:100, type:'rect', pal:'red',
+    lines:['异常：会话超时自动锁屏','长时间无操作超过锁屏时间','自动退出登录（onAutoLockTimeout）'] },
+  { id:'adminNote', x:880, y:2104, w:420, h:76, type:'rect', pal:'gray',
+    lines:['管理员从侧边栏进入同一会话：','结束后返回系统首页（保留登录态）'] },
+];
+
+/* kind: v=垂直连线 side=右侧绕行 custom=pts 自定义路由 */
+const EDGES = [
+  { from:'start', to:'login', kind:'v' },
+  { from:'login', to:'chkpass', kind:'v' },
+  { from:'chkpass', to:'retry', kind:'side', label:'否', lc:'#d64550', ec:'#d64550' },
+  { from:'retry', to:'login', kind:'custom', ec:'#d64550',
+    pts:'top(retry)->[1080,182]->right(login)', label:'重新验证', lp:[1096,236], anchor:'start' },
+
+  { from:'chkpass', to:'chkuser', kind:'v', label:'是', lc:'#2e9e6f' },
+  { from:'chkuser', to:'admin', kind:'side', label:'否 · 管理员' },
+  { from:'chkuser', to:'entry', kind:'v', label:'是 · 普通用户', lc:'#2e9e6f' },
+  { from:'entry', to:'query', kind:'side', label:'查询', lp:[800,586] },
+  { from:'entry', to:'backLogin', kind:'side', label:'退出登录', lp:[860,680] },
+  { from:'entry', to:'prechk', kind:'v', label:'借用 / 归还' },
+
+  { from:'prechk', to:'blocked', kind:'side', label:'否', lc:'#d64550', ec:'#d64550', dash:true },
+  { from:'blocked', to:'noborrow', kind:'v', ec:'#8494ab', dash:true },
+  { from:'prechk', to:'snapshot', kind:'v', label:'是', lc:'#2e9e6f' },
+
+  { from:'snapshot', to:'openpage', kind:'v' },
+  { from:'openpage', to:'takeput', kind:'v' },
+  { from:'takeput', to:'closeclk', kind:'v' },
+  { from:'closeclk', to:'diff', kind:'v' },
+
+  { from:'diff', to:'borrow', kind:'side', label:'在柜→不在', ec:'#d96a08', lp:[812,1471] },
+  { from:'diff', to:'ret', kind:'side', label:'不在→在柜', ec:'#2e9e6f', lp:[812,1595] },
+  { from:'diff', to:'misput', kind:'side', label:'位置错位', lc:'#d64550', ec:'#d64550', lp:[812,1719] },
+  { from:'diff', to:'confirm', kind:'v', label:'无差异' },
+
+  { from:'borrow', to:'confirm', kind:'custom',
+    pts:'bottom(borrow)->[1090,1786]->[740,1786]->[740,1895]->right(confirm)' },
+  { from:'ret', to:'confirm', kind:'custom',
+    pts:'bottom(ret)->[1090,1648]->[740,1786]->[740,1895]->right(confirm)' },
+  { from:'misput', to:'confirm', kind:'custom',
+    pts:'bottom(misput)->[1090,1772]->[740,1786]->[740,1895]->right(confirm)' },
+
+  { from:'confirm', to:'end', kind:'v', label:'确认关闭' },
+
+  { from:'openpage', to:'timeout', kind:'custom', ec:'#d64550', dash:true,
+    pts:'right(openpage)->[1080,1079]->top(timeout)', label:'长时间无操作', lp:[700,1071], anchor:'middle' },
+  { from:'timeout', to:'end', kind:'custom', ec:'#8494ab',
+    pts:'right(timeout)->[1460,1230]->[1460,2040]->right(end)' },
+];
+
+/* 分区泳道（横向分隔 + 左上角分区标签） */
+const LANES = [
+  { y0:0,    y1:530,  label:'① 登录与入口' },
+  { y0:530,  y1:1000, label:'② 开柜前校验' },
+  { y0:1000, y1:1420, label:'③ 开柜会话 · 取 / 放工具' },
+  { y0:1420, y1:2200, label:'④ 关柜比对与确认' },
+];
+
+/* ================= 渲染区 ================= */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const nodeById = {};
+NODES.forEach(n => nodeById[n.id] = n);
+
+/* 连线端点统一返回 [x, y] 数组坐标 */
+const T = id => [nodeById[id].x + nodeById[id].w / 2, nodeById[id].y];
+const B = id => [nodeById[id].x + nodeById[id].w / 2, nodeById[id].y + nodeById[id].h];
+const L = id => [nodeById[id].x, nodeById[id].y + nodeById[id].h / 2];
+const R = id => [nodeById[id].x + nodeById[id].w, nodeById[id].y + nodeById[id].h / 2];
+
+/* 把 "bottom(xxx)->[10,20]->right(yyy)" 路由令牌解析为坐标点 */
+function pt(token) {
+  token = token.trim();
+  if (token.startsWith('[')) return token.slice(1, -1).split(',').map(Number);
+  const m = token.match(/^(top|bottom|left|right)\((\w+)\)$/);
+  if (!m) throw new Error('非法路由段: ' + token);
+  return ({ top: T, bottom: B, left: L, right: R })[m[1]](m[2]);
+}
+function edgePoints(e) {
+  if (e.pts) return e.pts.split('->').map(pt);
+  if (e.kind === 'v') {
+    const a = B(e.from), b = T(e.to);
+    if (Math.abs(a[0] - b[0]) < 1) return [a, b];
+    const my = (a[1] + b[1]) / 2;
+    return [a, [a[0], my], [b[0], my], b];
+  }
+  if (e.kind === 'side') {
+    const a = R(e.from), b = L(e.to), mx = (a[0] + b[0]) / 2;
+    if (Math.abs(a[1] - b[1]) < 1) return [a, b];
+    return [a, [mx, a[1]], [mx, b[1]], b];
+  }
+  throw new Error('边缺少路由: ' + e.from + '->' + e.to);
+}
+
+function el(tag, attrs, parent) {
+  const d = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) d.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(d);
+  return d;
+}
+function txt(parent, x, y, content, size, fill, weight, anchor, extra) {
+  const t = el('text', Object.assign({
+    x, y, 'font-size': size, fill,
+    'font-weight': weight || 'normal',
+    'text-anchor': anchor || 'middle',
+    'font-family': 'Microsoft YaHei, PingFang SC, sans-serif',
+  }, extra || {}), parent);
+  t.textContent = content;
+  return t;
+}
+
+function render() {
+  const svg = el('svg', {
+    viewBox: `0 0 ${CANVAS.w} ${CANVAS.h}`,
+    width: CANVAS.w, height: CANVAS.h,
+  });
+  const defs = el('defs', {}, svg);
+
+  /* 渐变 / 阴影 / 箭头 */
+  for (const key in PALETTES) {
+    const [c1, c2] = PALETTES[key];
+    const g = el('linearGradient', { id: 'g_' + key, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el('stop', { offset: '0%', 'stop-color': c2 }, g);
+    el('stop', { offset: '100%', 'stop-color': c1 }, g);
+  }
+  const shadow = el('filter', { id: 'nshadow', x: '-20%', y: '-20%', width: '140%', height: '140%' }, defs);
+  el('feDropShadow', { dx: 0, dy: 3, stdDeviation: 4, 'flood-color': '#1e2a44', 'flood-opacity': 0.18 }, shadow);
+  const markerOf = {};
+  [['gray', '#8494ab'], ['red', '#d64550'], ['green', '#2e9e6f'], ['orange', '#d96a08']].forEach(([k, c]) => {
+    const mk = el('marker', { id: 'arr_' + k, viewBox: '0 0 10 10', refX: 9, refY: 5,
+      markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: c }, mk);
+    markerOf[k] = 'url(#arr_' + k + ')';
+  });
+
+  /* 泳道底色与分隔线 */
+  LANES.forEach((lane, i) => {
+    el('rect', { x: 0, y: lane.y0, width: CANVAS.w, height: lane.y1 - lane.y0,
+      fill: i % 2 === 0 ? '#fbfcfe' : '#f4f7fb' }, svg);
+    if (i > 0) el('line', { x1: 0, y1: lane.y0, x2: CANVAS.w, y2: lane.y0,
+      stroke: '#d7dfeb', 'stroke-dasharray': '8 6', 'stroke-width': 1.5 }, svg);
+    el('rect', { x: 8, y: lane.y0 + 10, width: lane.label.length * 15 + 22, height: 26, rx: 13,
+      fill: '#e8eef7', stroke: '#cbd5e1' }, svg);
+    txt(svg, 8 + (lane.label.length * 15 + 22) / 2, lane.y0 + 28, lane.label, 13, '#5a6b85', 'bold');
+  });
+
+  /* 连线（先画线，节点覆盖在线上方） */
+  EDGES.forEach(e => {
+    const pts = edgePoints(e);
+    const colorKey = e.ec === '#d64550' ? 'red' : (e.ec === '#2e9e6f' ? 'green' :
+      (e.ec === '#d96a08' ? 'orange' : 'gray'));
+    const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + ' ' + p[0] + ' ' + p[1]).join(' ');
+    el('path', { d, fill: 'none', stroke: e.ec || '#8494ab', 'stroke-width': 2.4,
+      'stroke-dasharray': e.dash ? '7 5' : 'none', 'marker-end': markerOf[colorKey],
+      'stroke-linejoin': 'round' }, svg);
+    if (e.label) {
+      let lx, ly;
+      if (e.lp) { lx = e.lp[0]; ly = e.lp[1]; }
+      else if (e.kind === 'v') {
+        const a = pts[0], b = pts[pts.length - 1];
+        lx = a[0] + 12; ly = (a[1] + b[1]) / 2 + 5;
+      } else {
+        const a = pts[0], b = pts[pts.length - 1];
+        lx = (a[0] + b[0]) / 2; ly = a[1] - 9;
+      }
+      const lt = txt(svg, lx, ly, e.label, 14, e.lc || '#5a6b85', 'bold', e.anchor || 'middle');
+      lt.setAttribute('paint-order', 'stroke');
+      lt.setAttribute('stroke', '#ffffff');
+      lt.setAttribute('stroke-width', '4');
+    }
+  });
+
+  /* 节点 */
+  NODES.forEach(n => {
+    const grp = el('g', {}, svg);
+    const fill = 'url(#g_' + n.pal + ')';
+    const extra = { filter: 'url(#nshadow)' };
+    if (n.dash) extra['stroke'] = '#ffffff';
+    if (n.dash) extra['stroke-width'] = 2;
+    if (n.dash) extra['stroke-dasharray'] = '6 4';
+    if (n.dash) extra['fill-opacity'] = 0.92;
+
+    if (n.type === 'diamond') {
+      const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+      el('path', Object.assign({
+        d: `M ${cx} ${n.y} L ${n.x + n.w} ${cy} L ${cx} ${n.y + n.h} L ${n.x} ${cy} Z`, fill,
+      }, extra), grp);
+    } else {
+      const rx = n.type === 'capsule' ? n.h / 2 : 14;
+      el('rect', Object.assign({ x: n.x, y: n.y, width: n.w, height: n.h, rx, fill }, extra), grp);
+    }
+
+    /* 文本行：首行标题加粗，其余为说明行 */
+    const titleSize = n.type === 'diamond' ? 18 : 19;
+    const subSize = 14;
+    const lhTitle = 26, lhSub = 20;
+    const totalH = lhTitle + (n.lines.length - 1) * lhSub;
+    let ty = n.y + n.h / 2 - totalH / 2 + lhTitle / 2;
+    n.lines.forEach((line, i) => {
+      const size = i === 0 ? titleSize : subSize;
+      const fillc = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.92)';
+      const weight = i === 0 ? 'bold' : 'normal';
+      const t = txt(grp, n.x + n.w / 2, ty, line, size, fillc, weight);
+      t.setAttribute('dominant-baseline', 'middle');
+      ty += i === 0 ? lhTitle / 2 + lhSub / 2 : lhSub;
+    });
+
+    /* 右上角标签（落库 / 产品设计 / 管理员） */
+    if (n.tag) {
+      const tw = n.tag.length * 13 + 18;
+      el('rect', { x: n.x + n.w - tw - 10, y: n.y + 8, width: tw, height: 22, rx: 11,
+        fill: 'rgba(255,255,255,0.25)', stroke: 'rgba(255,255,255,0.6)', 'stroke-width': 1 }, grp);
+      txt(grp, n.x + n.w - tw / 2 - 10, n.y + 19, n.tag, 12, '#ffffff', 'bold');
+    }
+  });
+
+  document.getElementById('flow').appendChild(svg);
+}
+
+window.addEventListener('DOMContentLoaded', render);
+</script>
+</body>
+</html>

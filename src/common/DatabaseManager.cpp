@@ -481,11 +481,12 @@ bool DatabaseManager::initSchemaIfNeeded() {
         adminChk.exec("SELECT COUNT(*) FROM sys_user WHERE user_id=1");
         int adminCnt = (adminChk.next()) ? adminChk.value(0).toInt() : 0;
         if (adminCnt == 0) {
+            // [2026-09-23] 工号改纯数字：username=work_no=001（账号与工号统一）
             q.prepare("INSERT INTO sys_user "
                       "(user_id, username, password_hash, password_salt, real_name, "
                       " work_no, dept_id, department, role, phone, status) "
-                      "VALUES (1, 'CF001', :hash, :salt, '张三', "
-                      " 'CF001', 1, '技术部', 'admin', '138****6789', 'active')");
+                      "VALUES (1, '001', :hash, :salt, '张三', "
+                      " '001', 1, '技术部', 'admin', '138****6789', 'active')");
             q.bindValue(":hash", pwdHash);
             q.bindValue(":salt", salt);
             if (!q.exec()) { logFail("admin_user", q.lastError().text()); qWarning() << "[DB] Seed admin user failed:" << q.lastError().text(); return false; }
@@ -493,13 +494,14 @@ bool DatabaseManager::initSchemaIfNeeded() {
     }
 
     // [v4.6新增] 播种测试用户数据（人员管理页面有数据可查）
+    // [2026-09-23] 工号改纯数字：username=work_no统一为数字（002~006）
     struct TestUser { int id; QString uname; QString rname; QString wno; int did; QString dept; QString role; QString phone; QString status; };
     QList<TestUser> testUsers = {
-        {2, "LI004",  "李四",   "CF002", 2, "生产部", "user", "139****1234", "active"},
-        {3, "WANG5",  "王五",   "CF003", 3, "质控部", "user", "137****5678", "active"},
-        {4, "ZHAO6",  "赵六",   "CF004", 4, "仓储部", "user", "136****9012", "active"},
-        {5, "SUN7",   "孙七",   "CF005", 1, "技术部", "user", "135****3456", "active"},
-        {6, "ZHOU8",  "周八",   "CF006", 2, "生产部", "user", "134****7890", "inactive"},
+        {2, "002",  "李四",   "002", 2, "生产部", "user", "139****1234", "active"},
+        {3, "003",  "王五",   "003", 3, "质控部", "user", "137****5678", "active"},
+        {4, "004",  "赵六",   "004", 4, "仓储部", "user", "136****9012", "active"},
+        {5, "005",  "孙七",   "005", 1, "技术部", "user", "135****3456", "active"},
+        {6, "006",  "周八",   "006", 2, "生产部", "user", "134****7890", "inactive"},
     };
     for (const auto& u : testUsers) {
         // [V2.03-fix] 先查后插：避免REPLACE INTO触发外键约束
@@ -833,7 +835,7 @@ bool DatabaseManager::seedBusinessData() {
     //   MySQL当前映射：1-overdue,2-mismatch,3-missing,4-offline,5-unauthorized,
     //                 6-low_stock,7-system,8-power,9-network_error,10-door_open,
     //                 11-stranger,12-rack_mismatch,13-temp_high,14-power_low,
-    //                 15-sensor_fail,16-login_fail
+    //                 15-sensor_fail,16-login_fail,17-hw_comm,18-hw_fault
     //   注意：先清空旧数据确保type_id从1开始自增
     q.exec("DELETE FROM sys_alert_type");
     struct { const char* code; const char* name; const char* level; int order; } types[] = {
@@ -845,12 +847,20 @@ bool DatabaseManager::seedBusinessData() {
         {"stranger","陌生人告警","warn",11},    {"rack_mismatch","货架错放","warn",12},
         {"temp_high","温度过高","warn",13},     {"power_low","电量不足","warn",14},
         {"sensor_fail","传感器故障","error",15},{"login_fail","登录失败","warn",16},
+        // [2026-09-23] 袁总新增三类告警体系：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
+        {"hw_comm","硬件通讯故障","error",17},  {"hw_fault","系统硬件故障","error",18},
+    };
+    // [2026-09-23] 告警类型启用范围：工具错放/硬件通讯故障/系统硬件故障（其余停用，筛选下拉不显示）
+    auto typeActive = [](const char* code) -> int {
+        return (qstrcmp(code, "mismatch") == 0 || qstrcmp(code, "hw_comm") == 0 ||
+                qstrcmp(code, "hw_fault") == 0) ? 1 : 0;
     };
     int typeIdx = 1;
     for (auto& t : types) {
-        q.prepare("INSERT INTO sys_alert_type(type_id,type_code,type_name,alert_level,sort_order) VALUES(?,?,?,?,?)");
+        q.prepare("INSERT INTO sys_alert_type(type_id,type_code,type_name,alert_level,sort_order,is_active) VALUES(?,?,?,?,?,?)");
         q.addBindValue(typeIdx);
         q.addBindValue(t.code); q.addBindValue(t.name); q.addBindValue(t.level); q.addBindValue(t.order);
+        q.addBindValue(typeActive(t.code));
         q.exec();
         typeIdx++;
     }
@@ -903,8 +913,10 @@ bool DatabaseManager::seedBusinessData() {
                    ")");
             int ti = 1;
             for (auto& t : types) {
-                q.prepare("INSERT INTO sys_alert_type(type_id,type_code,type_name,alert_level,sort_order) VALUES(?,?,?,?,?)");
+                // [2026-09-23] 同步主路径：三类启用（工具错放/硬件通讯故障/系统硬件故障）
+                q.prepare("INSERT INTO sys_alert_type(type_id,type_code,type_name,alert_level,sort_order,is_active) VALUES(?,?,?,?,?,?)");
                 q.addBindValue(ti); q.addBindValue(t.code); q.addBindValue(t.name); q.addBindValue(t.level); q.addBindValue(t.order);
+                q.addBindValue(typeActive(t.code));
                 q.exec(); ti++;
             }
         }
@@ -921,60 +933,32 @@ bool DatabaseManager::seedBusinessData() {
         int existingCount = (check.next()) ? check.value(0).toInt() : 0;
         qInfo() << "[DB] Existing alert count:" << existingCount;
         if (existingCount == 0) {
-            qInfo() << "[DB] Seeding 20 initial alert records...";
+            qInfo() << "[DB] Seeding initial alert records (mismatch only)...";
             // 结构: type_id, alert_type, alert_level, tool_code, user_id, status, content, created_at
+            // [2026-09-23] 告警三类仿真：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
             struct { int tid; const char* atype; const char* alevel; const char* tcode; int uid;
                      const char* st; const char* ct; const char* ctime; } alerts[] = {
-                // ══════ 逾期未还 type_id=1 warn ══════
-                {1,"overdue","warn","TOOL-001",4,"unhandled",
-                 "工具[热风枪]已逾期未归还，借用时长超出规定期限3天","2026-06-25 08:00"},
-                {1,"overdue","warn","TOOL-003",5,"unhandled",
-                 "工具[充电式电动解锥]已逾期未归还，借用时长超出规定期限2天","2026-06-24 10:30"},
-                {1,"overdue","warn","TOOL-005",6,"unhandled",
-                 "工具[游标卡尺]已逾期未归还，借用时长超出规定期限5天","2026-06-23 09:15"},
-                {1,"overdue","warn","TOOL-010",7,"handled",
-                 "工具[9# 开口扳手]已逾期未归还，借用时长超出规定期限1天","2026-06-20 08:00"},
-                // ══════ 工具错放 type_id=2(mismatch) warn ══════
+                // ══════ 工具错放 type_id=2(mismatch) ══════
                 {2,"mismatch","warn","TOOL-002",0,"unhandled",
                  "工具[保险丝钳]检测到放置在错误货位，当前货位：A-03，正确货位：B-02","2026-06-25 14:00"},
                 {2,"mismatch","warn","TOOL-006",0,"unhandled",
                  "工具[十字解锥头 2#]检测到放置在错误货位，当前货位：C-01，正确货位：C-05","2026-06-24 16:30"},
                 {2,"mismatch","warn","TOOL-008",7,"handled",
                  "工具[内六角扳手]检测到放置在错误货位，已由管理员复位","2026-06-19 10:00"},
-                // ══════ 工具缺失 type_id=3(missing) error ══════
-                {3,"missing","error","TOOL-004",0,"unhandled",
-                 "工具[棘轮扳手]在货位D-02检测缺失，上次盘点时间：2026-06-25 08:00","2026-06-26 08:00"},
-                // ══════ 柜门异常 type_id=4(offline) error ══════
-                {4,"offline","error","",0,"unhandled",
-                 "1号柜柜门超过60秒未关闭，请检查柜门状态","2026-06-26 10:15"},
-                {4,"offline","error","",0,"handled",
-                 "2号柜柜门异常开启，已由管理员确认关闭","2026-06-18 14:30"},
-                // ══════ 未授权操作 type_id=5(unauthorized) error ══════
-                {5,"unauthorized","error","",0,"unhandled",
-                 "检测到未授权人员尝试打开3号柜，时间：2026-06-26 14:30","2026-06-26 14:30"},
-                // ══════ 库存不足 type_id=6(low_stock) info ══════
-                {6,"low_stock","info","TOOL-007",0,"unhandled",
-                 "工具[一字解锥头]库存低于安全阈值，当前库存：2件，安全阈值：5件","2026-06-25 11:00"},
-                {6,"low_stock","info","TOOL-001",0,"unhandled",
-                 "工具[热风枪]库存低于安全阈值，当前库存：1件，安全阈值：3件","2026-06-24 09:00"},
-                // ══════ 系统异常 type_id=7(system) info ══════
-                {7,"system","info","",0,"unhandled",
-                 "系统内存使用率超过85%，请检查系统资源","2026-06-26 12:00"},
-                {7,"system","info","",0,"handled",
-                 "数据库连接池耗尽告警，已自动恢复","2026-06-17 08:00"},
-                // ══════ 陌生人告警 type_id=11(stranger) warn ══════
-                {11,"stranger","warn","",0,"unhandled",
-                 "摄像头检测到未注册人员靠近智能柜，时间：2026-06-26 10:15","2026-06-26 10:15"},
-                {11,"stranger","warn","",0,"handled",
-                 "摄像头检测到未注册人员靠近智能柜，时间：2026-06-25 18:00，已确认","2026-06-25 18:00"},
-                // ══════ 温度过高 type_id=13(temp_high) warn ══════
-                {13,"temp_high","warn","",0,"unhandled",
-                 "2号柜内部温度达到38°C，超出安全范围(25-35°C)","2026-06-26 13:00"},
-                // ══════ 登录失败 type_id=16(login_fail) warn ══════
-                {16,"login_fail","warn","",0,"unhandled",
-                 "用户[admin]连续3次登录失败，IP：192.168.1.100","2026-06-26 07:00"},
-                {16,"login_fail","warn","",7,"handled",
-                 "用户[孙七]登录失败，已重置密码","2026-06-16 15:30"},
+                // ══════ 硬件通讯故障 type_id=17(hw_comm) 视频摄像头/IO板卡 ══════
+                {17,"hw_comm","error","",0,"unhandled",
+                 "1号柜视频摄像头通讯中断(心跳丢失3次)，人脸识别功能暂不可用，请检查摄像头线路","2026-06-26 09:15"},
+                {17,"hw_comm","error","",0,"unhandled",
+                 "2号柜IO板卡通讯超时(串口无响应)，工具位在柜检测暂停","2026-06-26 10:40"},
+                {17,"hw_comm","error","",0,"handled",
+                 "1号柜视频摄像头通讯恢复，已自动重连成功","2026-06-25 16:20"},
+                // ══════ 系统硬件故障 type_id=18(hw_fault) 电源/温度/传感器 ══════
+                {18,"hw_fault","error","",0,"unhandled",
+                 "3号柜电源电压异常(10.8V)，低于正常工作范围(11.5-12.5V)，请检查供电线路","2026-06-26 11:05"},
+                {18,"hw_fault","warn","",0,"unhandled",
+                 "2号柜内部温度达到39.2°C，超出安全范围(25-35°C)，散热风扇已自动启动","2026-06-26 13:30"},
+                {18,"hw_fault","error","",0,"handled",
+                 "A-02-03位工具检测传感器无响应，现场排查为传感器接插件松动，已复位","2026-06-24 15:50"},
             };
             for (auto& a : alerts) {
                 q.prepare("INSERT INTO sys_alert(type_id,alert_type,alert_level,tool_code,user_id,status,content,created_at)"
@@ -991,7 +975,7 @@ bool DatabaseManager::seedBusinessData() {
                     qWarning() << "[DB] Seed alert failed:" << q.lastError().text();
                 }
             }
-            qInfo() << "[DB] Alert seed data inserted: 20 records (type_id aligned with MySQL)";
+            qInfo() << "[DB] Alert seed data inserted (mismatch only, type_id aligned with MySQL)";
         }
     }
 
