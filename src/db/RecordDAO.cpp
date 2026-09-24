@@ -65,7 +65,7 @@ ReturnRecord RecordDAO::returnFromQuery(const QSqlQuery& q) {
 // ═══════════════════════════════════════════════
 int RecordDAO::insert(const QJsonObject& record) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // [V2.11 2026-07-02 袁燕] 增加 mapping_id 字段，记录借用的位置
+    // 增加 mapping_id 字段，记录借用的位置
     q.prepare("INSERT INTO tool_borrow_record (flow_no, tool_id, user_id, borrow_qty, "
               "borrow_reason, expected_return_time, remark, status, mapping_id) "
               "VALUES (:fn,:tid,:uid,:qty,:reason,:ert,:rmk,:st,:mid)");
@@ -182,9 +182,9 @@ QJsonObject RecordDAO::findAll(int userId, int toolId, const QString& status,
 }
 
 // 统计某机组下未归还(borrowing/overdue)的借用记录数
-//   入参：machineGroupId 机组ID
-//   返回：该机组下所有未归还的借用记录数
-//   SQL：JOIN tool_info 获取 machine_group_id，筛选 status IN ('borrowing','overdue')
+// 入参：machineGroupId 机组ID
+// 返回：该机组下所有未归还的借用记录数
+// SQL：JOIN tool_info 获取 machine_group_id，筛选 status IN ('borrowing','overdue')
 int RecordDAO::countActiveByMachineGroup(int machineGroupId) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT COUNT(*) FROM tool_borrow_record r "
@@ -194,8 +194,8 @@ int RecordDAO::countActiveByMachineGroup(int machineGroupId) {
     if (!safeExec(q) || !q.next()) return 0;
     return q.value(0).toInt();
 }
-//   入参：toolId 工具ID，limit 返回记录数(默认5)
-//   返回：QJsonArray，每项含 borrowTime/borrowerName/borrowQty/borrowReason/status/expectedReturnTime
+// 入参：toolId 工具ID，limit 返回记录数(默认5)
+// 返回：QJsonArray，每项含 borrowTime/borrowerName/borrowQty/borrowReason/status/expectedReturnTime
 // 排序优化：借用中/逾期优先，已归还在后，确保两种状态都能显示
 //   作者：袁燕 — 要求详情页借用记录既体现借用中也体现已归还
 QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
@@ -226,9 +226,9 @@ QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
     return list;
 }
 
-// [V2.11 2026-07-02 袁燕] 按位置映射ID查询借用记录（工具详情按位置过滤）
-//   入参：mappingId 位置映射ID，limit 返回记录数
-//   返回：QJsonArray，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName
+// 按位置映射ID查询借用记录（工具详情按位置过滤）
+// 入参：mappingId 位置映射ID，limit 返回记录数
+// 返回：QJsonArray，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName
 QJsonArray RecordDAO::findByMappingId(int mappingId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
@@ -431,7 +431,7 @@ QList<ReturnRecord> RecordDAO::findReturns(int page, int pageSize,
 }
 
 // 返回去重工具数（统计逻辑与v_tool_stats.borrowed_count一致，
-//                  便于Dashboard与工具管理页数值对齐）
+// 便于Dashboard与工具管理页数值对齐）
 int RecordDAO::activeBorrowCount() {
     return scalar("SELECT COUNT(DISTINCT tool_id) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')").toInt();
 }

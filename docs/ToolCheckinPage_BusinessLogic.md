@@ -5,7 +5,7 @@
 
 ### 核心功能
 1. **工具信息录入**：录入工具基本信息
-2. **RFID标签绑定**：绑定RFID标签到工具
+2. **视觉标签绑定**：绑定视觉标签到工具
 3. **批量入库**：支持批量录入工具
 4. **入库确认**：确认入库操作
 
@@ -22,7 +22,7 @@ struct ToolInfo {
     QString manufacturer;    // 制造商
     int quantity;           // 数量
     QString location;        // 存放位置
-    QString rfidTag;        // RFID标签
+    QString visionTag;        // 视觉标签
     QString status;          // 状态: in_stock/borrowed/maintenance
     QString purchaseDate;    // 采购日期
     QString warrantyPeriod;  // 保修期
@@ -67,22 +67,22 @@ bool batchCheckin(const QList<ToolInfo>& toolList);
 QString generateToolCode(const QString& category = "");
 ```
 
-#### bindRfidTag()
+#### bindVisionTag()
 ```cpp
-// 绑定RFID标签
-bool bindRfidTag(int toolId, const QString& rfidTag);
+// 绑定视觉标签
+bool bindVisionTag(int toolId, const QString& visionTag);
 ```
 
-#### unbindRfidTag()
+#### unbindVisionTag()
 ```cpp
-// 解绑RFID标签
-bool unbindRfidTag(int toolId);
+// 解绑视觉标签
+bool unbindVisionTag(int toolId);
 ```
 
-#### getToolByRfid()
+#### getToolByVision()
 ```cpp
-// 根据RFID标签获取工具
-ToolInfo getToolByRfid(const QString& rfidTag);
+// 根据视觉标签获取工具
+ToolInfo getToolByVision(const QString& visionTag);
 ```
 
 ## 4. UI组件映射
@@ -95,7 +95,7 @@ ToolInfo getToolByRfid(const QString& rfidTag);
 | el-date-picker | QDateEdit | 日期选择 |
 | el-button | QPushButton | 入库、重置、取消按钮 |
 | el-table | QTableWidget | 批量入库列表 |
-| el-tag | QLabel + 样式 | RFID标签显示 |
+| el-tag | QLabel + 样式 | 视觉标签显示 |
 
 ## 5. 业务逻辑流程
 
@@ -103,7 +103,7 @@ ToolInfo getToolByRfid(const QString& rfidTag);
 ```
 1. 填写工具基本信息（名称、分类、规格等）
 2. 点击"生成编号"自动生成工具编号
-3. 扫描RFID标签（可选）
+3. 扫描视觉标签（可选）
 4. 点击"入库"按钮
 5. 调用checkinTool()入库
 6. 显示入库成功提示
@@ -120,13 +120,13 @@ ToolInfo getToolByRfid(const QString& rfidTag);
 6. 显示入库结果
 ```
 
-### 5.3 RFID绑定流程
+### 5.3 视觉绑定流程
 ```
 1. 输入工具编号或扫码
-2. 点击"绑定RFID"按钮
-3. 将RFID读写器靠近工具
-4. 读取到RFID标签
-5. 调用bindRfidTag()绑定
+2. 点击"绑定视觉"按钮
+3. 将视觉读写器靠近工具
+4. 读取到视觉标签
+5. 调用bindVisionTag()绑定
 6. 显示绑定成功
 ```
 
@@ -138,8 +138,8 @@ ToolInfo getToolByRfid(const QString& rfidTag);
 void toolCheckedIn(bool success, const QString& message);
 // 批量入库完成
 void batchCheckinFinished(int successCount, int failCount);
-// RFID绑定完成
-void rfidBound(bool success, const QString& rfidTag);
+// 视觉绑定完成
+void visionBound(bool success, const QString& visionTag);
 // 工具编号生成完成
 void toolCodeGenerated(const QString& toolCode);
 ```
@@ -156,8 +156,8 @@ void onResetClicked();
 void onCancelClicked();
 // 生成编号按钮点击
 void onGenerateCodeClicked();
-// 绑定RFID按钮点击
-void onBindRfidClicked();
+// 绑定视觉按钮点击
+void onBindVisionClicked();
 // 表单数据变化
 void onFormDataChanged();
 ```
@@ -182,7 +182,7 @@ void ToolCheckinPage::onCheckinClicked() {
     tool.manufacturer = ui->manufacturerEdit->text().trimmed();
     tool.quantity = ui->quantitySpinBox->value();
     tool.location = ui->locationEdit->text().trimmed();
-    tool.rfidTag = ui->rfidEdit->text().trimmed();
+    tool.visionTag = ui->visionEdit->text().trimmed();
     tool.purchaseDate = ui->purchaseDateEdit->date().toString("yyyy-MM-dd");
     tool.notes = ui->notesEdit->toPlainText().trimmed();
     tool.status = "in_stock";
@@ -208,30 +208,30 @@ void ToolCheckinPage::onGenerateCodeClicked() {
 }
 ```
 
-### 7.3 RFID绑定
+### 7.3 视觉绑定
 ```cpp
-void ToolCheckinPage::onBindRfidClicked() {
+void ToolCheckinPage::onBindVisionClicked() {
     QString toolCode = ui->toolCodeEdit->text().trimmed();
     if (toolCode.isEmpty()) {
         QMessageBox::warning(this, "错误", "请先输入工具编号！");
         return;
     }
     
-    // 启动RFID读取线程
-    m_rfidThread = new RfidReadThread(this);
-    connect(m_rfidThread, &RfidReadThread::rfidRead, this, &ToolCheckinPage::onRfidRead);
-    m_rfidThread->start();
+    // 启动视觉读取线程
+    m_visionThread = new VisionReadThread(this);
+    connect(m_visionThread, &VisionReadThread::visionRead, this, &ToolCheckinPage::onVisionRead);
+    m_visionThread->start();
     
-    QMessageBox::information(this, "提示", "请将RFID标签靠近读写器...");
+    QMessageBox::information(this, "提示", "请将视觉标签靠近读写器...");
 }
 
-void ToolCheckinPage::onRfidRead(const QString& rfidTag) {
-    ui->rfidEdit->setText(rfidTag);
-    m_rfidThread->quit();
-    m_rfidThread->wait();
-    m_rfidThread->deleteLater();
+void ToolCheckinPage::onVisionRead(const QString& visionTag) {
+    ui->visionEdit->setText(visionTag);
+    m_visionThread->quit();
+    m_visionThread->wait();
+    m_visionThread->deleteLater();
     
-    QMessageBox::information(this, "成功", "RFID标签读取成功！");
+    QMessageBox::information(this, "成功", "视觉标签读取成功！");
 }
 ```
 
@@ -274,7 +274,7 @@ ToolInfo fromFormData(const QVariantMap& formData) {
     tool.category = formData["category"].toString();
     tool.specification = formData["specification"].toString();
     tool.quantity = formData["quantity"].toInt();
-    tool.rfidTag = formData["rfidTag"].toString();
+    tool.visionTag = formData["visionTag"].toString();
     tool.status = "in_stock";
     return tool;
 }
@@ -284,7 +284,7 @@ ToolInfo fromFormData(const QVariantMap& formData) {
 
 ### 9.1 常见错误
 1. **工具编号重复**：显示"工具编号已存在"
-2. **RFID标签重复**：显示"RFID标签已绑定其他工具"
+2. **视觉标签重复**：显示"视觉标签已绑定其他工具"
 3. **入库失败**：显示"入库失败，请重试"
 4. **表单验证失败**：显示"请填写完整信息"
 
@@ -300,34 +300,34 @@ void ToolCheckinPage::showError(const QString& message) {
 ### 10.1 功能测试
 - [ ] 单个工具入库
 - [ ] 批量工具入库
-- [ ] RFID标签绑定
+- [ ] 视觉标签绑定
 - [ ] 工具编号生成
 - [ ] 表单验证
 
 ### 10.2 边界测试
 - [ ] 工具编号重复
-- [ ] RFID标签重复
+- [ ] 视觉标签重复
 - [ ] 数量为0
 - [ ] 必填项为空
 
 ### 10.3 交互测试
 - [ ] 按钮点击响应
 - [ ] 输入框焦点切换
-- [ ] RFID读取响应
+- [ ] 视觉读取响应
 
 ## 11. 注意事项
 
 1. **工具编号唯一性**：toolCode必须唯一，入库前要检查
-2. **RFID标签唯一性**：rfidTag必须唯一，绑定前要检查
+2. **视觉标签唯一性**：visionTag必须唯一，绑定前要检查
 3. **数量验证**：入库数量必须大于0
 4. **触屏优化**：按钮高度56px，输入框高度48px
-5. **RFID读取**：要在后台线程执行，避免阻塞UI
+5. **视觉读取**：要在后台线程执行，避免阻塞UI
 
 ## 12. 与Web版差异说明
 
 | 项目 | Web版 | Qt版 |
 |------|-------|------|
-| RFID读取 | Web Serial API | 串口通信（QSerialPort） |
+| 视觉读取 | Web Serial API | 串口通信（QSerialPort） |
 | 批量导入 | Excel文件上传 | Excel文件读取（QXlsx） |
 | 编号生成 | 后端API | 本地生成（可调用后端API） |
 
@@ -340,9 +340,9 @@ void ToolCheckinPage::showError(const QString& message) {
 
 ## 14. 依赖库
 
-1. **Qt Serial Port**：RFID读写器通信
+1. **Qt Serial Port**：视觉读写器通信
 2. **QXlsx**：Excel文件读写
-3. **RFID SDK**：RFID读写器SDK（厂商提供）
+3. **视觉 SDK**：视觉读写器SDK（厂商提供）
 
 ---
 **文档版本**: v1.0  

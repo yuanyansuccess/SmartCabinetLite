@@ -20,7 +20,7 @@ namespace db {
 ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     ToolInfo t;
     t.toolId         = q.value("tool_id").toInt();
-    // [V2.11 2026-07-02 袁燕] 读取mapping_id（位置维度查询时存在此字段）
+    // 读取mapping_id（位置维度查询时存在此字段）
     int mappingIdIdx = q.record().indexOf("mapping_id");
     if (mappingIdIdx >= 0) t.mappingId = q.value(mappingIdIdx).toInt();
     t.toolCode       = q.value("tool_code").toString();
@@ -33,7 +33,7 @@ ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     t.position       = q.value("position").toString();
     t.totalQty       = q.value("total_qty").toInt();
     t.currentQty     = q.value("current_qty").toInt();
-    t.rfidTag        = q.value("rfid_tag").toString();
+    t.visionTag        = q.value("vision_tag").toString();
     t.status         = q.value("status").toString();
     t.checkoutReason = q.value("checkout_reason").toString();
     t.isRecommended  = q.value("is_recommended").toInt();
@@ -91,10 +91,10 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
     safeExec(cq); cq.next(); int total = cq.value(0).toInt();
 
     QSqlQuery dq(db);
-    // [V2.03u 2026-06-30 袁燕] LEFT JOIN映射表改为position-based匹配
-    //   原条件：mpm.tool_id=ti.tool_id AND mpm.cabinet_id=ti.cabinet_id AND ...
-    //   问题：多件入库时后续件是新tool_info记录(tool_id不同)，但位置与映射表一致
-    //   修复：只按cabinet_id+layer+position匹配（一个位置只有一条映射记录，UNIQUE约束保证）
+    // LEFT JOIN映射表改为position-based匹配
+    // 原条件：mpm.tool_id=ti.tool_id AND mpm.cabinet_id=ti.cabinet_id AND ...
+    // 问题：多件入库时后续件是新tool_info记录(tool_id不同)，但位置与映射表一致
+    // 修复：只按cabinet_id+layer+position匹配（一个位置只有一条映射记录，UNIQUE约束保证）
     dq.prepare(
         "SELECT ti.tool_id, ti.tool_name, ti.spec, ti.tool_code, tc.category_name AS category, "
         "ti.cabinet_id, cb.cabinet_name, ti.machine_group_id, mg.group_name AS machine_group_name, "
@@ -102,7 +102,7 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         // [V2.03u] 映射表位置（按位置匹配，权威数据源）
         "mpm.cabinet_id AS mpm_cab_id, mpm_cb.cabinet_name AS mpm_cab_name, mpm.layer AS mpm_layer, mpm.position AS mpm_pos, "
         "ti.total_qty, ti.current_qty, "
-        "ti.rfid_tag, ti.status, ti.checkout_reason, ti.is_recommended, "
+        "ti.vision_tag, ti.status, ti.checkout_reason, ti.is_recommended, "
         "ti.recognition_method, ti.document_path, ti.created_at "
         "FROM tool_info ti LEFT JOIN tool_category tc ON ti.category_id=tc.category_id "
         "LEFT JOIN tool_cabinet cb ON ti.cabinet_id=cb.cabinet_id "
@@ -110,7 +110,7 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         // [V2.03u] LEFT JOIN映射表：按位置匹配（不再要求tool_id匹配）
         "LEFT JOIN tool_position_mapping mpm ON mpm.cabinet_id=ti.cabinet_id AND mpm.layer=ti.layer AND mpm.position=ti.position "
         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
-        // [V2.03t 2026-06-30 袁燕] 排序改为按类别+位置（唯一标识排列）
+        // 排序改为按类别+位置（唯一标识排列）
         "WHERE " + where + " ORDER BY tc.category_name, cb.cabinet_name, ti.layer, ti.position, ti.created_at DESC LIMIT :lim OFFSET :off"
     );
     for (auto it = bindValues.begin(); it != bindValues.end(); ++it) dq.bindValue(it.key(), it.value());
@@ -148,7 +148,7 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         item["position"] = common::formatPosition(cabName, layerStr, posStr);
         item["totalQty"] = dq.value("total_qty").toInt();
         item["currentQty"] = dq.value("current_qty").toInt();
-        item["rfidTag"] = dq.value("rfid_tag").toString();
+        item["visionTag"] = dq.value("vision_tag").toString();
         item["status"] = dq.value("status").toString();
         item["isRecommended"] = dq.value("is_recommended").toBool();
         item["recognitionMethod"] = dq.value("recognition_method").toString();  // [V2.01]
@@ -160,10 +160,10 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
     return result;
 }
 
-// [V2.09 2026-06-30 袁燕] 位置维度查询：每个在库位置一行
-//   设计理念：一个工具可在多个位置入库，出库/借用列表按位置分行显示
-//   FROM tool_position_mapping JOIN tool_info，按映射表status筛选
-//   返回每项含mappingId（唯一标识，用于选中）和toolId（用于出库操作）
+// 位置维度查询：每个在库位置一行
+// 设计理念：一个工具可在多个位置入库，出库/借用列表按位置分行显示
+// FROM tool_position_mapping JOIN tool_info，按映射表status筛选
+// 返回每项含mappingId（唯一标识，用于选中）和toolId（用于出库操作）
 QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& category,
                                         const QString& status, int cabinetId, int page, int pageSize,
                                         int machineGroupId) {
@@ -207,7 +207,7 @@ QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& ca
         "  mpm.cabinet_id, cb.cabinet_name, "
         "  t.machine_group_id, mg.group_name AS machine_group_name, "
         "  mpm.layer, mpm.position, "
-        "  t.total_qty, t.current_qty, t.rfid_tag, t.status AS tool_status, "
+        "  t.total_qty, t.current_qty, t.vision_tag, t.status AS tool_status, "
         "  t.recognition_method, t.document_path, t.created_at, "
         "  t.unit "
         "FROM tool_position_mapping mpm "
@@ -243,7 +243,7 @@ QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& ca
             dq.value("position").toString());
         item["totalQty"] = dq.value("total_qty").toInt();
         item["currentQty"] = dq.value("current_qty").toInt();
-        item["rfidTag"] = dq.value("rfid_tag").toString();
+        item["visionTag"] = dq.value("vision_tag").toString();
         item["status"] = dq.value("pos_status").toString();  // 映射表status（位置占用状态）
         item["toolStatus"] = dq.value("tool_status").toString();  // tool_info.status（工具整体状态）
         item["recognitionMethod"] = dq.value("recognition_method").toString();
@@ -256,9 +256,9 @@ QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& ca
     return result;
 }
 
-// [V2.12 2026-07-02 袁燕] 按工具种类聚合查询在库工具（借用页面用）
-//   设计理念：借用列表按工具种类显示，同一工具一行，availableQty=可用位置数
-//   用户选择数量后，借用时自动从映射表分配对应数量的in_stock位置
+// 按工具种类聚合查询在库工具（借用页面用）
+// 设计理念：借用列表按工具种类显示，同一工具一行，availableQty=可用位置数
+// 用户选择数量后，借用时自动从映射表分配对应数量的in_stock位置
 QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString& category,
                                            int page, int pageSize, int machineGroupId) {
     QSqlDatabase db = getDb();
@@ -291,7 +291,7 @@ QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString&
         "tc.category_name AS category, "
         "ti.machine_group_id, mg.group_name AS machine_group_name, "
         "ti.cabinet_id, cb.cabinet_name, ti.layer, ti.position, "
-        "ti.total_qty, ti.current_qty, ti.unit, ti.rfid_tag, ti.status, "
+        "ti.total_qty, ti.current_qty, ti.unit, ti.vision_tag, ti.status, "
         "ti.recognition_method, ti.document_path, ti.created_at, "
         "(SELECT COUNT(*) FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='in_stock') AS available_qty "
         "FROM tool_info ti "
@@ -326,7 +326,7 @@ QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString&
         item["currentQty"] = dq.value("current_qty").toInt();
         item["availableQty"] = dq.value("available_qty").toInt();  // [V2.12] 可用位置数（借用数量上限）
         item["unit"] = dq.value("unit").toString();
-        item["rfidTag"] = dq.value("rfid_tag").toString();
+        item["visionTag"] = dq.value("vision_tag").toString();
         item["status"] = dq.value("status").toString();
         item["recognitionMethod"] = dq.value("recognition_method").toString();
         item["documentPath"] = dq.value("document_path").toString();
@@ -344,7 +344,7 @@ QJsonObject ToolDAO::findById(int toolId) {
     q.prepare("SELECT ti.tool_id, ti.tool_name, ti.spec, ti.tool_code, tc.category_name AS category, "
               "ti.cabinet_id, ti.machine_group_id, mg.group_name AS machine_group_name, "
               "ti.layer, ti.position, ti.total_qty, ti.current_qty, "
-              "ti.rfid_tag, ti.status, ti.recognition_method, ti.document_path FROM tool_info ti "
+              "ti.vision_tag, ti.status, ti.recognition_method, ti.document_path FROM tool_info ti "
               "LEFT JOIN tool_category tc ON ti.category_id=tc.category_id "
               "LEFT JOIN machine_group mg ON ti.machine_group_id=mg.group_id WHERE ti.tool_id=:id");
     q.bindValue(":id", toolId);
@@ -357,7 +357,7 @@ QJsonObject ToolDAO::findById(int toolId) {
     t["machineGroupName"]=q.value("machine_group_name").toString();    // [V7.9]
     t["layer"]=q.value("layer").toString(); t["position"]=q.value("position").toString();
     t["totalQty"]=q.value("total_qty").toInt(); t["currentQty"]=q.value("current_qty").toInt();
-    t["rfidTag"]=q.value("rfid_tag").toString(); t["status"]=q.value("status").toString();
+    t["visionTag"]=q.value("vision_tag").toString(); t["status"]=q.value("status").toString();
     t["recognitionMethod"]=q.value("recognition_method").toString();   // [V2.01]
     t["documentPath"]=q.value("document_path").toString();             // [V2.01]
     return t;
@@ -380,7 +380,7 @@ int ToolDAO::insert(const QJsonObject& info) {
     // [V7.9 2026-06-24] 增加machine_group_id列，入库时关联机组
     // [V2.01 2026-06-27] 增加recognition_method/document_path列
     q.prepare("INSERT INTO tool_info (tool_name, spec, tool_code, category_id, cabinet_id, "
-              "machine_group_id, layer, position, total_qty, current_qty, rfid_tag, status, "
+              "machine_group_id, layer, position, total_qty, current_qty, vision_tag, status, "
               "recognition_method, document_path) "
               "VALUES (:n,:s,:c,:cat,:cab,:mg,:l,:p,:tq,:cq,:rf,:st,:rm,:dp)");
     q.bindValue(":n",info["toolName"].toString()); q.bindValue(":s",info["spec"].toString(""));
@@ -388,9 +388,9 @@ int ToolDAO::insert(const QJsonObject& info) {
     q.bindValue(":cab",info["cabinetId"].toInt(0)); q.bindValue(":mg",info["machineGroupId"].toInt(0));
     q.bindValue(":l",info["layer"].toString("")); q.bindValue(":p",info["position"].toString(""));
     q.bindValue(":tq",info["totalQty"].toInt(1)); q.bindValue(":cq",info["currentQty"].toInt(0));
-    q.bindValue(":rf",info["rfidTag"].toString(""));
+    q.bindValue(":rf",info["visionTag"].toString(""));
     q.bindValue(":st",info["status"].toString("in_stock"));
-    q.bindValue(":rm",info["recognitionMethod"].toString("rfid"));      // [V2.01] 默认RFID
+    q.bindValue(":rm",info["recognitionMethod"].toString("vision"));      // [V2.01] 默认视觉
     q.bindValue(":dp",info["documentPath"].toString(""));               // [V2.01] 文档路径
     if(!safeExec(q)){return -1;}
     return q.lastInsertId().toInt();
@@ -405,14 +405,14 @@ bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     keyMap["totalQty"]="total_qty"; keyMap["currentQty"]="current_qty";
     keyMap["categoryId"]="category_id"; keyMap["cabinetId"]="cabinet_id";
     keyMap["machineGroupId"]="machine_group_id";  // [V7.9] 机组ID映射
-    keyMap["rfidTag"]="rfid_tag";
+    keyMap["visionTag"]="vision_tag";
     keyMap["recognitionMethod"]="recognition_method";  // [V2.01] 识别方式映射
     keyMap["documentPath"]="document_path";            // [V2.01] 文档路径映射
     keyMap["supplier"]="supplier";                    // [V2.03l] 供应商映射
     keyMap["unit"]="unit";                            // [V2.03l] 单位映射
     // [V2.03l 2026-06-30] Bug修复：dbCols缺少supplier/unit列，导致入库时无法更新供应商字段
-    //   举一反三：ToolService::checkinTool用dao.update更新pending→in_stock时需要更新supplier
-    QStringList dbCols={"tool_name","spec","tool_code","category_id","cabinet_id","machine_group_id","layer","position","total_qty","current_qty","rfid_tag","status","supplier","unit","recognition_method","document_path"};
+    // 举一反三：ToolService::checkinTool用dao.update更新pending→in_stock时需要更新supplier
+    QStringList dbCols={"tool_name","spec","tool_code","category_id","cabinet_id","machine_group_id","layer","position","total_qty","current_qty","vision_tag","status","supplier","unit","recognition_method","document_path"};
     for(const auto& col:dbCols){
         QString val;
         if(ups.contains(col)) val=ups[col].toVariant().toString();
@@ -469,18 +469,18 @@ bool ToolDAO::updateStatus(int toolId, const QString& s) {
 QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& keyword,
                                        const QString& cat, const QString& cab, const QString& status,
                                        const QString& machineGroup) {
-    // [V2.08 2026-06-30 袁燕] 位置维度查询 — 用映射表status判断位置占用
-    //   映射表status: pending=待入库, in_stock=在库, borrowed=已借出
-    //   不再依赖tool_info的cabinet_id/layer/position判断位置占用
-    //   一个工具可在多个位置入库，tool_info只存基础信息
-    // [V2.12-fix 2026-07-03 袁燕] 位置维度查询必须包含mapping_id字段
-    //   根因：原posSql缺少mpm.mapping_id，fromQuery读不到mappingId→onDetailTool中t.mappingId=0
-    //   →走兜底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
-    //   修复：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
+    // 位置维度查询 — 用映射表status判断位置占用
+    // 映射表status: pending=待入库, in_stock=在库, borrowed=已借出
+    // 不再依赖tool_info的cabinet_id/layer/position判断位置占用
+    // 一个工具可在多个位置入库，tool_info只存基础信息
+    // 位置维度查询必须包含mapping_id字段
+    // 根因：原posSql缺少mpm.mapping_id，fromQuery读不到mappingId→onDetailTool中t.mappingId=0
+    // →走兜底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
+    // 修复：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
     QString posSql = "SELECT "
                   "  mpm.mapping_id, "
                   "  t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
-                  "  t.machine_group_id, t.total_qty, t.current_qty, t.rfid_tag, "
+                  "  t.machine_group_id, t.total_qty, t.current_qty, t.vision_tag, "
                   "  COALESCE(mpm.status, 'pending') AS status, "
                   "  t.is_recommended, t.recognition_method, t.document_path, "
                   "  t.checkout_reason, t.created_at, t.updated_at, "
@@ -513,10 +513,10 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     QVariantList params;
     QVariantList nonPosParams;
 
-    // [V2.07 2026-06-30 袁燕] 状态筛选逻辑
-    //   in_stock/borrowed → 位置上有对应状态的工具
-    //   pending → 空闲位置（t.tool_id IS NULL）
-    //   checked_out → 只查nonPosSql
+    // 状态筛选逻辑
+    // in_stock/borrowed → 位置上有对应状态的工具
+    // pending → 空闲位置（t.tool_id IS NULL）
+    // checked_out → 只查nonPosSql
     bool filterCheckedOut = (status == "checked_out");
     bool filterPending = (status == "pending");
     bool filterInStockBorrowed = (!status.isEmpty() && !filterCheckedOut && !filterPending);
@@ -585,11 +585,11 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     QString orderBy = "tc.category_name, mpm_cb.cabinet_name, mpm.layer, mpm.position, t.created_at DESC";
     QString nonPosOrderBy = "c.category_name, cb.cabinet_name, t.layer, t.position, t.created_at DESC";
 
-    // [V2.06 2026-06-30 袁燕] 修复分页Bug：原逻辑对pos/nonPos分别分页导致每页数量不一致
-    //   新逻辑：统一偏移量分配
-    //   1. 先查pos部分总数posCount
-    //   2. 计算当前页offset，从pos和nonPos各取对应条数
-    //   效果：每页固定返回pageSize条，total与list一致
+    // 修复分页Bug：原逻辑对pos/nonPos分别分页导致每页数量不一致
+    // 新逻辑：统一偏移量分配
+    // 1. 先查pos部分总数posCount
+    // 2. 计算当前页offset，从pos和nonPos各取对应条数
+    // 效果：每页固定返回pageSize条，total与list一致
     int offset = (page - 1) * pageSize;
 
     QList<ToolInfo> list;
@@ -640,9 +640,9 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
 int ToolDAO::countTools(const QString& keyword, const QString& cat,
                          const QString& cab, const QString& status,
                          const QString& machineGroup) {
-    // [V2.07 2026-06-30 袁燕] 计数同步findAllTools的位置维度逻辑
-    //   位置维度：所有映射表位置（有工具占用的显示在库/已借用，空闲的显示待入库）
-    //   非位置维度：checked_out（不在位置上的已出库工具）
+    // 计数同步findAllTools的位置维度逻辑
+    // 位置维度：所有映射表位置（有工具占用的显示在库/已借用，空闲的显示待入库）
+    // 非位置维度：checked_out（不在位置上的已出库工具）
     bool filterCheckedOut = (status == "checked_out");
     bool filterPending = (status == "pending");
     bool filterInStockBorrowed = (!status.isEmpty() && !filterCheckedOut && !filterPending);
@@ -736,10 +736,10 @@ int ToolDAO::insertTool(const ToolInfo& t) {
     // [V7.9 2026-06-24] 增加machine_group_id列
     // [V2.01 2026-06-27] 增加recognition_method/document_path列
     return insertAndGetId("INSERT INTO tool_info (tool_code,tool_name,spec,category_id,"
-                          "cabinet_id,machine_group_id,layer,position,total_qty,current_qty,rfid_tag,status,"
+                          "cabinet_id,machine_group_id,layer,position,total_qty,current_qty,vision_tag,status,"
                           "is_recommended,recognition_method,document_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                           {t.toolCode, t.toolName, t.spec, t.categoryId, t.cabinetId,
-                           t.machineGroupId, t.layer, t.position, t.totalQty, t.currentQty, t.rfidTag,
+                           t.machineGroupId, t.layer, t.position, t.totalQty, t.currentQty, t.visionTag,
                            t.status, t.isRecommended, t.recognitionMethod, t.documentPath});
 }
 
@@ -747,10 +747,10 @@ bool ToolDAO::updateTool(const ToolInfo& t) {
     // [V7.9 2026-06-24] 增加machine_group_id更新
     // [V2.01 2026-06-27] 增加recognition_method/document_path更新
     return execute("UPDATE tool_info SET tool_name=?,spec=?,category_id=?,cabinet_id=?,"
-                   "machine_group_id=?,layer=?,position=?,total_qty=?,rfid_tag=?,status=?,is_recommended=?,"
+                   "machine_group_id=?,layer=?,position=?,total_qty=?,vision_tag=?,status=?,is_recommended=?,"
                    "recognition_method=?,document_path=? WHERE tool_id=?",
                    {t.toolName, t.spec, t.categoryId, t.cabinetId, t.machineGroupId,
-                    t.layer, t.position, t.totalQty, t.rfidTag, t.status, t.isRecommended,
+                    t.layer, t.position, t.totalQty, t.visionTag, t.status, t.isRecommended,
                     t.recognitionMethod, t.documentPath, t.toolId});
 }
 
@@ -829,11 +829,11 @@ QStringList ToolDAO::allCabinetNames() {
 // [V7.0] 工具统计数据 [2026-06-26v15] 增加borrowedQty字段，与v_tool_stats新列对齐
 QJsonObject ToolDAO::getToolStats() {
     QJsonObject stats;
-    // [V2.08 2026-06-30 袁燕] 统计按映射表status计算
-    //   在库 = 映射表status='in_stock'
-    //   已借出 = 映射表status='borrowed'
-    //   待入库 = 映射表status='pending'
-    //   已出库 = tool_info中checked_out状态（不在位置上）
+    // 统计按映射表status计算
+    // 在库 = 映射表status='in_stock'
+    // 已借出 = 映射表status='borrowed'
+    // 待入库 = 映射表status='pending'
+    // 已出库 = tool_info中checked_out状态（不在位置上）
     QSqlQuery q = query(
         "SELECT "
         "  (SELECT COUNT(*) FROM tool_position_mapping WHERE status='in_stock') AS in_stock_count, "
@@ -1342,7 +1342,7 @@ QJsonArray ToolDAO::findAllPositionMappings()
     return arr;
 }
 
-// [V2.15 2026-07-05 袁燕] 按分类名查询category_id，找不到返回-1
+// 按分类名查询category_id，找不到返回-1
 int ToolDAO::findCategoryIdByName(const QString& name)
 {
     if (name.isEmpty()) return -1;
@@ -1354,7 +1354,7 @@ int ToolDAO::findCategoryIdByName(const QString& name)
     return -1;
 }
 
-// [V2.15 2026-07-05 袁燕] 按柜体名查询cabinet_id，找不到返回-1
+// 按柜体名查询cabinet_id，找不到返回-1
 int ToolDAO::findCabinetIdByName(const QString& name)
 {
     if (name.isEmpty()) return -1;
@@ -1366,7 +1366,7 @@ int ToolDAO::findCabinetIdByName(const QString& name)
     return -1;
 }
 
-// [V2.15 2026-07-05 袁燕] 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
+// 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
 int ToolDAO::countInStockPositions(int toolId)
 {
     QSqlDatabase db = getDb();
@@ -1377,7 +1377,7 @@ int ToolDAO::countInStockPositions(int toolId)
     return 0;
 }
 
-// [V2.15 2026-07-05 袁燕] 查询映射表状态（迁移自BorrowService::borrowTool状态校验）
+// 查询映射表状态（迁移自BorrowService::borrowTool状态校验）
 QString ToolDAO::findMappingStatus(int mappingId)
 {
     QSqlDatabase db = getDb();
@@ -1388,9 +1388,9 @@ QString ToolDAO::findMappingStatus(int mappingId)
     return QString();
 }
 
-// [V2.15 2026-07-05 袁燕] 按位置条件更新映射表状态（原子CAS，防止并发覆盖）
-//   入参：toolId工具ID, cabinetId柜体ID, layer层, position位, newStatus目标状态, expectedStatus期望当前状态
-//   返回：true=更新成功（匹配到1行），false=更新失败（无匹配行或状态已变更）
+// 按位置条件更新映射表状态（原子CAS，防止并发覆盖）
+// 入参：toolId工具ID, cabinetId柜体ID, layer层, position位, newStatus目标状态, expectedStatus期望当前状态
+// 返回：true=更新成功（匹配到1行），false=更新失败（无匹配行或状态已变更）
 bool ToolDAO::updateMappingByPosition(int toolId, int cabinetId, const QString& layer,
                                        const QString& position, const QString& newStatus,
                                        const QString& expectedStatus)

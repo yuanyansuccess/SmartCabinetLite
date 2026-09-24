@@ -58,9 +58,9 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
         
         // 完成归还
         if (recDao.completeReturn(recId, now, condition, userId, returnRemark)) {
-            // [V2.11 2026-07-02 袁燕] 按位置维度归还：更新映射表status
-            //   正常→in_stock，损坏→maintenance（映射表无maintenance状态，保持in_stock但tool_info标记maintenance）
-            //   丢失→保持borrowed（位置仍被占用，工具丢失不在库）
+            // 按位置维度归还：更新映射表status
+            // 正常→in_stock，损坏→maintenance（映射表无maintenance状态，保持in_stock但tool_info标记maintenance）
+            // 丢失→保持borrowed（位置仍被占用，工具丢失不在库）
             if (mappingId > 0) {
                 QString newStatus = (condition == "丢失") ? "borrowed" : "in_stock";
                 toolDao.updateMappingStatus(mappingId, newStatus);
@@ -91,7 +91,7 @@ QJsonObject ReturnService::getUserBorrowingRecords(int userId, int page, int pag
     return dao.findAll(userId, 0, "borrowing", "", "", page, pageSize);
 }
 
-// [V2.04 2026-06-30 袁燕] 所有位置的待归还记录（不限userId，管理员可查看全部）
+// 所有位置的待归还记录（不限userId，管理员可查看全部）
 QJsonObject ReturnService::getAllBorrowingRecords(int page, int pageSize) {
     RecordDAO dao;
     return dao.findAll(0, 0, "borrowing", "", "", page, pageSize);

@@ -371,9 +371,9 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
 int UserDAO::countUsers(const QString& keyword, const QString& dept,
                          const QString& status, const QString& role) {
     // [2026-06-26v7 致命修复] countUsers必须排除已删除用户 + 不能使用BaseDAO::count()包装
-    //   BaseDAO::count() 会把SQL包成 SELECT COUNT(*) FROM (原SQL) AS _cnt
-    //   如果原SQL本身是SELECT COUNT(*)，就会变成双重COUNT，结果永远是1！
-    //   修复：直接执行COUNT查询，不使用BaseDAO::count()包装
+    // BaseDAO::count() 会把SQL包成 SELECT COUNT(*) FROM (原SQL) AS _cnt
+    // 如果原SQL本身是SELECT COUNT(*)，就会变成双重COUNT，结果永远是1！
+    // 修复：直接执行COUNT查询，不使用BaseDAO::count()包装
     QString sql = "SELECT COUNT(*) FROM sys_user u "
                   "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
                   "WHERE u.status != 'deleted'";
@@ -420,7 +420,7 @@ int UserDAO::insertUser(const User& user) {
 
 bool UserDAO::updateUser(const User& user) {
     // 解析部门ID：编辑弹窗只传部门名称，dept_id按名称从部门表解析，
-    //   避免把无效值0写库触发外键约束fk_user_dept导致保存失败；解析不到写NULL
+    // 避免把无效值0写库触发外键约束fk_user_dept导致保存失败；解析不到写NULL
     int deptId = user.deptId;
     if (deptId <= 0) {
         QSqlQuery dq = query("SELECT dept_id FROM sys_department WHERE dept_name = ? LIMIT 1",
@@ -461,7 +461,7 @@ QString UserDAO::generateNextWorkNo()
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
     // [2026-09-23] 工号改为纯数字格式，数字项在C++侧用正则过滤后取最大值
-    //   不依赖GLOB/REGEXP，SQLite与MySQL 5.7均兼容
+    // 不依赖GLOB/REGEXP，SQLite与MySQL 5.7均兼容
     q.prepare("SELECT work_no FROM sys_user WHERE status != 'deleted'");
     if (!safeExec(q)) return QStringLiteral("001");
     int maxNum = 0;

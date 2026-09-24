@@ -1,5 +1,5 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  程序入口
-// 日期：2026-06-21  融合版：版本B页面(功能完整) + 版本A组件(TopBar/软键盘/摄像头)
+// 日期：2026-06-21 融合版：版本B页面(功能完整) + 版本A组件(TopBar/软键盘/摄像头)
 #include <QApplication>
 #include <QFont>
 #include <QFontDatabase>
@@ -8,6 +8,7 @@
 #include <QStyleFactory>
 #include "common/AppConfig.h"
 #include "common/DatabaseManager.h"
+#include "components/DeepFaceExtractor.h"
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
@@ -60,6 +61,11 @@ int main(int argc, char* argv[]) {
                "QTreeWidget::item { outline: none; }";
         app.setStyleSheet(qss);
     }
+
+    // ── 人脸识别常驻服务：随主程序启动拉起，随主程序退出停止 ──
+    // [2026-09-24] 袁燕：服务进程由应用托管，避免开机后服务未启动导致人脸功能全废
+    DeepFaceExtractor::prestartAsync();
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &DeepFaceExtractor::shutdownServer);
 
     // ── 主窗口 ──
     // [v4.1] 触屏智能柜系统强制全屏模式运行

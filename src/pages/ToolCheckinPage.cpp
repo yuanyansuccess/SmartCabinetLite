@@ -121,8 +121,8 @@ QWidget* ToolCheckinPage::createCheckinTab() {
     formGrid->addWidget(makeLabel(QStringLiteral("对应工具"), true), 0, 2);
     formGrid->addWidget(m_toolSelectCombo, 0, 3);
 
-    // [V2.05 2026-06-30 袁燕] 入库数量可选1~N，N=该工具在对照表中的空闲位置数
-    //   选择工具后，下拉自动填充1~最大空闲位置数
+    // 入库数量可选1~N，N=该工具在对照表中的空闲位置数
+    // 选择工具后，下拉自动填充1~最大空闲位置数
     m_qtyCombo = new QComboBox();
     m_qtyCombo->setStyleSheet(StyleHelper::comboBox());
     m_qtyCombo->setMinimumHeight(48);
@@ -145,8 +145,8 @@ QWidget* ToolCheckinPage::createCheckinTab() {
     formGrid->addWidget(m_machineGroupLabel, 1, 3);
 
     loadLocalMachineGroup();
-    // [V2.06 2026-06-30 袁燕] 页面初始化时主动加载工具下拉
-    //   不依赖工具类型选择，直接显示对照表中有位置记录的pending工具
+    // 页面初始化时主动加载工具下拉
+    // 不依赖工具类型选择，直接显示对照表中有位置记录的pending工具
     loadToolsByCategory(0);
 
     // [V2.03j] 保留隐藏字段（入库确认时使用，但不显示给用户）
@@ -166,7 +166,7 @@ QWidget* ToolCheckinPage::createCheckinTab() {
     for (int i = 0; i < 4; ++i) formGrid->setColumnStretch(i, 1);
     panelLayout->addLayout(formGrid);
 
-    // [V2.05 2026-06-30 袁燕] 提示信息：入库数量由对照表决定
+    // 提示信息：入库数量由对照表决定
     auto* tipLabel = new QLabel(QStringLiteral(
         "选择工具类型后，从对应工具列表中选择待入库工具。\n"
         "入库数量由对照关系表中该工具的空闲位置数决定，位置自动匹配。"
@@ -214,7 +214,7 @@ QWidget* ToolCheckinPage::createCheckinTab() {
     connect(m_toolSelectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         onToolSelected();
     });
-    // [V2.05 2026-06-30 袁燕] 入库数量变化 → 更新提示
+    // 入库数量变化 → 更新提示
     connect(m_qtyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         m_selectedCheckinQty = m_qtyCombo->currentData().toInt();
     });
@@ -233,8 +233,8 @@ QWidget* ToolCheckinPage::createRecordTab() {
     titleLabel->setStyleSheet(QString("font-size:20px;font-weight:bold;color:%1;").arg(StyleHelper::textColor()));
     layout->addWidget(titleLabel);
 
-    // [V2.04 2026-06-30 袁燕] 入库记录列简化：6列（去掉"入库数量"恒为1无意义）
-    //   列：入库时间/工具名称/工具编号/位置/供应商/操作人
+    // 入库记录列简化：6列（去掉"入库数量"恒为1无意义）
+    // 列：入库时间/工具名称/工具编号/位置/供应商/操作人
     m_recordTable = new QTableWidget();
     m_recordTable->setColumnCount(6);
     m_recordTable->setHorizontalHeaderLabels({
@@ -337,7 +337,7 @@ void ToolCheckinPage::refresh() {
     loadCategoryOptions();
     loadCabinetOptions();
     loadLocalMachineGroup();
-    // [V2.06 2026-06-30 袁燕] 主动加载工具下拉（不依赖类型选择）
+    // 主动加载工具下拉（不依赖类型选择）
     loadToolsByCategory(0);
     // [V2.03l 2026-06-30] 切换菜单进入时重置表单数据，避免残留上次输入
     onReset();
@@ -384,11 +384,11 @@ void ToolCheckinPage::onReset() {
     m_toolCodeEdit->clear();
     m_specEdit->clear();
     m_selectedToolId = 0;
-    // [V2.06 2026-06-30 袁燕] 工具选择重置到第一项
+    // 工具选择重置到第一项
     if (m_toolSelectCombo && m_toolSelectCombo->count() > 0) {
         m_toolSelectCombo->setCurrentIndex(0);
     }
-    // [V2.05 2026-06-30 袁燕] 数量下拉重置
+    // 数量下拉重置
     m_qtyCombo->clear();
     m_qtyCombo->addItem(QStringLiteral("请先选择工具"), 0);
     m_selectedCheckinQty = 0;
@@ -402,7 +402,7 @@ void ToolCheckinPage::onReset() {
 }
 
 bool ToolCheckinPage::validateForm(QString& errorMsg) {
-    // [V2.05 2026-06-30 袁燕] 入库校验：必须选择工具、选择数量且有空闲位置
+    // 入库校验：必须选择工具、选择数量且有空闲位置
     if (m_selectedToolId <= 0) {
         errorMsg = QStringLiteral("请选择待入库工具");
         return false;
@@ -439,7 +439,7 @@ void ToolCheckinPage::onSubmit() {
     }
     m_errorLabel->setVisible(false);
 
-    // [V2.05 2026-06-30 袁燕] 入库支持多位置：取前N个空闲位置（N=用户选择的入库数量）
+    // 入库支持多位置：取前N个空闲位置（N=用户选择的入库数量）
     if (m_availablePositions.isEmpty()) {
         MessageDialog::showWarning(this, QStringLiteral("无法入库"),
             QStringLiteral("该工具在对照关系表中没有空闲位置可供入库。\n请先在「系统维护→工具对照关系」中配置位置。"));
@@ -465,8 +465,8 @@ void ToolCheckinPage::showCheckinListDialog() {
     dlg->setWindowTitle(QStringLiteral("入库清单"));
     dlg->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg->setStyleSheet(StyleHelper::dialogStyle());
-    // [V2.05 2026-06-30 袁燕] 对话框尺寸动态调整（取决于位置数）
-    // [V2.07 2026-06-30 袁燕] 增大高度计算：标题80+提示60+基本信息表254+位置表+按钮区80+间距
+    // 对话框尺寸动态调整（取决于位置数）
+    // 增大高度计算：标题80+提示60+基本信息表254+位置表+按钮区80+间距
     int checkinQty = m_selectedCheckinQty;
     int posTableHeight = checkinQty * 36 + 38;
     int dlgHeight = 80 + 60 + 254 + posTableHeight + 80 + 40;
@@ -502,9 +502,9 @@ void ToolCheckinPage::showCheckinListDialog() {
     tipLayout->addWidget(tipText, 1);
     layout->addWidget(tipFrame);
 
-    // [V2.05 2026-06-30 袁燕] 入库清单改为：基本信息+多位置表格
-    //   基本信息：工具名称/编号/类型/规格/机组
-    //   位置表格：入库数量/入库位置（每个位置一行）
+    // 入库清单改为：基本信息+多位置表格
+    // 基本信息：工具名称/编号/类型/规格/机组
+    // 位置表格：入库数量/入库位置（每个位置一行）
     QString categoryText = m_categoryCombo->currentText();
     QString groupName = m_machineGroupLabel->text();
 
@@ -584,7 +584,7 @@ void ToolCheckinPage::showCheckinListDialog() {
 
     layout->addStretch(1);
 
-    // [V2.05 2026-06-30 袁燕] 按钮区增加间距，避免和表格挤在一起
+    // 按钮区增加间距，避免和表格挤在一起
     auto* spacerBeforeBtns = new QFrame();
     spacerBeforeBtns->setFixedHeight(8);
     spacerBeforeBtns->setStyleSheet("background:transparent;");
@@ -668,7 +668,7 @@ void ToolCheckinPage::showCheckinDrawerOpeningDialog() {
     });
     dotTimer->start();
 
-    // [V2.05 2026-06-30 袁燕] 多位置提示表格
+    // 多位置提示表格
     int checkinQty = m_selectedCheckinQty;
 
     // 如果只有1个位置，用简单文字提示
@@ -791,7 +791,7 @@ void ToolCheckinPage::showCheckinWarningDialog() {
     layout->addWidget(titleLabel);
 
     // 警告详情
-    // [V2.05 2026-06-30 袁燕] 多位置校验提示
+    // 多位置校验提示
     int checkinQty = m_selectedCheckinQty;
     QString posInfo;
     if (checkinQty == 1) {
@@ -898,8 +898,8 @@ void ToolCheckinPage::showCheckinWarningDialog() {
 
 // ═══════════ [2026-06-27] 步骤4: 入库成功对话框 ═══════════
 void ToolCheckinPage::showCheckinSuccessDialog() {
-    // [V2.08 2026-06-30 袁燕] 入库只更新映射表status，不新建tool_info记录
-    //   一个工具可以在多个位置入库，传入positions数组一次性处理
+    // 入库只更新映射表status，不新建tool_info记录
+    // 一个工具可以在多个位置入库，传入positions数组一次性处理
     int checkinQty = m_selectedCheckinQty;
     ToolService svc;
 
@@ -1112,8 +1112,8 @@ void ToolCheckinPage::loadCheckinRecords() {
         m_recordTable->setItem(i, 0, new QTableWidgetItem(time));
 
         // [V2.03t] 从content解析工具名/数量/位置/供应商
-        //   新格式："入库工具「工具名」编号[编号]×1件 位置A-01-01"
-        //   兼容旧格式："入库工具「工具名」编号[编号]×数量，供应商：xxx"
+        // 新格式："入库工具「工具名」编号[编号]×1件 位置A-01-01"
+        // 兼容旧格式："入库工具「工具名」编号[编号]×数量，供应商：xxx"
         QString toolName, supplier;
         QRegularExpression re1("入库工具「(.+?)」");
         QRegularExpression re3("供应商：(.+)");
@@ -1122,8 +1122,8 @@ void ToolCheckinPage::loadCheckinRecords() {
         if (m1.hasMatch()) toolName = m1.captured(1);
         if (m3.hasMatch()) supplier = m3.captured(1);
 
-        // [V2.04 2026-06-30 袁燕] 入库记录6列（去掉数量列，恒为1件无需显示）
-        //   列顺序：入库时间(0)/工具名称(1)/工具编号(2)/位置(3)/供应商(4)/操作人(5)
+        // 入库记录6列（去掉数量列，恒为1件无需显示）
+        // 列顺序：入库时间(0)/工具名称(1)/工具编号(2)/位置(3)/供应商(4)/操作人(5)
 
         // 列1：工具名称
         m_recordTable->setItem(i, 1, new QTableWidgetItem(toolName.isEmpty() ? QStringLiteral("--") : toolName));
@@ -1135,8 +1135,8 @@ void ToolCheckinPage::loadCheckinRecords() {
             if (mc.hasMatch()) toolCode = mc.captured(1);
         }
         m_recordTable->setItem(i, 2, new QTableWidgetItem(toolCode.isEmpty() ? QStringLiteral("--") : toolCode));
-        // [V2.05 2026-06-30 袁燕] 列3：位置（三级优先：content解析→映射表→tool_info）
-        //   新格式支持多位置："位置A-01-01,A-01-02"，用正则匹配全部
+        // 列3：位置（三级优先：content解析→映射表→tool_info）
+        // 新格式支持多位置："位置A-01-01,A-01-02"，用正则匹配全部
         {
             QString posDisplay;
             // [V2.05] 匹配"位置"关键字后的所有位置（逗号分隔）
@@ -1189,8 +1189,8 @@ void ToolCheckinPage::onRecordNextPage() {
 // ═══════════ [V2.03j 2026-06-29] 入库流程简化：工具类型→工具选择→位置自动给出 ═══════════
 
 // 入库页工具下拉=显示对照表中有空闲位置的工具
-//   核心设计：入库是将工具放到指定位置，工具在映射表中有空闲位置即可入库
-//   映射表status='pending'表示待入库的空闲位置
+// 核心设计：入库是将工具放到指定位置，工具在映射表中有空闲位置即可入库
+// 映射表status='pending'表示待入库的空闲位置
 void ToolCheckinPage::loadToolsByCategory(int categoryId) {
     if (!m_toolSelectCombo) return;
     m_toolSelectCombo->blockSignals(true);
@@ -1221,8 +1221,8 @@ void ToolCheckinPage::loadToolsByCategory(int categoryId) {
     m_toolSelectCombo->blockSignals(false);
 }
 
-// [V2.04 2026-06-30 袁燕] generateUniqueToolCode已移除
-//   入库不再创建新tool_info记录，不需要生成新编号
+// generateUniqueToolCode已移除
+// 入库不再创建新tool_info记录，不需要生成新编号
 
 // [V2.03j] 工具类型切换时刷新工具下拉
 void ToolCheckinPage::onCategoryChanged() {
@@ -1233,7 +1233,7 @@ void ToolCheckinPage::onCategoryChanged() {
 }
 
 // 选择工具后自动填充信息 + 查找所有空闲位置
-//   入库数量可选1~N，N=空闲位置数
+// 入库数量可选1~N，N=空闲位置数
 void ToolCheckinPage::onToolSelected() {
     if (!m_toolSelectCombo) return;
     m_selectedToolId = m_toolSelectCombo->currentData().toInt();

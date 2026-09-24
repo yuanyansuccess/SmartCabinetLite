@@ -151,7 +151,7 @@ void ToolReturnPage::setupUI() {
         QStringLiteral("工具名称"), // 2
         QStringLiteral("位置"),    // 3
         QStringLiteral("借用数量"), // 4
-        QStringLiteral("任务类型"), // 5  [2026-06-27] 借用原因→任务类型
+        QStringLiteral("任务类型"), // 5 [2026-06-27] 借用原因→任务类型
         QStringLiteral("流水号"),  // 6
         QStringLiteral("状态")     // 7
     });
@@ -255,8 +255,8 @@ void ToolReturnPage::setupUI() {
 }
 
 void ToolReturnPage::loadRecords() {
-    // [V2.04 2026-06-30 袁燕] 显示所有位置的待归还记录（不限当前用户）
-    //   设计理念：管理员需要看到全部借用情况，不只看自己的
+    // 显示所有位置的待归还记录（不限当前用户）
+    // 设计理念：管理员需要看到全部借用情况，不只看自己的
     ReturnService svc;
     QJsonObject result = svc.getAllBorrowingRecords(m_currentPage, m_pageSize);
 
@@ -307,7 +307,7 @@ void ToolReturnPage::loadRecords() {
         m_table->setItem(i, 4, new QTableWidgetItem(QString::number(r["borrowQty"].toInt())));
 
         // [2026-06-27] 任务类型：字段名对齐DAO返回的borrowReason（原误用reason导致永远显示--）
-        //   空值显示"--"（不再兜底"任务借用"，让数据真实性可见）
+        // 空值显示"--"（不再兜底"任务借用"，让数据真实性可见）
         QString borrowReason = r["borrowReason"].toString();
         if (borrowReason.isEmpty()) borrowReason = QStringLiteral("--");
         m_table->setItem(i, 5, new QTableWidgetItem(borrowReason));
@@ -729,7 +729,7 @@ void ToolReturnPage::showReturnErrorDialog() {
     }
     auto* descLabel = new QLabel(QStringLiteral(
         "检测到 <b>%1</b> 位置的工具未正确放入柜位，<br/>"
-        "可能原因：工具放置位置错误、RFID标签未识别或柜门未完全关闭。<br/><br/>"
+        "可能原因：工具放置位置错误、视觉识别未通过或柜门未完全关闭。<br/><br/>"
         "请重新核对工具后点击确认，系统将完成归还登记。"
     ).arg(firstPosition));
     descLabel->setAlignment(Qt::AlignCenter);

@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  认证业务控制层
-// 日期：2026-06-21  功能：登录验证、密码哈希、Token管理、人脸识别匹配
+// 日期：2026-06-21 功能：登录验证、密码哈希、Token管理、人脸识别匹配
 // [V6.9 2026-06-24] 统一到db/目录namespace db
 #include <QObject>
 #include <QString>

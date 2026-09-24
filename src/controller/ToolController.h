@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  工具管理业务控制层
-// 日期：2026-06-21  功能：工具CRUD、分类管理、柜体管理、出入库
+// 日期：2026-06-21 功能：工具CRUD、分类管理、柜体管理、出入库
 // [V6.9 2026-06-24] 统一到db/目录namespace db
 #include <QObject>
 #include <QDate>

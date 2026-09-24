@@ -1,5 +1,5 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  ToolController实现
-// 日期：2026-06-21  工具借用/归还核心业务流程
+// 日期：2026-06-21 工具借用/归还核心业务流程
 // [V6.9 2026-06-24] 方法名更新为合并后的db::ToolDAO/RecordDAO新API
 #include "ToolController.h"
 #include <QDebug>

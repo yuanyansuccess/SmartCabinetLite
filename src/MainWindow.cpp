@@ -112,7 +112,7 @@ void MainWindow::setupUI() {
     m_stack->addWidget(m_settingsPage);     // 系统设置(索引11)
 
     // [2026-09-24] 普通用户流程遮罩页(索引12)：登录后入口页/借用归还会话期间主界面停在本页，
-    //   避免两个全屏弹窗切换间隙露出背后的登录页（闪现按键页面问题）
+    // 避免两个全屏弹窗切换间隙露出背后的登录页（闪现按键页面问题）
     m_userFlowCover = new QWidget();
     m_userFlowCover->setStyleSheet("background:" + StyleHelper::bgColor() + ";");
     m_stack->addWidget(m_userFlowCover);
@@ -229,7 +229,7 @@ QWidget* MainWindow::createSidebar() {
 
 void MainWindow::showPage(const QString& name) {
     // [V2.07 权限拦截] 普通用户仅允许访问 系统概览/工具机组查询，
-    //   防止其他入口（如告警跳转）绕过侧边栏限制
+    // 防止其他入口（如告警跳转）绕过侧边栏限制
     bool isAdmin = (m_user["role"].toString() == "admin");
     if (!m_user.isEmpty() && !isAdmin && name != "dashboard" && name != "tools") {
         qInfo() << "[MainWindow] 普通用户无权访问页面:" << name << "，重定向到 dashboard";
@@ -243,9 +243,9 @@ void MainWindow::showPage(const QString& name) {
         {"ledger", 8}, {"alerts", 9}, {"maintenance", 10}, {"settings", 11}
     };
     int idx = map.value(name, 1);
-    // [V2.03t 2026-06-30 袁燕] 去掉"同页面不刷新"限制，菜单点击时即使同页面也强制refresh
-    //   反馈：系统维护页面切换时不刷新，根因是索引相同直接return
-    //   举一反三：所有页面都需要在菜单切换时刷新数据（可能后台数据已变化）
+    // 去掉"同页面不刷新"限制，菜单点击时即使同页面也强制refresh
+    // 反馈：系统维护页面切换时不刷新，根因是索引相同直接return
+    // 举一反三：所有页面都需要在菜单切换时刷新数据（可能后台数据已变化）
     bool isSamePage = (idx == m_stack->currentIndex());
 
     // [V2.03t] 同页面只做refresh，不重复切换动画
@@ -313,11 +313,11 @@ void MainWindow::showPage(const QString& name) {
         m_topBar->setUserAreaVisible(true);
     }
 
-    // [V2.05 2026-06-30 袁燕] 菜单切换性能优化：refresh异步执行
-    //   原问题：refresh同步执行DB查询阻塞UI线程，导致150ms淡出动画卡顿
-    //   优化：用QTimer::singleShot(0)将refresh延迟到下一轮事件循环
-    //         让setCurrentIndex+遮罩动画先渲染，再执行DB查询
-    //   效果：用户立即看到页面切换动画，DB查询在后台进行不卡顿
+    // 菜单切换性能优化：refresh异步执行
+    // 原问题：refresh同步执行DB查询阻塞UI线程，导致150ms淡出动画卡顿
+    // 优化：用QTimer::singleShot(0)将refresh延迟到下一轮事件循环
+    // 让setCurrentIndex+遮罩动画先渲染，再执行DB查询
+    // 效果：用户立即看到页面切换动画，DB查询在后台进行不卡顿
     QMetaObject::invokeMethod(this, [this, name]() {
         if (name == "dashboard" && m_dashboardPage)      m_dashboardPage->refresh();
         else if (name == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
@@ -391,14 +391,14 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     m_topBar->refreshVersionLabel();
 
     // [V2.07] 普通用户登录成功后进入功能选择页（普通用户首页）：
-    //   [2026-09-23] 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
-    //   "借用/归还"→进入智能柜会话，会话结束→循环回本页
-    //   "查询/告警日志"→弹出明细对话框（不关闭本页）
-    //   "退出登录"→回登录页
+    // [2026-09-23] 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
+    // "借用/归还"→进入智能柜会话，会话结束→循环回本页
+    // "查询/告警日志"→弹出明细对话框（不关闭本页）
+    // "退出登录"→回登录页
     bool isAdmin = (user["role"].toString() == "admin");
     if (!isAdmin) {
         // [2026-09-24] 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏，
-        //   防止入口页与借用归还会话两个全屏弹窗切换间隙闪现登录页
+        // 防止入口页与借用归还会话两个全屏弹窗切换间隙闪现登录页
         if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
         m_sidebar->setVisible(false);
         while (true) {
@@ -431,22 +431,22 @@ void MainWindow::onLogout() {
     m_topBar->setDepartment("");
     updateSidebarVisibility();
     // [V6.3致命修复] 退出登录必须重置LoginPage所有状态
-    //   否则残留"身份验证通过"、张三识别信息、m_autoJumpTimer未停等问题
+    // 否则残留"身份验证通过"、张三识别信息、m_autoJumpTimer未停等问题
     m_loginPage->resetPageState();
     // [2026-09-24fix] 注销必须可靠回到登录刷脸页：直接切索引，
-    //   绕过showPage的遮罩/动画/异步刷新链路（此前出现过未切换停留原页的情况）
+    // 绕过showPage的遮罩/动画/异步刷新链路（此前出现过未切换停留原页的情况）
     m_stack->setCurrentIndex(0);
     m_topBar->setPageTitle(QStringLiteral(""));
     m_topBar->setUserAreaVisible(false);
     updateSidebarActive(QStringLiteral("login"));
     // [2026-09-24fix] 注销后抑制自动刷脸登录：人未离开摄像头画面时不立即自动回登，
-    //   离开画面后恢复（onFaceLost清除），保证注销后稳定停在刷脸页面
+    // 离开画面后恢复（onFaceLost清除），保证注销后稳定停在刷脸页面
     m_loginPage->suppressAutoLoginAfterLogout();
     emit userLoggedOut();
 }
 
-// [2026-09-24 袁燕] 快捷操作/侧边栏的"工具借用/归还"入口统一在转交处拦截：
-//   borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到系统概览
+// 快捷操作/侧边栏的"工具借用/归还"入口统一在转交处拦截：
+// borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到系统概览
 void MainWindow::navigateToPage(const QString& name) {
     if (name == QStringLiteral("borrowreturn")) {
         openBorrowReturnSession();
@@ -456,8 +456,8 @@ void MainWindow::navigateToPage(const QString& name) {
 }
 
 // [2026-09-23] 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
-//   CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
-//   [2026-09-23fix] 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
+// CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
+// [2026-09-23fix] 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
 void MainWindow::openBorrowReturnSession() {
     if (m_user.isEmpty()) return;
     CabinetSessionDialog session(m_user, this);
@@ -475,8 +475,8 @@ void MainWindow::onAutoLockTimeout() {
 }
 
 // [2026-06-27] 定时检查是否到了数据库备份时间
-//   每小时检查一次，根据备份周期（每日/每周一/每周日）判断是否需要备份
-//   同一天只备份一次（通过 m_lastBackupDate 去重）
+// 每小时检查一次，根据备份周期（每日/每周一/每周日）判断是否需要备份
+// 同一天只备份一次（通过 m_lastBackupDate 去重）
 void MainWindow::onBackupCheckTimeout() {
     auto& cfg = AppConfig::instance();
     if (!cfg.backupAutoEnabled()) return;  // 自动备份未启用

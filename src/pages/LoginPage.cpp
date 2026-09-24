@@ -51,7 +51,13 @@ LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
             m_activeField = "password";
             QTimer::singleShot(150, this, &LoginPage::onPasswordFieldClicked);
         } else if (m_passwordEdit->text().length() >= 6) {
-            onPasswordLogin();
+            // 崩溃修复：不能在软键盘 mouseReleaseEvent 事件派发过程中
+            // 同步执行 onPasswordLogin()。该函数会发出 loginSuccess → MainWindow::onLoginSuccess，
+            // 后者内部还有模态对话框的嵌套事件循环；而此刻键盘面板窗口正在派发鼠标事件，
+            // 叠加 hide() 的窗口拆装，Qt 内部状态不一致 → onLoginSuccess 内第一处 Qt 调用
+            // （m_topBar->refreshVersionLabel()）崩溃（0xC0000005 读取 0xFFFFFFFFFFFFFFFF）。
+            // 改为事件派发结束后的下一轮执行，登录流程在干净的窗口状态下运行。
+            QTimer::singleShot(0, this, &LoginPage::onPasswordLogin);
         }
     });
     connect(m_numKeypad, &NumKeypad::cancelled, this, [this]() {
@@ -105,7 +111,7 @@ void LoginPage::setupUI() {
     auto* card = new QWidget();
     card->setFixedWidth(1000);
     // [2026-06-23修复] card最小高度750：摄像头区(~300)+状态行(~40)+间距(20)+密码表单(~280)+底部按钮+版权(~50)+余量
-    //   原620不够导致底部"重新扫脸"按钮和版权文字被裁剪
+    // 原620不够导致底部"重新扫脸"按钮和版权文字被裁剪
     card->setMinimumHeight(750);
     // [v4.7修复] WA_StyledBackground启用后border-radius才能裁剪背景
     card->setAttribute(Qt::WA_StyledBackground, true);
@@ -121,7 +127,7 @@ void LoginPage::setupUI() {
     // 左侧品牌区 (1:1复刻Vue版 login-left: flex:1, 454px)
     auto* leftWidget = new QWidget();
     // [v4.7修复] 移除fixedWidth(454)，使用stretch比例动态计算
-    //   card总宽1000px, stretch 454:546 = Web版 flex:1 vs flex:1.2
+    // card总宽1000px, stretch 454:546 = Web版 flex:1 vs flex:1.2
     leftWidget->setMinimumWidth(300);  // 防挤压下限
     leftWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     // [v4.7修复] WA_StyledBackground启用border-radius背景裁剪
@@ -149,7 +155,7 @@ void LoginPage::setupUI() {
     setupRightPanel(rightLayout);
 
     // [v4.7修复] Web版left:flex:1, right:flex:1.2 → 比例 454:546 (1000*1/2.2=454)
-    //   使用stretch精确控制，leftWidget去除fixedWidth让stretch决定实际宽度
+    // 使用stretch精确控制，leftWidget去除fixedWidth让stretch决定实际宽度
     cardLayout->addWidget(leftWidget, 454);
     cardLayout->addWidget(rightWidget, 546);
     outer->addWidget(card, 0, Qt::AlignCenter);
@@ -257,8 +263,8 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     m_faceCamera->setAutoCapture(true);
     m_faceCamera->setMinConfidence(0.60);
     // [V2.04 2026-06-28] 识别速度优化：8→3帧(240ms)，延迟200→50ms，间隔80→40ms
-    //   原参数：8×80+200=840ms 才开始采集
-    //   新参数：3×40+50=170ms 即开始采集，提速约5倍
+    // 原参数：8×80+200=840ms 才开始采集
+    // 新参数：3×40+50=170ms 即开始采集，提速约5倍
     //   作者：袁燕
     m_faceCamera->setStableFrames(3);
     m_faceCamera->setCaptureDelay(50);
@@ -276,10 +282,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     camLayout->addWidget(m_faceCamera, 0, Qt::AlignCenter);
 
     // [V6.5] 状态圆圈 - 1:1复刻Web版 .camera-area.success/.fail/.stranger
-    //   Web设计：180x180圆形，4px solid边框，背景色，内部emoji(50px)+文字(14px)
-    //   成功: 绿边框#52c41a 浅绿底#f6ffed ✅ "识别成功"
-    //   失败: 红边框#ff4d4f 浅红底#fff2f0 ❌ "识别失败"
-    //   陌生人: 橙边框#faad14 浅黄底#fffbe6 ⚠️ "检测到陌生人"
+    // Web设计：180x180圆形，4px solid边框，背景色，内部emoji(50px)+文字(14px)
+    // 成功: 绿边框#52c41a 浅绿底#f6ffed ✅ "识别成功"
+    // 失败: 红边框#ff4d4f 浅红底#fff2f0 ❌ "识别失败"
+    // 陌生人: 橙边框#faad14 浅黄底#fffbe6 ⚠️ "检测到陌生人"
 
     // === 成功状态圆圈 (Web: .camera-area.success) ===
     m_statusCircleSuccess = new QLabel();
@@ -474,7 +480,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     pfLayout->addWidget(pwdWrap);
 
     // [2026-06-26] 数字键盘占位 - 构造函数中创建，此处添加到布局
-    //   初始隐藏，点击密码框⌨按钮时显示
+    // 初始隐藏，点击密码框⌨按钮时显示
 
     // 登录按钮 (Web: .login-btn border-radius:10px font-size:17px padding:14px)
     m_loginBtn = new QPushButton(QStringLiteral("登  录"));
@@ -635,10 +641,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     layout->addStretch();
 
-    // [V2.04 2026-06-30 袁燕] 退出按钮改为右上角悬浮设计
-    //   设计理念：右上角半透明圆形按钮，不抢登录画面视觉焦点
-    //   暗蓝背景上用半透明白色，hover时微亮，符合系统整体暗蓝风格
-    //   48px满足触屏最小点击尺寸
+    // 退出按钮改为右上角悬浮设计
+    // 设计理念：右上角半透明圆形按钮，不抢登录画面视觉焦点
+    // 暗蓝背景上用半透明白色，hover时微亮，符合系统整体暗蓝风格
+    // 48px满足触屏最小点击尺寸
     m_exitBtn = new QPushButton(QStringLiteral("✕"), this);
     m_exitBtn->setFixedSize(48, 48);
     m_exitBtn->setCursor(Qt::PointingHandCursor);
@@ -781,8 +787,8 @@ void LoginPage::onFaceLost() {
 
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     // [V2.03 2026-06-28] 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
-    //   根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
-    //         stopFaceRecognition()但没有等待异步提取完成，导致fail状态覆盖success显示
+    // 根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
+    // stopFaceRecognition()但没有等待异步提取完成，导致fail状态覆盖success显示
     //   作者：袁燕
     if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] onFaceCaptured ignored: already in success/pending state";
@@ -836,9 +842,9 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     m_captureCount = m_samples.size();
 
     // [V2.04 2026-06-28] 极速优化：第一帧直接验证，不再等待多帧
-    //   原逻辑：置信度>0.85且2帧 → 等待时间长
-    //   新逻辑：只要特征有效(descDim>=128)直接验证，1帧搞定
-    //   提速：2-3s → 1s
+    // 原逻辑：置信度>0.85且2帧 → 等待时间长
+    // 新逻辑：只要特征有效(descDim>=128)直接验证，1帧搞定
+    // 提速：2-3s → 1s
     //   作者：袁燕
     if (descDim >= 128 && m_captureCount >= 1) {
         collectBestSample();
@@ -877,9 +883,9 @@ void LoginPage::collectBestSample() {
 
 /// [V2.05 2026-06-28] 人脸验证 — 直接本地比对，不再走8088后端
 /// @author 袁燕 - 架构简化：去掉8088 C++后端依赖，Qt客户端直接连MySQL比对
-///   原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
-///   新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
-///   现场无Web前端，8088后端不需要部署
+/// 原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
+/// 新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
+/// 现场无Web前端，8088后端不需要部署
 void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
     Q_UNUSED(image);
     // [V2.05] 竞态防护：已登录成功则不重复验证
@@ -894,7 +900,7 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
 /// [v4 新增] 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
 /// [V2.17 2026-07-06] 阈值对齐FaceRecognitionService默认值(0.94/0.95/0.35/0.15/0.80)
-///   单人脸模式必须95%以上才通过，陌生人绝对不能登录
+/// 单人脸模式必须95%以上才通过，陌生人绝对不能登录
 ///   作者：袁燕
 void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     FaceRecognitionService svc;
@@ -1007,11 +1013,11 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
 
 /// [v3 新增] 处理验证失败，尝试备用帧
 /// [v5.1修复] 致命Bug：用户切回密码登录时onPasswordLoginClicked()清空了m_samples，
-///   但之前人脸验证的异步HTTP回调可能尚未到达，导致removeFirst()在空列表上断言崩溃
+/// 但之前人脸验证的异步HTTP回调可能尚未到达，导致removeFirst()在空列表上断言崩溃
 void LoginPage::handleVerifyFailure(const QString& errMsg) {
     // [V2.03] 竞态防护：已登录成功则忽略验证失败回调
-    //   场景：handleFaceSuccess→stopFaceRecognition→异步captureReady到达→验证→失败→此处
-    //   此时successBox已显示、autoJumpTimer已启动，禁止fail状态覆盖
+    // 场景：handleFaceSuccess→stopFaceRecognition→异步captureReady到达→验证→失败→此处
+    // 此时successBox已显示、autoJumpTimer已启动，禁止fail状态覆盖
     if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] handleVerifyFailure ignored: already in success state";
         m_isVerifying = false;
@@ -1135,7 +1141,7 @@ void LoginPage::onPasswordLogin() {
 
 /// [V6.3] 重置所有登录状态——退出登录/登出后清除上一用户的所有残留信息
 /// @details 解决致命Bug：退出登录后LoginPage仍显示"身份验证通过"、张三识别信息、
-///          自动跳转定时器未停等状态残留，导致界面混乱。
+/// 自动跳转定时器未停等状态残留，导致界面混乱。
 /// @author 袁燕 - 2026-06-21
 void LoginPage::resetPageState() {
     // 1. 停止所有定时器（防止退出后autoJumpTimer触发登录）
@@ -1235,12 +1241,12 @@ void LoginPage::retryFace() {
     startFaceRecognition();
 }
 
-// [V2.03u 2026-06-30 袁燕] 退出系统 - 小米风格二次确认弹窗
-//   设计理念：触屏设备无窗口关闭按钮，需明确退出入口
-//   退出前弹窗确认防止误触（小米极简风格）
-// [V2.04 2026-06-30 袁燕] 退出按钮跟随窗口右上角
-// [V2.05 2026-06-30 袁燕] 新增showEvent：窗口首次显示时定位退出按钮
-//   修复Bug：setupUI时this->width()返回默认值，按钮定位到错误位置
+// 退出系统 - 小米风格二次确认弹窗
+// 设计理念：触屏设备无窗口关闭按钮，需明确退出入口
+// 退出前弹窗确认防止误触（小米极简风格）
+// 退出按钮跟随窗口右上角
+// 新增showEvent：窗口首次显示时定位退出按钮
+// 修复Bug：setupUI时this->width()返回默认值，按钮定位到错误位置
 void LoginPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     // [V2.05] 窗口显示时立即定位退出按钮到右上角

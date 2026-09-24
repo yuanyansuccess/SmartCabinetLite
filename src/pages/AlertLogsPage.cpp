@@ -53,19 +53,7 @@ void AlertLogsPage::setupUI() {
     );
     titleBar->addWidget(m_alarmIndicator);
 
-    // 切换按钮：正常态显示"触发告警"，告警态显示"解除告警"
-    // 普通用户禁用（只可看不可点），仅管理员可操作
-    m_dismissBtn = new QPushButton(QStringLiteral("触发告警"));
-    m_dismissBtn->setStyleSheet(
-        "QPushButton{background:#e53935;color:#fff;border:none;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
-        "QPushButton:hover{background:#c62828;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-        "QPushButton:disabled{background:#b0b0b0;color:#e0e0e0;}"
-    );
-    m_dismissBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_dismissBtn, &QPushButton::clicked, this, &AlertLogsPage::onDismissAlarm);
-    titleBar->addWidget(m_dismissBtn);
+    // 告警切换按钮（触发/解除告警）已下线，仅保留"运行正常"状态指示器
 
     // 导出日志按钮 [2026-06-26] 尺寸对齐人员管理"新增人员"
     m_exportBtn = new QPushButton(QStringLiteral("📥 导出日志"));
@@ -189,7 +177,7 @@ void AlertLogsPage::setupUI() {
     panelLayout->setSpacing(0);
 
     // 精简为7列：合并"关联工具+存放位置"为"关联信息"，减少拥挤
-    //   列：时间 | 级别 | 类型 | 告警内容 | 关联信息 | 借用人 | 状态 | 操作
+    // 列：时间 | 级别 | 类型 | 告警内容 | 关联信息 | 借用人 | 状态 | 操作
     m_table = new QTableWidget();
     m_table->setColumnCount(8);
     m_table->setHorizontalHeaderLabels({
@@ -775,50 +763,8 @@ QFrame* AlertLogsPage::createStatCard(const QString& label, const QString& value
 }
 
 /**
- * [2026-06-26v11] 告警状态切换按钮：正常↔告警二态切换
- * 正常态→点击"触发告警"→变为告警态；告警态→点击"解除告警"→变为正常态
- */
-void AlertLogsPage::onDismissAlarm() {
-    if (m_isAlarming) {
-        // 当前告警中 → 解除告警 → 恢复正常
-        m_isAlarming = false;
-        m_alarmIndicator->setText(QStringLiteral("运行正常"));
-        m_alarmIndicator->setStyleSheet(
-            "font-size:14px;font-weight:700;padding:8px 18px;border-radius:10px;"
-            "background:#f6ffed;color:#389e0d;"
-        );
-        m_dismissBtn->setText(QStringLiteral("触发告警"));
-        m_dismissBtn->setStyleSheet(
-            "QPushButton{background:#e53935;color:#fff;border:none;border-radius:10px;"
-            "padding:10px 22px;font-size:14px;font-weight:700;}"
-            "QPushButton:hover{background:#c62828;}"
-            "QPushButton:pressed{transform:scale(0.96);}"
-            "QPushButton:disabled{background:#b0b0b0;color:#e0e0e0;}"
-        );
-        MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("警报已解除，系统恢复正常"));
-    } else {
-        // 当前正常 → 触发告警 → 进入告警态
-        m_isAlarming = true;
-        m_alarmIndicator->setText(QStringLiteral("告警中"));
-        m_alarmIndicator->setStyleSheet(
-            "font-size:14px;font-weight:700;padding:8px 18px;border-radius:10px;"
-            "background:#fff1f0;color:#cf1322;"
-        );
-        m_dismissBtn->setText(QStringLiteral("解除告警"));
-        m_dismissBtn->setStyleSheet(
-            "QPushButton{background:#389e0d;color:#fff;border:none;border-radius:10px;"
-            "padding:10px 22px;font-size:14px;font-weight:700;}"
-            "QPushButton:hover{background:#237804;}"
-            "QPushButton:pressed{transform:scale(0.96);}"
-            "QPushButton:disabled{background:#b0b0b0;color:#e0e0e0;}"
-        );
-        MessageDialog::showWarning(this, QStringLiteral("告警"), QStringLiteral("系统已触发告警状态，请及时处理"));
-    }
-}
-
-/**
  * [2026-06-27] 根据当前用户角色应用权限控制
- * 解除告警按钮(m_dismissBtn)：管理员可点击，普通用户禁用（只可看不可点）
+ * 解除告警按钮(m_dismissBtn)已下线，成员固定为空指针，此处空判断保证调用安全
  */
 void AlertLogsPage::applyAdminPermission() {
     if (m_dismissBtn) {

@@ -56,9 +56,9 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
         QString ph = ":t" + QString::number(i);
         phs << ph; binds[ph] = typeIds[i];
     }
-    // [V2.12 2026-07-02 袁燕] 改为按工具种类查询（去掉位置JOIN，加availableQty）
-    //   借用列表按工具种类显示，推荐工具自动选中，借用时自动分配位置
-    //   availableQty=映射表in_stock位置数（用户可选的借用数量上限）
+    // 改为按工具种类查询（去掉位置JOIN，加availableQty）
+    // 借用列表按工具种类显示，推荐工具自动选中，借用时自动分配位置
+    // availableQty=映射表in_stock位置数（用户可选的借用数量上限）
     QString sql = "SELECT DISTINCT tt.tool_id, ti.tool_name, ti.tool_code, ti.spec, ti.total_qty, ti.current_qty, tt.recommended_qty, "
                   "ti.cabinet_id, cb.cabinet_name, ti.layer, ti.position, ti.unit, "
                   "(SELECT COUNT(*) FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='in_stock') AS available_qty "
@@ -108,9 +108,9 @@ QList<TaskType> TaskTypeDAO::findAll() {
 }
 
 // [2026-09-23] 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
-//   JOIN映射表取实际在库位置（一个位置一个工具），供开柜页"我的任务工具"只读展示
-//   入参：typeId 任务类型ID；machineGroupId 机组ID（>0时启用机组隔离）
-//   返回：[{toolName, toolCode, cabinetName, layer, position}]
+// JOIN映射表取实际在库位置（一个位置一个工具），供开柜页"我的任务工具"只读展示
+// 入参：typeId 任务类型ID；machineGroupId 机组ID（>0时启用机组隔离）
+// 返回：[{toolName, toolCode, cabinetName, layer, position}]
 QJsonArray TaskTypeDAO::findInStockToolsByType(int typeId, int machineGroupId)
 {
     QSqlDatabase db = getDb();

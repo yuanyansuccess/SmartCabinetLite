@@ -8,7 +8,7 @@
 
 系统设置页面（仅管理员），支持：
 1. **网络配置**：IP/子网掩码/网关/DNS/网口速率/组网模式
-2. **告警参数**：蜂鸣器音量/LED灯/逾期阈值/柜门超时/RFID告警/断电告警
+2. **告警参数**：蜂鸣器音量/LED灯/逾期阈值/柜门超时/视觉告警/断电告警
 3. **借还设置**：最大借出数量/借用期限/缓冲时间/手动开锁/亮度/锁屏时间/人脸灵敏度
 4. **备份管理**：自动备份/周期/存储路径/断网缓存
 5. **系统操作**：恢复出厂/重启/清除日志/软件升级
@@ -31,7 +31,7 @@ struct SystemSettings {
     bool ledEnabled;         // LED灯是否启用
     int overdueThreshold;     // 逾期阈值（天）
     int cabinetTimeout;       // 柜门超时（秒）
-    bool rfidAlarmEnabled;    // RFID告警是否启用
+    bool visionAlarmEnabled;    // 视觉告警是否启用
     bool powerAlarmEnabled;   // 断电告警是否启用
     
     // 借还设置
@@ -79,7 +79,7 @@ ApiResponse getSettings();
         "ledEnabled": true,
         "overdueThreshold": 3,
         "cabinetTimeout": 30,
-        "rfidAlarmEnabled": true,
+        "visionAlarmEnabled": true,
         "powerAlarmEnabled": true,
         "maxBorrowQty": 5,
         "borrowPeriod": 7,

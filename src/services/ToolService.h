@@ -16,8 +16,8 @@ public:
     /**
      * @brief 工具入库
      * @param data 入库数据（toolCode/toolName/spec/category/quantity/cabinetId/machineGroupId/
-     *              position/rfidTag/recognitionMethod/documentPath）
-     *              recognitionMethod: rfid(默认) | vision
+     *              position/visionTag/recognitionMethod/documentPath）
+     *              recognitionMethod: vision（全系统统一视觉识别）
      *              documentPath: 工具文档本地路径(doc/docx/pdf)
      * @return 是否成功
      */

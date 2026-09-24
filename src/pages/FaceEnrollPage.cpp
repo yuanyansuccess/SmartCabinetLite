@@ -100,11 +100,11 @@ void FaceEnrollPage::setupUI() {
     m_camera->setStableFrames(6);      // [V2.03l] 20→6 减少稳定帧数，自动采集更快
     m_camera->setDetectInterval(80);   // [V2.03l] 120→80 加快检测频率
     // [V2.16fix] faceDetected/faceLost不再覆盖instructionLabel！
-    //   Capturing状态下方位检测独占提示权，faceDetected/faceLost只更新状态指示灯
+    // Capturing状态下方位检测独占提示权，faceDetected/faceLost只更新状态指示灯
     connect(m_camera, &FaceCameraWidget::faceDetected, this, [this](){
         if (m_state == Idle) return;
         // [V2.16fix] Capturing状态不覆盖instructionLabel（方位检测在控制提示）
-        //   只在非Capturing状态（如Confirm）时更新提示
+        // 只在非Capturing状态（如Confirm）时更新提示
         if (m_state != Capturing) {
             m_instructionLabel->setText(QStringLiteral("✅ 已检测到人脸"));
             m_instructionLabel->setStyleSheet("font-size:18px; font-weight:bold; color:#389e0d; background:transparent;");
@@ -123,9 +123,9 @@ void FaceEnrollPage::setupUI() {
 
     cardLayout->addWidget(m_camera, 0, Qt::AlignCenter);
 
-    // [V2.16 2026-07-06 袁燕] 方位大字提示标签：左侧/右侧/上偏/下偏/居中
-    //   字体36px醒目显示，背景高亮，触屏远距离可见
-    //   [V2.17fix-0706] 始终可见，默认显示"选择用户后点击开始录入"
+    // 方位大字提示标签：左侧/右侧/上偏/下偏/居中
+    // 字体36px醒目显示，背景高亮，触屏远距离可见
+    // [V2.17fix-0706] 始终可见，默认显示"选择用户后点击开始录入"
     m_directionLabel = new QLabel(QStringLiteral("选择用户后点击「开始录入」"));
     m_directionLabel->setAlignment(Qt::AlignCenter);
     m_directionLabel->setMinimumHeight(64);
@@ -312,8 +312,8 @@ void FaceEnrollPage::onUserSelected(int index) {
 
 // ==================== 录入流程 ====================
 
-// [V2.16 2026-07-06 袁燕] 5方位定义：正面/左侧/右侧/偏上/偏下
-//   方位判断基于face-api.js 68关键点几何：yaw=左右偏转，pitch=上下偏转
+// 5方位定义：正面/左侧/右侧/偏上/偏下
+// 方位判断基于face-api.js 68关键点几何：yaw=左右偏转，pitch=上下偏转
 struct PostureTarget {
     QString name;        // 方位名称（显示用）
     QString instruction; // 引导文字
@@ -324,8 +324,8 @@ struct PostureTarget {
 };
 
 // 5个方位的目标参数（yaw/pitch阈值由face-server.js计算）
-//   yaw >0.10 = 鼻子偏图像右（用户左转脸），< -0.10 = 偏图像左（用户右转脸）
-//   pitch >0.10 = 低头，< -0.10 = 抬头
+// yaw >0.10 = 鼻子偏图像右（用户左转脸），< -0.10 = 偏图像左（用户右转脸）
+// pitch >0.10 = 低头，< -0.10 = 抬头
 static const PostureTarget POSTURE_TARGETS[5] = {
     { QStringLiteral("居中"), QStringLiteral("请面向摄像头，保持正脸"),          -0.10, 0.10, -0.10, 0.10 },
     { QStringLiteral("左侧"), QStringLiteral("请将头部缓慢向右转，露出左侧面部"),  0.12, 1.00, -0.15, 0.15 },
@@ -357,7 +357,7 @@ void FaceEnrollPage::onStartEnroll() {
     m_camera->startCamera();
 
     // [V2.17fix-0706] 简化启动：等待face-server.js加载完成后再预检/posture
-    //   face-server.js首次启动需2-3秒加载模型，500ms太短导致误判不可用
+    // face-server.js首次启动需2-3秒加载模型，500ms太短导致误判不可用
     m_instructionLabel->setText(QStringLiteral("正在初始化人脸识别服务..."));
     m_instructionLabel->setStyleSheet("font-size:18px; color:#4da3ff; background:transparent;");
     m_directionLabel->setText(QStringLiteral("服务初始化"));
@@ -372,8 +372,8 @@ void FaceEnrollPage::onStartEnroll() {
 }
 
 /// [V2.17fix-0706 袁燕] 检查face-server.js /posture端点是否可用，选择采集模式
-///   增加重试机制：face-server.js首次启动需2-3秒加载模型，
-///   每次重试间隔500ms，最多重试REM次，确保不会误判为不可用
+/// 增加重试机制：face-server.js首次启动需2-3秒加载模型，
+/// 每次重试间隔500ms，最多重试REM次，确保不会误判为不可用
 void FaceEnrollPage::checkPostureServiceAndStart() {
     // 重试计数器（静态局部变量保持状态跨多次QTimer回调）
     static int retryCount = 0;
@@ -434,7 +434,7 @@ void FaceEnrollPage::checkPostureServiceAndStart() {
 }
 
 /// [V2.17fix-0706 袁燕] 简单模式启动：/posture API不可用时的fallback
-///   方向标签用橙色区分，明确告知用户当前是简易模式
+/// 方向标签用橙色区分，明确告知用户当前是简易模式
 void FaceEnrollPage::startSimpleMode() {
     m_simpleMode = true;
     const PostureTarget& target = POSTURE_TARGETS[0];
@@ -460,8 +460,8 @@ void FaceEnrollPage::stopPostureCheck() {
 }
 
 // [V2.17 袁燕] 方位检测回调：实时检测当前人脸方位
-//   每400ms调用face-server.js /posture接口检测yaw/pitch
-//   连续失败POSTURE_FAIL_FALLBACK次(10次≈4秒)→自动切换简单模式
+// 每400ms调用face-server.js /posture接口检测yaw/pitch
+// 连续失败POSTURE_FAIL_FALLBACK次(10次≈4秒)→自动切换简单模式
 void FaceEnrollPage::onPostureCheck() {
     if (m_state != Capturing) {
         qDebug() << "[FaceEnroll] onPostureCheck: state != Capturing, stopping";
@@ -631,7 +631,7 @@ void FaceEnrollPage::scheduleNextCapture() {
 }
 
 /// [V2.17 袁燕] 简单模式自动采集回调（posture API不可用时的fallback）
-///   每个方向等待SIMPLE_CAPTURE_DELAY_MS(3秒)后采集，给用户看方向提示的时间
+/// 每个方向等待SIMPLE_CAPTURE_DELAY_MS(3秒)后采集，给用户看方向提示的时间
 void FaceEnrollPage::onSimpleCapture() {
     if (m_state != Capturing) return;
 

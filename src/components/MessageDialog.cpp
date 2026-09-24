@@ -234,8 +234,8 @@ bool MessageDialog::showQuestion(QWidget* parent, const QString& title, const QS
 }
 
 // [2026-06-26] 脏数据保存确认对话框（保存/不保存，无取消按钮）
-//   返回: 0=不保存, 1=保存
-//   风格统一：圆角卡片+图标+触屏按钮，不使用QMessageBox原生样式
+// 返回: 0=不保存, 1=保存
+// 风格统一：圆角卡片+图标+触屏按钮，不使用QMessageBox原生样式
 int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const QString& message,
                                      const QString& saveText, const QString& discardText)
 {

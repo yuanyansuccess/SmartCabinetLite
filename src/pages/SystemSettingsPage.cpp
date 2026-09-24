@@ -132,7 +132,7 @@ void SystemSettingsPage::setupUI() {
         tab->setAlignment(Qt::AlignCenter);
         tab->installEventFilter(this);
         m_tabLabels.append(tab);
-        //yy  隐藏告警日志
+        //yy 隐藏告警日志
         if (i != 1)
         {
             tabBar->addWidget(tab);
@@ -244,7 +244,7 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     // [V2.03l 2026-06-30] 标题不占满宽度，左对齐+主色底边细线分隔
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("网络参数配置"));
-    // [V2.03u 2026-06-30 袁燕] 标题样式调整：去掉padding-bottom，减小font-size
+    // 标题样式调整：去掉padding-bottom，减小font-size
     title->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;background:transparent;").arg(StyleHelper::textColor()));
     titleRow->addWidget(title);
     titleRow->addStretch();
@@ -445,8 +445,8 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     m_doorTimeoutSpin->setStyleSheet(StyleHelper::settingSpinBox());
     form->addRow(makeLabel(QStringLiteral("柜门未关告警")), m_doorTimeoutSpin);
 
-    m_rfidCheck = makeToggle(true);
-    form->addRow(makeLabel(QStringLiteral("RFID信号弱告警")), m_rfidCheck);
+    m_visionCheck = makeToggle(true);
+    form->addRow(makeLabel(QStringLiteral("视觉识别异常告警")), m_visionCheck);
 
     // [V7.0] 断电告警方式：用按钮组替代QComboBox，风格统一
     // [2026-06-26] 统一按钮尺寸：44px高/Preferred策略，三按钮最大宽180px
@@ -567,7 +567,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     form->addRow(makeLabel(QStringLiteral("归还缓冲时间")), m_returnBufferSpin);
 
     // [V2.03c 2026-06-29] 删除3项：手动开锁验证、人脸识别灵敏度、自动锁屏时间
-    //   确认删除，只保留：借出数量/借用期限/归还缓冲/显示屏亮度
+    // 确认删除，只保留：借出数量/借用期限/归还缓冲/显示屏亮度
     m_brightnessSlider = new QSlider(Qt::Horizontal);
     m_brightnessSlider->setRange(30, 100);
     m_brightnessSlider->setValue(80);
@@ -877,7 +877,7 @@ void SystemSettingsPage::onSaveAlert() {
     cfg.setAlertLedEnabled(m_ledCheck->isChecked());
     cfg.setAlertOverdueHours(m_overdueSpin->value());
     cfg.setAlertDoorTimeout(m_doorTimeoutSpin->value());
-    cfg.setAlertRfidEnabled(m_rfidCheck->isChecked());
+    cfg.setAlertVisionEnabled(m_visionCheck->isChecked());
     cfg.setAlertPowerAlarmMode(m_powerAlarmMode);
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
     cfg.save();
@@ -1368,7 +1368,7 @@ bool SystemSettingsPage::isDirty() {
     if (!m_ledCheck || m_ledCheck->isChecked() != m_snapshot.ledAlert) return true;
     if (!m_overdueSpin || m_overdueSpin->value() != m_snapshot.overdueHours) return true;
     if (!m_doorTimeoutSpin || m_doorTimeoutSpin->value() != m_snapshot.doorTimeoutSec) return true;
-    if (!m_rfidCheck || m_rfidCheck->isChecked() != m_snapshot.rfidAlert) return true;
+    if (!m_visionCheck || m_visionCheck->isChecked() != m_snapshot.visionAlert) return true;
     if (m_powerAlarmMode != m_snapshot.powerAlarmMode) return true;
     if (!m_autoConfirmCheck || m_autoConfirmCheck->isChecked() != m_snapshot.autoConfirm) return true;
 
@@ -1406,7 +1406,7 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_ledCheck->setChecked(cfg.alertLedEnabled());
     m_overdueSpin->setValue(cfg.alertOverdueHours());
     m_doorTimeoutSpin->setValue(cfg.alertDoorTimeout());
-    m_rfidCheck->setChecked(cfg.alertRfidEnabled());
+    m_visionCheck->setChecked(cfg.alertVisionEnabled());
     m_powerAlarmMode = cfg.alertPowerAlarmMode(); updatePowerAlarmBtnStyles();
     m_autoConfirmCheck->setChecked(cfg.alertAutoConfirm());
 
@@ -1454,7 +1454,7 @@ bool SystemSettingsPage::saveConfigToIni() {
     cfg.setAlertLedEnabled(m_ledCheck->isChecked());
     cfg.setAlertOverdueHours(m_overdueSpin->value());
     cfg.setAlertDoorTimeout(m_doorTimeoutSpin->value());
-    cfg.setAlertRfidEnabled(m_rfidCheck->isChecked());
+    cfg.setAlertVisionEnabled(m_visionCheck->isChecked());
     cfg.setAlertPowerAlarmMode(m_powerAlarmMode);
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
 
@@ -1492,7 +1492,7 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.ledAlert = m_ledCheck ? m_ledCheck->isChecked() : true;
     m_snapshot.overdueHours = m_overdueSpin ? m_overdueSpin->value() : 24;
     m_snapshot.doorTimeoutSec = m_doorTimeoutSpin ? m_doorTimeoutSpin->value() : 30;
-    m_snapshot.rfidAlert = m_rfidCheck ? m_rfidCheck->isChecked() : true;
+    m_snapshot.visionAlert = m_visionCheck ? m_visionCheck->isChecked() : true;
     m_snapshot.powerAlarmMode = m_powerAlarmMode;
     m_snapshot.autoConfirm = m_autoConfirmCheck ? m_autoConfirmCheck->isChecked() : true;
 
@@ -1528,7 +1528,7 @@ void SystemSettingsPage::restoreSettings() {
     if (m_ledCheck) m_ledCheck->setChecked(m_snapshot.ledAlert);
     if (m_overdueSpin) m_overdueSpin->setValue(m_snapshot.overdueHours);
     if (m_doorTimeoutSpin) m_doorTimeoutSpin->setValue(m_snapshot.doorTimeoutSec);
-    if (m_rfidCheck) m_rfidCheck->setChecked(m_snapshot.rfidAlert);
+    if (m_visionCheck) m_visionCheck->setChecked(m_snapshot.visionAlert);
     m_powerAlarmMode = m_snapshot.powerAlarmMode; updatePowerAlarmBtnStyles();
     if (m_autoConfirmCheck) m_autoConfirmCheck->setChecked(m_snapshot.autoConfirm);
 
@@ -1556,8 +1556,8 @@ void SystemSettingsPage::restoreSettings() {
 }
 
 // [2026-06-27] 下拉选择机组自动保存到AppConfig，实时生效
-//   [2026-06-27] 校验：更换机组前，当前机组和目标机组下的工具都必须全部归还完毕
-//   否则不允许更换，防止跨机组借用数据混乱
+// [2026-06-27] 校验：更换机组前，当前机组和目标机组下的工具都必须全部归还完毕
+// 否则不允许更换，防止跨机组借用数据混乱
 void SystemSettingsPage::onMachineGroupSelected(int index) {
     if (!m_machineGroupCombo || index < 0) return;
     int groupId = m_machineGroupCombo->currentData().toInt();
@@ -1609,11 +1609,11 @@ void SystemSettingsPage::onMachineGroupSelected(int index) {
 }
 
 // [2026-06-27] 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）
-//   Windows方案：PowerShell + WMI (WmiMonitorBrightnessMethods.WmiSetBrightness)
-//   麒麟方案A：/sys/class/backlight/<dev>/brightness 内核接口（硬件级，需root）
-//   麒麟方案B：xrandr --output <dev> --brightness <val> X11 Gamma调整（软件级，无需root）
-//   麒麟方案C：brightnessctl set <val>% 命令（需安装）
-//   异步执行不阻塞UI，失败静默处理并降级尝试下一方案
+// Windows方案：PowerShell + WMI (WmiMonitorBrightnessMethods.WmiSetBrightness)
+// 麒麟方案A：/sys/class/backlight/<dev>/brightness 内核接口（硬件级，需root）
+// 麒麟方案B：xrandr --output <dev> --brightness <val> X11 Gamma调整（软件级，无需root）
+// 麒麟方案C：brightnessctl set <val>% 命令（需安装）
+// 异步执行不阻塞UI，失败静默处理并降级尝试下一方案
 void SystemSettingsPage::applyDisplayBrightness(int percent) {
     // 输入校验：亮度值范围 0-100
     if (percent < 0) percent = 0;
@@ -1677,13 +1677,13 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 #else
     // ═══════════ 麒麟Linux平台：三级降级方案 ═══════════
     // 方案A：/sys/class/backlight/ 内核接口（硬件级亮度，需root权限）
-    //   1) 遍历 /sys/class/backlight/ 找到第一个设备目录
-    //   2) 读取 max_brightness 计算实际值 = percent * max / 100
-    //   3) 用 pkexec/sudo 提权写入 brightness 文件
+    // 1) 遍历 /sys/class/backlight/ 找到第一个设备目录
+    // 2) 读取 max_brightness 计算实际值 = percent * max / 100
+    // 3) 用 pkexec/sudo 提权写入 brightness 文件
     // 方案B：xrandr X11 Gamma调整（软件级，无需root，所有X11桌面环境通用）
-    //   xrandr --output <display> --brightness <0.1~1.0>
+    // xrandr --output <display> --brightness <0.1~1.0>
     // 方案C：brightnessctl 命令（部分发行版预装）
-    //   brightnessctl set <percent>%
+    // brightnessctl set <percent>%
 
     // 封装异步执行+日志的Lambda
     auto runAsync = [this, percent, writeLog](const QString& method,
@@ -1720,7 +1720,7 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
     };
 
     // 方案A：尝试 /sys/class/backlight/ 内核接口
-    //   用 sh 脚本检测设备并写入，通过 pkexec 提权（麒麟默认安装）
+    // 用 sh 脚本检测设备并写入，通过 pkexec 提权（麒麟默认安装）
     QString backlightScript = QStringLiteral(
         "for dev in /sys/class/backlight/*/; do "
         "  if [ -f \"${dev}max_brightness\" ] && [ -w \"${dev}brightness\" ]; then "
@@ -1751,7 +1751,7 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
         qWarning() << "[Brightness] backlight failed, trying xrandr...";
 
         // 方案B：xrandr X11 Gamma调整（软件级，percent映射到0.1~1.0）
-        //   先获取显示器列表，再逐个设置
+        // 先获取显示器列表，再逐个设置
         QString xrandrScript = QStringLiteral(
             "displays=$(xrandr --listmonitors 2>/dev/null | grep -oP '(?<=Monitors: ).*' | tr ' ' '\\n'); "
             "if [ -z \"$displays\" ]; then "
@@ -1799,7 +1799,7 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
     });
 
     // 启动方案A：用pkexec提权尝试写入backlight（麒麟系统polkit已集成）
-    //   如果pkexec不可用则直接用sh（无root时可能失败，会自动降级到方案B）
+    // 如果pkexec不可用则直接用sh（无root时可能失败，会自动降级到方案B）
     procA->start(QStringLiteral("sh"), QStringList() << "-c" << backlightScript);
     if (!procA->waitForStarted(3000)) {
         qWarning() << "[Brightness] Failed to start backlight script";
@@ -1834,18 +1834,18 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 }
 
 // [2026-06-27] 跨平台设置自动锁屏时间
-//   Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
-//   麒麟：xset s <秒数> 设置屏幕保护超时 + xset dpms <秒数> 设置DPMS显示器电源管理
-//   同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
+// Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
+// 麒麟：xset s <秒数> 设置屏幕保护超时 + xset dpms <秒数> 设置DPMS显示器电源管理
+// 同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
 // [V2.03c] 已删除：applyAutoLockTime — 自动锁屏时间已从借还参数中移除
 
 // [2026-06-27] 从系统读取真实系统信息
-//   操作系统：Windows用QSysInfo，麒麟读/etc/os-release
-//   设备编号：Windows用机器名，麒麟读/etc/machine-id
-//   运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime
-//   磁盘空间：QStorageInfo跨平台
-//   CPU占用：Windows用wmic，麒麟读/proc/stat两次采样
-//   内存占用：Windows用wmic，麒麟读/proc/meminfo
+// 操作系统：Windows用QSysInfo，麒麟读/etc/os-release
+// 设备编号：Windows用机器名，麒麟读/etc/machine-id
+// 运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime
+// 磁盘空间：QStorageInfo跨平台
+// CPU占用：Windows用wmic，麒麟读/proc/stat两次采样
+// 内存占用：Windows用wmic，麒麟读/proc/meminfo
 void SystemSettingsPage::refreshSystemInfo() {
     // ── 操作系统 ──
     QString osInfo;
@@ -2055,7 +2055,7 @@ void SystemSettingsPage::refreshSystemInfo() {
         if (!p) return;
         QString output = p->readAllStandardOutput().trimmed();
         p->deleteLater();
-        // wmic输出两行: "FreePhysicalMemory  TotalVisibleMemorySize\n1234567  8388608"
+        // wmic输出两行: "FreePhysicalMemory TotalVisibleMemorySize\n1234567 8388608"
         QStringList lines = output.split('\n');
         if (lines.size() >= 2) {
             QStringList vals = lines[1].trimmed().split(QRegularExpression("\\s+"));
@@ -2124,12 +2124,12 @@ void SystemSettingsPage::refreshSystemInfo() {
 }
 
 // [2026-06-27] 执行数据库自动备份
-//   备份策略：
-//   1. 保存备份设置时立即执行一次备份（验证备份路径可用）
-//   2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
-//   3. MainWindow 启动定时器每小时检查一次是否到了备份时间
-//   备份内容：SQLite文件拷贝 / MySQL用mysqldump导出
-//   备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.db
+// 备份策略：
+// 1. 保存备份设置时立即执行一次备份（验证备份路径可用）
+// 2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
+// 3. MainWindow 启动定时器每小时检查一次是否到了备份时间
+// 备份内容：SQLite文件拷贝 / MySQL用mysqldump导出
+// 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.db
 void SystemSettingsPage::performDatabaseBackup() {
     auto& cfg = AppConfig::instance();
     QString backupPath = cfg.backupPath();
@@ -2279,9 +2279,9 @@ void SystemSettingsPage::performDatabaseBackup() {
 }
 
 // [2026-06-27] 获取第一块有线网卡名称
-//   Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡
-//   麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡
-//   返回网卡名称用于后续网络配置命令定位
+// Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡
+// 麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡
+// 返回网卡名称用于后续网络配置命令定位
 QString SystemSettingsPage::detectWiredInterfaceName() {
     QString ifName;
 
@@ -2346,9 +2346,9 @@ QString SystemSettingsPage::detectWiredInterfaceName() {
 }
 
 // [2026-06-27] 跨平台配置有线网卡
-//   Windows: netsh interface ip set address/dns（需管理员权限）
-//   麒麟: ip addr add + ip route add + resolvconf（需root）
-//   异步执行，失败静默处理并记录日志
+// Windows: netsh interface ip set address/dns（需管理员权限）
+// 麒麟: ip addr add + ip route add + resolvconf（需root）
+// 异步执行，失败静默处理并记录日志
 void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& mask,
                                             const QString& gateway, const QString& dns) {
     // 基础校验：IP不能为空

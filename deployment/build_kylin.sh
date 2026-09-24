@@ -13,7 +13,7 @@ BUILD_DIR="${PROJECT_DIR}/build-kylin"
 INSTALL_DIR="${PROJECT_DIR}/deploy-kylin"
 
 # Qt环境（根据实际安装路径调整）
-export QT_DIR="/opt/Qt/6.5.3/gcc_64"  # 麒麟系统Qt安装路径（如实际路径不同请修改）
+export QT_DIR="/opt/Qt/5.15.2/gcc_64"  # 麒麟系统Qt安装路径
 export PATH="${QT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${QT_DIR}/lib:${LD_LIBRARY_PATH}"
 

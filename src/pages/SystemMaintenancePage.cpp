@@ -31,7 +31,7 @@
 #include <QFileInfo>             // [V2.03j] 文件信息
 #include <QDir>                  // [V2.03j] 目录创建
 #include <QDateTime>             // [V2.03j] 时间戳文件名
-#include "common/Constants.h"    // [V2.03j] RECOGNITION_RFID/VISION + TOOL_DOC_SUFFIXES
+#include "common/Constants.h"    // [V2.03j] RECOGNITION_VISION + TOOL_DOC_SUFFIXES
 
 SystemMaintenancePage::SystemMaintenancePage(QWidget* parent) : QWidget(parent) {
     auto* mainLayout = new QVBoxLayout(this);
@@ -77,7 +77,7 @@ void SystemMaintenancePage::createTabBar(QVBoxLayout* mainLayout) {
         m_tabLabels.append(tab);
         tabBar->addWidget(tab);
     }
-    // [2026-09-23 袁燕] 隐藏"工具维护""工具对照关系"两个选项卡（保留索引占位，恢复时删除此两行即可）
+    // 隐藏"工具维护""工具对照关系"两个选项卡（保留索引占位，恢复时删除此两行即可）
     m_tabLabels[1]->hide();
     m_tabLabels[2]->hide();
     tabBar->addStretch();
@@ -153,8 +153,8 @@ bool SystemMaintenancePage::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void SystemMaintenancePage::refresh() {
-    // [V2.04 2026-06-30 袁燕] 菜单切换到系统维护时重置页面状态
-    //   1. 切回第一个Tab（任务配置） 2. 重新加载所有数据
+    // 菜单切换到系统维护时重置页面状态
+    // 1. 切回第一个Tab（任务配置） 2. 重新加载所有数据
     if (m_stackedWidget) m_stackedWidget->setCurrentIndex(0);
     m_activeTabIndex = 0;
     updateTabStyles();
@@ -492,7 +492,7 @@ void SystemMaintenancePage::ensureToolDialogCreated() {
     m_dlgSupplier->addItem(QStringLiteral("世达工具"));
     m_dlgSupplier->addItem(QStringLiteral("其他"));
     m_dlgRecognition = new QComboBox(); m_dlgRecognition->setStyleSheet(StyleHelper::comboBox()); m_dlgRecognition->setMinimumHeight(44);
-    m_dlgRecognition->addItem(QStringLiteral("RFID识别"), SC::RECOGNITION_RFID);
+    // [2026-09-24] 全系统统一为视觉识别，识别方式不再提供其它选项
     m_dlgRecognition->addItem(QStringLiteral("视觉识别"), SC::RECOGNITION_VISION);
     m_dlgDocumentEdit = new QLineEdit(); m_dlgDocumentEdit->setStyleSheet(StyleHelper::lineEdit()); m_dlgDocumentEdit->setMinimumHeight(44); m_dlgDocumentEdit->setReadOnly(true);
     m_dlgDocumentEdit->setPlaceholderText(QStringLiteral("支持 .doc / .docx / .pdf，最大50MB"));
@@ -589,8 +589,8 @@ void SystemMaintenancePage::onEditTool(int toolId) {
 
 void SystemMaintenancePage::onDeleteTool(int toolId) {
     // 按工具状态判断是否可删除
-    //   在库(in_stock)/已借出(borrowed) → 不能删除（工具还有物理实体在系统中）
-    //   待入库(pending)/已出库(checked_out)/维护中(maintenance) → 可以删除
+    // 在库(in_stock)/已借出(borrowed) → 不能删除（工具还有物理实体在系统中）
+    // 待入库(pending)/已出库(checked_out)/维护中(maintenance) → 可以删除
     db::ToolDAO toolDao;
     QJsonObject t = toolDao.findById(toolId);
     if (!t.isEmpty()) {

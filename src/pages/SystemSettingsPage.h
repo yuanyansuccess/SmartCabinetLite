@@ -114,7 +114,7 @@ private:
     QCheckBox* m_ledCheck = nullptr;
     QSpinBox* m_overdueSpin = nullptr;
     QSpinBox* m_doorTimeoutSpin = nullptr;
-    QCheckBox* m_rfidCheck = nullptr;
+    QCheckBox* m_visionCheck = nullptr;
     // [V7.0] 断电告警方式改为按钮组（替换QComboBox）
     QPushButton* m_powerAlarmBtn1 = nullptr;  // 声光同时告警
     QPushButton* m_powerAlarmBtn2 = nullptr;  // 仅灯光
@@ -179,7 +179,7 @@ private:
         int speedMode, networkMode;
         // 告警参数
         int buzzerVol, overdueHours, doorTimeoutSec, powerAlarmMode;
-        bool ledAlert, rfidAlert, autoConfirm;
+        bool ledAlert, visionAlert, autoConfirm;
         // 借还设置
         int maxBorrow, defaultPeriod, returnBuffer, brightness;
         // [V2.03c] 已删除：lockTime, faceSensitivity, manualUnlock

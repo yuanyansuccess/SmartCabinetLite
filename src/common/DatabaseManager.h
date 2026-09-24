@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  数据库连接管理（单例）
-// 日期：2026-06-21  功能：管理MySQL连接、执行查询、事务控制
+// 日期：2026-06-21 功能：管理MySQL连接、执行查询、事务控制
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>

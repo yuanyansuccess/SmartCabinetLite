@@ -16,10 +16,10 @@ using db::ToolDAO;
 ToolService::ToolService() {}
 
 bool ToolService::checkinTool(const QJsonObject& data) {
-    // [V2.08 2026-06-30 袁燕] 入库逻辑重构：只更新映射表status，不新建tool_info记录
-    //   核心设计：一个工具可以在多个位置入库，tool_info只存工具基础信息
-    //   入库 = UPDATE tool_position_mapping SET status='in_stock' WHERE mapping_id=?
-    //   位置占用状态由映射表status字段管理，不再依赖tool_info的cabinet_id/layer/position
+    // 入库逻辑重构：只更新映射表status，不新建tool_info记录
+    // 核心设计：一个工具可以在多个位置入库，tool_info只存工具基础信息
+    // 入库 = UPDATE tool_position_mapping SET status='in_stock' WHERE mapping_id=?
+    // 位置占用状态由映射表status字段管理，不再依赖tool_info的cabinet_id/layer/position
     int selectedToolId = data["selectedToolId"].toInt(0);
     int checkinIndex = data["checkinIndex"].toInt(0);
     if (selectedToolId <= 0) {
@@ -46,7 +46,7 @@ bool ToolService::checkinTool(const QJsonObject& data) {
             << "入库数量=" << positions.size();
 
     // 遍历所有位置，通过DAO更新映射表status
-    // [V2.12-fix5 2026-07-03 袁燕] 只允许pending位置入库，防止已borrowed位置被覆盖
+    // 只允许pending位置入库，防止已borrowed位置被覆盖
     bool allSuccess = true;
     for (int i = 0; i < positions.size(); ++i) {
         QJsonObject posObj = positions[i].toObject();
@@ -70,9 +70,9 @@ bool ToolService::checkinTool(const QJsonObject& data) {
         }
     }
 
-    // [V2.11 2026-07-02 袁燕] 入库后更新tool_info状态
-    //   如果工具原来是pending，入库后至少有1个in_stock位置，tool_info改为in_stock
-    //   current_qty=映射表中in_stock位置数
+    // 入库后更新tool_info状态
+    // 如果工具原来是pending，入库后至少有1个in_stock位置，tool_info改为in_stock
+    // current_qty=映射表中in_stock位置数
     if (existing["status"].toString() == "pending") {
         QJsonObject updates;
         updates["status"] = "in_stock";

@@ -59,7 +59,7 @@ AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
 // QJsonObject API（Service层使用）[2026-06-25] 改用type_id
 // ═══════════════════════════════════════════════
 int AlertDAO::insert(const QJsonObject& alert) {
-    // [V2.13 2026-07-04 袁燕] 补上alert_type/alert_level列，外键字段为0时设NULL
+    // 补上alert_type/alert_level列，外键字段为0时设NULL
     int typeId = alert["typeId"].toInt(0);
     QVariant userIdVal = alert["userId"].toInt(0) > 0 ? QVariant(alert["userId"].toInt()) : QVariant();
     QVariant toolIdVal = alert["toolId"].toInt(0) > 0 ? QVariant(alert["toolId"].toInt()) : QVariant();
@@ -205,11 +205,11 @@ int AlertDAO::getUnresolvedCount() {
 // 实体类API（Controller层使用）[2026-06-25] JOIN sys_alert_type
 // ═══════════════════════════════════════════════
 int AlertDAO::insertAlert(const AlertLog& a) {
-    // [V2.13 2026-07-04 袁燕] 第四次修复告警写入：
-    //   根因：INSERT不填alert_type/alert_level列→新告警这两个字段为空→
-    //   每次启动hasLegacyData检测alert_type=''→DELETE FROM sys_alert→清空用户产生的告警→"永远是20条"
-    //   修复：INSERT补上alert_type和alert_level列，从sys_alert_type表查对应值
-    //   外键约束：user_id/tool_id为0时设NULL
+    // 第四次修复告警写入：
+    // 根因：INSERT不填alert_type/alert_level列→新告警这两个字段为空→
+    // 每次启动hasLegacyData检测alert_type=''→DELETE FROM sys_alert→清空用户产生的告警→"永远是20条"
+    // 修复：INSERT补上alert_type和alert_level列，从sys_alert_type表查对应值
+    // 外键约束：user_id/tool_id为0时设NULL
 
     QVariant userIdVal = (a.userId > 0) ? QVariant(a.userId) : QVariant();
     QVariant toolIdVal = (a.toolId > 0) ? QVariant(a.toolId) : QVariant();
@@ -231,7 +231,7 @@ int AlertDAO::insertAlert(const AlertLog& a) {
     }
 
     // sys_alert表完整列：alert_id, type_id, alert_type, alert_level, tool_id, tool_code,
-    //   content, status, user_id, record_id, created_at, handled_at, handler_id, remark
+    // content, status, user_id, record_id, created_at, handled_at, handler_id, remark
     int result = insertAndGetId(
         "INSERT INTO sys_alert (type_id, alert_type, alert_level, user_id, tool_id, tool_code, content, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -296,7 +296,7 @@ int AlertDAO::countAlerts(const QString& type, const QString& level,
 
 bool AlertDAO::markHandled(int alertId, const QString& handledBy) {
     // [2026-06-27v17] MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
-    //   传字符串"admin"在MySQL中因外键失败，改为NULL
+    // 传字符串"admin"在MySQL中因外键失败，改为NULL
     QSqlDatabase db = getDb();
     if (!db.isOpen()) return false;
     QSqlQuery q(db);
@@ -317,7 +317,7 @@ bool AlertDAO::markAllHandled(const QString& handledBy) {
 // [V7.9 2026-06-24] 忽略告警：status设为ignored，DB保留记录供审计，列表查询时排除
 // [2026-06-26] 修复：SQLite不支持NOW()，改用datetime('now')
 // [2026-06-26v3] 改用getDb()+QSqlQuery直连路径，与acknowledge/insert等成功方法一致，
-//   避免BaseDAO::execute→executeNonQuery链路中的潜在连接状态问题
+// 避免BaseDAO::execute→executeNonQuery链路中的潜在连接状态问题
 bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
     // [2026-06-27v16] 增加完整诊断日志，定位忽略失败根因
     QSqlDatabase db = getDb();
@@ -332,9 +332,9 @@ bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
     }
     QSqlQuery q(db);
     // [2026-06-27v17根因修复] MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
-    //   handler_id=0在sys_user中不存在→外键约束失败。
-    //   改为handler_id=NULL（外键允许NULL），与markHandled的行为一致（markHandled传字符串
-    //   "admin"在MySQL中也会因外键失败，但那个方法可能连的SQLite所以没暴露）。
+    // handler_id=0在sys_user中不存在→外键约束失败。
+    // 改为handler_id=NULL（外键允许NULL），与markHandled的行为一致（markHandled传字符串
+    // "admin"在MySQL中也会因外键失败，但那个方法可能连的SQLite所以没暴露）。
     QString sql = "UPDATE sys_alert SET status='ignored', handled_at=CURRENT_TIMESTAMP, handler_id=NULL WHERE alert_id=?";
     q.prepare(sql);
     q.addBindValue(alertId);
@@ -494,7 +494,7 @@ QJsonObject AlertDAO::getStats(const QString& types, const QString& level, const
     return stats;
 }
 
-// [V2.15 2026-07-05 袁燕] 按type_code查询type_id，找不到返回-1
+// 按type_code查询type_id，找不到返回-1
 int AlertDAO::findTypeIdByCode(const QString& typeCode)
 {
     if (typeCode.isEmpty()) return -1;
@@ -506,7 +506,7 @@ int AlertDAO::findTypeIdByCode(const QString& typeCode)
     return -1;
 }
 
-// [V2.15 2026-07-05 袁燕] 按type_id查询alert_level，找不到返回空字符串
+// 按type_id查询alert_level，找不到返回空字符串
 QString AlertDAO::findTypeLevelById(int typeId)
 {
     if (typeId <= 0) return QString();

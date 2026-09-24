@@ -93,17 +93,17 @@ private:
     void handleStrangerConfirm();
 
     // 左侧品牌区
-    QWidget* m_leftPanel;
+    QWidget* m_leftPanel = nullptr;
     // 右侧认证区
-    QWidget* m_rightPanel;
-    QStackedWidget* m_rightStack;
+    QWidget* m_rightPanel = nullptr;
+    QStackedWidget* m_rightStack = nullptr;
     QLabel* m_welcomeLabel;
     QLabel* m_subtitleLabel;
 
     // 人脸摄像头
     QWidget* m_cameraWrap = nullptr;        // [v4] 摄像头外层容器，切换密码登录时整体隐藏
     FaceCameraWidget* m_faceCamera;
-    QLabel* m_cameraStatusIcon;
+    QLabel* m_cameraStatusIcon = nullptr;
     QLabel* m_cameraStatusText;
     QLabel* m_captureProgress;
     /** [新增] 状态闪烁圆点 */
@@ -165,7 +165,7 @@ private:
     QTimer* m_autoJumpTimer;
 
     // 软键盘
-    // [2026-09-23] 账号改纯数字工号，用户名/密码统一由NumKeypad输入，移除字母软键盘
+    // [2026-09-23] 账号改纯数字0....................................................................工号，用户名/密码统一由NumKeypad输入，移除字母软键盘
     NumKeypad* m_numKeypad = nullptr;   // 独立数字键盘，顶层Popup零穿透
     QString m_activeField; // "username" or "password"
 

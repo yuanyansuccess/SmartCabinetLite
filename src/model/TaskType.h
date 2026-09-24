@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  任务类型实体
-// 日期：2026-06-21  [V1.00.8.4] 修复：映射表task_type，字段对齐数据库schema
+// 日期：2026-06-21 [V1.00.8.4] 修复：映射表task_type，字段对齐数据库schema
 #include <QString>
 #include <QDateTime>
 

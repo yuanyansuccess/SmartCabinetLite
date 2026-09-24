@@ -1,6 +1,6 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  AuthController实现
-// 日期：2026-06-21  登录流程：用户名密码→SHA256验证→生成Token
-//                  人脸登录：特征提取→余弦相似度→阈值判断
+// 日期：2026-06-21 登录流程：用户名密码→SHA256验证→生成Token
+// 人脸登录：特征提取→余弦相似度→阈值判断
 #include "AuthController.h"
 #include <QCryptographicHash>
 #include <QRandomGenerator>
@@ -118,9 +118,9 @@ AuthController::LoginResult AuthController::loginByFace(const QString& faceFeatu
 
     // 置信度分级
     // [V2.03f] 要求94%以上才验证成功，杜绝偶发误判
-    //   高置信度 0.90→0.94（直接通过线）
-    //   中等置信度 0.85→0.90（需二次验证，简化为直接拒绝）
-    //   低于0.94一律拒绝
+    // 高置信度 0.90→0.94（直接通过线）
+    // 中等置信度 0.85→0.90（需二次验证，简化为直接拒绝）
+    // 低于0.94一律拒绝
     if (bestSimilarity >= 0.94) {
         // 高置信度，直接通过
     } else {

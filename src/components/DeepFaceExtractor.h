@@ -73,6 +73,21 @@ public:
     static bool ensureServerRunning();
 
     /**
+     * @brief [2026-09-24] 主程序启动时预拉起人脸识别服务（异步，不阻塞主界面）
+     *
+     * 全程在主线程完成：启动face-server.js子进程后由定时器轮询就绪状态，
+     * 不阻塞程序启动；服务进程由应用对象托管，主程序退出时自动终止。
+     */
+    static void prestartAsync();
+
+    /**
+     * @brief [2026-09-24] 停止本程序拉起的人脸识别服务（主程序退出时调用）
+     *
+     * 仅终止由prestartAsync拉起的进程；外部手动启动的服务不受影响。
+     */
+    static void shutdownServer();
+
+    /**
      * @brief [V2.16] QImage转base64 JPEG（extract和detectPosture共用）
      *        [V2.18] 改为public，供UserManagementPage异步调用
      */
@@ -87,6 +102,12 @@ private:
 
     /// [V2.03] 检查服务健康状态
     static bool checkServerHealth();
+
+    /// [2026-09-24] 由本程序拉起服务子进程（主线程专用，进程指针由qApp托管）
+    static bool startServerProcess();
+
+    /// [2026-09-24] 异步等待服务就绪（定时器轮询，不阻塞主线程）
+    static void waitReadyAsync(int triedTimes);
 
     /// [V2.03] HTTP同步请求（阻塞等待响应）
     QString httpPostSync(const QString& url, const QByteArray& body, int timeoutMs);

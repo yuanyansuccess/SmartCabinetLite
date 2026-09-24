@@ -35,10 +35,10 @@
 class SoftKeyboard;  // [V6.6]
 
 // [V7.4] 选中的工具信息结构
-// [V2.12 2026-07-02 袁燕] 按工具种类选中，借用时自动分配位置
-// [V2.12-fix3 2026-07-03 袁燕] 加回mappingId，展开清单时保存具体位置ID
-//   根因：V2.12去掉mappingId后，executeBorrow重新查"第一个in_stock位置"，
-//         可能与展开分配的位置不匹配→借用记录mappingId与实际借用的位置不一致
+// 按工具种类选中，借用时自动分配位置
+// 加回mappingId，展开清单时保存具体位置ID
+// 根因：V2.12去掉mappingId后，executeBorrow重新查"第一个in_stock位置"，
+// 可能与展开分配的位置不匹配→借用记录mappingId与实际借用的位置不一致
 struct SelectedToolInfo {
     int toolId = 0;
     int mappingId = 0;  // [V2.12-fix3] 展开清单时保存的具体位置mappingId
@@ -106,10 +106,10 @@ private:
     QTabWidget* m_tabWidget;
 
     // 借用任务Tab
-    QLabel* m_userInfoLabel;  // 借用人
-    QLabel* m_workNoLabel;    // 工号
-    QLabel* m_deptLabel;      // 所属机组
-    QLabel* m_dateLabel;      // 日期
+    QLabel* m_userInfoLabel = nullptr;  // 借用人
+    QLabel* m_workNoLabel = nullptr;    // 工号
+    QLabel* m_deptLabel = nullptr;      // 所属机组
+    QLabel* m_dateLabel = nullptr;      // 日期
     QLabel* m_flowNoDisplay;  // 任务单号显示
     
     // 任务类型多选下拉
@@ -125,7 +125,7 @@ private:
     QTableWidget* m_allToolTable;
     QLineEdit* m_toolSearchEdit;
     QPushButton* m_toolSearchBtn;
-    QLineEdit* m_quantityEdit;
+    QLineEdit* m_quantityEdit = nullptr;
     QLabel* m_returnTimeLabel = nullptr;   // [2026-06-27] 改为只读Label自动显示系统参数计算的归还时间
     QPushButton* m_borrowBtn;
 

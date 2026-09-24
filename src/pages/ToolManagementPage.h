@@ -67,12 +67,12 @@ private:
     QFrame* m_statsCardCheckedOut;   // 已出库卡片
     QFrame* m_statsCardPending;     // 待入库卡片
     QFrame* m_statsCardMaintenance;
-    QLabel* m_labelTotalTools;
-    QLabel* m_labelInStock;
-    QLabel* m_labelBorrowed;
-    QLabel* m_labelCheckedOut;       // 已出库数量
-    QLabel* m_labelPending;          // 待入库数量
-    QLabel* m_labelMaintenance;
+    QLabel* m_labelTotalTools = nullptr;
+    QLabel* m_labelInStock = nullptr;
+    QLabel* m_labelBorrowed = nullptr;
+    QLabel* m_labelCheckedOut = nullptr;       // 已出库数量
+    QLabel* m_labelPending = nullptr;          // 待入库数量
+    QLabel* m_labelMaintenance = nullptr;
 
     // 搜索筛选
     QLineEdit* m_searchEdit;

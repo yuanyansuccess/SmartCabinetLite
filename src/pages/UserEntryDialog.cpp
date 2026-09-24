@@ -124,9 +124,9 @@ UserEntryDialog::Choice UserEntryDialog::execChoice()
 }
 
 // [2026-09-23] 查询：弹出当前用户借用明细对话框（全屏模态，触屏风格）
-//   展示该用户全部借用记录（当前借用在前），关闭后停留在功能选择页
-//   数据源：RecordDAO::findBorrowsByUser（DAO层现成接口，零新增SQL）
-//   输入：无（使用m_user.userId）；输出：无（仅展示）
+// 展示该用户全部借用记录（当前借用在前），关闭后停留在功能选择页
+// 数据源：RecordDAO::findBorrowsByUser（DAO层现成接口，零新增SQL）
+// 输入：无（使用m_user.userId）；输出：无（仅展示）
 void UserEntryDialog::showBorrowDetail()
 {
     db::RecordDAO dao;
@@ -234,7 +234,7 @@ void UserEntryDialog::showBorrowDetail()
 }
 
 // [2026-09-23] 未处理告警数（提示显隐依据）
-//   输入：无；返回：sys_alert中status=unhandled的记录数（查询失败返回0）
+// 输入：无；返回：sys_alert中status=unhandled的记录数（查询失败返回0）
 int UserEntryDialog::unhandledAlertCount()
 {
     db::AlertDAO dao;
@@ -242,9 +242,9 @@ int UserEntryDialog::unhandledAlertCount()
 }
 
 // [2026-09-23] 告警日志：弹出系统告警列表对话框（全屏模态，触屏风格）
-//   展示告警内容/类型/借用人/时间/状态，待处理排前；关闭后停留在功能选择页
-//   数据源：AlertDAO::findAll（含JOIN类型字典/借用人/工具，DAO零改动）
-//   输入：无；输出：无（仅展示）
+// 展示告警内容/类型/借用人/时间/状态，待处理排前；关闭后停留在功能选择页
+// 数据源：AlertDAO::findAll（含JOIN类型字典/借用人/工具，DAO零改动）
+// 输入：无；输出：无（仅展示）
 void UserEntryDialog::showAlertDialog()
 {
     db::AlertDAO dao;

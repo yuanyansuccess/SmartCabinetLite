@@ -260,7 +260,7 @@ void UserManagementPage::setupUI() {
     m_table->setAlternatingRowColors(false);
     // [V2.02 2026-06-28] 移除内联表格QSS，使用全局QSS统一表格样式（小米设计语言）
     // [V8.2 2026-06-25] 数据列Stretch均分，操作列Fixed紧凑（触屏按钮~130px）
-    //   列：工号  姓名  部门  角色  联系电话  人脸录入  创建时间  状态  操作(idx8)
+    // 列：工号 姓名 部门 角色 联系电话 人脸录入 创建时间 状态 操作(idx8)
     for (int i = 0; i < 8; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
     }
@@ -1130,8 +1130,8 @@ void UserManagementPage::onFaceEnroll(int userId) {
     bl->addStretch();
 
     // ---- [V2.17fix-0706 袁燕] 5方位检测引导采集逻辑 ----
-    //   使用face-server.js /posture接口实时检测人脸yaw/pitch
-    //   只有用户真正转到目标方位才采集，不是简单的定时采集
+    // 使用face-server.js /posture接口实时检测人脸yaw/pitch
+    // 只有用户真正转到目标方位才采集，不是简单的定时采集
     int captureCount = 0;
     QString bestDescriptor;
     double bestConfidence = 0.0;
@@ -1144,9 +1144,9 @@ void UserManagementPage::onFaceEnroll(int userId) {
         double yawMin, yawMax, pitchMin, pitchMax;
     };
     // 方位目标参数（yaw/pitch方向与face-server.js /posture接口一致）
-    //   yaw:  正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
-    //   pitch: 正值=低头，负值=抬头
-    //   归一化基准为人脸框宽高，阈值经实测校准
+    // yaw: 正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
+    // pitch: 正值=低头，负值=抬头
+    // 归一化基准为人脸框宽高，阈值经实测校准
     static const PostureTarget POSTURE_TARGETS[5] = {
         { QStringLiteral("居中"), QStringLiteral("请面向摄像头，保持正脸"),          -0.15, 0.15, -0.15, 0.15 },
         { QStringLiteral("左侧"), QStringLiteral("请将头部向右转，露出左侧面部"),   -0.50,-0.15, -0.30, 0.30 },
@@ -1190,8 +1190,8 @@ void UserManagementPage::onFaceEnroll(int userId) {
         camera->captureNow();
     };
 
-    // [V2.18 2026-07-06 袁燕] 方位检测回调 — 异步HTTP模式
-    //   定时器触发异步POST /posture，HTTP响应回调中做方位匹配，不阻塞UI
+    // 方位检测回调 — 异步HTTP模式
+    // 定时器触发异步POST /posture，HTTP响应回调中做方位匹配，不阻塞UI
     connect(postureTimer, &QTimer::timeout, dlg, [=, &captureCount, &isCapturing, &simpleMode, &targetIdx,
         &postureMatchCount, &postureFirstMatchTime, &postureStartTime, &postureFailCount,
         &postureNam, &postureRequestPending, &postureHttpFailCount]() {

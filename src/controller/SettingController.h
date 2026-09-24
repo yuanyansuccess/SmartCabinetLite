@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  系统设置业务控制层
-// 日期：2026-06-21  功能：数据库配置、系统参数的管理
+// 日期：2026-06-21 功能：数据库配置、系统参数的管理
 #include <QObject>
 #include "common/AppConfig.h"
 

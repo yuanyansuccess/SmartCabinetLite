@@ -395,8 +395,8 @@ QWidget* ToolBorrowPage::createBorrowRecordTab() {
     m_recordTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     // [V2.02 2026-06-28] 移除内联表格QSS，使用全局QSS统一表格样式
     // [V8.2 2026-06-25] 数据列Stretch均分，操作列Fixed紧凑（触屏按钮~130px）
-    //   [V2.08 2026-06-30 袁燕] 列：借用时间  工具名称  位置  状态  操作(idx4)
-    //   借用数量改为位置（以借用位置维度显示，同一工具可多位置借用）
+    // 列：借用时间 工具名称 位置 状态 操作(idx4)
+    // 借用数量改为位置（以借用位置维度显示，同一工具可多位置借用）
     for (int i = 0; i < 4; i++) {
         m_recordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
     }
@@ -578,7 +578,7 @@ void ToolBorrowPage::loadRecommendedTools() {
     QJsonArray tools = svc.getRecommendedTools(m_selectedTypeIds, groupId);
 
     // [2026-06-27] 合并推荐工具到统一表格：推荐工具默认勾选
-    // [V2.12 2026-07-02 袁燕] 按工具种类选中，用toolId，stock=availableQty
+    // 按工具种类选中，用toolId，stock=availableQty
     m_selectedTools.clear();
     m_selectedToolIds.clear();
     for (int i = 0; i < tools.size(); ++i) {
@@ -662,7 +662,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
     QJsonArray normalList;
     for (int i = 0; i < allList.size(); ++i) {
         QJsonObject t = allList[i].toObject();
-        // [V2.12 2026-07-02 袁燕] 选中/推荐标识用toolId（按工具种类）
+        // 选中/推荐标识用toolId（按工具种类）
         int toolId = t["toolId"].toInt();
         bool isRecommended = m_recommendedToolIds.contains(toolId);
         bool isSelected = m_selectedToolIds.contains(toolId);
@@ -697,7 +697,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         QString toolName = t["toolName"].toString();
         int currentQty = t["currentQty"].toInt();
         int totalQty = t["totalQty"].toInt();
-        // [V2.12 2026-07-02 袁燕] 按工具种类选中，用toolId，availableQty=可用库存数
+        // 按工具种类选中，用toolId，availableQty=可用库存数
         int availableQty = t["availableQty"].toInt();
         QString unit = t["unit"].toString().isEmpty() ? QStringLiteral("件") : t["unit"].toString();
         // [2026-06-27] 推荐行浅蓝底，对齐 #4da3ff 蓝色主调
@@ -737,7 +737,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         };
 
         // Col 4: 数量下拉框（1/availableQty, 2/availableQty...格式）
-        // [V2.12 2026-07-02 袁燕] 数量上限改为availableQty（可用位置数）
+        // 数量上限改为availableQty（可用位置数）
         auto* qtyCombo = new QComboBox();
         int maxQty = qMax(1, availableQty);
         for (int n = 1; n <= maxQty; ++n) {
@@ -763,7 +763,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
             });
 
         // checkbox toggle 回调
-        // [V2.12 2026-07-02 袁燕] 按工具种类选中，用toolId
+        // 按工具种类选中，用toolId
         QString toolCode = t["toolCode"].toString();
         QString position = t["position"].toString();
         connect(checkBox, &QCheckBox::toggled, this, [this, toolId, toolName, toolCode, position, availableQty, qtyCombo, refreshBorrowBtn](bool checked) {
@@ -793,8 +793,8 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
             }
             refreshBorrowBtn();
             // [V2.02 2026-06-28] 恢复跳首页：已选工具排序靠前，跳到第一页可见
-            //   用QTimer延迟执行，避免在toggled信号回调中同步销毁发出信号的checkbox
-            //   用rebuildToolTableFromCache从缓存重建，不查DB效率高
+            // 用QTimer延迟执行，避免在toggled信号回调中同步销毁发出信号的checkbox
+            // 用rebuildToolTableFromCache从缓存重建，不查DB效率高
             m_toolCurrentPage = 1;
             QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
         });
@@ -893,7 +893,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
                     }
                     refreshBorrowBtn();
                     // [V2.02 2026-06-28] 恢复跳首页：已选工具排序靠前，跳到第一页可见
-                    //   从缓存重建不查DB，QTimer延迟避免信号回调中销毁widget
+                    // 从缓存重建不查DB，QTimer延迟避免信号回调中销毁widget
                     m_toolCurrentPage = 1;
                     QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
                 });
@@ -925,7 +925,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
 }
 
 void ToolBorrowPage::loadBorrowRecords() {
-    // [V2.04 2026-06-30 袁燕] 显示所有位置的借用记录（不限当前用户）
+    // 显示所有位置的借用记录（不限当前用户）
     BorrowService svc;
     QJsonObject result = svc.getAllRecords(m_recordCurrentPage, m_recordPageSize);
     QJsonArray records = result["list"].toArray();
@@ -943,8 +943,8 @@ void ToolBorrowPage::loadBorrowRecords() {
         QJsonObject r = records[i].toObject();
         m_recordTable->setItem(i, 0, new QTableWidgetItem(r["borrowTime"].toString()));
         m_recordTable->setItem(i, 1, new QTableWidgetItem(r["toolName"].toString()));
-        // [V2.08 2026-06-30 袁燕] 借用数量改为位置（以借用位置维度显示）
-        //   位置格式A-01-01，空值显示--，同一工具可多位置借用（每条记录对应一个位置）
+        // 借用数量改为位置（以借用位置维度显示）
+        // 位置格式A-01-01，空值显示--，同一工具可多位置借用（每条记录对应一个位置）
         QString posDisplay = r["position"].toString();
         auto* posItem = new QTableWidgetItem(posDisplay.isEmpty() ? QStringLiteral("--") : posDisplay);
         posItem->setTextAlignment(Qt::AlignCenter);
@@ -1040,7 +1040,7 @@ void ToolBorrowPage::onBorrowConfirm() {
     }
 
     // [2026-06-27] 从本机组在库工具列表补全选中工具的 toolCode 和 position
-    //   集中在此处补全，避免改动3处分散的lambda捕获列表
+    // 集中在此处补全，避免改动3处分散的lambda捕获列表
     // [V8.0 2026-06-28] #17修复：使用refreshAllToolTable缓存的数据，不再重复查库
     //   作者：袁燕
     {
@@ -1085,10 +1085,10 @@ void ToolBorrowPage::onBorrowConfirm() {
     }
 
     // [V2.03d 2026-06-29] 构建按位置展开的借用清单
-    //   设计理念：一个位置(机组-柜-层-位号)=一个工具，quantity>1时需找到同名同规格的多个位置
+    // 设计理念：一个位置(机组-柜-层-位号)=一个工具，quantity>1时需找到同名同规格的多个位置
     //   展开后每条记录对应一个具体位置，quantity恒为1。作者：袁燕
     // 改为从映射表自动分配in_stock位置（不再从缓存匹配）
-    //   每个选中工具按quantity从映射表找对应数量的in_stock位置
+    // 每个选中工具按quantity从映射表找对应数量的in_stock位置
     m_expandedBorrowList.clear();
     {
         db::ToolDAO toolDao;
@@ -1414,7 +1414,7 @@ void ToolBorrowPage::showToolVerifyDialog() {
     QString firstPosition = m_expandedBorrowList.isEmpty() ? QStringLiteral("A-01")
         : (m_expandedBorrowList.first().position.isEmpty() ? QStringLiteral("A-01") : m_expandedBorrowList.first().position);
     auto* descLabel = new QLabel(QStringLiteral(
-        "检测到 <b>%1</b> 位置的工具RFID标签与清单不符，<br/>"
+        "检测到 <b>%1</b> 位置的工具视觉识别与清单不符，<br/>"
         "可能原因：误取相邻柜位工具、标签损坏或柜位错位。<br/><br/>"
         "请重新核对工具后点击确认，系统将完成借用登记。"
     ).arg(firstPosition));
@@ -1502,7 +1502,7 @@ void ToolBorrowPage::showToolVerifyDialog() {
             alert.toolId = m_selectedTools.first().toolId;
             alert.toolCode = m_selectedTools.first().toolCode;
         }
-        alert.message = QStringLiteral("工具核对异常：%1位置工具RFID标签与清单不符，用户忽略告警或倒计时超时").arg(firstPosition);
+        alert.message = QStringLiteral("工具核对异常：%1位置工具视觉识别与清单不符，用户忽略告警或倒计时超时").arg(firstPosition);
         alert.status = "unhandled";
         alertDao.insertAlert(alert);
 
@@ -1530,7 +1530,7 @@ void ToolBorrowPage::executeBorrow() {
 
     // [V7.4] 逐个工具借用
     // [2026-06-27 修复] MySQL flow_no有UNIQUE约束，多工具共用同一flowNo会导致只有第1条插入成功
-    //   修复方案：每个工具的flowNo加序号后缀(-01,-02,...)，既保持批次关联性又满足UNIQUE约束
+    // 修复方案：每个工具的flowNo加序号后缀(-01,-02,...)，既保持批次关联性又满足UNIQUE约束
     // [V2.03d 2026-06-29] 改用展开清单(m_expandedBorrowList)，每条对应一个位置，quantity=1
     int totalTools = m_expandedBorrowList.size();
     int seqIndex = 0;
@@ -1544,14 +1544,14 @@ void ToolBorrowPage::executeBorrow() {
         }
         ++seqIndex;
         // [2026-06-27] 使用每个工具自己的 quantity，而非统一的 m_pendingQuantity
-        //   reason改为用户选中的任务类型名称列表，保持归还页"任务类型"列与借用时一致
+        // reason改为用户选中的任务类型名称列表，保持归还页"任务类型"列与借用时一致
         QString reason = m_selectedTypeNames.isEmpty()
             ? QStringLiteral("任务借用")
             : m_selectedTypeNames.join("、");
-        // [V2.12-fix3 2026-07-03 袁燕] 直接用展开清单中保存的mappingId，不再重新查
-        //   根因：原代码查"第一个in_stock位置"可能匹配到错误位置，
-        //         导致借用记录mappingId与实际借用的位置不一致→数据混乱
-        //   修复：展开清单时已保存mappingId，直接用
+        // 直接用展开清单中保存的mappingId，不再重新查
+        // 根因：原代码查"第一个in_stock位置"可能匹配到错误位置，
+        // 导致借用记录mappingId与实际借用的位置不一致→数据混乱
+        // 修复：展开清单时已保存mappingId，直接用
         int borrowMappingId = tool.mappingId;
         if (borrowMappingId <= 0) {
             failTools.append(QStringLiteral("%1: 位置分配异常(mappingId=0)").arg(tool.toolName));

@@ -69,8 +69,8 @@ FaceRecogStats FaceRecogLogDAO::getStats(int days) {
     }
 
     // FAR/FRR 近似（基于真实日志语义）：
-    //   FAR(误识率) = 陌生人被误判为合法的比例 → 本系统"宁误拒不误识"，stranger 即正确拒绝，故实测FAR≈0
-    //   此处以 (success 失误风险) 反推：成功中 best_sim<0.97 的视为潜在风险计数
+    // FAR(误识率) = 陌生人被误判为合法的比例 → 本系统"宁误拒不误识"，stranger 即正确拒绝，故实测FAR≈0
+    // 此处以 (success 失误风险) 反推：成功中 best_sim<0.97 的视为潜在风险计数
     QSqlQuery farq(getDb());
     QString farWhere = where.isEmpty()
         ? "WHERE result='success' AND best_sim < 0.97"

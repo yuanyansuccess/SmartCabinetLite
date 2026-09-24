@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  工具信息实体
-// 日期：2026-06-21  映射表：tool_info
+// 日期：2026-06-21 映射表：tool_info
 // [V7.0 2026-06-24] 新增machineGroupId/machineGroupName字段，支持工程机组关联
 // [V2.01 2026-06-27] 新增recognitionMethod/documentPath字段，支持识别方式选择和工具文档上传
 #include <QString>
@@ -8,7 +8,7 @@
 
 struct ToolInfo {
     int     toolId       = 0;
-    int     mappingId    = 0;  // [V2.11 2026-07-02 袁燕] 位置映射ID（位置唯一标识）
+    int     mappingId    = 0;  // 位置映射ID（位置唯一标识）
     QString toolCode;
     QString toolName;
     QString spec;
@@ -20,12 +20,12 @@ struct ToolInfo {
     int     totalQty     = 0;
     int     currentQty   = 0;
     int     activeBorrows = 0;  // [2026-06-26v17] 活跃借用数（borrowing+overdue）
-    QString rfidTag;
+    QString visionTag;
     QString status       = "in_stock";
     QString checkoutReason;
     int     isRecommended = 0;
-    // [V2.01 2026-06-27] 识别方式(rfid/vision) + 工具文档本地路径
-    QString recognitionMethod = "rfid";  // 默认RFID识别
+    // [2026-09-24] 识别方式统一为视觉识别 + 工具文档本地路径
+    QString recognitionMethod = "vision";  // 默认视觉识别
     QString documentPath;                // 工具文档本地路径(doc/docx/pdf)
     QDateTime createdAt;
     QDateTime updatedAt;

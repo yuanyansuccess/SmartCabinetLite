@@ -125,13 +125,14 @@ bool DeepFaceExtractor::checkServerHealth() {
     return doc.object()["ready"].toBool(false);
 }
 
-bool DeepFaceExtractor::ensureServerRunning() {
-    // 1. 先检查是否已在运行
-    if (checkServerHealth()) {
-        return true;
+/// 本程序拉起的人脸服务子进程（由qApp托管，主程序退出时统一终止）
+static QProcess* g_faceServerProcess = nullptr;
+
+bool DeepFaceExtractor::startServerProcess() {
+    if (g_faceServerProcess && g_faceServerProcess->state() != QProcess::NotRunning) {
+        return true;  // 已由本程序拉起且仍在运行
     }
 
-    // 2. 启动face-server.js（detached，不随Qt退出）
     QString nodePath = findNodePath();
     if (nodePath.isEmpty()) {
         qWarning() << "[DeepFaceExtractor] Node.js not found, cannot start face-server";
@@ -144,11 +145,96 @@ bool DeepFaceExtractor::ensureServerRunning() {
         return false;
     }
 
-    qDebug() << "[DeepFaceExtractor] Starting face-server.js...";
-    QStringList args = {scriptPath};
-    QProcess::startDetached(nodePath, args, dir);
+    if (!g_faceServerProcess) {
+        // 父对象为应用实例：进程随主程序销毁，避免留下孤儿进程
+        g_faceServerProcess = new QProcess(qApp);
+    }
+    g_faceServerProcess->setWorkingDirectory(dir);
+    g_faceServerProcess->start(nodePath, QStringList{scriptPath});
+    if (!g_faceServerProcess->waitForStarted(3000)) {
+        qWarning() << "[DeepFaceExtractor] face-server.js 启动失败:"
+                   << g_faceServerProcess->errorString();
+        return false;
+    }
+    qInfo() << "[DeepFaceExtractor] 已拉起人脸识别服务:" << scriptPath;
+    return true;
+}
 
-    // 3. 等待服务就绪（最多15秒，首次加载模型）
+void DeepFaceExtractor::waitReadyAsync(int triedTimes) {
+    if (checkServerHealth()) {
+        qInfo() << "[DeepFaceExtractor] 人脸识别服务就绪，用时约"
+                << (triedTimes + 1) * 500 << "ms";
+        return;
+    }
+    if (triedTimes >= 29) {  // 最多等15秒（首次加载模型）
+        qWarning() << "[DeepFaceExtractor] 人脸识别服务15秒内未就绪";
+        return;
+    }
+    QTimer::singleShot(500, qApp, [triedTimes]() { waitReadyAsync(triedTimes + 1); });
+}
+
+void DeepFaceExtractor::prestartAsync() {
+    if (!isAvailable()) {
+        qWarning() << "[DeepFaceExtractor] 人脸识别环境不完整(缺少node/脚本/模型)，跳过预启动";
+        return;
+    }
+    // 延后到事件循环第一轮执行，不拖慢主窗口显示
+    QTimer::singleShot(0, qApp, []() {
+        if (checkServerHealth()) {
+            qInfo() << "[DeepFaceExtractor] 人脸识别服务已在运行，直接复用";
+            return;
+        }
+        if (!startServerProcess()) return;
+        waitReadyAsync(0);
+    });
+}
+
+void DeepFaceExtractor::shutdownServer() {
+    if (!g_faceServerProcess) return;                 // 未拉起过（外部服务）→ 不干预
+    if (g_faceServerProcess->state() == QProcess::NotRunning) return;
+    qInfo() << "[DeepFaceExtractor] 主程序退出，停止人脸识别服务";
+    g_faceServerProcess->terminate();
+    if (!g_faceServerProcess->waitForFinished(3000)) {
+        g_faceServerProcess->kill();
+        g_faceServerProcess->waitForFinished(1000);
+    }
+}
+
+bool DeepFaceExtractor::ensureServerRunning() {
+    // 1. 服务已就绪（本程序拉起或外部已启动）→ 直接返回
+    if (checkServerHealth()) {
+        return true;
+    }
+
+    // 2. 本程序已持有子进程但还在加载模型 → 同步等待就绪
+    if (g_faceServerProcess && g_faceServerProcess->state() != QProcess::NotRunning) {
+        for (int i = 0; i < 30; ++i) {
+            QThread::msleep(500);
+            if (checkServerHealth()) return true;
+        }
+        qWarning() << "[DeepFaceExtractor] face-server.js failed to become ready within 15s";
+        return false;
+    }
+
+    // 3. 主线程：交本程序托管启动；其它线程：回退startDetached（QProcess受线程亲和性限制）
+    if (QThread::currentThread() == qApp->thread()) {
+        if (!startServerProcess()) return false;
+    } else {
+        QString nodePath = findNodePath();
+        if (nodePath.isEmpty()) {
+            qWarning() << "[DeepFaceExtractor] Node.js not found, cannot start face-server";
+            return false;
+        }
+        QString dir = scriptDir();
+        QString scriptPath = dir + "/face-server.js";
+        if (!QFileInfo::exists(scriptPath)) {
+            qWarning() << "[DeepFaceExtractor] face-server.js not found at" << scriptPath;
+            return false;
+        }
+        QProcess::startDetached(nodePath, QStringList{scriptPath}, dir);
+    }
+
+    // 4. 等待服务就绪（最多15秒，首次加载模型）
     for (int i = 0; i < 30; ++i) {
         QThread::msleep(500);
         if (checkServerHealth()) {
@@ -250,8 +336,8 @@ bool DeepFaceExtractor::extract(const QImage& image,
     return true;
 }
 
-// [V2.16 2026-07-06 袁燕] QImage转base64 JPEG（extract和detectPosture共用）
-//   分辨率缩放到320px避免大图传输，质量75平衡速度与清晰度
+// QImage转base64 JPEG（extract和detectPosture共用）
+// 分辨率缩放到320px避免大图传输，质量75平衡速度与清晰度
 QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
     QImage scaledImg = image;
     if (image.width() > 320 || image.height() > 320) {
@@ -266,8 +352,8 @@ QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
     return jpegBytes.toBase64();
 }
 
-// [V2.16 2026-07-06 袁燕] 人脸方位检测：调用face-server.js的/posture接口
-//   比/extract快（不提取128维特征），用于录入页实时方位引导
+// 人脸方位检测：调用face-server.js的/posture接口
+// 比/extract快（不提取128维特征），用于录入页实时方位引导
 bool DeepFaceExtractor::detectPosture(const QImage& image,
                                        double& outYaw,
                                        double& outPitch,

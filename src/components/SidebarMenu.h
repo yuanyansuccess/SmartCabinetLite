@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  侧边栏导航组件
-// 日期：2026-06-21  功能：垂直菜单栏(250px深色#1a1a2e)，1:1复刻Web
+// 日期：2026-06-21 功能：垂直菜单栏(250px深色#1a1a2e)，1:1复刻Web
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>

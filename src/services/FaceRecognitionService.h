@@ -46,12 +46,12 @@ public:
 
     // 从数据库获取所有已录入人脸并进行匹配
     // [V2.17 2026-07-06 袁总指令] 陌生人误识根除：阈值95%以上才通过
-    //   核心原则：只有1个人脸时更严格（95%），多人脸时margin验证可降至94%
-    //   设计理念：宁误拒不误识——陌生人绝对不能登录系统
-    //   1. threshold 0.94→0.94（多人脸最低相似度=94%，有第二名差距保护）
-    //   2. highConfidence 0.94→0.95（单人脸必须95%以上，无第二名差距保护）
-    //   3. singleFaceThreshold=0.95（系统仅1人脸时的最低门槛，杜绝陌生人误识）
-    //   4. maxEuclideanDist 0.80（欧氏距离收紧不变）
+    // 核心原则：只有1个人脸时更严格（95%），多人脸时margin验证可降至94%
+    // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
+    // 1. threshold 0.94→0.94（多人脸最低相似度=94%，有第二名差距保护）
+    // 2. highConfidence 0.94→0.95（单人脸必须95%以上，无第二名差距保护）
+    // 3. singleFaceThreshold=0.95（系统仅1人脸时的最低门槛，杜绝陌生人误识）
+    // 4. maxEuclideanDist 0.80（欧氏距离收紧不变）
     //   作者：袁燕
     FaceMatchResult matchFace(const QString& faceDescriptor,
                                double threshold = 0.97,

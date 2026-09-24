@@ -17,6 +17,7 @@
 #include <QScreen>
 #include <QVBoxLayout>
 #include <QRandomGenerator>
+#include <QTimer>
 #include <algorithm>
 
 // ═══════════ 构造/析构 ═══════════
@@ -58,8 +59,8 @@ void NumKeypad::ensurePanel()
 
     // ── 全屏半透明遮罩 ──
     // [2026-06-26v3致命修复] WA_TranslucentBackground必须为true+setAutoFillBackground必须为false
-    //   否则rgba半透明不生效，显示为纯黑→造成黑屏闪烁。
-    //   与SoftKeyboard遮罩方案完全对齐。
+    // 否则rgba半透明不生效，显示为纯黑→造成黑屏闪烁。
+    // 与SoftKeyboard遮罩方案完全对齐。
     m_overlay = new QWidget(nullptr);
     m_overlay->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     m_overlay->setAttribute(Qt::WA_TranslucentBackground, true);
@@ -141,15 +142,36 @@ void NumKeypad::hide()
     if (m_panel && m_panel->layout()) {
         m_panel->layout()->removeWidget(this);
     }
-    if (m_ownerWidget) {
+    if (m_ownerWidget && parentWidget() != m_ownerWidget) {
         setParent(m_ownerWidget);
     }
 
-    // [2026-06-26v6致命修复] 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
-    //   导致弹窗内"取消""确认"等按钮无法点击（模态对话框被遮罩层阻断）
-    //   close()后置nullptr，确保下次show()时ensurePanel()会重建
-    if (m_overlay) { m_overlay->hide(); m_overlay->close(); m_overlay = nullptr; }
-    if (m_panel)   { m_panel->hide();   m_panel->close();   m_panel = nullptr; }
+    // 键盘必须真正隐藏自己
+    // 原实现只拆面板、不调 QWidget::hide()，本控件作为 LoginPage 子控件仍然可见
+    // → 表现为"密码登录后软键盘还挂在登录页上"
+    QWidget::hide();
+
+    QWidget* overlay = m_overlay;
+    QWidget* panel   = m_panel;
+    m_overlay = nullptr;
+    m_panel   = nullptr;
+    if (!overlay && !panel) return;
+
+    // 崩溃修复（0xC0000005 读取 0xFFFFFFFFFFFFFFFF @ Qt6Widgets）：
+    // 本函数是在"本面板(顶层Popup窗口)自己的 mouseReleaseEvent"里被调用的
+    // （LoginPage::confirmed 回调第一句就是 m_numKeypad->hide()）。
+    // 此时同步 hide()/close()/delete 面板，等于在事件派发尚未返回时销毁正在派发事件的窗口，
+    // Qt 内部随后访问已释放的 QWidget/QWindow → 访问冲突；随后整条登录链
+    // （onPasswordLogin → loginSuccess → MainWindow::onLoginSuccess）继续在已损坏的
+    // 窗口状态上跑，最终在 onLoginSuccess 第一处 Qt 调用处崩溃。
+    // 修复：面板/遮罩的关闭与销毁延迟到本轮事件派发结束（singleShot(0)）执行，
+    // 且必须真正 deleteLater —— 原实现只 close()+置空指针，每次登录泄漏一个全屏半透明顶层窗口。
+    QObject* ctx = m_ownerWidget ? static_cast<QObject*>(m_ownerWidget)
+                                 : static_cast<QObject*>(this);
+    QTimer::singleShot(0, ctx, [overlay, panel]() {
+        if (overlay) { overlay->hide(); overlay->close(); overlay->deleteLater(); }
+        if (panel)   { panel->hide();   panel->close();   panel->deleteLater(); }
+    });
 }
 
 // ═══════════ 公开API ═══════════

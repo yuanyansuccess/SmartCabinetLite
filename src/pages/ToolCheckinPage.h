@@ -51,7 +51,7 @@ private:
     void onCategoryChanged();      // [V2.03j] 工具类型切换时刷新工具下拉
     void onToolSelected();         // [V2.03j] 选择工具后自动填充信息
     void loadCheckinRecords();     // [V2.02] 加载入库历史记录
-    // [V2.04 2026-06-30 袁燕] 移除generateUniqueToolCode：入库不创建新品类，只更新现有工具
+    // 移除generateUniqueToolCode：入库不创建新品类，只更新现有工具
 
     // [2026-06-27] 四步入库流程
     void showCheckinListDialog();        // 步骤1: 入库清单确认
@@ -66,7 +66,7 @@ private:
     QLineEdit* m_toolNameEdit = nullptr;
     QLineEdit* m_toolCodeEdit = nullptr;
     QLineEdit* m_specEdit = nullptr;
-    QComboBox* m_qtyCombo = nullptr;    // [V2.05 2026-06-30 袁燕] 入库数量可选1~N，N=空闲位置数
+    QComboBox* m_qtyCombo = nullptr;    // 入库数量可选1~N，N=空闲位置数
     QLabel* m_qtyHintLabel = nullptr;  // [V2.05] 入库数量最大提示（空闲位置数）
     QComboBox* m_cabinetCombo = nullptr;     // 入库柜体下拉
     QComboBox* m_layerCombo = nullptr;       // 层号下拉
@@ -78,9 +78,9 @@ private:
     QLabel* m_machineGroupLabel = nullptr;
     int m_localMachineGroupId = 0;
 
-    // [V2.05 2026-06-30 袁燕] 入库数量可选1~N，N=该工具在对照表中的空闲位置数
-    //   同一工具有多个空闲位置时，用户选择入库数量，每件放到不同位置
-    //   入库位置从映射表选取，一个位置对应一个工具
+    // 入库数量可选1~N，N=该工具在对照表中的空闲位置数
+    // 同一工具有多个空闲位置时，用户选择入库数量，每件放到不同位置
+    // 入库位置从映射表选取，一个位置对应一个工具
     QJsonArray m_availablePositions;
     int m_selectedCheckinQty = 1;  // [V2.05] 用户选择的入库数量
 

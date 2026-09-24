@@ -79,7 +79,7 @@ private:
     QLineEdit* m_searchEdit = nullptr;
     MultiSelectFilter* m_categoryFilter = nullptr;
 
-    // 搜索按钮 [V2.04 2026-06-30 袁燕] 参考人员管理页风格
+    // 搜索按钮 参考人员管理页风格
     QPushButton* m_searchBtn = nullptr;
     QPushButton* m_searchResetBtn = nullptr;
 

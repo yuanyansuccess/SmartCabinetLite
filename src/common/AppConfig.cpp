@@ -21,8 +21,8 @@ AppConfig::AppConfig()
 {
     // [v19] 使用显式INI文件路径，存放在程序目录下的config/子目录
     // [2026-06-27] 要求：必须有和执行文件同级的ini文件
-    //   方案：ini文件直接放在程序根目录下（与exe同级），文件名system.ini
-    //   原先放在config/子目录调整为与exe同级，更符合用户习惯
+    // 方案：ini文件直接放在程序根目录下（与exe同级），文件名system.ini
+    // 原先放在config/子目录调整为与exe同级，更符合用户习惯
     QString appDir = QCoreApplication::applicationDirPath();
     m_iniPath = appDir + "/system.ini";
     // [2026-06-27] 首次运行时创建默认INI文件，写入软件版本等默认值
@@ -39,8 +39,8 @@ AppConfig::~AppConfig() { delete m_settings; }
 QString AppConfig::iniFilePath() const { return m_iniPath; }
 
 // [2026-06-27] 首次运行时创建默认INI文件（与执行文件同级）
-//   写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
-//   [Qt6兼容] QTextStream::setCodec已移除，改用QFile::write直接写UTF-8字节流
+// 写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
+// [Qt6兼容] QTextStream::setCodec已移除，改用QFile::write直接写UTF-8字节流
 void AppConfig::createDefaultIni(const QString& path) {
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -77,7 +77,7 @@ void AppConfig::createDefaultIni(const QString& path) {
     content += "led_enabled=" + QString(SC::ALERT_LED_ENABLED ? "true" : "false") + "\n";
     content += "overdue_hours=" + QString::number(SC::ALERT_OVERDUE_HOURS) + "\n";
     content += "door_timeout=" + QString::number(SC::ALERT_DOOR_TIMEOUT) + "\n";
-    content += "rfid_enabled=" + QString(SC::ALERT_RFID_ENABLED ? "true" : "false") + "\n";
+    content += "vision_enabled=" + QString(SC::ALERT_VISION_ENABLED ? "true" : "false") + "\n";
     content += "power_alarm_mode=" + QString::number(SC::ALERT_POWER_ALARM_MODE) + "\n";
     content += "auto_confirm=" + QString(SC::ALERT_AUTO_CONFIRM ? "true" : "false") + "\n";
     content += "\n";
@@ -104,7 +104,7 @@ void AppConfig::createDefaultIni(const QString& path) {
 }
 
 // [2026-06-27] 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
-//   修改版本号只需编辑exe同级目录的system.ini中[System]节的version字段
+// 修改版本号只需编辑exe同级目录的system.ini中[System]节的version字段
 QString AppConfig::appVersion() const {
     QMutexLocker l(&m_mutex);
     return m_settings->value("System/version", SC::APP_VERSION).toString();
@@ -175,8 +175,8 @@ int AppConfig::alertOverdueHours() const { QMutexLocker l(&m_mutex); return m_se
 void AppConfig::setAlertOverdueHours(int v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/overdue_hours", v); }
 int AppConfig::alertDoorTimeout() const  { QMutexLocker l(&m_mutex); return m_settings->value("Alert/door_timeout",      SC::ALERT_DOOR_TIMEOUT).toInt(); }
 void AppConfig::setAlertDoorTimeout(int v)        { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/door_timeout", v); }
-bool AppConfig::alertRfidEnabled() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/rfid_enabled",      SC::ALERT_RFID_ENABLED).toBool(); }
-void AppConfig::setAlertRfidEnabled(bool v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/rfid_enabled", v); }
+bool AppConfig::alertVisionEnabled() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/vision_enabled",      SC::ALERT_VISION_ENABLED).toBool(); }
+void AppConfig::setAlertVisionEnabled(bool v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/vision_enabled", v); }
 int AppConfig::alertPowerAlarmMode() const{ QMutexLocker l(&m_mutex); return m_settings->value("Alert/power_alarm_mode",  SC::ALERT_POWER_ALARM_MODE).toInt(); }
 void AppConfig::setAlertPowerAlarmMode(int v)     { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/power_alarm_mode", v); }
 bool AppConfig::alertAutoConfirm() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/auto_confirm",      SC::ALERT_AUTO_CONFIRM).toBool(); }

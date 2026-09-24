@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  告警日志实体
-// 日期：2026-06-21  [V1.00.8.4] 修复：映射表sys_alert，字段对齐数据库schema
+// 日期：2026-06-21 [V1.00.8.4] 修复：映射表sys_alert，字段对齐数据库schema
 // [2026-06-25] 重构：新增typeId/typeName/status字段，移除alertType/alertLevel(改为JOIN获取)
 #include <QString>
 #include <QDateTime>

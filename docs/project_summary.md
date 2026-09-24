@@ -14,7 +14,7 @@
 2. ✅ **仪表盘** (DashboardPage) - 工具统计/借用统计/告警概览
 3. ✅ **工具管理** (ToolManagementPage) - 位置维度工具管理
 4. ✅ **工具借用** (ToolBorrowPage) - 任务制借用流程，机组隔离
-5. ✅ **工具归还** (ToolReturnPage) - 扫码/RFID归还
+5. ✅ **工具归还** (ToolReturnPage) - 扫码/视觉归还
 6. ✅ **工具出库** (ToolCheckoutPage) - 报废/调拨出库
 7. ✅ **工具入库** (ToolCheckinPage) - pending工具入库到指定位置
 8. ✅ **用户管理** (UserManagementPage) - 用户/部门/人脸管理

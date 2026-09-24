@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  告警业务控制层
-// 日期：2026-06-21  功能：告警查询、处理、统计
+// 日期：2026-06-21 功能：告警查询、处理、统计
 // [V6.9 2026-06-24] 统一到db/目录namespace db
 #include <QObject>
 #include <QDate>

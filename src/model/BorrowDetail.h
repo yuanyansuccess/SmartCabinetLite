@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  借用明细实体(含工具)
-// 日期：2026-06-21  用于借用列表详细展示
+// 日期：2026-06-21 用于借用列表详细展示
 #include <QString>
 #include <QDateTime>
 

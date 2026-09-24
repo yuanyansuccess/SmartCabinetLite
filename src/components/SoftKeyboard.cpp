@@ -1,9 +1,9 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  字母/符号软键盘实现
-// 日期：2026-06-21  1:1复刻Web端SoftKeyboard.vue
+// 日期：2026-06-21 1:1复刻Web端SoftKeyboard.vue
 // [2026-06-26v5] 清理冗余：移除所有数字/密码模式逻辑(NumKeypad独立接管)
 // [2026-06-26v8] 彻底重写rebuildKeys()：5行清晰布局，去掉_/⎵等歧义按钮
-//   新布局：行0数字 / 行1 Q-P / 行2 A-L / 行3 Shift Z-M 退格 / 行4 符号+空格
-//   每个按钮统一56px高度触屏优化，字体24px醒目清晰，无"线条状"按钮
+// 新布局：行0数字 / 行1 Q-P / 行2 A-L / 行3 Shift Z-M 退格 / 行4 符号+空格
+// 每个按钮统一56px高度触屏优化，字体24px醒目清晰，无"线条状"按钮
 #include "SoftKeyboard.h"
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -172,15 +172,15 @@ void SoftKeyboard::setupUI() {
 }
 
 /// [2026-06-26v8] 彻底重写键盘布局
-///   反馈：底部_下划线按钮看起来像"——"分隔线，用户无法识别为可点击按钮
-///   根治方案：完全去掉_和⎵等视觉有歧义的符号按钮，重新设计5行清晰布局
-///   新布局：
-///     行0: 1 2 3 4 5 6 7 8 9 0          (数字行)
-///     行1: Q W E R T Y U I O P            (字母行)
-///     行2: A S D F G H J K L              (字母行)
-///     行3: Shift Z X C V B N M 退格        (功能+字母)
-///     行4: , 空格 . / @ -                 (符号行，所有按钮统一大字体清晰可见)
-///   设计原则：每个按钮56px高、24px字体、统一圆角、颜色醒目、触屏友好
+/// 反馈：底部_下划线按钮看起来像"——"分隔线，用户无法识别为可点击按钮
+/// 根治方案：完全去掉_和⎵等视觉有歧义的符号按钮，重新设计5行清晰布局
+/// 新布局：
+/// 行0: 1 2 3 4 5 6 7 8 9 0 (数字行)
+/// 行1: Q W E R T Y U I O P (字母行)
+/// 行2: A S D F G H J K L (字母行)
+/// 行3: Shift Z X C V B N M 退格 (功能+字母)
+/// 行4: , 空格 . / @ - (符号行，所有按钮统一大字体清晰可见)
+/// 设计原则：每个按钮56px高、24px字体、统一圆角、颜色醒目、触屏友好
 void SoftKeyboard::rebuildKeys() {
     if (!m_keysArea) return;
 
@@ -200,7 +200,7 @@ void SoftKeyboard::rebuildKeys() {
     keysLayout->setSpacing(8);
 
     // [v8] 新键盘布局定义
-    //   每个键: {显示文本, 输入字符, 是否功能键, 列拉伸倍数}
+    // 每个键: {显示文本, 输入字符, 是否功能键, 列拉伸倍数}
     struct KeyDef { QString label; QString input; bool isFn; int span; };
     struct RowDef { QList<KeyDef> keys; };
 
@@ -407,7 +407,7 @@ void SoftKeyboard::show() {
 
 void SoftKeyboard::hide() {
     // [2026-06-26v6致命修复] 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
-    //   close()后置nullptr，确保下次show()时ensurePanel()会重建
+    // close()后置nullptr，确保下次show()时ensurePanel()会重建
     if (m_overlay) { m_overlay->hide(); m_overlay->close(); m_overlay = nullptr; }
     if (m_panel)   { m_panel->hide();   m_panel->close();   m_panel = nullptr; }
 }

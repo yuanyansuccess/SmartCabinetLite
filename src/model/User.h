@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  用户实体
-// 日期：2026-06-21  映射表：sys_user
+// 日期：2026-06-21 映射表：sys_user
 #include <QString>
 #include <QDateTime>
 

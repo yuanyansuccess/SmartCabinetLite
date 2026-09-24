@@ -26,14 +26,14 @@ SettingService::SettingService(QObject* parent) : QObject(parent) {}
 QJsonObject SettingService::getDashboardStats() {
     QJsonObject s;
     // 改为按工具件数统计（total_qty/in_stock_qty/borrowed_qty），不再按种类数
-    //   工具总数 = 所有工具的 total_qty 之和
-    //   在库工具 = 所有工具的 current_qty 之和（不论状态，当前实际在库的件数）
-    //   已借出 = 活跃借用记录的 borrow_qty 之和
-    //   在库比例 = 在库件数 / (在库件数 + 已借出件数)
+    // 工具总数 = 所有工具的 total_qty 之和
+    // 在库工具 = 所有工具的 current_qty 之和（不论状态，当前实际在库的件数）
+    // 已借出 = 活跃借用记录的 borrow_qty 之和
+    // 在库比例 = 在库件数 / (在库件数 + 已借出件数)
     ToolDAO toolDao;
     QJsonObject toolStats = toolDao.getToolStats();
     // 统计改为按条目数(COUNT)：一个位置一个工具，总数=列表条数
-    //   工具总数 = 在库条目数 + 已借出条目数（不含已出库的，出库是永久离开）
+    // 工具总数 = 在库条目数 + 已借出条目数（不含已出库的，出库是永久离开）
     s["totalTools"] = toolStats["inStockCount"].toInt() + toolStats["borrowedCount"].toInt();
     s["inStock"]    = toolStats["inStockCount"].toInt();     // 在库条目数
     s["borrowed"]   = toolStats["borrowedCount"].toInt();    // 已借出条目数
@@ -208,8 +208,8 @@ QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& 
 
 QJsonObject SettingService::getLedgerStats() {
     // 字段名对齐LedgerStatsPage期望：
-    //   totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
-    //   同时保留旧字段totalBorrow/totalReturn/activeUsers向后兼容
+    // totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
+    // 同时保留旧字段totalBorrow/totalReturn/activeUsers向后兼容
     QJsonObject s;
     QSqlDatabase db = DatabaseManager::instance().getConnection();
     if (!db.isValid()) {
@@ -255,7 +255,7 @@ QJsonObject SettingService::getLedgerStats() {
 
     // 分类统计：JOIN tool_info + tool_category [V7.9 2026-06-27] 改为按件数统计
     // 作者：袁燕 - 原COUNT(DISTINCT tool_id)按种类统计，与"总数量/借出中/可用"列名件数语义不符
-    //         用子查询先按tool_id聚合borrow_qty，避免LEFT JOIN多借用记录导致SUM(total_qty)重复计算
+    // 用子查询先按tool_id聚合borrow_qty，避免LEFT JOIN多借用记录导致SUM(total_qty)重复计算
     QJsonArray categoryStats;
     {
         QSqlQuery q(db);
@@ -380,8 +380,8 @@ QJsonObject SettingService::loadAllConfig() {
 
 // 批量保存配置到 system_config 表
 // [2026-06-26紧急修复] 致命BUG：db.database()每次返回QSqlDatabase副本
-//   原代码在事务/查询/提交时各获取一个独立副本，导致事务不生效，写入失败
-//   修复：获取一个db引用，在整个函数中复用同一个连接
+// 原代码在事务/查询/提交时各获取一个独立副本，导致事务不生效，写入失败
+// 修复：获取一个db引用，在整个函数中复用同一个连接
 bool SettingService::saveConfig(const QJsonObject& config) {
     auto& db = DatabaseManager::instance();
     if (!db.isConnected()) return false;

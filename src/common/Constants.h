@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0
-// 日期：2026-06-21  全局常量定义
+// 日期：2026-06-21 全局常量定义
 #include <QString>
 #include <QStringList>
 
@@ -32,8 +32,7 @@ const QString TOOL_IN_STOCK    = "in_stock";
 const QString TOOL_BORROWED    = "borrowed";
 const QString TOOL_MAINTENANCE = "maintenance";
 
-// ── 识别方式 [V2.01 2026-06-27] RFID/视觉识别二选一 ──
-const QString RECOGNITION_RFID   = "rfid";    // RFID识别
+// ── 识别方式 [2026-09-24] 全系统统一为视觉识别 ──
 const QString RECOGNITION_VISION = "vision";  // 视觉识别
 
 // ── 工具文档配置 [V2.01] ──
@@ -89,7 +88,7 @@ const int  ALERT_BUZZER_VOL       = 85;
 const bool ALERT_LED_ENABLED      = true;
 const int  ALERT_OVERDUE_HOURS    = 24;
 const int  ALERT_DOOR_TIMEOUT     = 30;
-const bool ALERT_RFID_ENABLED     = true;
+const bool ALERT_VISION_ENABLED   = true;  // 视觉识别异常告警
 const int  ALERT_POWER_ALARM_MODE = 0;
 const bool ALERT_AUTO_CONFIRM     = true;
 

@@ -37,15 +37,15 @@ private:
     QString detectUSBDrive();                     // 检测USB设备挂载路径
     void showExportSuccess(const QString& path);  // 显示导出成功提示
 
-    QLabel* m_totalBorrowLabel;
-    QLabel* m_totalReturnLabel;
-    QLabel* m_currentBorrowedLabel;
-    QLabel* m_overdueLabel;
+    QLabel* m_totalBorrowLabel = nullptr;
+    QLabel* m_totalReturnLabel = nullptr;
+    QLabel* m_currentBorrowedLabel = nullptr;
+    QLabel* m_overdueLabel = nullptr;
 
     SingleSelectFilter* m_periodFilter;  // [V6.9] CheckBox样式单选组件
     QTableWidget* m_categoryTable;
     QTableWidget* m_deptTable;
 
     QPushButton* m_exportLedgerBtn;  // [V7.2] 台账导出按钮
-    QPushButton* m_exportUSBBtn;     // [V7.2] USB导出按钮
+    QPushButton* m_exportUSBBtn = nullptr;  // [V7.2] USB导出按钮（已下线，固定为空指针）
 };

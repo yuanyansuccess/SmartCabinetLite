@@ -1,5 +1,5 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  SidebarMenu实现
-// 日期：2026-06-21  1:1复刻Web前端SideBar.vue：250px深色#1a1a2e
+// 日期：2026-06-21 1:1复刻Web前端SideBar.vue：250px深色#1a1a2e
 #include "SidebarMenu.h"
 #include <QFont>
 #include <QSpacerItem>

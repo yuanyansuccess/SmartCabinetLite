@@ -47,10 +47,10 @@ DashboardPage::DashboardPage(QWidget* parent) : QWidget(parent),
     m_loadingWidget(nullptr),
     m_roleContent(nullptr) {
     // [v4.4修复] 所有成员指针必须初始化为nullptr
-    //   用户视图路径下setupStatsCards()不执行，label指针为野指针(0xCD)
-    //   若未初始化，updateStats()中if(!label)检查通过(0xCD≠null)，label->parentWidget()崩溃
+    // 用户视图路径下setupStatsCards()不执行，label指针为野指针(0xCD)
+    // 若未初始化，updateStats()中if(!label)检查通过(0xCD≠null)，label->parentWidget()崩溃
     // [v4.6修复] 构造函数中不构建角色视图(m_user为空不能判断角色)
-    //   setupUI()移入setUser()，确保用户对象已设置后再根据role构建对应视图
+    // setupUI()移入setUser()，确保用户对象已设置后再根据role构建对应视图
     setupBaseUI();
 }
 
@@ -58,7 +58,7 @@ DashboardPage::~DashboardPage() = default;
 
 void DashboardPage::setUser(const QJsonObject& user) {
     // [v4.6修复] 先设置m_user再构建UI——setupUI()需要m_user["role"]判断视图类型
-    //   构造函数中m_user为空，setupUI()误判所有用户为普通用户
+    // 构造函数中m_user为空，setupUI()误判所有用户为普通用户
     m_user = user;
     
     // 清除旧的角色内容容器
@@ -126,7 +126,7 @@ void DashboardPage::setLoading(bool loading) {
 
 void DashboardPage::setupBaseUI() {
     // [v4.6新增] 仅创建主布局框架 + 加载控件，不判断角色
-    //   角色相关的视图创建移入setupUI()，由setUser()在用户对象就绪后调用
+    // 角色相关的视图创建移入setupUI()，由setUser()在用户对象就绪后调用
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(24, 24, 24, 24);
     mainLayout->setSpacing(14);
@@ -142,7 +142,7 @@ void DashboardPage::setupBaseUI() {
 
 void DashboardPage::setupUI() {
     // [v4.6修复] 角色视图必须使用m_roleContent容器包装
-    //   这样setUser()切换用户时可以整体清除旧视图
+    // 这样setUser()切换用户时可以整体清除旧视图
     QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(layout());
     if (!mainLayout) return;
 
@@ -202,7 +202,7 @@ void DashboardPage::setupUI() {
     }
 
     // [V7.4 2026-06-26] 给m_roleContent设置stretch因子1，让其填满QStackedWidget分配给DashboardPage的空间
-    //   之前mainLayout->addStretch()会抢占所有剩余空间，导致首页右侧/底部大片空白
+    // 之前mainLayout->addStretch()会抢占所有剩余空间，导致首页右侧/底部大片空白
     mainLayout->addWidget(m_roleContent, 1);
 }
 
@@ -371,8 +371,8 @@ QWidget* DashboardPage::createQuickActionsPanel() {
     for (int col = 0; col < 3; ++col) grid->setColumnStretch(col, 1);
 
     struct QuickAction { QString icon; QString text; QString path; bool isAdd; };
-    // [2026-09-24 袁燕] 快捷操作精简：工具借用与工具归还合并为一个"工具借用/归还"入口
-    //   路径 borrowreturn 与侧边栏一致，由MainWindow转交智能柜借用/归还会话；删除出库管理快捷入口
+    // 快捷操作精简：工具借用与工具归还合并为一个"工具借用/归还"入口
+    // 路径 borrowreturn 与侧边栏一致，由MainWindow转交智能柜借用/归还会话；删除出库管理快捷入口
     QuickAction actions[] = {
         {QStringLiteral("📤"), QStringLiteral("工具借用/归还"), QStringLiteral("borrowreturn"), false},
         {QStringLiteral("🔧"), QStringLiteral("工具管理"), QStringLiteral("tools"), false},
@@ -521,7 +521,7 @@ void DashboardPage::refresh() {
 
 void DashboardPage::updateStats(const QJsonObject& stats) {
     // [v4.5修复] 非admin用户路径下统计卡片未创建，添加全套null guard
-    //   refresh()通过QTimer回调，调用时用户身份可能已变化
+    // refresh()通过QTimer回调，调用时用户身份可能已变化
     if (!m_toolCountLabel || !m_inStockLabel || !m_borrowedLabel || !m_checkedOutLabel || !m_alertsLabel)
         return;
     // [2026-06-27] 统计改为按工具件数（总件数/在库件数/已借出件数），不再按种类数
@@ -671,7 +671,7 @@ void LoadingWidget::paintEvent(QPaintEvent* event) {
 
 void DashboardPage::updateRecentLogs(const QJsonArray& logs) {
     // [v4.5修复] 非admin用户路径下m_logTable未创建，必须null guard
-    //   即使构造函数初始化为nullptr，refresh()中QTimer回调时用户可能已切换
+    // 即使构造函数初始化为nullptr，refresh()中QTimer回调时用户可能已切换
     if (!m_logTable) return;
     m_logTable->setRowCount(logs.size());
     // [2026-06-25] 设置行高48px触屏标准，确保序号等内容完整显示
@@ -863,8 +863,8 @@ QWidget* DashboardPage::createFunctionCards() {
         card->setCursor(Qt::PointingHandCursor);
         // [v5.1修复] 移除setMinimumHeight(120)，让内容自适应高度，对齐Web版无min-height
         // [V6.2修复] 双重padding导致内容溢出截断：CSS padding已设32px 20px，layout margins不能再加！
-        //   Web版 .func-card: padding:32px 20px, .fc-icon: margin-bottom:12px, .fc-title: margin-bottom:6px
-        //   修复：layout margins归零，用个体label的margin-bottom控制间距，避免72px可用高度装不下126px内容
+        // Web版 .func-card: padding:32px 20px, .fc-icon: margin-bottom:12px, .fc-title: margin-bottom:6px
+        // 修复：layout margins归零，用个体label的margin-bottom控制间距，避免72px可用高度装不下126px内容
         card->setStyleSheet(
             "QPushButton{background:white; border-radius:14px; border:2px solid transparent;"
             " padding:32px 20px; text-align:center;}"

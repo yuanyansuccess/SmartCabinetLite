@@ -32,14 +32,14 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
 
     // 模拟数据：8件工具，末一件开柜前已被该用户借走（用于演示"归还"场景）
     //m_tools = {
-    //    { QStringLiteral("扭力扳手"),  QStringLiteral("TL-S03"),   QStringLiteral("A-01-02"), true  },
-    //    { QStringLiteral("套筒组"),    QStringLiteral("SK-17P"),   QStringLiteral("A-01-05"), true  },
-    //    { QStringLiteral("内六角组"),  QStringLiteral("HX-09S"),   QStringLiteral("A-02-01"), true  },
-    //    { QStringLiteral("游标卡尺"),  QStringLiteral("CL-150D"),  QStringLiteral("A-02-04"), true  },
-    //    { QStringLiteral("剥线钳"),    QStringLiteral("WP-06"),    QStringLiteral("A-03-03"), true  },
-    //    { QStringLiteral("热风枪"),    QStringLiteral("HG-880"),   QStringLiteral("B-01-01"), true  },
-    //    { QStringLiteral("防静电镊"),  QStringLiteral("TS-12"),    QStringLiteral("B-01-06"), true  },
-    //    { QStringLiteral("万用表"),    QStringLiteral("DM-3055"),  QStringLiteral("B-02-04"), false },
+    // { QStringLiteral("扭力扳手"), QStringLiteral("TL-S03"), QStringLiteral("A-01-02"), true },
+    // { QStringLiteral("套筒组"), QStringLiteral("SK-17P"), QStringLiteral("A-01-05"), true },
+    // { QStringLiteral("内六角组"), QStringLiteral("HX-09S"), QStringLiteral("A-02-01"), true },
+    // { QStringLiteral("游标卡尺"), QStringLiteral("CL-150D"), QStringLiteral("A-02-04"), true },
+    // { QStringLiteral("剥线钳"), QStringLiteral("WP-06"), QStringLiteral("A-03-03"), true },
+    // { QStringLiteral("热风枪"), QStringLiteral("HG-880"), QStringLiteral("B-01-01"), true },
+    // { QStringLiteral("防静电镊"), QStringLiteral("TS-12"), QStringLiteral("B-01-06"), true },
+    // { QStringLiteral("万用表"), QStringLiteral("DM-3055"), QStringLiteral("B-02-04"), false },
     //};
 
     m_tools = {
@@ -197,7 +197,7 @@ void CabinetSessionDialog::buildOpenPage()
 }
 
 // [2026-09-23] 读库：本机组全部启用任务类型及各自在库工具（位置维度）
-//   输入：无（机组ID取AppConfig本机机组）；输出：填充m_myTypes
+// 输入：无（机组ID取AppConfig本机机组）；输出：填充m_myTypes
 void CabinetSessionDialog::loadMyTaskTools()
 {
     m_myTypes.clear();
@@ -531,8 +531,8 @@ void CabinetSessionDialog::onCloseCabinetClicked()
             returned.append(desc);      // 开柜不在 → 关柜在柜：归还
         // 错放告警：工具在柜但位置不对（借用/归还判定不受影响）
         //if (tool.inCabinet && tool.misplaced)
-        //    alerts.append(QStringLiteral("%1：应放 %2，实际放 %3")
-        //                      .arg(tool.name, tool.position, tool.wrongPosition));
+        // alerts.append(QStringLiteral("%1：应放 %2，实际放 %3")
+        // .arg(tool.name, tool.position, tool.wrongPosition));
         if (tool.inCabinet && tool.misplaced)
             alerts.append(QStringLiteral("%1：识别错误请检查").arg(tool.name));
     }

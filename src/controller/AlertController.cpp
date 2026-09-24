@@ -1,5 +1,5 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  AlertController实现
-// 日期：2026-06-21  [V6.9 2026-06-24] 统一到db/目录namespace db，方法名更新
+// 日期：2026-06-21 [V6.9 2026-06-24] 统一到db/目录namespace db，方法名更新
 // [2026-06-25] 重构：createAlert支持typeId参数
 // [V2.15 2026-07-05] 裸SQL迁移到AlertDAO
 #include "AlertController.h"

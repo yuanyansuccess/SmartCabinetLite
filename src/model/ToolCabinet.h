@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  工具柜实体
-// 日期：2026-06-21  映射表：tool_cabinet
+// 日期：2026-06-21 映射表：tool_cabinet
 #include <QString>
 #include <QDateTime>
 

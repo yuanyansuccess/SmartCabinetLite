@@ -33,7 +33,7 @@ public:
                                const QString& condition, int operatorId, const QString& remark);
     // 查询某工具的最近N条借用记录（用于工具详情对话框展示）
     QJsonArray  findByToolId(int toolId, int limit = 5);
-    // [V2.11 2026-07-02 袁燕] 按位置映射ID查询借用记录（工具详情按位置过滤）
+    // 按位置映射ID查询借用记录（工具详情按位置过滤）
     QJsonArray  findByMappingId(int mappingId, int limit = 20);
     // 查询操作日志（sys_operation_log）：入库/出库记录
     QJsonObject findLastOperationLog(const QString& toolCode, const QString& operationType);
@@ -51,12 +51,12 @@ public:
     // 统计指定类型的操作日志数量
     int         countOperationLogsByType(const QString& operationType);
     // 入库记录查询（含位置JOIN信息）— 入库记录Tab专用
-    //   返回：{list: [{createdAt,content,targetId,realName,workNo,
-    //          tiCabId,tiCabName,tiLayer,tiPos,mpmCabId,mpmCabName,mpmLayer,mpmPos}], total}
+    // 返回：{list: [{createdAt,content,targetId,realName,workNo,
+    // tiCabId,tiCabName,tiLayer,tiPos,mpmCabId,mpmCabName,mpmLayer,mpmPos}], total}
     QJsonObject findCheckinLogs(int page, int pageSize);
     // 统计某机组下未归还(borrowing/overdue)的借用记录数
-    //   入参：machineGroupId 机组ID
-    //   返回：该机组下所有未归还的借用记录数（关联tool_info.machine_group_id）
+    // 入参：machineGroupId 机组ID
+    // 返回：该机组下所有未归还的借用记录数（关联tool_info.machine_group_id）
     int         countActiveByMachineGroup(int machineGroupId);
     // 用户首页统计：今日借用/待归还/本月借用
     QJsonObject getUserStats(int userId);

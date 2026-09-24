@@ -52,9 +52,9 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
         }
     }
 
-    // [V2.11 2026-07-02 袁燕] 按位置维度借用：检查映射表status必须为in_stock
-    //   不再检查tool_info.status（一个工具多位置时tool_info.status不代表单个位置状态）
-    //   映射表status才是位置占用的权威数据源
+    // 按位置维度借用：检查映射表status必须为in_stock
+    // 不再检查tool_info.status（一个工具多位置时tool_info.status不代表单个位置状态）
+    // 映射表status才是位置占用的权威数据源
     // [V2.15 2026-07-05] 迁移到ToolDAO::findMappingStatus/updateMappingStatus
     QString posStatus = toolDao.findMappingStatus(mappingId);
     if (posStatus.isEmpty()) {
@@ -102,7 +102,7 @@ QJsonObject BorrowService::getUserRecords(int userId, int page, int pageSize) {
     return dao.findAll(userId, 0, "", "", "", page, pageSize);
 }
 
-// [V2.04 2026-06-30 袁燕] 所有借用记录（不限userId）
+// 所有借用记录（不限userId）
 QJsonObject BorrowService::getAllRecords(int page, int pageSize) {
     RecordDAO dao;
     return dao.findAll(0, 0, "", "", "", page, pageSize);
@@ -124,14 +124,14 @@ QString BorrowService::generateFlowNo(const QString& reason) {
 
 QJsonObject BorrowService::getAllInStockTools(int page, int pageSize, int machineGroupId) {
     ToolDAO dao;
-    // [V2.12 2026-07-02 袁燕] 改为按工具种类聚合查询，同一工具一行+availableQty
-    //   借用列表按工具种类显示，用户选数量后自动分配位置
+    // 改为按工具种类聚合查询，同一工具一行+availableQty
+    // 借用列表按工具种类显示，用户选数量后自动分配位置
     return dao.findAllInStockByTool("", "", page, pageSize, machineGroupId);
 }
 
 // [V1.00.9.1 架构修复] 新增searchTools方法，替代页面直接调用db/ToolDAO —— 作者：袁燕
 QJsonObject BorrowService::searchTools(const QString& keyword, int page, int pageSize, int machineGroupId) {
     ToolDAO dao;
-    // [V2.09 2026-06-30 袁燕] 改用位置维度查询，与getAllInStockTools一致
+    // 改用位置维度查询，与getAllInStockTools一致
     return dao.findAllByPosition(keyword, "", "in_stock", 0, page, pageSize, machineGroupId);
 }

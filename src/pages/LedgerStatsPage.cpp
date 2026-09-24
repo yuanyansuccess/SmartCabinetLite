@@ -59,10 +59,10 @@ void LedgerStatsPage::setupUI() {
     // USB导出按钮 [2026-06-26] 尺寸对齐人员管理"新增人员"
     //m_exportUSBBtn = new QPushButton(QStringLiteral("💾 USB导出"));
     //m_exportUSBBtn->setStyleSheet(
-    //    "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
-    //    "padding:10px 22px;font-size:14px;font-weight:700;}"
-    //    "QPushButton:hover{background:#3d8ae0;}"
-    //    "QPushButton:pressed{transform:scale(0.96);}"
+    // "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
+    // "padding:10px 22px;font-size:14px;font-weight:700;}"
+    // "QPushButton:hover{background:#3d8ae0;}"
+    // "QPushButton:pressed{transform:scale(0.96);}"
     //);
     //m_exportUSBBtn->setCursor(Qt::PointingHandCursor);
     //connect(m_exportUSBBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportToUSB);
@@ -196,8 +196,8 @@ void LedgerStatsPage::loadStats() {
 
 // [V7.2 2026-06-24] 台账导出：生成CSV文件并保存到桌面
 // [V7.3 2026-06-26] 彻底修复编码问题：QTextStream在Windows中文环境默认GBK编码，
-//   导致BOM(UTF-8)与内容(GBK)编码不一致，Excel打开乱码。
-//   改为直接用QFile::write()写入UTF-8字节流，保证BOM和内容编码统一。
+// 导致BOM(UTF-8)与内容(GBK)编码不一致，Excel打开乱码。
+// 改为直接用QFile::write()写入UTF-8字节流，保证BOM和内容编码统一。
 void LedgerStatsPage::onExportLedger() {
     QString csv = generateCSV();
     if (csv.isEmpty()) {

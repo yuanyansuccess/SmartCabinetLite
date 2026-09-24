@@ -46,8 +46,8 @@ double FaceRecognitionService::cosineSimilarity(const QVector<double>& a, const 
     double dot = 0;
     for (int i = 0; i < an.size(); ++i) dot += an[i] * bn[i];
     // [V2.02 2026-06-28] 移除(dot+1)/2映射 → 直接返回原始余弦相似度
-    //   原映射把不同人sim从0.3抬高到0.65，超过rejectThreshold被纳入候选
-    //   原始值：同一个人>0.9，不同人<0.5，辨识力强
+    // 原映射把不同人sim从0.3抬高到0.65，超过rejectThreshold被纳入候选
+    // 原始值：同一个人>0.9，不同人<0.5，辨识力强
     //   作者：袁燕 — 修复陌生人泛化误识P0致命Bug
     return dot;
 }
@@ -75,7 +75,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     result.userId = 0;
     result.similarity = 0;
 
-    // [2026-08-24 袁燕] 识别计时 + 统计日志埋点（支撑专利实测数据）
+    // 识别计时 + 统计日志埋点（支撑专利实测数据）
     QElapsedTimer recogTimer;
     recogTimer.start();
     QJsonArray enrolledFaces = getAllEnrolledFaces();
@@ -100,8 +100,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     }
 
     // [V2.02 2026-06-28] 遍历所有已录入人脸，计算余弦相似度+欧氏距离
-    //   移除提前退出逻辑：陌生人sim碰巧高时直接return success=true是致命Bug
-    //   所有候选必须遍历完再综合判断
+    // 移除提前退出逻辑：陌生人sim碰巧高时直接return success=true是致命Bug
+    // 所有候选必须遍历完再综合判断
     //   作者：袁燕 — 修复陌生人泛化误识P0致命Bug
     struct Candidate {
         int userId;
@@ -115,7 +115,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     QVector<Candidate> candidates;
     candidates.reserve(enrolled.size());
 
-    // [2026-08-24 袁燕] 统计埋点：追踪全局最佳候选（即便低于rejectThreshold），供stranger日志记录最高相似度
+    // 统计埋点：追踪全局最佳候选（即便低于rejectThreshold），供stranger日志记录最高相似度
     double globalBestSim = 0;
     double globalBestDist = 1;
 
@@ -156,16 +156,16 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
 
     // [V2.17 2026-07-06 袁总指令] 单人脸严格策略：系统仅1人脸时必须95%以上
-    //   根因：只有1个候选时无法做第二名差距检查(marginThreshold)，陌生人碰巧0.94+就可能通过
-    //   修复：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
-    //   设计理念：宁误拒不误识——陌生人绝对不能登录系统
+    // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，陌生人碰巧0.94+就可能通过
+    // 修复：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
+    // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
     //   作者：袁燕
     const double singleFaceThreshold = 0.97;  // 单人脸最低门槛（袁总确认95%以上才通过）
     bool cosOk = false;
 
     if (candidates.size() == 1) {
         // [V2.17] 单人脸模式：没有第二名候选，必须达到singleFaceThreshold(0.95)才通过
-        //   杜绝陌生人误识：只有1个人脸时，任何低于95%的匹配一律拒绝
+        // 杜绝陌生人误识：只有1个人脸时，任何低于95%的匹配一律拒绝
         cosOk = (best.similarity >= singleFaceThreshold);
         qDebug() << "[FaceRecog] 单人脸模式: best.sim=" << best.similarity
                  << "threshold=" << singleFaceThreshold
@@ -182,7 +182,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 欧氏距离验证（第二道防线）
     bool distOk = (best.euclideanDist <= maxEuclideanDist);
 
-    // [2026-08-24 袁燕] 统计埋点：记录本次生效的判定模式（单/多人脸）与最终阈值
+    // 统计埋点：记录本次生效的判定模式（单/多人脸）与最终阈值
     const QString effMode = (candidates.size() == 1) ? "single" : "multi";
     const double effThreshold = (candidates.size() == 1) ? singleFaceThreshold : threshold;
 

@@ -121,8 +121,8 @@ QWidget* ToolCheckoutPage::createCheckoutTab() {
     searchRow->addWidget(m_categoryFilter);
     searchInputWrap->setMaximumWidth(360);
 
-    // [V2.04 2026-06-30 袁燕] 查询+重置按钮（参考人员管理页风格）
-    // [V2.07 2026-06-30 袁燕] 修复：按钮被拉伸，增加setMaximumWidth+末尾addStretch
+    // 查询+重置按钮（参考人员管理页风格）
+    // 修复：按钮被拉伸，增加setMaximumWidth+末尾addStretch
     m_searchBtn = new QPushButton(QStringLiteral("查询"));
     m_searchBtn->setFixedHeight(48);
     m_searchBtn->setMaximumWidth(100);
@@ -360,7 +360,7 @@ QWidget* ToolCheckoutPage::createRecordTab() {
 
 void ToolCheckoutPage::refresh() {
     // [V2.03 2026-06-27] 切换菜单回到出库页时，完全还原到初始状态：
-    //   1. 切回Tab1(待出库) 2. 清空已选工具 3. 重置页码 4. 清空搜索 5. 分类全选 6. 重新加载
+    // 1. 切回Tab1(待出库) 2. 清空已选工具 3. 重置页码 4. 清空搜索 5. 分类全选 6. 重新加载
     if (m_tabWidget) m_tabWidget->setCurrentIndex(0);
     m_selectedSet.clear();
     m_currentPage = 1;
@@ -449,7 +449,7 @@ void ToolCheckoutPage::loadTools() {
 
     for (int i = 0; i < m_tools.size(); ++i) {
         QJsonObject t = m_tools[i].toObject();
-        // [V2.09 2026-06-30 袁燕] 选中标识改为mappingId（位置唯一），同一工具不同位置可独立选中
+        // 选中标识改为mappingId（位置唯一），同一工具不同位置可独立选中
         int mappingId = t["mappingId"].toInt();
 
         // 复选框 [V7.1] 使用统一表格复选框样式
@@ -462,8 +462,8 @@ void ToolCheckoutPage::loadTools() {
             else m_selectedSet.remove(mappingId);
             m_selectedHint->setText(QStringLiteral("（已选 %1 件）").arg(selectedCount()));
             // [V8.0 2026-06-28] 性能优化：勾选不再调用loadTools()全量重建
-            //   原逻辑：每次勾选→查DB+重建所有行widget→卡顿
-            //   新逻辑：仅更新选中集合+提示文字
+            // 原逻辑：每次勾选→查DB+重建所有行widget→卡顿
+            // 新逻辑：仅更新选中集合+提示文字
             //   作者：袁燕
         });
 
@@ -471,9 +471,9 @@ void ToolCheckoutPage::loadTools() {
         m_table->setItem(i, 2, new QTableWidgetItem(t["toolName"].toString()));
         m_table->setItem(i, 3, new QTableWidgetItem(t["spec"].toString()));
         m_table->setItem(i, 4, new QTableWidgetItem(t["category"].toString()));
-        // [V2.03r 2026-06-30 袁燕] 位置直接用DAO已格式化的position（权威数据源）
-        //   Bug修复：原代码从DAO格式化后的"A-1-2"再提取数字重新拼接→双重格式化→"A-01-12"
-        //   DAO层ToolDAO::findAll已LEFT JOIN映射表格式化好position，直接用即可
+        // 位置直接用DAO已格式化的position（权威数据源）
+        // Bug修复：原代码从DAO格式化后的"A-1-2"再提取数字重新拼接→双重格式化→"A-01-12"
+        // DAO层ToolDAO::findAll已LEFT JOIN映射表格式化好position，直接用即可
         m_table->setItem(i, 5, new QTableWidgetItem(t["position"].toString()));
 
         // 出库原因 [V7.1] 使用紧凑表格下拉框样式
@@ -487,7 +487,7 @@ void ToolCheckoutPage::loadTools() {
 
         // 操作按钮 [2026-06-27] 统一风格：禁用态灰色"待出库"，启用态主色蓝"出库"
         // [2026-06-27] 修复：重建表格时根据 m_selectedSet 设置初始状态，确保状态列与复选框同步
-        // [V2.09 2026-06-30 袁燕] 选中标识改为mappingId
+        // 选中标识改为mappingId
         bool isSelected = m_selectedSet.contains(mappingId);
         auto* opBtn = new QPushButton(isSelected ? QStringLiteral("出库") : QStringLiteral("待出库"));
         opBtn->setStyleSheet(StyleHelper::tableActionBtn());
@@ -496,8 +496,8 @@ void ToolCheckoutPage::loadTools() {
         opBtn->setFixedHeight(40);
         connect(opBtn, &QPushButton::clicked, this, [this, i] { m_table->selectRow(i); });
         // [V8.0 2026-06-28] #16修复：合并两个toggled信号为一个，减少信号回调开销
-        //   原逻辑：check连两个toggled信号（一个更新m_selectedSet，一个更新opBtn）
-        //   新逻辑：合并为一个lambda同时更新m_selectedSet和opBtn
+        // 原逻辑：check连两个toggled信号（一个更新m_selectedSet，一个更新opBtn）
+        // 新逻辑：合并为一个lambda同时更新m_selectedSet和opBtn
         //   作者：袁燕
         // [注] 第一个toggled连接在上方（更新m_selectedSet），这里仅保留opBtn更新
         connect(check, &QCheckBox::toggled, opBtn, [opBtn](bool checked) {
@@ -522,7 +522,7 @@ void ToolCheckoutPage::onBatchCheckout() {
     QStringList issues;
     for (int i = 0; i < m_tools.size(); ++i) {
         QJsonObject t = m_tools[i].toObject();
-        // [V2.09 2026-06-30 袁燕] 选中标识改为mappingId
+        // 选中标识改为mappingId
         int mappingId = t["mappingId"].toInt();
         if (!m_selectedSet.contains(mappingId)) continue;
 
@@ -548,7 +548,7 @@ QList<ToolCheckoutPage::CheckoutItem> ToolCheckoutPage::collectSelectedItems() c
     QList<CheckoutItem> items;
     for (int i = 0; i < m_tools.size(); ++i) {
         QJsonObject t = m_tools[i].toObject();
-        // [V2.09 2026-06-30 袁燕] 选中标识改为mappingId
+        // 选中标识改为mappingId
         int mappingId = t["mappingId"].toInt();
         if (!m_selectedSet.contains(mappingId)) continue;
 
@@ -1065,8 +1065,8 @@ void ToolCheckoutPage::onReset() {
 }
 
 // [V8.0 2026-06-28] #18修复：onCheck不再无条件loadTools()全量重建
-//   原逻辑：忽略参数直接loadTools()→全量重建
-//   新逻辑：空实现，checkbox的toggled信号已在loadTools中处理选择逻辑
+// 原逻辑：忽略参数直接loadTools()→全量重建
+// 新逻辑：空实现，checkbox的toggled信号已在loadTools中处理选择逻辑
 //   作者：袁燕
 void ToolCheckoutPage::onCheck(int row, bool checked) {
     Q_UNUSED(row);

@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  应用配置管理（单例，基于本地INI文件）
-// 日期：2026-06-21  功能：管理数据库连接、系统参数、读写本地ini配置文件
+// 日期：2026-06-21 功能：管理数据库连接、系统参数、读写本地ini配置文件
 // [2026-06-26v19] 重构：QSettings改用显式INI文件路径，30个系统配置项统一走INI读写
 #include <QString>
 #include <QSettings>
@@ -61,8 +61,8 @@ public:
     void setAlertOverdueHours(int v);
     int  alertDoorTimeout() const;      // 柜门超时告警(秒)
     void setAlertDoorTimeout(int v);
-    bool alertRfidEnabled() const;      // RFID异常告警
-    void setAlertRfidEnabled(bool v);
+    bool alertVisionEnabled() const;      // 视觉异常告警
+    void setAlertVisionEnabled(bool v);
     int  alertPowerAlarmMode() const;   // 0=声光同时, 1=仅声音, 2=仅光
     void setAlertPowerAlarmMode(int v);
     bool alertAutoConfirm() const;      // 自动确认告警

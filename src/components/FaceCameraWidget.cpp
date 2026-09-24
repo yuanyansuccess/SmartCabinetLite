@@ -1,13 +1,13 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  FaceCameraWidget实现  
-// 日期：2026-06-21  纯C++人脸检测+特征提取
+// 日期：2026-06-21 纯C++人脸检测+特征提取
 // [2026-06-21] 重写说明：
-//   1. 肤色人脸检测（YCrCb色彩空间+形态学开运算+连通域分析）
-//   2. 128维纹理特征提取（64x64灰度→8x8网格→均值+方差）
-//   3. 人脸框绘制（绿色矩形+蓝色特征点仿真）
-//   4. 状态提示叠加层（复刻Web端已检测到人脸/请对准摄像头等）
-//   5. 状态指示灯（蓝色扫描/绿色成功/红色错误）
-//   6. 摄像头圆框边框动画（灰色虚线→绿色实线→蓝色脉冲）
-//   替代之前的随机特征向量生成，实现真正的刷脸登录功能
+// 1. 肤色人脸检测（YCrCb色彩空间+形态学开运算+连通域分析）
+// 2. 128维纹理特征提取（64x64灰度→8x8网格→均值+方差）
+// 3. 人脸框绘制（绿色矩形+蓝色特征点仿真）
+// 4. 状态提示叠加层（复刻Web端已检测到人脸/请对准摄像头等）
+// 5. 状态指示灯（蓝色扫描/绿色成功/红色错误）
+// 6. 摄像头圆框边框动画（灰色虚线→绿色实线→蓝色脉冲）
+// 替代之前的随机特征向量生成，实现真正的刷脸登录功能
 #include "FaceCameraWidget.h"
 #include "CameraCapture.h"
 #include "DeepFaceExtractor.h"  // [V8.0] 深度学习人脸特征提取
@@ -246,8 +246,8 @@ void FaceCameraWidget::captureNow()
         m_glowAnim->start();
 
         // [V2.03 2026-06-28] 同步提取特征 — 通过HTTP调用常驻face-server.js
-        //   原方案：每次启动node进程加载模型 → 2-3s/次
-        //   新方案：ensureServerRunning()启动常驻服务 → HTTP请求<300ms
+        // 原方案：每次启动node进程加载模型 → 2-3s/次
+        // 新方案：ensureServerRunning()启动常驻服务 → HTTP请求<300ms
         //   作者：袁燕
         QString feature;
         double deepConfidence = 0;
@@ -268,8 +268,8 @@ void FaceCameraWidget::captureNow()
         }
 
         // [V2.03] 使用face-api.js真实检测置信度，替代面积比估算
-        //   原逻辑：confidence = 0.5 + areaRatio*2.0（面积比，不反映检测质量）
-        //   新逻辑：优先用深度学习返回的confidence，面积比仅作兜底
+        // 原逻辑：confidence = 0.5 + areaRatio*2.0（面积比，不反映检测质量）
+        // 新逻辑：优先用深度学习返回的confidence，面积比仅作兜底
         double confidence = deepConfidence > 0 ? deepConfidence : 0.5;
         if (deepConfidence <= 0) {
             double imgArea = (double)(m_lastFrame.width() * m_lastFrame.height());
@@ -601,8 +601,8 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     if (frame.isNull()) return QString();
 
     // [V2.02 2026-06-28] 深度学习特征提取（唯一方案）
-    //   使用face-api.js的128维深度特征，替代8x8网格纹理哈希
-    //   深度学习特征个体辨识力强，解决陌生人泛化误识问题
+    // 使用face-api.js的128维深度特征，替代8x8网格纹理哈希
+    // 深度学习特征个体辨识力强，解决陌生人泛化误识问题
     //   作者：袁燕 — 纹理哈希辨识力不足，不能用于身份验证，已彻底移除
     static bool deepFaceChecked = false;
     static bool deepFaceAvailable = false;
@@ -620,7 +620,7 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
 
     if (!deepFaceAvailable) {
         // [V2.02] 深度学习不可用 → 返回空特征，LoginPage会提示使用密码登录
-        //   纹理哈希辨识力不足，两个不同人可能sim>0.85，不能用于身份验证
+        // 纹理哈希辨识力不足，两个不同人可能sim>0.85，不能用于身份验证
         return QString();
     }
 
@@ -793,13 +793,13 @@ void FaceCameraWidget::tryAutoCapture()
     });
 }
 
-// [V2.18 2026-07-06 袁燕] 本地方位估算：根据人脸框位置计算yaw/pitch
-//   yaw:  人脸框中心X偏离画面中心 / 人脸框宽度 → [-1, 1]
-//         正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
-//   pitch: 人脸框中心Y偏离画面中心 / 人脸框高度 × 2 → [-1, 1]
-//          正值=低头(脸下移)，负值=抬头(脸上移)
-//   用人脸框宽高归一化（比画面宽度更稳定，不受分辨率影响）
-//   pitch放大2倍：上下偏移量天然较小，需放大提高灵敏度
+// 本地方位估算：根据人脸框位置计算yaw/pitch
+// yaw: 人脸框中心X偏离画面中心 / 人脸框宽度 → [-1, 1]
+// 正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
+// pitch: 人脸框中心Y偏离画面中心 / 人脸框高度 × 2 → [-1, 1]
+// 正值=低头(脸下移)，负值=抬头(脸上移)
+// 用人脸框宽高归一化（比画面宽度更稳定，不受分辨率影响）
+// pitch放大2倍：上下偏移量天然较小，需放大提高灵敏度
 void FaceCameraWidget::estimatePosture(const QRect& faceRect, double& yaw, double& pitch) {
     if (faceRect.isEmpty() || faceRect.width() < 10) {
         yaw = 0; pitch = 0;

@@ -302,8 +302,8 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     file.write((escapedHeaders.join(",") + "\n").toUtf8());
 
     // [2026-09-23] 工号自增：查询DB中已存在的最大数字工号，生成5行递增示例数据
-    //   工号规则：纯数字3位补零（001~999，超999自然进位4位）
-    //   生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
+    // 工号规则：纯数字3位补零（001~999，超999自然进位4位）
+    // 生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
     QStringList exampleDepartments = {
         QStringLiteral("技术部"), QStringLiteral("维修一部"), QStringLiteral("维修二部"),
         QStringLiteral("质检部"), QStringLiteral("维修三部")

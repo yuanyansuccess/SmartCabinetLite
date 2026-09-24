@@ -1,6 +1,6 @@
 #pragma once
 // 作者：袁燕  智能柜Qt Widget 2.0  归还记录实体
-// 日期：2026-06-21  [V1.00.8.4] 修复：映射自tool_borrow_record中status='returned'的记录
+// 日期：2026-06-21 [V1.00.8.4] 修复：映射自tool_borrow_record中status='returned'的记录
 #include <QString>
 #include <QDateTime>
 

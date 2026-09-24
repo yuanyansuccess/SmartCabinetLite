@@ -26,16 +26,16 @@ public:
     QJsonObject findAll(const QString& keyword, const QString& category,
                         const QString& status, int cabinetId, int page, int pageSize,
                         int machineGroupId = 0);
-    // [V2.09 2026-06-30 袁燕] 位置维度查询：每个在库位置一行（同一工具多位置分行显示）
-    //   入参：keyword关键字, category类别, status映射表status, cabinetId柜体, page页码, pageSize每页, machineGroupId机组
-    //   返回：QJsonObject含list(QJsonArray)和total(int)，每项含mappingId/toolId/toolName/toolCode/spec/category/position等
+    // 位置维度查询：每个在库位置一行（同一工具多位置分行显示）
+    // 入参：keyword关键字, category类别, status映射表status, cabinetId柜体, page页码, pageSize每页, machineGroupId机组
+    // 返回：QJsonObject含list(QJsonArray)和total(int)，每项含mappingId/toolId/toolName/toolCode/spec/category/position等
     QJsonObject findAllByPosition(const QString& keyword, const QString& category,
                                    const QString& status, int cabinetId, int page, int pageSize,
                                    int machineGroupId = 0);
-    // [V2.12 2026-07-02 袁燕] 按工具种类聚合查询在库工具（借用页面用）
-    //   同一工具一行，availableQty=映射表in_stock位置数
-    //   入参：keyword, category, page, pageSize, machineGroupId
-    //   返回：QJsonObject含list(QJsonArray)和total，每项含toolId/toolName/toolCode/availableQty等
+    // 按工具种类聚合查询在库工具（借用页面用）
+    // 同一工具一行，availableQty=映射表in_stock位置数
+    // 入参：keyword, category, page, pageSize, machineGroupId
+    // 返回：QJsonObject含list(QJsonArray)和total，每项含toolId/toolName/toolCode/availableQty等
     QJsonObject findAllInStockByTool(const QString& keyword, const QString& category,
                                       int page, int pageSize, int machineGroupId = 0);
     QJsonObject findById(int toolId);
@@ -82,7 +82,7 @@ public:
     // 更新映射表状态（用于出库操作标记checked_out等）
     bool        updateMappingStatus(int mappingId, const QString& status);
 
-    // [V2.15 2026-07-05 袁燕] 按名称查ID（Service层迁移到DAO）
+    // 按名称查ID（Service层迁移到DAO）
     int findCategoryIdByName(const QString& name);     // 按分类名查category_id，-1=未找到
     int findCabinetIdByName(const QString& name);      // 按柜体名查cabinet_id，-1=未找到
     int countInStockPositions(int toolId);             // 统计工具in_stock位置数
@@ -93,8 +93,8 @@ public:
                                  const QString& expectedStatus);
 
     // 入库页：查找待入库工具（映射表中有status='pending'空闲位置的工具）
-    //   入参：categoryId分类(-1=全部), machineGroupId机组
-    //   返回：每个工具含toolId/toolCode/toolName/status/freePosCount
+    // 入参：categoryId分类(-1=全部), machineGroupId机组
+    // 返回：每个工具含toolId/toolCode/toolName/status/freePosCount
     QJsonArray  findPendingTools(int categoryId, int machineGroupId);
     // 入库页：查找工具基本信息（tool_name, tool_code, spec）
     QJsonObject findToolBasicInfo(int toolId);

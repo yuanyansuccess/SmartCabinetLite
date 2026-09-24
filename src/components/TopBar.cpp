@@ -1,5 +1,5 @@
 // 作者：袁燕  智能柜Qt Widget 2.0  TopBar实现
-// 日期：2026-06-21  1:1复刻Web前端TopBar.vue
+// 日期：2026-06-21 1:1复刻Web前端TopBar.vue
 // [2026-06-21] 增强：底部分隔线+大号退出按钮+时间用户名清晰显示
 // [2026-06-23] 退出按钮改为"退出系统"：发射exitSystemClicked信号退出整个应用（非注销）
 // [V2.03 2026-06-29] 新增电池电量+网络状态指示器（小米极简美学，不抢眼但清晰）
@@ -28,7 +28,7 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     updateClock();
 
     // [V2.03] 电池+网络状态定时器，每30秒刷新一次
-    //   电池和网络状态变化较慢，30秒足够；避免频繁API调用影响性能
+    // 电池和网络状态变化较慢，30秒足够；避免频繁API调用影响性能
     m_statusTimer = new QTimer(this);
     connect(m_statusTimer, &QTimer::timeout, this, [this]() {
         updateBatteryStatus();
@@ -89,7 +89,7 @@ void TopBar::setupUI() {
     leftLayout->addWidget(m_pageTitle);
 
     // [2026-06-27] 软件版本号标签，放在面包屑后面，蓝色徽章风格
-    //   版本号从AppConfig读取（非硬编码），用户可在exe同级system.ini中修改
+    // 版本号从AppConfig读取（非硬编码），用户可在exe同级system.ini中修改
     m_versionLabel = new QLabel();
     // [2026-06-27] 小米极简风格：淡灰色文字+左侧细线分隔，不抢眼但精致
     m_versionLabel->setStyleSheet(
@@ -104,7 +104,7 @@ void TopBar::setupUI() {
     // ── 右侧：时钟 + 用户信息 + 退出 ──
     // [2026-06-21] 用容器包装，登录页隐藏
     // [2026-06-27] 小米/Apple极简风格重设计：
-    //   去掉所有"·"分隔点和竖线，按钮去边框改hover背景，增加呼吸感
+    // 去掉所有"·"分隔点和竖线，按钮去边框改hover背景，增加呼吸感
     m_rightArea = new QWidget();
     m_rightArea->setStyleSheet("background:transparent;");
     QHBoxLayout* rightLayout = new QHBoxLayout(m_rightArea);
@@ -112,8 +112,8 @@ void TopBar::setupUI() {
     rightLayout->setSpacing(24);  // 增加间距，呼吸感更好
 
     // [V2.03 2026-06-29] 电池电量+网络状态指示器 — 小米极简美学
-    //   设计理念：小图标+文字，淡色不抢眼，状态变化时颜色提醒
-    //   放在时钟左侧，与用户信息区自然分隔
+    // 设计理念：小图标+文字，淡色不抢眼，状态变化时颜色提醒
+    // 放在时钟左侧，与用户信息区自然分隔
 
     // 电池电量指示器
     m_batteryLabel = new QLabel();
@@ -244,9 +244,9 @@ void TopBar::updateClock() {
 }
 
 /// [V2.03b 2026-06-29] 更新电池电量显示（跨平台：Windows API + 麒麟sysfs）
-///   Windows: GetSystemPowerStatus
-///   麒麟/Linux: 读取 /sys/class/power_supply/BAT0/capacity 和 status
-///   电量<20%红色警告，20-50%橙色，>50%灰色正常，充电中蓝色
+/// Windows: GetSystemPowerStatus
+/// 麒麟/Linux: 读取 /sys/class/power_supply/BAT0/capacity 和 status
+/// 电量<20%红色警告，20-50%橙色，>50%灰色正常，充电中蓝色
 void TopBar::updateBatteryStatus() {
     if (!m_batteryLabel) return;
 
@@ -303,10 +303,10 @@ void TopBar::updateBatteryStatus() {
         "padding:4px 10px; border-radius:14px;").arg(color));
 }
 
-/// [V2.15 2026-07-07 袁燕] 更新网络连接状态显示
-///   改为检测真实物理网络连接（DatabaseManager::isNetworkConnected），
-///   不再用数据库连接（isConnected）作为代理判断，
-///   物理网卡断开时立即显示"未联网"
+/// 更新网络连接状态显示
+/// 改为检测真实物理网络连接（DatabaseManager::isNetworkConnected），
+/// 不再用数据库连接（isConnected）作为代理判断，
+/// 物理网卡断开时立即显示"未联网"
 void TopBar::updateNetworkStatus() {
     if (!m_networkLabel) return;
 
@@ -331,7 +331,7 @@ void TopBar::setUserAreaVisible(bool visible) {
 }
 
 /// [2026-06-27] 更新版本号显示（从AppConfig读取system.ini中的System/version）
-///   版本号格式示例：V2.00，显示在TopBar左侧品牌区后面
+/// 版本号格式示例：V2.00，显示在TopBar左侧品牌区后面
 void TopBar::refreshVersionLabel() {
     if (!m_versionLabel) return;
     QString version = AppConfig::instance().appVersion();
