@@ -86,7 +86,6 @@ private:
     
     QCamera* m_camera = nullptr;
     QMediaCaptureSession* m_captureSession = nullptr;
-    QImageCapture* m_imageCapture = nullptr;
     QVideoFrame m_lastFrame;
     bool m_frameReady = false;
 #endif

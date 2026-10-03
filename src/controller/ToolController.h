@@ -29,16 +29,8 @@ public:
     // 详情页上传文档 — 轻量更新文档路径
     bool        updateToolDocument(int toolId, const QString& docPath);
 
-    // 借用/归还流转
-    struct BorrowResult { bool ok; QString msg; int recordId; };
-    BorrowResult borrowTool(int toolId, int userId, int qty, const QString& reason,
-                             const QDateTime& expectReturn, const QString& flowNo);
-    struct ReturnResult { bool ok; QString msg; };
-    ReturnResult returnTool(int borrowId, const QString& condition, const QString& remark);
-
     // 分类/柜体管理
     QList<ToolCategory> getCategories();
-    QList<ToolCabinet>  getCabinets();
     QStringList categoryNames();
     QStringList cabinetNames();
 
@@ -46,13 +38,6 @@ public:
     QJsonObject getToolStats();
     QList<QJsonObject> getMachineGroups();
     QJsonObject getMachineGroupById(int groupId);
-
-signals:
-    void toolCreated(int toolId);
-    void toolUpdated(int toolId);
-    void toolBorrowed(int toolId, int userId, int recordId);
-    void toolReturned(int toolId, int userId, int recordId, bool overdue);
-    void lowStockAlert(int toolId, const QString& toolName, int currentQty);
 
 private:
     db::ToolDAO   m_toolDao;

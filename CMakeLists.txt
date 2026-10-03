@@ -143,7 +143,6 @@ set(PAGE_UIS
     src/pages/UserEntryDialog.ui
     src/pages/AlertLogsPage.ui
     src/pages/ToolReturnPage.ui
-    src/pages/FaceEnrollPage.ui
     src/pages/SystemMaintenancePage.ui
     src/pages/ToolCheckoutPage.ui
     src/pages/ToolCheckinPage.ui
@@ -158,7 +157,6 @@ set(PAGE_SOURCES
     src/pages/CabinetSessionDialog.cpp
     src/pages/UserManagementPage.cpp
     src/pages/BatchImportDialog.cpp
-    src/pages/FaceEnrollPage.cpp
     src/pages/UserEntryDialog.cpp
     src/pages/ToolManagementPage.cpp
     src/pages/ToolBorrowPage.cpp
@@ -283,7 +281,6 @@ set(ALL_HEADERS
     src/pages/AlertLogsPage.h
     src/pages/SystemSettingsPage.h
     src/pages/SystemMaintenancePage.h
-    src/pages/FaceEnrollPage.h
     src/pages/UserEntryDialog.h
     # Utils (版本B)
     src/utils/StyleHelper.h

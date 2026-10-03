@@ -131,11 +131,9 @@ bool DatabaseManager::ensureConnected() {
         m_db.setPassword(m_pass);
         if (!m_db.open()) {
             qWarning() << "[DB] Reconnect failed (MySQL):" << m_db.lastError().text();
-            emit connectionLost();
             return false;
         }
         qInfo() << "[DB] Reconnected: MySQL";
-        emit connectionRestored();
     }
     return true;
 }

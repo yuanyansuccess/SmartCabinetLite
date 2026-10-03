@@ -102,14 +102,8 @@ const int PAGE_SIZE_ALERT     = 200;    // 告警列表默认分页
 const int PAGE_SIZE_TOOLS     = 100;    // 工具列表大分页（借用页全量加载）
 
 // ── 触屏优化尺寸 ──
-const int BTN_HEIGHT       = 48;
-const int BTN_HEIGHT_LARGE = 56;
-const int INPUT_HEIGHT     = 48;
-const int FONT_SIZE_TITLE  = 20;
-const int FONT_SIZE_BODY   = 16;
+// 控件高度/圆角/字号统一由 StyleHelper::Token 提供，此处不再重复定义第二套来源
 const int FONT_SIZE_SMALL  = 14;
-const int BORDER_RADIUS    = 12;
-const int BORDER_RADIUS_LG = 16;
 
 // ── 统计卡片尺寸 ──
 const int STAT_CARD_HEIGHT      = 100;  // 卡片高度

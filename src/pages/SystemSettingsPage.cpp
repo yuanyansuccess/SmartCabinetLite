@@ -265,19 +265,19 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     };
 
     // 使用Web端小尺寸settingLineEdit：14px/38px高
-    m_ipEdit = new QLineEdit("192.168.1.100");
+    m_ipEdit = new QLineEdit(SC::NET_IP);
     m_ipEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("IP 地址")), m_ipEdit);
 
-    m_maskEdit = new QLineEdit("255.255.255.0");
+    m_maskEdit = new QLineEdit(SC::NET_MASK);
     m_maskEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("子网掩码")), m_maskEdit);
 
-    m_gatewayEdit = new QLineEdit("192.168.1.1");
+    m_gatewayEdit = new QLineEdit(SC::NET_GATEWAY);
     m_gatewayEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("默认网关")), m_gatewayEdit);
 
-    m_dnsEdit = new QLineEdit("8.8.8.8");
+    m_dnsEdit = new QLineEdit(SC::NET_DNS);
     m_dnsEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("DNS 服务器")), m_dnsEdit);
 

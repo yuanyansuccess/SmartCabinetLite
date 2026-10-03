@@ -36,10 +36,6 @@ public:
     // 错误信息
     QString lastError() const;
 
-signals:
-    void connectionLost();
-    void connectionRestored();
-
 private:
     DatabaseManager(QObject* parent = nullptr);
     ~DatabaseManager();
