@@ -572,8 +572,14 @@ void ToolCheckoutPage::showCheckoutSuccessDialog() {
     dlg.exec();
 
     // 出库成功后落库：映射表状态 + 扣减库存 + 操作日志（业务下沉CheckoutService）
+    // 整批单事务，失败不刷新列表，让用户看到失败明细而非"假装成功"
     CheckoutService checkoutSvc;
-    checkoutSvc.executeCheckout(m_user["userId"].toInt(), items);
+    CheckoutService::CheckoutResult coRet =
+        checkoutSvc.executeCheckout(m_user["userId"].toInt(), items);
+    if (!coRet.success) {
+        MessageDialog::showError(this, QStringLiteral("出库失败"), coRet.message);
+        return;
+    }
 
     // 成功出库后清空选中状态并刷新
     m_selectedSet.clear();

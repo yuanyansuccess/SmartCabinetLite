@@ -27,6 +27,10 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     QString condition = returnInfo["condition"].toString("正常"); // 工具状态：正常/损坏/丢失
     QString remark = returnInfo["remark"].toString("");
+    QStringList failedNames;
+
+    // 整批单事务：任一写失败整体回滚，杜绝"记录已归还但位置仍占用"的脏数据
+    bool allOk = toolDao.transaction([&]() -> bool {
 
     for (int recId : recordIds) {
         QJsonObject rec = recDao.findById(recId);
@@ -62,20 +66,42 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
             // 按位置维度归还：更新映射表status
             // 正常→in_stock，损坏→maintenance（映射表无maintenance状态，保持in_stock但tool_info标记maintenance）
             // 丢失→保持borrowed（位置仍被占用，工具丢失不在库）
+            bool stepOk = true;
             if (mappingId > 0) {
                 QString newStatus = (condition == "丢失") ? "borrowed" : "in_stock";
-                toolDao.updateMappingStatus(mappingId, newStatus);
+                stepOk = toolDao.updateMappingStatus(mappingId, newStatus);
             }
             // 损坏的工具更新tool_info状态为maintenance
-            if (condition == "损坏") {
-                toolDao.updateStatus(toolId, "maintenance");
+            if (stepOk && condition == "损坏") {
+                stepOk = toolDao.updateStatus(toolId, "maintenance");
+            }
+            // 第二步写失败必须中断并回滚：否则出现"记录已还、位置仍占用"的脏数据
+            if (!stepOk) {
+                failedNames.append(rec["toolName"].toString().isEmpty()
+                    ? QString("记录#%1").arg(recId) : rec["toolName"].toString());
+                return false;
             }
             ++r.count;
+        } else {
+            failedNames.append(rec["toolName"].toString().isEmpty()
+                ? QString("记录#%1").arg(recId) : rec["toolName"].toString());
+            return false;
         }
     }
+    return true;
+    });
 
-    r.success = r.count > 0;
-    if (r.success) {
+    if (!allOk) {
+        // 事务整体回滚：一件失败即全部未生效，避免"显示成功实际没还上"
+        r.success = false;
+        r.count = 0;
+        r.message = QString("归还失败：本次操作已全部回滚，请重试\n失败工具：%1")
+            .arg(failedNames.isEmpty() ? "--" : failedNames.join("、"));
+        return r;
+    }
+
+    r.success = (r.count == recordIds.size());
+    if (r.count == recordIds.size()) {
         r.message = QString("成功归还 %1 件工具").arg(r.count);
         if (condition != "正常") {
             r.message += "，状态：" + condition;

@@ -24,8 +24,17 @@ class CheckoutService {
 public:
     CheckoutService() = default;
 
-    /// 执行出库落库（在成功对话框关闭后调用）：
+    /// 出库结果：区分成功件数与失败明细，杜绝"部分失败静默吞掉"
+    struct CheckoutResult {
+        bool success = false;          // 全部出库成功才为 true
+        int  succeeded = 0;            // 成功件数
+        int  failed = 0;               // 失败件数
+        QString message;               // 面向用户的汇总说明
+        QStringList failedNames;       // 失败工具名称清单
+    };
+
+    /// 执行出库落库（整批单事务，任一失败整体回滚）：
     /// 1)映射表状态→checked_out  2)扣减库存(current_qty/total_qty)
     /// 3)库存清零则工具状态→checked_out  4)写操作日志
-    void executeCheckout(int userId, const QList<CheckoutItem>& items);
+    CheckoutResult executeCheckout(int userId, const QList<CheckoutItem>& items);
 };

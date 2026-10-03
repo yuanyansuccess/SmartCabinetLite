@@ -64,16 +64,9 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
         qWarning() << "[BorrowService] 映射记录不存在: mappingId=" << mappingId;
         return r;
     }
-    if (posStatus != "in_stock") {
+    if (posStatus != SC::TOOL_IN_STOCK) {
         r.message = QStringLiteral("该位置工具不可借用（当前状态: %1）").arg(posStatus);
         qWarning() << "[BorrowService] 借用被拒绝: toolId=" << toolId << "mappingId=" << mappingId << "posStatus=" << posStatus;
-        return r;
-    }
-
-    // 更新映射表status='borrowed'（前置已校验in_stock，委托到DAO）
-    if (!toolDao.updateMappingStatus(mappingId, "borrowed")) {
-        r.message = QStringLiteral("更新位置状态失败");
-        qWarning() << "[BorrowService] 更新映射表status失败: mappingId=" << mappingId;
         return r;
     }
 
@@ -87,13 +80,29 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     rec["purpose"] = reason;
     rec["expectedReturnTime"] = expectedReturnTime;
     rec["status"] = SC::RECORD_BORROWING;
-    r.recordId = recDao.insert(rec);
-    if (r.recordId <= 0) {
-        // 回滚：映射表status改回in_stock（委托到ToolDAO）
-        if (!toolDao.updateMappingStatus(mappingId, "in_stock")) {
-            qWarning() << "[BorrowService] 回滚映射表状态失败! mappingId=" << mappingId;
+
+    // 两步写（位置占位 + 借用记录）包单事务：记录创建失败时由事务回滚位置状态，
+    // 不再依赖手工补偿，杜绝"补偿失败导致位置永久占用"
+    QString failMsg;
+    bool txnOk = toolDao.transaction([&]() -> bool {
+        // 更新映射表status='borrowed'（前置已校验in_stock，委托到DAO）
+        if (!toolDao.updateMappingStatus(mappingId, SC::TOOL_BORROWED)) {
+            failMsg = QStringLiteral("更新位置状态失败");
+            return false;
         }
-        r.message = "创建借用记录失败"; return r;
+        r.recordId = recDao.insert(rec);
+        if (r.recordId <= 0) {
+            failMsg = QStringLiteral("创建借用记录失败");
+            return false;
+        }
+        return true;
+    });
+
+    if (!txnOk) {
+        r.recordId = 0;
+        r.message = failMsg;
+        qWarning() << "[BorrowService] 借用事务已回滚: mappingId=" << mappingId << " reason=" << failMsg;
+        return r;
     }
     r.success = true; r.message = "借用成功";
     return r;

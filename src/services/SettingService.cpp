@@ -308,12 +308,26 @@ QJsonObject SettingService::getLedgerStats() {
 }
 
 bool SettingService::factoryReset(const QString& adminPassword) {
-    // 恢复默认密码硬编码为123456，无需查询DB
-    if (adminPassword != "123456") {
-        qWarning() << "[SettingService] factoryReset: 管理员密码验证失败";
+    return verifyAdminPassword(adminPassword);
+}
+
+bool SettingService::verifyAdminPassword(const QString& adminPassword) {
+    // 危险操作鉴权：必须验证真实管理员身份（密码与库中哈希比对）
+    // 禁止任何硬编码口令后门，也禁止跳过状态校验
+    if (adminPassword.isEmpty()) {
+        qWarning() << "[SettingService] verifyAdminPassword: 口令为空";
         return false;
     }
-    return true;
+
+    db::UserDAO userDao;
+    QList<User> admins = userDao.findAllUsers(1, 200, QString(), QString(), QString(), SC::ROLE_ADMIN);
+    for (const User& admin : admins) {
+        if (admin.status != SC::USER_ACTIVE) continue;  // 停用管理员不得执行危险操作
+        if (AuthService::verifyPassword(adminPassword, admin.passwordSalt, admin.passwordHash))
+            return true;
+    }
+    qWarning() << "[SettingService] verifyAdminPassword: 管理员身份验证失败";
+    return false;
 }
 
 bool SettingService::clearAllLogs(const QString& adminPassword) {

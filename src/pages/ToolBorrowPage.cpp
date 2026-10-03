@@ -78,7 +78,7 @@ void ToolBorrowPage::setupUI() {
 
     // 预计归还时间：从AppConfig读取默认借用期限(小时)，自动计算归还时间
     int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
-    if (defaultPeriodHours <= 0) defaultPeriodHours = 168; // 默认7天=168小时
+    if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;
     QDateTime returnTime = QDateTime::currentDateTime().addSecs(defaultPeriodHours * 3600);
     m_returnTimeLabel->setText(returnTime.toString("yyyy-MM-dd HH:mm"));
 
@@ -809,7 +809,7 @@ void ToolBorrowPage::onBorrowConfirm() {
     m_pendingQuantity = 1;
     // 从系统参数自动计算归还时间（不从用户编辑的DateTimeEdit读取）
     int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
-    if (defaultPeriodHours <= 0) defaultPeriodHours = 168;
+    if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;
     m_pendingReturnTime = QDateTime::currentDateTime().addSecs(defaultPeriodHours * 3600)
                               .toString("yyyy-MM-dd HH:mm:ss");
 

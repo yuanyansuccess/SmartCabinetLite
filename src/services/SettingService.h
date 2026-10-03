@@ -25,6 +25,8 @@ public:
     UpgradeResult checkUpgrade();
     bool factoryReset(const QString& adminPassword);
     bool clearAllLogs(const QString& adminPassword);
+    /** 危险操作统一鉴权：验证真实管理员口令（查库哈希比对，拒绝停用管理员） */
+    bool verifyAdminPassword(const QString& adminPassword);
     QJsonArray getDepartments();
 
     // 系统配置持久化（读写 system_config 表）

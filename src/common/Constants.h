@@ -28,6 +28,9 @@ const QString USER_DISABLED = "disabled";  // 禁用（UserManagementPage启用/
 const QString USER_LOCKED   = "locked";    // 已锁定
 const QString USER_DELETED  = "deleted";
 
+// ── 新用户初始密码（批量导入/新建用户统一来源，修改此处即可全局生效）──
+const QString DEFAULT_INIT_PASSWORD = "123456";
+
 // ── 操作日志类型（sys_operation_log.operation_type） ──
 const QString OP_CHECKIN  = "checkin";
 const QString OP_CHECKOUT = "checkout";

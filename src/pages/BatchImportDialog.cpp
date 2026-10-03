@@ -405,9 +405,9 @@ void BatchImportDialog::onConfirm()
     QString confirmMsg = QStringLiteral("即将导入 %1 条用户数据，确认导入？\n\n"
                                         "导入将自动：\n"
                                         "  · 以工号作为登录账号\n"
-                                        "  · 默认密码为 123456\n"
+                                        "  · 默认密码为 %2\n"
                                         "  · 自动创建系统账户")
-                             .arg(m_parsedRows.size());
+                             .arg(m_parsedRows.size()).arg(SC::DEFAULT_INIT_PASSWORD);
 
     if (!MessageDialog::showQuestion(this, QStringLiteral("确认导入"), confirmMsg)) {
         return;
@@ -453,7 +453,7 @@ void BatchImportDialog::onConfirm()
         newUser.phone      = row.phone;
         newUser.status     = STATUS_MAP.value(row.status, SC::USER_ACTIVE);
 
-        int newId = ctrl.createUser(newUser, "123456");
+        int newId = ctrl.createUser(newUser, SC::DEFAULT_INIT_PASSWORD);
         if (newId > 0) {
             successCount++;
             existingWorkNos.append(workNo);

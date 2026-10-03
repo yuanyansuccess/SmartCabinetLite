@@ -643,9 +643,9 @@ bool DatabaseManager::initSchemaIfNeeded() {
     seedBusinessData();
 
     if (hasExistingSchema) {
-        qInfo() << "[DB] Schema updated (v4.6: added sys_department table). Default admin: CF001 / 123456";
+        qInfo() << "[DB] Schema updated (v4.6: added sys_department table). Default admin seeded (workNo CF001, initial password not logged)";
     } else {
-        qInfo() << "[DB] Schema initialized (6 tables + 5 departments + 6 users). Default admin: CF001 / 123456";
+        qInfo() << "[DB] Schema initialized (6 tables + 5 departments + 6 users). Default admin seeded (workNo CF001, initial password not logged)";
     }
     return true;
 }
