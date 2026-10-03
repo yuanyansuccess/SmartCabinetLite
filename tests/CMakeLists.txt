@@ -69,6 +69,24 @@ target_link_libraries(test_services PRIVATE
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test Qt6::Sql Qt6::Network
 )
 
+# Qt SQL 驱动插件(qsqlodbcd.dll)是运行时按需加载的，而测试 exe 位于 tests/ 子目录，
+# Qt 默认不会在该目录找到 sqldrivers。这里把主程序已部署的插件目录复制过来，
+# 并用 QT_PLUGIN_PATH 固化，免去手工设置环境变量，保证 checkout 后即可运行。
+if(EXISTS "${CMAKE_BINARY_DIR}/Debug/sqldrivers")
+    add_custom_command(TARGET test_services POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_BINARY_DIR}/Debug/sqldrivers"
+                "$<TARGET_FILE_DIR:test_services>/sqldrivers"
+        COMMENT "Copying Qt SQL driver plugins next to test_services"
+    )
+endif()
+
 enable_testing()
 add_test(NAME test_core_logic COMMAND test_core_logic)
 add_test(NAME test_services COMMAND test_services)
+
+# ctest 运行时显式指定插件目录：Qt 需要在 QT_PLUGIN_PATH 下找到 sqldrivers，
+# 否则 QSqlDatabase 会认为 QODBC/QMYSQL 驱动不可用（表现为 "driver not available"）。
+set_tests_properties(test_services PROPERTIES
+    ENVIRONMENT "QT_PLUGIN_PATH=${CMAKE_BINARY_DIR}/Debug"
+)

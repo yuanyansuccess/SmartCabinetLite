@@ -24,6 +24,9 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDateTime>
+#include <QDir>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 
 #include "common/Constants.h"
 #include "common/DatabaseManager.h"
@@ -60,7 +63,7 @@ private slots:
     void testBorrowAndReturnRoundTrip();
 
 private:
-    void ensureDbReady();
+    // 数据库就绪断言由 ENSURE_DB() 宏在用例函数内展开
     QString pickAvailablePosition(int* outMappingId, int* outToolId, int* outGroupId);
 
     bool    m_dbReady = false;
@@ -76,6 +79,19 @@ bool isAllowedTestDatabase(const QString& dbName) {
 }  // namespace
 
 void TestServices::initTestCase() {
+    // Qt 的 SQL 驱动插件按 "插件搜索路径 + /sqldrivers" 加载，而测试 exe 位于
+    // <构建目录>/tests/Debug，默认不会被搜索到。这里自动把主程序已部署的插件
+    // 目录加进搜索路径（典型布局：exe 在 build/tests/Debug，插件在 build/Debug），
+    // 这样手动运行 exe 时无需额外设置 QT_PLUGIN_PATH。
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    for (const QString& rel : QStringList{ "../../Debug", "../Debug", "Debug" }) {
+        const QString cand = QDir::cleanPath(appDir.filePath(rel));
+        if (QDir(cand + "/sqldrivers").exists()) {
+            QCoreApplication::addLibraryPath(cand);
+            break;
+        }
+    }
+
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     const QString host = env.value("SC_TEST_DB_HOST");
     const QString name = env.value("SC_TEST_DB_NAME");
@@ -90,6 +106,18 @@ void TestServices::initTestCase() {
     if (!isAllowedTestDatabase(name)) {
         m_skipReason = QString("拒绝连接：测试库名必须以 _test 或 _unittest 结尾"
                                "（当前=%1），这是防止误连生产库的保护措施").arg(name);
+        return;
+    }
+
+    if (!QSqlDatabase::isDriverAvailable("QODBC") &&
+        !QSqlDatabase::isDriverAvailable("QMYSQL")) {
+        // Qt 的 SQL 驱动插件是运行时加载的，测试 exe 在 tests/ 子目录时往往找不到。
+        // 给出可操作的修复指引，避免只有一句 "driver not available" 难以排查。
+        m_skipReason = QStringLiteral(
+            "Qt 未找到可用的 MySQL 驱动插件(QODBC/QMYSQL)。请设置环境变量："
+            " QT_PLUGIN_PATH=<构建目录>\\Debug ，该目录下应含 sqldrivers\\qsqlodbcd.dll"
+            "（ctest 已自动注入该变量，手动运行 exe 时需自行设置）");
+        qWarning() << "[test_services]" << m_skipReason;
         return;
     }
 
@@ -108,16 +136,26 @@ void TestServices::cleanupTestCase() {
     // 业务用例均已自愈此处无需清理生产数据；仅做连接收尾提示
 }
 
-void TestServices::ensureDbReady() {
-    if (!m_dbReady) {
-        // 注意：QSKIP 在某些 Qt 版本下不终止函数执行，必须显式 return，
-        // 否则后续断言仍会运行并产生误报的 FAIL
-        const QByteArray reason =
-            (m_skipReason.isEmpty() ? QStringLiteral("数据库未就绪") : m_skipReason).toUtf8();
-        QSKIP(reason.constData());
-        return;
-    }
-}
+/**
+ * @brief 断言数据库已就绪
+ * @return true=可继续；false=已 SKIP，调用方必须立即 return
+ * @note QSKIP 只能终止它所在的函数，写在 helper 里无法跳出测试用例，
+ *       故此处仅负责记录 SKIP，由调用方决定是否 return。
+ */
+// ---------------------------------------------------------------------------
+// 说明：QSKIP 宏内部自带 return 语句，因此只能出现在返回 void 的测试用例函数中，
+// 不能写进 helper（bool/QString 返回值的函数会触发 MSVC C2561），
+// 也不能指望 helper 里的 QSKIP 跳出外层用例（它只终止自己所在的函数）。
+// 故统一用下面这个宏，在用例函数体内展开。
+// ---------------------------------------------------------------------------
+#define ENSURE_DB()                                                          \
+    do {                                                                     \
+        if (!m_dbReady) {                                                    \
+            QSKIP(qPrintable(m_skipReason.isEmpty()                          \
+                ? QStringLiteral("数据库未就绪") : m_skipReason));           \
+            return;                                                          \
+        }                                                                    \
+    } while (0)
 
 /**
  * @brief 从测试库挑选一个当前可借用的位置（in_stock），用于跑借用/归还闭环
@@ -174,7 +212,7 @@ void TestServices::testStatusConstantsConsistency() {
 
 // ── 业务规则用例 ──────────────────────────────────────────────────────
 void TestServices::testBorrowRejectsUnknownMapping() {
-    ensureDbReady();
+    ENSURE_DB();
 
     BorrowService svc;
     // 一个确定不存在的 mappingId
@@ -184,12 +222,14 @@ void TestServices::testBorrowRejectsUnknownMapping() {
         QStringLiteral("UNITTEST-FLOW-001"));
 
     QVERIFY(!r.success);
-    QVERIFY(r.recordId == 0);
+    // 注意：失败时 BorrowService 约定返回 recordId = -1（不是 0），
+    // 故断言"未创建成功记录"用 <= 0 表达，避免依赖具体约定值。
+    QVERIFY(r.recordId <= 0);
     QVERIFY(!r.message.isEmpty());
 }
 
 void TestServices::testBorrowRejectsNonPositiveQuantity() {
-    ensureDbReady();
+    ENSURE_DB();
 
     BorrowService svc;
     BorrowService::Result r = svc.borrowTool(1, 1, 1, 0,
@@ -198,7 +238,7 @@ void TestServices::testBorrowRejectsNonPositiveQuantity() {
         QStringLiteral("UNITTEST-FLOW-002"));
 
     QVERIFY(!r.success);
-    QVERIFY(r.recordId == 0);
+    QVERIFY(r.recordId <= 0);  // 失败约定为 -1，见上
 }
 
 /**
@@ -206,7 +246,7 @@ void TestServices::testBorrowRejectsNonPositiveQuantity() {
  * @note 用例自行完成归还，跑完后数据状态复原，不留下脏数据
  */
 void TestServices::testBorrowAndReturnRoundTrip() {
-    ensureDbReady();
+    ENSURE_DB();
 
     int mappingId = 0, toolId = 0, groupId = 0;
     const QString pos = pickAvailablePosition(&mappingId, &toolId, &groupId);
