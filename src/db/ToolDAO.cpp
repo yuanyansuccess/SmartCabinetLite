@@ -9,6 +9,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
+#include "common/Constants.h"
 
 namespace db {
 
@@ -28,7 +29,7 @@ ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     t.spec           = q.value("spec").toString();
     t.categoryId     = q.value("category_id").toInt();
     t.cabinetId      = q.value("cabinet_id").toInt();
-    t.machineGroupId = q.value("machine_group_id").toInt();     // [V7.0]
+    t.machineGroupId = q.value("machine_group_id").toInt();
     t.layer          = q.value("layer").toString();
     t.position       = q.value("position").toString();
     t.totalQty       = q.value("total_qty").toInt();
@@ -37,18 +38,18 @@ ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     t.status         = q.value("status").toString();
     t.checkoutReason = q.value("checkout_reason").toString();
     t.isRecommended  = q.value("is_recommended").toInt();
-    t.recognitionMethod = q.value("recognition_method").toString();  // [V2.01]
-    t.documentPath   = q.value("document_path").toString();          // [V2.01]
+    t.recognitionMethod = q.value("recognition_method").toString();
+    t.documentPath   = q.value("document_path").toString();
     t.createdAt      = q.value("created_at").toDateTime();
     t.updatedAt      = q.value("updated_at").toDateTime();
     t.categoryName   = q.value("category_name").toString();
     t.cabinetName    = q.value("cabinet_name").toString();
-    t.machineGroupName = q.value("group_name").toString();      // [V7.0]
-    // 最近操作字段 [V7.0]
+    t.machineGroupName = q.value("group_name").toString();
+    // 最近操作字段 
     t.latestOpType  = q.value("latest_op_type").toString();
     t.latestOpTime  = q.value("latest_op_time").toString();
     t.latestOpUser  = q.value("latest_op_user").toString();
-    // 活跃借用数 [2026-06-26v17]
+    // 活跃借用数 
     t.activeBorrows = q.value("active_borrows").toInt();
     return t;
 }
@@ -74,14 +75,14 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
     if (!status.isEmpty()) {
         conditions << "ti.status = :st";
         bindValues[":st"] = status;
-        // [V7.9 2026-06-27] 防御：in_stock状态必须current_qty>0，过滤数量为0的工具
-        // 作者：袁燕 - 确保出库后数量为0的工具不再出现在待出库/待借用列表
+        // 防御：in_stock状态必须current_qty>0，过滤数量为0的工具
+        // 确保出库后数量为0的工具不出现在待出库/待借用列表
         if (status == "in_stock") {
             conditions << "ti.current_qty > 0";
         }
     }
     if (cabinetId > 0) { conditions << "ti.cabinet_id = :cid"; bindValues[":cid"] = cabinetId; }
-    // [2026-06-27] 机组隔离：只返回本机组工具，防止跨机组借用
+    // 机组隔离：只返回本机组工具，防止跨机组借用
     if (machineGroupId > 0) { conditions << "ti.machine_group_id = :mgid"; bindValues[":mgid"] = machineGroupId; }
     QString where = conditions.join(" AND ");
 
@@ -91,15 +92,15 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
     safeExec(cq); cq.next(); int total = cq.value(0).toInt();
 
     QSqlQuery dq(db);
-    // LEFT JOIN映射表改为position-based匹配
+    // LEFT JOIN映射表为position-based匹配
     // 原条件：mpm.tool_id=ti.tool_id AND mpm.cabinet_id=ti.cabinet_id AND ...
     // 问题：多件入库时后续件是新tool_info记录(tool_id不同)，但位置与映射表一致
-    // 修复：只按cabinet_id+layer+position匹配（一个位置只有一条映射记录，UNIQUE约束保证）
+    // 注意：只按cabinet_id+layer+position匹配（一个位置只有一条映射记录，UNIQUE约束保证）
     dq.prepare(
         "SELECT ti.tool_id, ti.tool_name, ti.spec, ti.tool_code, tc.category_name AS category, "
         "ti.cabinet_id, cb.cabinet_name, ti.machine_group_id, mg.group_name AS machine_group_name, "
         "ti.layer, ti.position, "
-        // [V2.03u] 映射表位置（按位置匹配，权威数据源）
+        // 映射表位置（按位置匹配，权威数据源）
         "mpm.cabinet_id AS mpm_cab_id, mpm_cb.cabinet_name AS mpm_cab_name, mpm.layer AS mpm_layer, mpm.position AS mpm_pos, "
         "ti.total_qty, ti.current_qty, "
         "ti.vision_tag, ti.status, ti.checkout_reason, ti.is_recommended, "
@@ -107,10 +108,10 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         "FROM tool_info ti LEFT JOIN tool_category tc ON ti.category_id=tc.category_id "
         "LEFT JOIN tool_cabinet cb ON ti.cabinet_id=cb.cabinet_id "
         "LEFT JOIN machine_group mg ON ti.machine_group_id=mg.group_id "
-        // [V2.03u] LEFT JOIN映射表：按位置匹配（不再要求tool_id匹配）
+        // LEFT JOIN映射表：按位置匹配（不要求tool_id匹配）
         "LEFT JOIN tool_position_mapping mpm ON mpm.cabinet_id=ti.cabinet_id AND mpm.layer=ti.layer AND mpm.position=ti.position "
         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
-        // 排序改为按类别+位置（唯一标识排列）
+        // 排序为按类别+位置（唯一标识排列）
         "WHERE " + where + " ORDER BY tc.category_name, cb.cabinet_name, ti.layer, ti.position, ti.created_at DESC LIMIT :lim OFFSET :off"
     );
     for (auto it = bindValues.begin(); it != bindValues.end(); ++it) dq.bindValue(it.key(), it.value());
@@ -125,7 +126,7 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         item["spec"] = dq.value("spec").toString();
         item["toolCode"] = dq.value("tool_code").toString();
         item["category"] = dq.value("category").toString();
-        // [V2.03r] 位置信息：优先从映射表取（权威数据源），映射表无匹配则从tool_info取
+        // 位置信息：优先从映射表取（权威数据源），映射表无匹配则从tool_info取
         QString cabName, layerStr, posStr;
         bool useMapping = (dq.value("mpm_cab_id").toInt() > 0);
         if (useMapping) {
@@ -140,10 +141,10 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
             posStr = dq.value("position").toString();
         }
         item["cabinetName"] = cabName;
-        item["machineGroupId"] = dq.value("machine_group_id").toInt();     // [V7.9]
-        item["machineGroupName"] = dq.value("machine_group_name").toString();  // [V7.9]
+        item["machineGroupId"] = dq.value("machine_group_id").toInt();
+        item["machineGroupName"] = dq.value("machine_group_name").toString();
         item["layer"] = layerStr;
-        item["rawPosition"] = posStr;  // [V2.03g] 原始位号
+        item["rawPosition"] = posStr;  // 原始位号
         // 位置格式化为 柜号-层号-位号（两位补零，如A-01-03）
         item["position"] = common::formatPosition(cabName, layerStr, posStr);
         item["totalQty"] = dq.value("total_qty").toInt();
@@ -151,8 +152,8 @@ QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
         item["visionTag"] = dq.value("vision_tag").toString();
         item["status"] = dq.value("status").toString();
         item["isRecommended"] = dq.value("is_recommended").toBool();
-        item["recognitionMethod"] = dq.value("recognition_method").toString();  // [V2.01]
-        item["documentPath"] = dq.value("document_path").toString();            // [V2.01]
+        item["recognitionMethod"] = dq.value("recognition_method").toString();
+        item["documentPath"] = dq.value("document_path").toString();
         item["createdAt"] = dq.value("created_at").toString();
         list.append(item);
     }
@@ -249,7 +250,7 @@ QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& ca
         item["recognitionMethod"] = dq.value("recognition_method").toString();
         item["documentPath"] = dq.value("document_path").toString();
         item["createdAt"] = dq.value("created_at").toString();
-        item["unit"] = dq.value("unit").toString();  // [V2.09] 补充unit字段（借用页面用到）
+        item["unit"] = dq.value("unit").toString();  // 补充unit字段（借用页面用到）
         list.append(item);
     }
     QJsonObject result; result["list"] = list; result["total"] = total;
@@ -324,7 +325,7 @@ QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString&
             dq.value("position").toString());
         item["totalQty"] = dq.value("total_qty").toInt();
         item["currentQty"] = dq.value("current_qty").toInt();
-        item["availableQty"] = dq.value("available_qty").toInt();  // [V2.12] 可用位置数（借用数量上限）
+        item["availableQty"] = dq.value("available_qty").toInt();  // 可用位置数（借用数量上限）
         item["unit"] = dq.value("unit").toString();
         item["visionTag"] = dq.value("vision_tag").toString();
         item["status"] = dq.value("status").toString();
@@ -339,8 +340,8 @@ QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString&
 
 QJsonObject ToolDAO::findById(int toolId) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // [V7.9 2026-06-24] 增加machine_group JOIN，返回机组名称
-    // [V2.01 2026-06-27] 增加recognition_method/document_path列
+    // 增加machine_group JOIN，返回机组名称
+    // 增加recognition_method/document_path列
     q.prepare("SELECT ti.tool_id, ti.tool_name, ti.spec, ti.tool_code, tc.category_name AS category, "
               "ti.cabinet_id, ti.machine_group_id, mg.group_name AS machine_group_name, "
               "ti.layer, ti.position, ti.total_qty, ti.current_qty, "
@@ -353,13 +354,13 @@ QJsonObject ToolDAO::findById(int toolId) {
     t["toolId"]=q.value("tool_id").toInt(); t["toolName"]=q.value("tool_name").toString();
     t["spec"]=q.value("spec").toString(); t["toolCode"]=q.value("tool_code").toString();
     t["category"]=q.value("category").toString(); t["cabinetId"]=q.value("cabinet_id").toInt();
-    t["machineGroupId"]=q.value("machine_group_id").toInt();           // [V7.9]
-    t["machineGroupName"]=q.value("machine_group_name").toString();    // [V7.9]
+    t["machineGroupId"]=q.value("machine_group_id").toInt();
+    t["machineGroupName"]=q.value("machine_group_name").toString();
     t["layer"]=q.value("layer").toString(); t["position"]=q.value("position").toString();
     t["totalQty"]=q.value("total_qty").toInt(); t["currentQty"]=q.value("current_qty").toInt();
     t["visionTag"]=q.value("vision_tag").toString(); t["status"]=q.value("status").toString();
-    t["recognitionMethod"]=q.value("recognition_method").toString();   // [V2.01]
-    t["documentPath"]=q.value("document_path").toString();             // [V2.01]
+    t["recognitionMethod"]=q.value("recognition_method").toString();
+    t["documentPath"]=q.value("document_path").toString();
     return t;
 }
 
@@ -377,8 +378,8 @@ QJsonObject ToolDAO::findByCode(const QString& code) {
 
 int ToolDAO::insert(const QJsonObject& info) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // [V7.9 2026-06-24] 增加machine_group_id列，入库时关联机组
-    // [V2.01 2026-06-27] 增加recognition_method/document_path列
+    // 增加machine_group_id列，入库时关联机组
+    // 增加recognition_method/document_path列
     q.prepare("INSERT INTO tool_info (tool_name, spec, tool_code, category_id, cabinet_id, "
               "machine_group_id, layer, position, total_qty, current_qty, vision_tag, status, "
               "recognition_method, document_path) "
@@ -390,8 +391,8 @@ int ToolDAO::insert(const QJsonObject& info) {
     q.bindValue(":tq",info["totalQty"].toInt(1)); q.bindValue(":cq",info["currentQty"].toInt(0));
     q.bindValue(":rf",info["visionTag"].toString(""));
     q.bindValue(":st",info["status"].toString("in_stock"));
-    q.bindValue(":rm",info["recognitionMethod"].toString("vision"));      // [V2.01] 默认视觉
-    q.bindValue(":dp",info["documentPath"].toString(""));               // [V2.01] 文档路径
+    q.bindValue(":rm",info["recognitionMethod"].toString("vision"));  // 默认视觉
+    q.bindValue(":dp",info["documentPath"].toString(""));  // 文档路径
     if(!safeExec(q)){return -1;}
     return q.lastInsertId().toInt();
 }
@@ -404,13 +405,13 @@ bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     keyMap["toolName"]="tool_name"; keyMap["toolCode"]="tool_code";
     keyMap["totalQty"]="total_qty"; keyMap["currentQty"]="current_qty";
     keyMap["categoryId"]="category_id"; keyMap["cabinetId"]="cabinet_id";
-    keyMap["machineGroupId"]="machine_group_id";  // [V7.9] 机组ID映射
+    keyMap["machineGroupId"]="machine_group_id";  // 机组ID映射
     keyMap["visionTag"]="vision_tag";
-    keyMap["recognitionMethod"]="recognition_method";  // [V2.01] 识别方式映射
-    keyMap["documentPath"]="document_path";            // [V2.01] 文档路径映射
-    keyMap["supplier"]="supplier";                    // [V2.03l] 供应商映射
-    keyMap["unit"]="unit";                            // [V2.03l] 单位映射
-    // [V2.03l 2026-06-30] Bug修复：dbCols缺少supplier/unit列，导致入库时无法更新供应商字段
+    keyMap["recognitionMethod"]="recognition_method";  // 识别方式映射
+    keyMap["documentPath"]="document_path";  // 文档路径映射
+    keyMap["supplier"]="supplier";  // 供应商映射
+    keyMap["unit"]="unit";  // 单位映射
+    // 注意：dbCols缺少supplier/unit列，导致入库时无法更新供应商字段
     // 举一反三：ToolService::checkinTool用dao.update更新pending→in_stock时需要更新supplier
     QStringList dbCols={"tool_name","spec","tool_code","category_id","cabinet_id","machine_group_id","layer","position","total_qty","current_qty","vision_tag","status","supplier","unit","recognition_method","document_path"};
     for(const auto& col:dbCols){
@@ -445,8 +446,8 @@ bool ToolDAO::updateStock(int toolId, int delta) {
     q.bindValue(":d",delta); q.bindValue(":d2",delta); q.bindValue(":id",toolId);
     if(!safeExec(q)){return false;}
     bool affected = q.numRowsAffected()>0;
-    // [V7.9 2026-06-27] 同步status字段：current_qty<=0设为borrowed，>0设为in_stock
-    // 作者：袁燕 - 修复出库后数量为0的工具仍出现在待出库列表的Bug
+    // 同步status字段：current_qty<=0设为borrowed，>0设为in_stock
+    // 修复出库后数量为0的工具仍出现在待出库列表的Bug
     if (affected) {
         QSqlQuery q2(db);
         q2.prepare("UPDATE tool_info SET status=CASE WHEN current_qty<=0 THEN 'borrowed' ELSE 'in_stock' END WHERE tool_id=:id");
@@ -471,12 +472,12 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
                                        const QString& machineGroup) {
     // 位置维度查询 — 用映射表status判断位置占用
     // 映射表status: pending=待入库, in_stock=在库, borrowed=已借出
-    // 不再依赖tool_info的cabinet_id/layer/position判断位置占用
+    // 不依赖tool_info的cabinet_id/layer/position判断位置占用
     // 一个工具可在多个位置入库，tool_info只存基础信息
     // 位置维度查询必须包含mapping_id字段
     // 根因：原posSql缺少mpm.mapping_id，fromQuery读不到mappingId→onDetailTool中t.mappingId=0
     // →走兜底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
-    // 修复：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
+    // 注意：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
     QString posSql = "SELECT "
                   "  mpm.mapping_id, "
                   "  t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
@@ -518,18 +519,18 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     // pending → 空闲位置（t.tool_id IS NULL）
     // checked_out → 只查nonPosSql
     bool filterCheckedOut = (status == "checked_out");
-    bool filterPending = (status == "pending");
+    bool filterPending = (status == SC::TOOL_PENDING);
     bool filterInStockBorrowed = (!status.isEmpty() && !filterCheckedOut && !filterPending);
 
     if (filterInStockBorrowed) {
-        // [V2.08] 按映射表status筛选
+        // 按映射表status筛选
         posSql += " AND mpm.status = ?"; params << status;
         nonPosSql = "";
     } else if (filterCheckedOut) {
         // 只查checked_out（从tool_info）
         posSql = "";
     } else if (filterPending) {
-        // [V2.08] pending=映射表status='pending'
+        // pending=映射表status='pending'
         posSql += " AND mpm.status = 'pending'";
         nonPosSql = "";
     } else {
@@ -644,7 +645,7 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
     // 位置维度：所有映射表位置（有工具占用的显示在库/已借用，空闲的显示待入库）
     // 非位置维度：checked_out（不在位置上的已出库工具）
     bool filterCheckedOut = (status == "checked_out");
-    bool filterPending = (status == "pending");
+    bool filterPending = (status == SC::TOOL_PENDING);
     bool filterInStockBorrowed = (!status.isEmpty() && !filterCheckedOut && !filterPending);
 
     int total = 0;
@@ -652,7 +653,7 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
 
     // 位置维度计数
     if (!filterCheckedOut) {
-        // [V2.08] 用映射表status判断位置占用
+        // 用映射表status判断位置占用
         QString posSql = "SELECT mpm.mapping_id FROM tool_position_mapping mpm "
                          "JOIN tool_cabinet mpm_cb ON mpm.cabinet_id = mpm_cb.cabinet_id "
                          "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id "
@@ -711,7 +712,7 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
 }
 
 ToolInfo ToolDAO::findToolById(int toolId) {
-    // [V7.0] 增加machine_group JOIN
+    // 增加machine_group JOIN
     QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
@@ -722,7 +723,7 @@ ToolInfo ToolDAO::findToolById(int toolId) {
 }
 
 ToolInfo ToolDAO::findToolByCode(const QString& code) {
-    // [V7.0] 增加machine_group JOIN
+    // 增加machine_group JOIN
     QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
@@ -733,8 +734,8 @@ ToolInfo ToolDAO::findToolByCode(const QString& code) {
 }
 
 int ToolDAO::insertTool(const ToolInfo& t) {
-    // [V7.9 2026-06-24] 增加machine_group_id列
-    // [V2.01 2026-06-27] 增加recognition_method/document_path列
+    // 增加machine_group_id列
+    // 增加recognition_method/document_path列
     return insertAndGetId("INSERT INTO tool_info (tool_code,tool_name,spec,category_id,"
                           "cabinet_id,machine_group_id,layer,position,total_qty,current_qty,vision_tag,status,"
                           "is_recommended,recognition_method,document_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -744,8 +745,8 @@ int ToolDAO::insertTool(const ToolInfo& t) {
 }
 
 bool ToolDAO::updateTool(const ToolInfo& t) {
-    // [V7.9 2026-06-24] 增加machine_group_id更新
-    // [V2.01 2026-06-27] 增加recognition_method/document_path更新
+    // 增加machine_group_id更新
+    // 增加recognition_method/document_path更新
     return execute("UPDATE tool_info SET tool_name=?,spec=?,category_id=?,cabinet_id=?,"
                    "machine_group_id=?,layer=?,position=?,total_qty=?,vision_tag=?,status=?,is_recommended=?,"
                    "recognition_method=?,document_path=? WHERE tool_id=?",
@@ -762,8 +763,8 @@ bool ToolDAO::updateToolStatus(int toolId, const QString& status) {
     return execute("UPDATE tool_info SET status=? WHERE tool_id=?", {status, toolId});
 }
 
-// [V2.02 2026-06-28] 轻量更新文档路径 — 详情页上传文档专用
-// 作者：袁燕 — 只更新document_path一个字段，避免全字段updateTool的副作用
+// 轻量更新文档路径 — 详情页上传文档专用
+// 只更新document_path一个字段，避免全字段updateTool的副作用
 bool ToolDAO::updateDocumentPath(int toolId, const QString& docPath) {
     return execute("UPDATE tool_info SET document_path=? WHERE tool_id=?",
                    {docPath, toolId});
@@ -826,7 +827,7 @@ QStringList ToolDAO::allCabinetNames() {
     return names;
 }
 
-// [V7.0] 工具统计数据 [2026-06-26v15] 增加borrowedQty字段，与v_tool_stats新列对齐
+// 工具统计数据 增加borrowedQty字段，与v_tool_stats新列对齐
 QJsonObject ToolDAO::getToolStats() {
     QJsonObject stats;
     // 统计按映射表status计算
@@ -858,7 +859,7 @@ QJsonObject ToolDAO::getToolStats() {
     return stats;
 }
 
-// [V7.0] 工程机组列表
+// 工程机组列表
 QList<QJsonObject> ToolDAO::allMachineGroups() {
     QList<QJsonObject> list;
     QSqlQuery q = query(
@@ -885,7 +886,7 @@ QList<QJsonObject> ToolDAO::allMachineGroups() {
     return list;
 }
 
-// [V7.0] 机组详情
+// 机组详情
 QJsonObject ToolDAO::getMachineGroupById(int groupId) {
     QJsonObject obj;
     QSqlQuery q = query(

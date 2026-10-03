@@ -25,14 +25,14 @@ SettingService::SettingService(QObject* parent) : QObject(parent) {}
 
 QJsonObject SettingService::getDashboardStats() {
     QJsonObject s;
-    // 改为按工具件数统计（total_qty/in_stock_qty/borrowed_qty），不再按种类数
+    // 按工具件数统计（total_qty/in_stock_qty/borrowed_qty），不按种类数
     // 工具总数 = 所有工具的 total_qty 之和
     // 在库工具 = 所有工具的 current_qty 之和（不论状态，当前实际在库的件数）
     // 已借出 = 活跃借用记录的 borrow_qty 之和
     // 在库比例 = 在库件数 / (在库件数 + 已借出件数)
     ToolDAO toolDao;
     QJsonObject toolStats = toolDao.getToolStats();
-    // 统计改为按条目数(COUNT)：一个位置一个工具，总数=列表条数
+    // 统计为按条目数(COUNT)：一个位置一个工具，总数=列表条数
     // 工具总数 = 在库条目数 + 已借出条目数（不含已出库的，出库是永久离开）
     s["totalTools"] = toolStats["inStockCount"].toInt() + toolStats["borrowedCount"].toInt();
     s["inStock"]    = toolStats["inStockCount"].toInt();     // 在库条目数
@@ -44,11 +44,6 @@ QJsonObject SettingService::getDashboardStats() {
     s["alerts"] = alertDao.getUnresolvedCount();
 
     return s;
-}
-
-QJsonArray SettingService::getRecentAlerts(int limit) {
-    AlertDAO dao;
-    return dao.findRecentUnhandled(limit);
 }
 
 QJsonObject SettingService::getUserDashboardStats(int userId) {
@@ -69,8 +64,8 @@ QJsonArray SettingService::getUserBorrowRecords(int userId, int limit) {
 QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& type,
                                            const QString& level, const QString& keyword) {
     // AlertLogsPage数据源：JOIN sys_alert + sys_alert_type + tool_info + tool_cabinet + sys_user
-    // 重构：改用sys_alert_type字典表获取类型名和级别，排序：待处理优先
-    // 修复：改用AlertDAO::findAll()统一取数，消除SettingService裸SQL与DAO不一致的隐患
+    // sys_alert_type字典表获取类型名和级别，排序：待处理优先
+    // 注意：AlertDAO::findAll()统一取数，消除SettingService裸SQL与DAO不一致的隐患
     QJsonObject result;
     QJsonArray arr;
     QSqlDatabase db = DatabaseManager::instance().getConnection();
@@ -84,7 +79,7 @@ QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& 
         QString where = "WHERE 1=1 ";  // 显示所有状态告警（含已忽略），要求忽略后仍可见
         outBindNames.clear();
         outBindVals.clear();
-        // 类型筛选改为按type_code匹配（前端传来逗号拼接的code）
+        // 类型筛选为按type_code匹配（前端传来逗号拼接的code）
         if (!type.isEmpty()) {
             QStringList typeList = type.split(",", Qt::SkipEmptyParts);
             if (!typeList.isEmpty()) {
@@ -253,8 +248,8 @@ QJsonObject SettingService::getLedgerStats() {
         else qWarning() << "[SettingService] getLedgerStats: 活跃用户数查询失败";
     }
 
-    // 分类统计：JOIN tool_info + tool_category [V7.9 2026-06-27] 改为按件数统计
-    // 作者：袁燕 - 原COUNT(DISTINCT tool_id)按种类统计，与"总数量/借出中/可用"列名件数语义不符
+    // 分类统计：JOIN tool_info + tool_category 按件数统计
+    // 原COUNT(DISTINCT tool_id)按种类统计，与"总数量/借出中/可用"列名件数语义不符
     // 用子查询先按tool_id聚合borrow_qty，避免LEFT JOIN多借用记录导致SUM(total_qty)重复计算
     QJsonArray categoryStats;
     {
@@ -332,25 +327,6 @@ bool SettingService::clearAllLogs(const QString& adminPassword) {
     return db.executeNonQuery("DELETE FROM sys_operation_log");
 }
 
-QJsonObject SettingService::getAlertDetail(int alertId) {
-    AlertDAO dao;
-    return dao.findDetailById(alertId);
-}
-
-QJsonObject SettingService::getAlertStats(const QString& type, const QString& level,
-                                           const QString& keyword) {
-    AlertDAO dao;
-    return dao.getStats(type, level, keyword);
-}
-
-// 获取所有启用的告警类型列表，供前端筛选下拉使用
-QJsonArray SettingService::getAlertTypes() {
-    AlertDAO dao;
-    QJsonArray arr = dao.getAlertTypes();
-    qInfo() << "[SettingService] getAlertTypes: returned" << arr.size() << "types";
-    return arr;
-}
-
 QJsonArray SettingService::getDepartments() {
     QJsonArray arr;
     // 使用DepartmentDAO替代裸SQL
@@ -379,9 +355,9 @@ QJsonObject SettingService::loadAllConfig() {
 }
 
 // 批量保存配置到 system_config 表
-// [2026-06-26紧急修复] 致命BUG：db.database()每次返回QSqlDatabase副本
+// 致命BUG：db.database()每次返回QSqlDatabase副本
 // 原代码在事务/查询/提交时各获取一个独立副本，导致事务不生效，写入失败
-// 修复：获取一个db引用，在整个函数中复用同一个连接
+// 注意：获取一个db引用，在整个函数中复用同一个连接
 bool SettingService::saveConfig(const QJsonObject& config) {
     auto& db = DatabaseManager::instance();
     if (!db.isConnected()) return false;

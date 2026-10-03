@@ -1,10 +1,11 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  SidebarMenu实现
-// 日期：2026-06-21 1:1复刻Web前端SideBar.vue：250px深色#1a1a2e
+// 智能柜Qt Widget 2.0  SidebarMenu实现
+// 1:1复刻Web前端SideBar.vue：250px深色#1a1a2e
 #include "SidebarMenu.h"
 #include <QFont>
 #include <QSpacerItem>
 #include <QFrame>
 #include <QPixmap>
+#include "common/Constants.h"
 
 SidebarMenu::SidebarMenu(QWidget* parent) : QWidget(parent) {
     setupUI();
@@ -33,7 +34,7 @@ void SidebarMenu::setupUI() {
     logoArea->setStyleSheet("background:#151528;");
     QHBoxLayout* logoLayout = new QHBoxLayout(logoArea);
     logoLayout->setContentsMargins(20, 0, 20, 0);
-    // [2026-06-23] 替换为成飞电子公司Logo
+    // 替换为成飞电子公司Logo
     QLabel* logoIcon = new QLabel(logoArea);
     logoIcon->setFixedSize(32, 32);
     logoIcon->setAlignment(Qt::AlignCenter);
@@ -71,7 +72,7 @@ void SidebarMenu::setupUI() {
         {QStringLiteral("📈  台账统计"), 8},    // ledger (admin)
         {QStringLiteral("🔔  告警日志"), 9},    // alerts
         {QStringLiteral("⚙️  系统设置"), 10},   // settings (admin)
-        // [v4.9修复] 移除独立人脸录入菜单——Web端人脸录入在UserManagement页面弹窗内完成
+        // 移除独立人脸录入菜单——Web端人脸录入在UserManagement页面弹窗内完成
     };
 
     for (auto& item : items) {
@@ -115,7 +116,7 @@ void SidebarMenu::setActivePage(int pageIdx) {
 }
 
 void SidebarMenu::filterByRole(const QString& role) {
-    bool isAdmin = (role == "admin");
+    bool isAdmin = (role == SC::ROLE_ADMIN);
     for (auto* btn : m_navBtns) {
         int idx = btn->property("pageIdx").toInt();
         // 普通用户可访问: dashboard(1), tools(3), borrow(4), return(5), alerts(9)

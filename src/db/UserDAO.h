@@ -2,7 +2,6 @@
  * @file UserDAO.h
  * @brief 用户数据访问对象 — db/目录统一namespace db，合并QJsonObject API + 实体类API
  * @author 袁燕
- * @修改说明 V6.9 2026-06-24 合并dao/UserDAO的实体类API到此文件，统一namespace db管理
  */
 #pragma once
 #include <QJsonObject>

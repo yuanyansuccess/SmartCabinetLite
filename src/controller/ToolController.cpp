@@ -1,8 +1,9 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  ToolController实现
-// 日期：2026-06-21 工具借用/归还核心业务流程
-// [V6.9 2026-06-24] 方法名更新为合并后的db::ToolDAO/RecordDAO新API
+// 智能柜Qt Widget 2.0  ToolController实现
+// 工具借用/归还核心业务流程
+// 方法名更新为合并后的db::ToolDAO/RecordDAO新API
 #include "ToolController.h"
 #include <QDebug>
+#include "common/Constants.h"
 
 ToolController::ToolController(QObject* parent) : QObject(parent) {}
 
@@ -22,7 +23,7 @@ int ToolController::addTool(const ToolInfo& tool) {
     if (!validateToolCode(tool.toolCode)) return -1;
     ToolInfo t = tool;
     t.currentQty = t.totalQty;
-    t.status = "in_stock";
+    t.status = SC::TOOL_IN_STOCK;
     int id = m_toolDao.insertTool(t);
     if (id > 0) emit toolCreated(id);
     return id;
@@ -37,8 +38,8 @@ bool ToolController::updateTool(const ToolInfo& tool) {
 
 bool ToolController::deleteTool(int toolId) { return m_toolDao.deleteToolById(toolId); }
 
-// [V2.02 2026-06-28] 详情页上传文档 — 更新工具文档路径
-// 作者：袁燕 — 供ToolManagementPage详情页上传文档后调用
+// 详情页上传文档 — 更新工具文档路径
+// 供ToolManagementPage详情页上传文档后调用
 bool ToolController::updateToolDocument(int toolId, const QString& docPath) {
     bool ok = m_toolDao.updateDocumentPath(toolId, docPath);
     if (ok) emit toolUpdated(toolId);
@@ -52,7 +53,7 @@ ToolController::BorrowResult ToolController::borrowTool(
     BorrowResult r;
     ToolInfo tool = m_toolDao.findToolById(toolId);
     if (tool.toolId == 0) { r.msg = "工具不存在"; return r; }
-    if (tool.status != "in_stock" || tool.currentQty < qty) {
+    if (tool.status != SC::TOOL_IN_STOCK || tool.currentQty < qty) {
         r.msg = "工具库存不足"; return r;
     }
     // 检查逾期
@@ -92,7 +93,7 @@ ToolController::ReturnResult ToolController::returnTool(
     ReturnResult r;
     BorrowRecord br = m_recordDao.findBorrowById(borrowId);
     if (br.borrowId == 0) { r.msg = "记录不存在"; return r; }
-    if (br.status == "returned") { r.msg = "该记录已归还"; return r; }
+    if (br.status == SC::RECORD_RETURNED) { r.msg = "该记录已归还"; return r; }
 
     QDateTime now = QDateTime::currentDateTime();
     bool overdue = br.expectReturnTime.isValid() && now > br.expectReturnTime;
@@ -114,13 +115,13 @@ QList<ToolCabinet>  ToolController::getCabinets()  { return m_toolDao.allCabinet
 QStringList ToolController::categoryNames() { return m_toolDao.allCategoryNames(); }
 QStringList ToolController::cabinetNames()  { return m_toolDao.allCabinetNames(); }
 
-// [V7.0] 统计数据
+// 统计数据
 QJsonObject ToolController::getToolStats() { return m_toolDao.getToolStats(); }
 
-// [V7.0] 工程机组列表
+// 工程机组列表
 QList<QJsonObject> ToolController::getMachineGroups() { return m_toolDao.allMachineGroups(); }
 
-// [V7.0] 机组详情
+// 机组详情
 QJsonObject ToolController::getMachineGroupById(int groupId) { return m_toolDao.getMachineGroupById(groupId); }
 
 bool ToolController::validateToolCode(const QString& code, int excludeId) {

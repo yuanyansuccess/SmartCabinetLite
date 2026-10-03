@@ -1,6 +1,6 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0
-// 日期：2026-06-21 全局常量定义
+// 智能柜Qt Widget 2.0
+// 全局常量定义
 #include <QString>
 #include <QStringList>
 
@@ -15,27 +15,69 @@ const QString DB_HOST     = "127.0.0.1";
 const int     DB_PORT     = 3306;
 const QString DB_NAME     = "smart_cabinet";
 const QString DB_USER     = "root";
-const QString DB_PASS     = "root";  // [2026-06-23] 修复：空密码导致MySQL连接失败回退SQLite
+const QString DB_PASS     = "root";  // 注意：空密码导致MySQL连接失败回退SQLite
 
 // ── 用户角色 ──
 const QString ROLE_ADMIN  = "admin";
 const QString ROLE_USER   = "user";
 
-// ── 用户状态 ──
+// ── 用户状态（值与页面实际写入/播种数据一致，新人勿另造值） ──
 const QString USER_ACTIVE   = "active";
-const QString USER_INACTIVE = "inactive";
 const QString USER_PENDING  = "pending";
+const QString USER_DISABLED = "disabled";  // 禁用（UserManagementPage启用/禁用切换写入值）
+const QString USER_LOCKED   = "locked";    // 已锁定
 const QString USER_DELETED  = "deleted";
+
+// ── 操作日志类型（sys_operation_log.operation_type） ──
+const QString OP_CHECKIN  = "checkin";
+const QString OP_CHECKOUT = "checkout";
 
 // ── 工具状态 ──
 const QString TOOL_IN_STOCK    = "in_stock";
 const QString TOOL_BORROWED    = "borrowed";
 const QString TOOL_MAINTENANCE = "maintenance";
+const QString TOOL_CHECKED_OUT = "checked_out";  // 已出库（区别于借用）
+const QString TOOL_PENDING     = "pending";      // 待入库（配置层已建未物理入库）
 
-// ── 识别方式 [2026-09-24] 全系统统一为视觉识别 ──
+// ── 工具状态显示映射（全系统唯一定义点，新人改文案/颜色只改这里） ──
+// borrowed 状态存在历史显示差异：工具管理页="已借用"，其余页="已借出"。
+// keepLegacyBorrowText=true 时保持工具管理页旧行为，默认为新口径"已借出"。
+inline QString toolStatusText(const QString& status, bool keepLegacyBorrowText = false) {
+    if (status == TOOL_IN_STOCK)    return QStringLiteral("在库");
+    if (status == TOOL_CHECKED_OUT) return QStringLiteral("已出库");
+    if (status == TOOL_MAINTENANCE) return QStringLiteral("维护中");
+    if (status == TOOL_PENDING)     return QStringLiteral("待入库");
+    if (status == TOOL_BORROWED)    return keepLegacyBorrowText ? QStringLiteral("已借用") : QStringLiteral("已借出");
+    return status;  // 未知状态原样显示
+}
+// 工具状态对应的状态色（维护中及未知状态统一灰色）
+inline QString toolStatusColor(const QString& status) {
+    if (status == TOOL_IN_STOCK)    return QStringLiteral("#43a047");
+    if (status == TOOL_CHECKED_OUT) return QStringLiteral("#e53935");
+    if (status == TOOL_BORROWED)    return QStringLiteral("#f57c00");
+    if (status == TOOL_PENDING)     return QStringLiteral("#1890ff");
+    return QStringLiteral("#999999");
+}
+// 位置状态显示（空状态视为待入库；不含"维护中"，未知状态原样）
+inline QString positionStatusText(const QString& status) {
+    if (status.isEmpty() || status == TOOL_PENDING) return QStringLiteral("待入库");
+    return toolStatusText(status);
+}
+
+// ── 借用记录状态 ──
+const QString RECORD_BORROWING = "borrowing";    // 借用中
+const QString RECORD_RETURNED  = "returned";     // 已归还
+const QString RECORD_OVERDUE   = "overdue";      // 已逾期
+
+// ── 告警处理状态 ──
+const QString ALERT_UNHANDLED = "unhandled";     // 待处理
+const QString ALERT_HANDLED   = "handled";       // 已处理
+const QString ALERT_IGNORED   = "ignored";       // 已忽略
+
+// ── 识别方式 全系统统一为视觉识别 ──
 const QString RECOGNITION_VISION = "vision";  // 视觉识别
 
-// ── 工具文档配置 [V2.01] ──
+// ── 工具文档配置 ──
 const int     TOOL_DOC_MAX_SIZE_MB = 50;  // 文档最大50MB
 // 支持的文档格式（小写比较）
 const QStringList TOOL_DOC_SUFFIXES = { "doc", "docx", "pdf" };

@@ -1,9 +1,9 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  UserController实现
-// 日期：2026-06-21
-// [V6.9 2026-06-24] 统一到db/目录namespace db，方法名更新为合并后的新API
+// 智能柜Qt Widget 2.0  UserController实现
+// // 统一到db/目录namespace db，方法名更新为合并后的新API
 #include "UserController.h"
 #include "controller/AuthController.h"
-#include "db/DepartmentDAO.h"  // [2026-06-23] 从 dao/ 迁移到 db/
+#include "db/DepartmentDAO.h"  // 从 dao/ 迁移到 db/
+#include "common/Constants.h"
 
 UserController::UserController(QObject* parent) : QObject(parent) {}
 
@@ -21,7 +21,7 @@ User UserController::getUserById(int userId) {
 }
 
 int UserController::createUser(const User& user, const QString& password) {
-    // [2026-06-27] 增加诊断日志，定位批量导入失败的具体原因
+    // 增加诊断日志，定位批量导入失败的具体原因
     if (!validateUsername(user.username)) {
         qWarning() << "[createUser] 工号格式不合法:" << user.username
                    << "(规则: 1-32位纯数字)";
@@ -41,8 +41,8 @@ int UserController::createUser(const User& user, const QString& password) {
     User u = user;
     u.passwordSalt = AuthController::generateSalt();
     u.passwordHash = AuthController::hashPassword(password, u.passwordSalt);
-    // [2026-06-27] 保留调用方传入的status，不再强制覆盖（批量导入需支持"禁用"状态）
-    if (u.status.isEmpty()) u.status = "active";
+    // 保留调用方传入的status，不强制覆盖（批量导入需支持"禁用"状态）
+    if (u.status.isEmpty()) u.status = SC::USER_ACTIVE;
 
     int id = m_dao.insertUser(u);
     if (id > 0) {
@@ -64,7 +64,7 @@ bool UserController::updateUser(const User& user) {
 
 bool UserController::deleteUser(int userId) {
     User u = m_dao.findUserById(userId);
-    if (u.role == "admin") return false; // 不可删除admin
+    if (u.role == SC::ROLE_ADMIN) return false; // 不可删除admin
     bool ok = m_dao.deleteUserById(userId);
     if (ok) emit userDeleted(userId);
     return ok;
@@ -72,7 +72,7 @@ bool UserController::deleteUser(int userId) {
 
 bool UserController::setUserStatus(int userId, const QString& status) {
     User u = m_dao.findUserById(userId);
-    //if (u.role == "admin" && status != "active") return false;
+    //if (u.role == SC::ROLE_ADMIN && status != "active") return false;
     //TODO 20260625马慧芳说为啥 管理员可以不能禁用 ，这块需求可以和用户沟通下
     bool ok = m_dao.updateUserStatus(userId, status);
     if (ok) emit userStatusChanged(userId, u.status, status);
@@ -115,11 +115,11 @@ QStringList UserController::allDepartments() {
 }
 
 QStringList UserController::allRoles() {
-    return {"admin", "user"};
+    return {SC::ROLE_ADMIN, SC::ROLE_USER};
 }
 
 bool UserController::validateUsername(const QString& username) {
-    // [2026-09-23] 工号改为纯数字（登录账号与数字键盘输入统一），1-32位
+    // 工号为纯数字（登录账号与数字键盘输入统一），1-32位
     static QRegularExpression re("^[0-9]{1,32}$");
     return re.match(username).hasMatch();
 }

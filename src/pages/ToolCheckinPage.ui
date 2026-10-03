@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ToolCheckinPage</class>
+ <widget class="QWidget" name="ToolCheckinPage">
+  <layout class="QVBoxLayout" name="mainLayout" stretch="0,1">
+   <property name="spacing">
+    <number>16</number>
+   </property>
+   <property name="leftMargin">
+    <number>24</number>
+   </property>
+   <property name="topMargin">
+    <number>24</number>
+   </property>
+   <property name="rightMargin">
+    <number>24</number>
+   </property>
+   <property name="bottomMargin">
+    <number>24</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="styleSheet">
+      <string notr="true">font-size:20px;font-weight:700;color:#1a1a2e;</string>
+     </property>
+     <property name="text">
+      <string>工具入库管理</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="styleSheet">
+      <string notr="true">QTabWidget::pane { border: none; background: transparent; }
+QTabBar::tab { background: #f0f2f5; color: #666; padding: 14px 28px; font-size: 17px; font-weight: 600; border-radius: 12px 12px 0 0; min-height: 48px; margin-right: 4px; }
+QTabBar::tab:selected { background: white; color: #4da3ff; border-bottom: 3px solid #4da3ff; }
+QTabBar::tab:hover { background: #e8f0fe; }</string>
+     </property>
+     <widget class="QWidget" name="checkinTab">
+      <attribute name="title">
+       <string>📥 入库管理</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="checkinLayout">
+       <property name="spacing">
+        <number>16</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QGroupBox" name="panel">
+         <property name="styleSheet">
+          <string notr="true">QGroupBox{font-size:16px;font-weight:700;color:#1a1a2e;
+border:1px solid #e0e0e0;border-radius:12px;margin-top:10px;padding:16px;}
+QGroupBox::title{padding:0 10px;}</string>
+         </property>
+         <property name="title">
+          <string>入库单信息</string>
+         </property>
+         <layout class="QVBoxLayout" name="panelLayout">
+          <item>
+           <layout class="QGridLayout" name="formGrid" columnstretch="1,1,1,1">
+            <property name="spacing">
+             <number>12</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="categoryLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
+              </property>
+              <property name="text">
+               <string>工具类型 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="categoryCombo">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>48</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
+QComboBox:focus { border-color: #4da3ff; }
+QComboBox::drop-down { border: none; width: 36px; }
+QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
+              </property>
+              <property name="editable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLabel" name="toolSelectLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
+              </property>
+              <property name="text">
+               <string>对应工具 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="3">
+             <widget class="QComboBox" name="toolSelectCombo">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>48</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
+QComboBox:focus { border-color: #4da3ff; }
+QComboBox::drop-down { border: none; width: 36px; }
+QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="qtyLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
+              </property>
+              <property name="text">
+               <string>入库数量 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QComboBox" name="qtyCombo">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>48</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
+QComboBox:focus { border-color: #4da3ff; }
+QComboBox::drop-down { border: none; width: 36px; }
+QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QLabel" name="qtyHintLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:13px;color:#888;background:transparent;padding-left:6px;</string>
+              </property>
+              <property name="text">
+               <string>请先选择工具</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QLabel" name="machineGroupTitleLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
+              </property>
+              <property name="text">
+               <string>所属机组</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="3">
+             <widget class="QLabel" name="machineGroupLabel">
+              <property name="styleSheet">
+               <string notr="true">font-size:16px;font-weight:600;color:#4da3ff;
+background:#f5f7fa;border:1px solid #e0e0e0;border-radius:10px;
+padding:10px 16px;min-height:48px;</string>
+              </property>
+              <property name="text">
+               <string>未配置</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="tipLabel">
+            <property name="styleSheet">
+             <string notr="true">font-size:14px;color:#1890ff;background:#e6f7ff;border:1px solid #91d5ff;border-radius:10px;padding:12px 16px;</string>
+            </property>
+            <property name="text">
+             <string>选择工具类型后，从对应工具列表中选择待入库工具。
+入库数量由对照关系表中该工具的空闲位置数决定，位置自动匹配。</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="errorLabel">
+            <property name="visible">
+             <bool>false</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">font-size:16px;color:#e53935;padding:10px 0;text-align:right;</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="btnRow">
+            <property name="spacing">
+             <number>12</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>16</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <spacer name="btnRowSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="resetBtn">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>48</height>
+               </size>
+              </property>
+              <property name="cursor">
+               <cursorShape>PointingHandCursor</cursorShape>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton { background: #fff; color: #666; border: 1px solid #d0d0d0; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 600; min-height: 44px; min-width: 80px; }
+QPushButton:hover { background: #f5f5f5; border-color: #b0b0b0; }
+QPushButton:pressed { background: #e8e8e8; }</string>
+              </property>
+              <property name="text">
+               <string>重置</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="submitBtn">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>48</height>
+               </size>
+              </property>
+              <property name="cursor">
+               <cursorShape>PointingHandCursor</cursorShape>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 28px; font-size: 14px; font-weight: 700; min-height: 44px; min-width: 100px; }
+QPushButton:hover { background: #3d8ae0; }
+QPushButton:pressed { background: #2e7bd6; }
+QPushButton:disabled { background: #cccccc; color: #888888; }</string>
+              </property>
+              <property name="text">
+               <string>确认入库</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="checkinBottomStretch">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="recordTab">
+      <attribute name="title">
+       <string>📋 入库记录</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="recordLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="recordTitle">
+         <property name="styleSheet">
+          <string notr="true">font-size:20px;font-weight:bold;color:#1a1a2e;</string>
+         </property>
+         <property name="text">
+          <string>入库历史记录</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="recordTable">
+         <property name="selectionBehavior">
+          <enum>QAbstractItemView::SelectRows</enum>
+         </property>
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <attribute name="verticalHeaderVisible">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>入库时间</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具名称</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具编号</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>位置</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>供应商</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>操作人</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="recordPageRow">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+           <item>
+      <widget class="PaginationBar" name="recordPaginationBar"/>
+     </item>
+   </layout>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PaginationBar</class>
+   <extends>QWidget</extends>
+   <header>components/PaginationBar.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

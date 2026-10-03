@@ -123,13 +123,13 @@ const QStringList BatchImportDialog::TEMPLATE_HEADERS = {
 };
 
 const QMap<QString, QString> BatchImportDialog::ROLE_MAP = {
-    {QStringLiteral("管理员"),   "admin"},
-    {QStringLiteral("普通用户"), "user"}
+    {QStringLiteral("管理员"),   SC::ROLE_ADMIN},
+    {QStringLiteral("普通用户"), SC::ROLE_USER}
 };
 
 const QMap<QString, QString> BatchImportDialog::STATUS_MAP = {
-    {QStringLiteral("启用"), "active"},
-    {QStringLiteral("禁用"), "disabled"}
+    {QStringLiteral("启用"), SC::USER_ACTIVE},
+    {QStringLiteral("禁用"), SC::USER_DISABLED}
 };
 
 BatchImportDialog::BatchImportDialog(QWidget* parent)
@@ -158,13 +158,13 @@ void BatchImportDialog::setupContent()
     cl->addWidget(step1Hint);
 
     auto* downloadBtn = new QPushButton(QStringLiteral("  下载Excel模板"));
-    downloadBtn->setMinimumHeight(48);
+    downloadBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     downloadBtn->setCursor(Qt::PointingHandCursor);
     downloadBtn->setStyleSheet(
         "QPushButton{background:#e8f5e9;color:#2e7d32;border:2px solid #4caf50;border-radius:12px;"
         "font-size:15px;font-weight:600;}"
         "QPushButton:hover{background:#c8e6c9;}"
-        "QPushButton:pressed{transform:scale(0.97);}"
+        "QPushButton:pressed{}"
     );
     connect(downloadBtn, &QPushButton::clicked, this, &BatchImportDialog::onDownloadTemplate);
     cl->addWidget(downloadBtn);
@@ -186,14 +186,14 @@ void BatchImportDialog::setupContent()
     m_filePathEdit = new QLineEdit();
     m_filePathEdit->setReadOnly(true);
     m_filePathEdit->setPlaceholderText(QStringLiteral("请选择已编辑的Excel或CSV文件..."));
-    m_filePathEdit->setMinimumHeight(48);
+    m_filePathEdit->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_filePathEdit->setStyleSheet(
         "QLineEdit{padding:0 14px;border:2px solid #e0e0e0;border-radius:12px;"
         "font-size:14px;background:#fafafa;color:#333;}"
     );
 
     auto* selectFileBtn = new QPushButton(QStringLiteral("选择文件"));
-    selectFileBtn->setMinimumHeight(48);
+    selectFileBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     selectFileBtn->setMinimumWidth(100);
     selectFileBtn->setCursor(Qt::PointingHandCursor);
     selectFileBtn->setStyleSheet(
@@ -222,7 +222,7 @@ void BatchImportDialog::setupContent()
     bl->addStretch();
 
     m_cancelBtn = new QPushButton(QStringLiteral("取消"));
-    m_cancelBtn->setMinimumHeight(48);
+    m_cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_cancelBtn->setMinimumWidth(110);
     m_cancelBtn->setCursor(Qt::PointingHandCursor);
     m_cancelBtn->setStyleSheet(
@@ -233,7 +233,7 @@ void BatchImportDialog::setupContent()
     connect(m_cancelBtn, &QPushButton::clicked, this, &BatchImportDialog::onCancel);
 
     m_confirmBtn = new QPushButton(QStringLiteral("确认导入"));
-    m_confirmBtn->setMinimumHeight(48);
+    m_confirmBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_confirmBtn->setMinimumWidth(120);
     m_confirmBtn->setCursor(Qt::PointingHandCursor);
     m_confirmBtn->setEnabled(false);
@@ -287,7 +287,7 @@ void BatchImportDialog::onDownloadTemplate()
 bool BatchImportDialog::generateTemplate(const QString& filePath)
 {
     QFile file(filePath);
-    // [V7.3 2026-06-26] 修复编码问题：不用QTextStream(默认GBK)，直接用write写入UTF-8字节流
+    // 修复编码问题：不用QTextStream(默认GBK)，直接用write写入UTF-8字节流
     if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
@@ -301,7 +301,7 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     }
     file.write((escapedHeaders.join(",") + "\n").toUtf8());
 
-    // [2026-09-23] 工号自增：查询DB中已存在的最大数字工号，生成5行递增示例数据
+    // 工号自增：查询DB中已存在的最大数字工号，生成5行递增示例数据
     // 工号规则：纯数字3位补零（001~999，超999自然进位4位）
     // 生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
     QStringList exampleDepartments = {
@@ -424,7 +424,7 @@ void BatchImportDialog::onConfirm()
         existingWorkNos.append(u.workNo.trimmed());
     }
 
-    // 工号格式校验正则（与UserController::validateUsername一致）[2026-09-23] 改纯数字
+    // 工号格式校验正则（与UserController::validateUsername一致）改纯数字
     static QRegularExpression usernameRe("^[0-9]{1,32}$");
 
     for (const auto& row : m_parsedRows) {
@@ -449,9 +449,9 @@ void BatchImportDialog::onConfirm()
         newUser.realName   = row.realName;
         newUser.workNo     = workNo;
         newUser.department = row.department;
-        newUser.role       = ROLE_MAP.value(row.role, "user");
+        newUser.role       = ROLE_MAP.value(row.role, SC::ROLE_USER);
         newUser.phone      = row.phone;
-        newUser.status     = STATUS_MAP.value(row.status, "active");
+        newUser.status     = STATUS_MAP.value(row.status, SC::USER_ACTIVE);
 
         int newId = ctrl.createUser(newUser, "123456");
         if (newId > 0) {
@@ -465,7 +465,7 @@ void BatchImportDialog::onConfirm()
         }
     }
 
-    // [2026-06-26] 修复：不在onConfirm中弹出MessageDialog（嵌套事件循环干扰accept）
+    // 注意：不在onConfirm中弹出MessageDialog（嵌套事件循环干扰accept）
     // 直接关闭对话框，结果消息由父页面处理
     if (successCount > 0) {
         // 部分成功或全部成功：关闭对话框，父页面UserManagementPage通过refresh()刷新列表
@@ -591,7 +591,7 @@ ImportResult BatchImportDialog::parseExcel(const QString& filePath)
     QByteArray raw = file.readAll();
     file.close();
 
-    // [2026-06-26v10] 编码修复：Excel COM SaveAs(6)=xlCSV 产生的是系统区域编码(中文GBK)
+    // 注意：Excel COM SaveAs(6)=xlCSV 产生的是系统区域编码(中文GBK)
     // 优先检测BOM，无BOM则尝试UTF-8，失败则回退GBK
     QString content;
     if (raw.startsWith("\xEF\xBB\xBF")) {

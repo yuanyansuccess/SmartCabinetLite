@@ -10,9 +10,9 @@
 #include <QSqlRecord>
 #include <QDateTime>
 #include <QDebug>
+#include "common/Constants.h"
 
 namespace db {
-
 
 // ════════════════════════════════════════════════════════
 // 实体类转换（fromQuery）— 从dao/UserDAO.cpp合并
@@ -140,7 +140,7 @@ QJsonObject UserDAO::findAll(const QString& keyword, const QString& role,
     int total = countQuery.value(0).toInt();
 
     QSqlQuery dataQuery(db);
-    // [2026-06-27] 排序：管理员优先，其次按创建时间倒序
+    // 排序：管理员优先，其次按创建时间倒序
     dataQuery.prepare(
         "SELECT u.user_id, u.username, u.real_name, u.role, u.work_no, u.department, "
         "u.phone, u.email, u.face_feature, u.status, u.last_login_at, u.created_at "
@@ -191,7 +191,7 @@ int UserDAO::insert(const QJsonObject& info) {
     query.bindValue(":dept", info["department"].toString(""));
     query.bindValue(":phone", info["phone"].toString(""));
     query.bindValue(":email", info["email"].toString(""));
-    query.bindValue(":st", info["status"].toString("active"));
+    query.bindValue(":st", info["status"].toString(SC::USER_ACTIVE));
     if (!safeExec(query)) { qWarning() << "[UserDAO] insert failed:" << query.lastError().text(); return -1; }
     return query.lastInsertId().toInt();
 }
@@ -357,7 +357,7 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
     if (!status.isEmpty())  { sql += " AND u.status = ?";      params << status; }
     if (!role.isEmpty())    { sql += " AND u.role = ?";        params << role; }
 
-    // [2026-06-27] 排序：管理员优先，其次按创建时间倒序
+    // 排序：管理员优先，其次按创建时间倒序
     QList<User> list;
     QSqlQuery q = query(paginate(sql, page, pageSize, "CASE WHEN u.role='admin' THEN 0 ELSE 1 END, u.created_at DESC"), params);
     while (q.next()) {
@@ -370,10 +370,10 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
 
 int UserDAO::countUsers(const QString& keyword, const QString& dept,
                          const QString& status, const QString& role) {
-    // [2026-06-26v7 致命修复] countUsers必须排除已删除用户 + 不能使用BaseDAO::count()包装
+    // countUsers必须排除已删除用户 + 不能使用BaseDAO::count()包装
     // BaseDAO::count() 会把SQL包成 SELECT COUNT(*) FROM (原SQL) AS _cnt
     // 如果原SQL本身是SELECT COUNT(*)，就会变成双重COUNT，结果永远是1！
-    // 修复：直接执行COUNT查询，不使用BaseDAO::count()包装
+    // 注意：直接执行COUNT查询，不使用BaseDAO::count()包装
     QString sql = "SELECT COUNT(*) FROM sys_user u "
                   "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
                   "WHERE u.status != 'deleted'";
@@ -403,7 +403,7 @@ int UserDAO::countUsers(const QString& keyword, const QString& dept,
     }
     if (!status.isEmpty()) { sql += " AND u.status = ?";      params << status; }
     if (!role.isEmpty())   { sql += " AND u.role = ?";        params << role; }
-    // [2026-06-26v7] 直接执行scalar，不再通过count()包装（避免双重COUNT导致始终返回1）
+    // 直接执行scalar，不通过count()包装（避免双重COUNT导致始终返回1）
     return scalar(sql, params).toInt();
 }
 
@@ -411,7 +411,7 @@ int UserDAO::insertUser(const User& user) {
     QString sql = "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
                   "work_no, dept_id, department, role, face_feature, phone, email, status) "
                   "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
-    // [2026-06-27] dept_id<=0时插入NULL，避免外键约束失败（sys_department中不存在dept_id=0）
+    // dept_id<=0时插入NULL，避免外键约束失败（sys_department中不存在dept_id=0）
     QVariant deptIdVal = (user.deptId > 0) ? QVariant(user.deptId) : QVariant();
     return insertAndGetId(sql, {user.username, user.passwordHash, user.passwordSalt,
                           user.realName, user.workNo, deptIdVal, user.department,
@@ -460,7 +460,7 @@ QString UserDAO::generateNextWorkNo()
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
-    // [2026-09-23] 工号改为纯数字格式，数字项在C++侧用正则过滤后取最大值
+    // 工号为纯数字格式，数字项在C++侧用正则过滤后取最大值
     // 不依赖GLOB/REGEXP，SQLite与MySQL 5.7均兼容
     q.prepare("SELECT work_no FROM sys_user WHERE status != 'deleted'");
     if (!safeExec(q)) return QStringLiteral("001");

@@ -1,6 +1,6 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  DatabaseManager实现
-// 日期：2026-06-21 直连MySQL，使用Qt SQL驱动
-// [v4] 新增SQLite回退：MySQL不可用时自动使用本地SQLite，保障开发/测试环境可用
+// 智能柜Qt Widget 2.0  DatabaseManager实现
+// 直连MySQL，使用Qt SQL驱动
+// 新增SQLite回退：MySQL不可用时自动使用本地SQLite，保障开发/测试环境可用
 #include "DatabaseManager.h"
 #include <QThread>
 #include <QUuid>
@@ -11,8 +11,8 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QDateTime>
-#include <QCryptographicHash>  // [v4] SQLite播种用SHA256
-#include <QNetworkInterface>   // [V2.15] 物理网络连接检测
+#include <QCryptographicHash>  // SQLite播种用SHA256
+#include <QNetworkInterface>  // 物理网络连接检测
 #include <QTcpSocket>
 #include <QEventLoop>
 #include <QTimer>
@@ -43,7 +43,7 @@ bool DatabaseManager::initialize(const QString& host, int port,
     m_user   = user;
     m_pass   = password;
 
-    // [V2.03 2026-06-27] 纯MySQL策略（+领导确认：本地部署MySQL，不再用SQLite双数据库）
+    // 纯MySQL策略（+领导确认：本地部署MySQL，不用SQLite双数据库）
     // 原"SQLite优先→MySQL同步"策略已废弃，避免双库数据不一致问题
     bool mysqlReady = tryMysql();
     if (!mysqlReady) {
@@ -53,7 +53,7 @@ bool DatabaseManager::initialize(const QString& host, int port,
     qInfo() << "[DB] MySQL primary database ready:" << m_host << ":" << m_port << "/" << m_dbName;
     // 初始化Schema+播种数据（空表检测不会覆盖已有生产数据）
     bool schemaOk = initSchemaIfNeeded();
-    // [V2.03-fix] 诊断日志写入文件
+  // 诊断日志写入文件
     {
         QFile lf(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/db_init.log");
         if (lf.open(QIODevice::Append | QIODevice::Text)) {
@@ -67,8 +67,8 @@ bool DatabaseManager::initialize(const QString& host, int port,
 }
 
 bool DatabaseManager::isConnected() const {
-    // [V2.03l 2026-06-30] 修复：不再只用isOpen()（TCP断开后可能仍返回true）
-    // 改为执行SELECT 1测试真实连接，失败则尝试重连
+    // 注意：不只用isOpen()（TCP断开后可能仍返回true）
+    // 执行SELECT 1测试真实连接，失败则尝试重连
     QMutexLocker l(&m_mutex);
     if (!m_db.isOpen()) return false;
     QSqlQuery q(m_db);
@@ -123,7 +123,7 @@ QSqlDatabase DatabaseManager::database() const {
 
 bool DatabaseManager::ensureConnected() {
     if (!m_db.isOpen()) {
-        // [V2.03 2026-06-27] 纯MySQL模式，直接用MySQL参数重连
+        // 纯MySQL模式，直接用MySQL参数重连
         m_db.setHostName(m_host);
         m_db.setPort(m_port);
         m_db.setDatabaseName(m_dbName);
@@ -193,7 +193,7 @@ QString DatabaseManager::lastError() const {
     return m_db.lastError().text();
 }
 
-// [v12] 优先直连MySQL（127.0.0.1:3306/smart_cabinet），使用QODBC驱动
+// 优先直连MySQL（127.0.0.1:3306/smart_cabinet），使用QODBC驱动
 bool DatabaseManager::tryMysql() {
     static const QStringList drivers = {"QODBC", "QMYSQL"};
     for (const QString& driver : drivers) {
@@ -233,14 +233,14 @@ bool DatabaseManager::tryMysql() {
     return false;
 }
 
-// [V8.0 2026-06-28] trySqlite已删除——纯MySQL模式，不再支持SQLite回退
-//   作者：袁燕 - 要求彻底删除SQLite，只保留MySQL
+// trySqlite已删除——纯MySQL模式，不支持SQLite回退
+//   要求彻底删除SQLite，只保留MySQL
 
-// [v4] 自动建表+播种默认管理员 (CF001/123456)
+// 自动建表+播种默认管理员 (CF001/123456)
 bool DatabaseManager::initSchemaIfNeeded() {
     QSqlQuery q(m_db);
 
-    // [V2.03-fix] 诊断lambda：记录建表/播种失败信息到文件
+  // 诊断lambda：记录建表/播种失败信息到文件
     auto logFail = [](const char* step, const QString& err) {
         QFile lf(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/db_schema.log");
         if (lf.open(QIODevice::Append | QIODevice::Text)) {
@@ -250,27 +250,26 @@ bool DatabaseManager::initSchemaIfNeeded() {
         }
     };
 
-    // [v4.6修复] 不再整体跳过schema初始化（早期return会阻止新增表）
+    // 不整体跳过schema初始化（早期return会阻止新增表）
     // 每个CREATE TABLE用的都是IF NOT EXISTS，安全幂等
     // 种子数据使用INSERT OR IGNORE，也安全幂等
     bool hasExistingSchema = false;
     {
         QSqlQuery check(m_db);
-        // [V8.0 2026-06-28] 删除sqlite_master分支——纯MySQL模式
+        // 删除sqlite_master分支——纯MySQL模式
         check.exec("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='sys_user'");
         hasExistingSchema = (check.next() && check.value(0).toInt() > 0);
     }
 
-    // [V2.03-fix] MySQL中表已存在时跳过建表（AUTOINCREMENT是SQLite专用语法，MySQL用AUTO_INCREMENT）
+  // MySQL中表已存在时跳过建表（AUTOINCREMENT是SQLite专用语法，MySQL用AUTO_INCREMENT）
     // MySQL在解析SQL时就检查语法，即使表已存在CREATE TABLE IF NOT EXISTS也会因AUTOINCREMENT语法错误而失败
     // MySQL表由schema.sql预先创建，这里只需播种数据
-    // [V8.0 2026-06-28] 删除m_usingSqlite判断——纯MySQL模式
+    // 删除m_usingSqlite判断——纯MySQL模式
     bool skipCreateTables = hasExistingSchema;
 
     qInfo() << "[DB] First run: initializing schema...";
 
-
-    // [V2.03-fix] MySQL中表已存在时跳过建表（AUTOINCREMENT语法不兼容MySQL）
+  // MySQL中表已存在时跳过建表（AUTOINCREMENT语法不兼容MySQL）
     if (!skipCreateTables) {
     // ── 建表：sys_user ──
     bool ok = q.exec(
@@ -295,7 +294,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     );
     if (!ok) { logFail("sys_user", q.lastError().text()); qWarning() << "[DB] Create sys_user failed:" << q.lastError().text(); return false; }
 
-    // [v4.6新增] 建表：sys_department（部门表，dao/UserDAO::findAll LEFT JOIN需要）
+    // 建表：sys_department（部门表，dao/UserDAO::findAll LEFT JOIN需要）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS sys_department ("
         "  dept_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -336,8 +335,8 @@ bool DatabaseManager::initSchemaIfNeeded() {
     );
     if (!ok) { logFail("tool_cabinet", q.lastError().text()); qWarning() << "[DB] Create tool_cabinet failed:" << q.lastError().text(); return false; }
 
-    // ── 建表：tool_info（工具信息） [V7.0] 列名对齐MySQL schema.sql
-    // [V2.01 2026-06-27] 新增 recognition_method/document_path 列
+    // ── 建表：tool_info（工具信息） 列名对齐MySQL schema.sql
+    // 新增 recognition_method/document_path 列
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_info ("
         "  tool_id          INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -363,7 +362,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     );
     if (!ok) { logFail("tool_info", q.lastError().text()); qWarning() << "[DB] Create tool_info failed:" << q.lastError().text(); return false; }
 
-    // [V7.0] 为已有SQLite数据库迁移：添加缺失列（IF NOT EXISTS）
+    // 为已有SQLite数据库迁移：添加缺失列（IF NOT EXISTS）
     // SQLite不支持 ADD COLUMN IF NOT EXISTS，用try-catch忽略"duplicate column"错误
     const char* alterCols[] = {
         "ALTER TABLE tool_info ADD COLUMN spec TEXT DEFAULT ''",
@@ -373,8 +372,8 @@ bool DatabaseManager::initSchemaIfNeeded() {
         "ALTER TABLE tool_info ADD COLUMN vision_tag TEXT DEFAULT ''",
         "ALTER TABLE tool_info ADD COLUMN checkout_reason TEXT DEFAULT ''",
         "ALTER TABLE tool_info ADD COLUMN is_recommended INTEGER DEFAULT 0",
-        "ALTER TABLE tool_info ADD COLUMN recognition_method TEXT DEFAULT 'vision'",   // [V2.01]
-        "ALTER TABLE tool_info ADD COLUMN document_path TEXT DEFAULT ''",            // [V2.01]
+        "ALTER TABLE tool_info ADD COLUMN recognition_method TEXT DEFAULT 'vision'",
+        "ALTER TABLE tool_info ADD COLUMN document_path TEXT DEFAULT ''",
     };
     for (const char* alterSql : alterCols) {
         q.exec(alterSql);  // 忽略"duplicate column"错误
@@ -382,7 +381,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 迁移：将available_qty数据复制到current_qty
     q.exec("UPDATE tool_info SET current_qty = available_qty WHERE current_qty = 0 AND available_qty > 0");
 
-    // [V7.0] 建表：machine_group（工程机组） ──
+    // 建表：machine_group（工程机组） ──
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS machine_group ("
         "  group_id      INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -398,8 +397,8 @@ bool DatabaseManager::initSchemaIfNeeded() {
     );
     if (!ok) { logFail("machine_group", q.lastError().text()); qWarning() << "[DB] Create machine_group failed:" << q.lastError().text(); return false; }
 
-    // [2026-06-26v8] 建表：system_config（系统配置持久化）
-    // [V2.03 2026-06-27] TIMESTAMP类型+CURRENT_TIMESTAMP兼容MySQL5.7+SQLite（TEXT类型在MySQL不支持DEFAULT CURRENT_TIMESTAMP）
+    // 建表：system_config（系统配置持久化）
+    // TIMESTAMP类型+CURRENT_TIMESTAMP兼容MySQL5.7+SQLite（TEXT类型在MySQL不支持DEFAULT CURRENT_TIMESTAMP）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS system_config ("
         "  config_key   VARCHAR(64) PRIMARY KEY,"
@@ -425,7 +424,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
         "  status               TEXT    DEFAULT 'borrowing',"
         "  operator_id          INTEGER DEFAULT NULL,"
         "  remark               TEXT    DEFAULT '',"
-        "  mapping_id           INTEGER DEFAULT NULL,"  // [V2.11] 位置映射ID
+        "  mapping_id           INTEGER DEFAULT NULL,"  // 位置映射ID
         "  created_at           TEXT    DEFAULT (datetime('now','localtime')),"
         "  updated_at           TEXT    DEFAULT (datetime('now','localtime'))"
         ")"
@@ -435,8 +434,8 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 已有数据库迁移：tool_borrow_record增加mapping_id列
     q.exec("ALTER TABLE tool_borrow_record ADD COLUMN mapping_id INTEGER DEFAULT NULL");
 
-    // [v4.6新增] 播种部门数据（人员管理页面需要）
-    // [V2.03-fix] REPLACE INTO兼容MySQL+SQLite
+    // 播种部门数据（人员管理页面需要）
+  // REPLACE INTO兼容MySQL+SQLite
     q.exec("REPLACE INTO sys_department(dept_id, dept_name, sort_order) "
            "VALUES (1, '技术部', 1)");
     q.exec("REPLACE INTO sys_department(dept_id, dept_name, sort_order) "
@@ -448,7 +447,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     q.exec("REPLACE INTO sys_department(dept_id, dept_name, sort_order) "
            "VALUES (5, '行政部', 5)");
 
-    // [V7.0] 播种工程机组数据（8个机组） ──
+    // 播种工程机组数据（8个机组） ──
     struct MgSeed { int id; const char* name; int did; const char* leader; const char* phone; const char* desc; } mgs[] = {
         {1,"发动机维护机组",1,"张三","138****6789","负责发动机拆装、检查、更换部件等核心维护作业"},
         {2,"航电检修机组",2,"李四","139****8901","负责航空电子设备、仪表、通信导航系统检测维修"},
@@ -460,7 +459,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
         {8,"精密测量机组",4,"赵六","136****7890","负责三坐标测量、形位公差检测、校准"},
     };
     for (auto& mg : mgs) {
-        // [V2.03-fix] REPLACE INTO兼容MySQL+SQLite
+  // REPLACE INTO兼容MySQL+SQLite
         q.prepare("REPLACE INTO machine_group(group_id,group_name,dept_id,leader_name,leader_phone,description,status) "
                   "VALUES(?,?,?,?,?,?,'active')");
         q.addBindValue(mg.id); q.addBindValue(mg.name); q.addBindValue(mg.did);
@@ -474,14 +473,14 @@ bool DatabaseManager::initSchemaIfNeeded() {
         (salt + QStringLiteral("123456")).toUtf8(),
         QCryptographicHash::Sha256).toHex());
 
-    // [V2.03-fix] 先查后插：避免REPLACE INTO触发外键约束（tool_borrow_record引用sys_user.user_id）
+  // 先查后插：避免REPLACE INTO触发外键约束（tool_borrow_record引用sys_user.user_id）
     // MySQL和SQLite都兼容，已有记录时跳过不覆盖
     {
         QSqlQuery adminChk(m_db);
         adminChk.exec("SELECT COUNT(*) FROM sys_user WHERE user_id=1");
         int adminCnt = (adminChk.next()) ? adminChk.value(0).toInt() : 0;
         if (adminCnt == 0) {
-            // [2026-09-23] 工号改纯数字：username=work_no=001（账号与工号统一）
+            // 工号改纯数字：username=work_no=001（账号与工号统一）
             q.prepare("INSERT INTO sys_user "
                       "(user_id, username, password_hash, password_salt, real_name, "
                       " work_no, dept_id, department, role, phone, status) "
@@ -493,8 +492,8 @@ bool DatabaseManager::initSchemaIfNeeded() {
         }
     }
 
-    // [v4.6新增] 播种测试用户数据（人员管理页面有数据可查）
-    // [2026-09-23] 工号改纯数字：username=work_no统一为数字（002~006）
+    // 播种测试用户数据（人员管理页面有数据可查）
+    // 工号改纯数字：username=work_no统一为数字（002~006）
     struct TestUser { int id; QString uname; QString rname; QString wno; int did; QString dept; QString role; QString phone; QString status; };
     QList<TestUser> testUsers = {
         {2, "002",  "李四",   "002", 2, "生产部", "user", "139****1234", "active"},
@@ -504,7 +503,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
         {6, "006",  "周八",   "006", 2, "生产部", "user", "134****7890", "inactive"},
     };
     for (const auto& u : testUsers) {
-        // [V2.03-fix] 先查后插：避免REPLACE INTO触发外键约束
+  // 先查后插：避免REPLACE INTO触发外键约束
         QSqlQuery uChk(m_db);
         uChk.prepare("SELECT COUNT(*) FROM sys_user WHERE user_id=?");
         uChk.addBindValue(u.id);
@@ -531,7 +530,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
         if (!ins.exec()) { qWarning() << "[DB] Seed test user failed:" << u.rname << ins.lastError().text(); }
     }
 
-    // [V1.00.10 2026-06-24] 建表：task_type（任务类型）
+  // 建表：task_type（任务类型）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS task_type ("
         "  type_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -547,7 +546,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     );
     if (!ok) { logFail("task_type", q.lastError().text()); qWarning() << "[DB] Create task_type failed:" << q.lastError().text(); return false; }
 
-    // [V1.00.10] 建表：task_type_tool（任务类型-推荐工具关联表）
+  // 建表：task_type_tool（任务类型-推荐工具关联表）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS task_type_tool ("
         "  id            INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -568,7 +567,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 入库时从映射表查该工具的可用位置（未被其他在库工具占用）
     // status字段移入建表语句，修复MySQL端建表漏字段的致命Bug
     // 根因：原MySQL兼容建表（建表块外）未包含status字段，导致入库UPDATE SET status失败
-    // 修复：SQLite建表和MySQL建表都显式包含status字段，DEFAULT 'pending'
+    // 注意：SQLite建表和MySQL建表都显式包含status字段，DEFAULT 'pending'
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_position_mapping ("
         "  mapping_id    INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -584,12 +583,12 @@ bool DatabaseManager::initSchemaIfNeeded() {
         ")"
     );
     if (!ok) { logFail("tool_position_mapping", q.lastError().text()); qWarning() << "[DB] Create tool_position_mapping failed:" << q.lastError().text(); return false; }
-    } // [V2.03-fix] 关闭 if (!skipCreateTables) 建表块
+    }  // 关闭 if (!skipCreateTables) 建表块
 
-    // [V1.00.10] 为已有SQLite数据库迁移：添加缺失列（tool_info.cabinet_name兼容）
+  // 为已有SQLite数据库迁移：添加缺失列（tool_info.cabinet_name兼容）
     q.exec("ALTER TABLE tool_info ADD COLUMN cabinet_name TEXT DEFAULT ''");
     q.exec("ALTER TABLE tool_info ADD COLUMN unit TEXT DEFAULT '件'");
-    // [V7.9 2026-06-24] tool_cabinet增加cabinet_code和ip_address列（对齐ToolCabinet模型）
+    // tool_cabinet增加cabinet_code和ip_address列（对齐ToolCabinet模型）
     q.exec("ALTER TABLE tool_cabinet ADD COLUMN cabinet_code TEXT DEFAULT ''");
     q.exec("ALTER TABLE tool_cabinet ADD COLUMN ip_address TEXT DEFAULT ''");
     // 映射表增加status字段
@@ -599,13 +598,13 @@ bool DatabaseManager::initSchemaIfNeeded() {
     q.exec("ALTER TABLE tool_position_mapping ADD COLUMN status VARCHAR(16) DEFAULT 'pending'");
     // 删除启动时用tool_info重置映射表status的脏数据修复代码
     // 根因：这段代码每次启动都用tool_info的cabinet_id/layer/position匹配映射表重置status，
-    // 但V2.08+已改为位置维度管理，tool_info的位置不代表实际占用状态，
+    // 但V2.08+已为位置维度管理，tool_info的位置不代表实际占用状态，
     // 导致已borrowed的位置被强制改回in_stock→数据不一致
     // 规则：代码层面不处理脏数据，所有数据修复直接在数据库操作
-    // [V2.02-fix 2026-06-27] MySQL的task_type表缺少default_duration列，seedBusinessData的INSERT需要此列
+  // MySQL的task_type表缺少default_duration列，seedBusinessData的INSERT需要此列
     q.exec("ALTER TABLE task_type ADD COLUMN default_duration INTEGER DEFAULT 30");
-    // [V2.03-fix 2026-06-27] MySQL的tool_info表缺少recognition_method/document_path列
-    // MySQL 5.7不允许TEXT类型设DEFAULT值，改用VARCHAR兼容MySQL+SQLite
+  // MySQL的tool_info表缺少recognition_method/document_path列
+    // MySQL 5.7不允许TEXT类型设DEFAULT值，VARCHAR兼容MySQL+SQLite
     q.exec("ALTER TABLE tool_info ADD COLUMN recognition_method VARCHAR(16) DEFAULT 'vision'");
     q.exec("ALTER TABLE tool_info ADD COLUMN document_path VARCHAR(512) DEFAULT ''");
 
@@ -637,10 +636,10 @@ bool DatabaseManager::initSchemaIfNeeded() {
         qWarning() << "[DB] Migrate tool_position_mapping data error:" << q.lastError().text();
     }
 
-    // [V7.1 2026-06-24] 在播种数据前先确保视图存在（修复已有数据库视图缺失导致表格无数据的问题）
+    // 在播种数据前先确保视图存在（修复已有数据库视图缺失导致表格无数据的问题）
     createViewsIfNeeded();
 
-    // [2026-06-23] 丰富SQLite种子数据：工具+借用记录+告警，确保仪表盘和各页面有数据可看
+    // 丰富SQLite种子数据：工具+借用记录+告警，确保仪表盘和各页面有数据可看
     seedBusinessData();
 
     if (hasExistingSchema) {
@@ -651,13 +650,13 @@ bool DatabaseManager::initSchemaIfNeeded() {
     return true;
 }
 
-// [V7.1 2026-06-24] 每次启动确保视图存在（解决已有数据库缺失v_tool_latest_operation等视图导致表格无数据的问题）
+// 每次启动确保视图存在（解决已有数据库缺失v_tool_latest_operation等视图导致表格无数据的问题）
 // 使用 CREATE OR REPLACE VIEW 兼容 MySQL 和 SQLite
 bool DatabaseManager::createViewsIfNeeded() {
     QSqlQuery q(m_db);
 
-    // v_tool_stats 工具统计视图 [2026-06-26v15] 借用统计从tool_borrow_record获取，确保与记录一致
-    // [2026-06-27] in_stock_qty 改为所有工具的 current_qty 之和（不论状态），反映实际在库件数
+    // v_tool_stats 工具统计视图 借用统计从tool_borrow_record获取，确保与记录一致
+    // in_stock_qty 为所有工具的 current_qty 之和（不论状态），反映实际在库件数
     q.exec("CREATE OR REPLACE VIEW v_tool_stats AS "
            "SELECT (SELECT COUNT(*) FROM tool_info) AS total_tools,"
            "(SELECT COUNT(*) FROM tool_info WHERE status='in_stock') AS in_stock_count,"
@@ -670,11 +669,11 @@ bool DatabaseManager::createViewsIfNeeded() {
         qWarning() << "[DB] Create v_tool_stats failed:" << q.lastError().text();
 
     // v_tool_latest_operation 最近操作视图
-    // [2026-06-27] 机组隔离：只统计活跃借用(borrowing/overdue)，已归还记录不作为最近操作
+    // 机组隔离：只统计活跃借用(borrowing/overdue)，已归还记录不作为最近操作
     // 修复视图产生重复行导致工具管理列表每位置多一行的致命Bug
     // 根因：原LEFT JOIN tool_borrow_record tbr ON borrow_time=latest_borrow_time，
     // 同一秒借用多条记录时tbr匹配多行→视图对同一tool_id返回多行→findAllTools行翻倍
-    // 修复：latest_op_user改用子查询LIMIT 1，去掉tbr的JOIN，确保每个tool_id只返回1行
+    // 注意：latest_op_user子查询LIMIT 1，去掉tbr的JOIN，确保每个tool_id只返回1行
     q.exec("CREATE OR REPLACE VIEW v_tool_latest_operation AS "
            "SELECT t.tool_id,"
            "COALESCE(br.latest_borrow_time,'') AS latest_op_time,"
@@ -698,13 +697,12 @@ bool DatabaseManager::createViewsIfNeeded() {
     return true;
 }
 
-
-// [2026-06-23] SQLite回退模式播种完整业务数据（工具/记录/告警/操作日志）
+// SQLite回退模式播种完整业务数据（工具/记录/告警/操作日志）
 // 确保仪表盘4个卡片 + 各列表页面都有数据展示
 bool DatabaseManager::seedBusinessData() {
     QSqlQuery q(m_db);
 
-    // ── 工具分类（7个）─ [V2.02-fix] 空表检测，避免覆盖已有生产数据 ──
+  // ── 工具分类（7个）─ 空表检测，避免覆盖已有生产数据 ──
     {
         QSqlQuery chk(m_db);
         chk.exec("SELECT COUNT(*) FROM tool_category");
@@ -722,7 +720,7 @@ bool DatabaseManager::seedBusinessData() {
         }
     }
 
-    // ── 工具柜（3个）[V2.02-fix] 空表检测 ──
+  // ── 工具柜（3个）空表检测 ──
     {
         QSqlQuery chk(m_db);
         chk.exec("SELECT COUNT(*) FROM tool_cabinet");
@@ -736,7 +734,7 @@ bool DatabaseManager::seedBusinessData() {
         }
     }
 
-    // ── 工具信息（26个）[V2.02-fix] 空表检测 ──
+  // ── 工具信息（26个）空表检测 ──
     {
         QSqlQuery chk(m_db);
         chk.exec("SELECT COUNT(*) FROM tool_info");
@@ -778,10 +776,10 @@ bool DatabaseManager::seedBusinessData() {
         q.addBindValue(t.recommended);
         q.exec();
     }
-        } // [V2.02-fix] 关闭 tool_info 空表检测 if 块
+        }  // 关闭 tool_info 空表检测 if 块
     }
 
-    // ── 借用记录（20条）[V2.02-fix] 空表检测 ──
+  // ── 借用记录（20条）空表检测 ──
     {
         QSqlQuery chk(m_db);
         chk.exec("SELECT COUNT(*) FROM tool_borrow_record");
@@ -818,10 +816,10 @@ bool DatabaseManager::seedBusinessData() {
         q.addBindValue(r.status);
         q.exec();
     }
-        } // [V2.02-fix] 关闭 tool_borrow_record 空表检测 if 块
+        }  // 关闭 tool_borrow_record 空表检测 if 块
     }
 
-    // ── 告警类型字典表 [2026-06-25] 动态告警类型+级别管理 ──
+    // ── 告警类型字典表 动态告警类型+级别管理 ──
     q.exec("CREATE TABLE IF NOT EXISTS sys_alert_type ("
            "  type_id     INTEGER PRIMARY KEY AUTOINCREMENT,"
            "  type_code   TEXT    NOT NULL UNIQUE,"
@@ -831,7 +829,7 @@ bool DatabaseManager::seedBusinessData() {
            "  is_active   INTEGER DEFAULT 1,"
            "  created_at  TEXT    DEFAULT (datetime('now','localtime'))"
            ")");
-    // [2026-06-26v13] 告警类型对齐MySQL现有映射（type_id必须一致）
+    // 告警类型对齐MySQL现有映射（type_id必须一致）
     // MySQL当前映射：1-overdue,2-mismatch,3-missing,4-offline,5-unauthorized,
     // 6-low_stock,7-system,8-power,9-network_error,10-door_open,
     // 11-stranger,12-rack_mismatch,13-temp_high,14-power_low,
@@ -847,10 +845,10 @@ bool DatabaseManager::seedBusinessData() {
         {"stranger","陌生人告警","warn",11},    {"rack_mismatch","货架错放","warn",12},
         {"temp_high","温度过高","warn",13},     {"power_low","电量不足","warn",14},
         {"sensor_fail","传感器故障","error",15},{"login_fail","登录失败","warn",16},
-        // [2026-09-23] 袁总新增三类告警体系：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
+        // 袁总新增三类告警体系：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
         {"hw_comm","硬件通讯故障","error",17},  {"hw_fault","系统硬件故障","error",18},
     };
-    // [2026-09-23] 告警类型启用范围：工具错放/硬件通讯故障/系统硬件故障（其余停用，筛选下拉不显示）
+    // 告警类型启用范围：工具错放/硬件通讯故障/系统硬件故障（其余停用，筛选下拉不显示）
     auto typeActive = [](const char* code) -> int {
         return (qstrcmp(code, "mismatch") == 0 || qstrcmp(code, "hw_comm") == 0 ||
                 qstrcmp(code, "hw_fault") == 0) ? 1 : 0;
@@ -866,8 +864,8 @@ bool DatabaseManager::seedBusinessData() {
     }
     qInfo() << "[DB] Alert types seeded (cleared+reinserted with explicit IDs):" << (sizeof(types)/sizeof(types[0])) << "types";
 
-    // ── 告警记录表 [2026-06-26v12] 字段对齐MySQL：保留alert_type/alert_level兼容AlertDAO ──
-    // [2026-06-26v2] 新增record_id列，关联tool_borrow_record用于借款人回退查询
+    // ── 告警记录表 字段对齐MySQL：保留alert_type/alert_level兼容AlertDAO ──
+    // 新增record_id列，关联tool_borrow_record用于借款人回退查询
     q.exec("CREATE TABLE IF NOT EXISTS sys_alert ("
            "  alert_id    INTEGER PRIMARY KEY AUTOINCREMENT,"
            "  type_id     INTEGER NOT NULL DEFAULT 1,"
@@ -884,7 +882,7 @@ bool DatabaseManager::seedBusinessData() {
            "  handler_id  INTEGER DEFAULT NULL,"
            "  remark      TEXT    DEFAULT ''"
            ")");
-    // [2026-06-26v12] 兼容旧表迁移：添加可能缺失的列（SQLite ALTER不支持NOT NULL，用DEFAULT代替）
+    // 兼容旧表迁移：添加可能缺失的列（SQLite ALTER不支持NOT NULL，用DEFAULT代替）
     q.exec("ALTER TABLE sys_alert ADD COLUMN type_id INTEGER DEFAULT 1");
     q.exec("ALTER TABLE sys_alert ADD COLUMN alert_type TEXT DEFAULT ''");
     q.exec("ALTER TABLE sys_alert ADD COLUMN alert_level TEXT DEFAULT 'warn'");
@@ -894,8 +892,8 @@ bool DatabaseManager::seedBusinessData() {
     q.exec("ALTER TABLE sys_alert ADD COLUMN handled_at TEXT DEFAULT NULL");
     q.exec("ALTER TABLE sys_alert ADD COLUMN handler_id INTEGER DEFAULT NULL");
     q.exec("ALTER TABLE sys_alert ADD COLUMN remark TEXT DEFAULT ''");
-    q.exec("ALTER TABLE sys_alert ADD COLUMN record_id INTEGER DEFAULT 0");  // [2026-06-26v2] 关联借用记录
-    // [2026-06-26v7] 检查sys_alert_type表是否存在type_code列，如缺失则重建
+    q.exec("ALTER TABLE sys_alert ADD COLUMN record_id INTEGER DEFAULT 0");  // 关联借用记录
+    // 检查sys_alert_type表是否存在type_code列，如缺失则重建
     {
         QSqlQuery colCheck(m_db);
         colCheck.exec("SELECT type_code FROM sys_alert_type LIMIT 1");
@@ -913,7 +911,7 @@ bool DatabaseManager::seedBusinessData() {
                    ")");
             int ti = 1;
             for (auto& t : types) {
-                // [2026-09-23] 同步主路径：三类启用（工具错放/硬件通讯故障/系统硬件故障）
+                // 同步主路径：三类启用（工具错放/硬件通讯故障/系统硬件故障）
                 q.prepare("INSERT INTO sys_alert_type(type_id,type_code,type_name,alert_level,sort_order,is_active) VALUES(?,?,?,?,?,?)");
                 q.addBindValue(ti); q.addBindValue(t.code); q.addBindValue(t.name); q.addBindValue(t.level); q.addBindValue(t.order);
                 q.addBindValue(typeActive(t.code));
@@ -926,7 +924,7 @@ bool DatabaseManager::seedBusinessData() {
     // 原逻辑检测hasLegacyData时包含"alert_type=''"条件，
     // 但insertAlert不填alert_type列→新告警alert_type为空→每次启动判定hasLegacyData=true
     // → DELETE FROM sys_alert清空全部告警→重插20条种子→"永远是20条"
-    // 修复：只在sys_alert为空表时播种种子数据，有数据就不再清空
+    // 注意：只在sys_alert为空表时播种种子数据，有数据就不清空
     {
         QSqlQuery check(m_db);
         check.exec("SELECT COUNT(*) FROM sys_alert");
@@ -935,7 +933,7 @@ bool DatabaseManager::seedBusinessData() {
         if (existingCount == 0) {
             qInfo() << "[DB] Seeding initial alert records (mismatch only)...";
             // 结构: type_id, alert_type, alert_level, tool_code, user_id, status, content, created_at
-            // [2026-09-23] 告警三类仿真：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
+            // 告警三类仿真：工具错放/硬件通讯故障(视频、IO板卡)/系统硬件故障
             struct { int tid; const char* atype; const char* alevel; const char* tcode; int uid;
                      const char* st; const char* ct; const char* ctime; } alerts[] = {
                 // ══════ 工具错放 type_id=2(mismatch) ══════
@@ -991,10 +989,10 @@ bool DatabaseManager::seedBusinessData() {
            "  ip_address     TEXT    DEFAULT '',"
            "  created_at     TEXT    DEFAULT (datetime('now','localtime'))"
            ")");
-    // [V8.0 2026-06-28] 致命Bug修复：原代码无条件DELETE清空所有操作日志
+    // 致命注意：原代码无条件DELETE清空所有操作日志
     // 导致test1等真实出库/入库记录每次启动都被删除
-    // 改为空表检测：仅在表为空时插入模拟数据，保留运行时产生的真实记录
-    //   作者：袁燕 - 多次反馈test1记录丢失，根因在此
+    // 空表检测：仅在表为空时插入模拟数据，保留运行时产生的真实记录
+    //   多次反馈test1记录丢失，根因在此
     QSqlQuery logChk(m_db);
     logChk.exec("SELECT COUNT(*) FROM sys_operation_log");
     int logCnt = (logChk.next()) ? logChk.value(0).toInt() : 0;
@@ -1021,7 +1019,7 @@ bool DatabaseManager::seedBusinessData() {
         q.addBindValue(l.uid); q.addBindValue(l.uname); q.addBindValue(l.op); q.addBindValue(l.content); q.addBindValue(l.ctime);
         q.exec();
     }
-    }  // [V8.0] 闭合 if (logCnt == 0)
+    }  // 闭合 if (logCnt == 0)
 
     // 人脸识别识别统计日志表（专利实测数据通道）
     // 用途：记录每次人脸识别尝试，用于统计误识率(FAR)/拒识率(FRR)/识别延迟，支撑专利交底书实测数据
@@ -1047,8 +1045,8 @@ bool DatabaseManager::seedBusinessData() {
            "  created_at     TEXT    DEFAULT (datetime('now','localtime'))"
            ")");
 
-    // [V8.0 2026-06-28] 出库操作历史记录（10条），content加工具编号，INSERT加target_id
-    //   作者：袁燕 - 修复出库记录工具编号缺失问题
+    // 出库操作历史记录（10条），content加工具编号，INSERT加target_id
+    //   修复出库记录工具编号缺失问题
     // 1. 清理旧格式数据（content不含"编号["），保留真实出库记录
     // 2. 仅在新格式数据为0时插入模拟数据（避免重复）
     q.exec("DELETE FROM sys_operation_log WHERE operation_type='checkout' AND content NOT LIKE '%编号[%'");
@@ -1081,7 +1079,7 @@ bool DatabaseManager::seedBusinessData() {
         }
     }
 
-    // [V2.03 2026-06-27] 入库操作历史记录（10条），供入库记录Tab展示
+    // 入库操作历史记录（10条），供入库记录Tab展示
     // content格式与出库统一：入库工具「名」编号[编号]×数量，供应商：xxx
     // 注意：只在sys_operation_log中没有checkin记录时插入（空表检测）
     {
@@ -1113,7 +1111,7 @@ bool DatabaseManager::seedBusinessData() {
 
     qInfo() << "[DB] Business seed data complete: 7 categories, 3 cabinets, 26 tools, 20 records, 16 alert_types, 8 alerts, 35 logs(含10出库+10入库)";
 
-    // [v13] 验证种子数据完整性（写入文件供确认）
+    // 验证种子数据完整性（写入文件供确认）
     {
         QSqlQuery vfy(m_db);
         vfy.exec("SELECT COUNT(*) FROM sys_alert");
@@ -1145,9 +1143,9 @@ bool DatabaseManager::seedBusinessData() {
         }
     }
 
-    // [V7.0] 创建视图（SQLite版本，兼容MySQL语法）
-    // v_tool_stats 工具统计视图 [2026-06-26v15] 借用统计从tool_borrow_record获取
-    // [2026-06-27] in_stock_qty 改为所有工具的 current_qty 之和（不论状态），反映实际在库件数
+    // 创建视图（SQLite版本，兼容MySQL语法）
+    // v_tool_stats 工具统计视图 借用统计从tool_borrow_record获取
+    // in_stock_qty 为所有工具的 current_qty 之和（不论状态），反映实际在库件数
     q.exec("DROP VIEW IF EXISTS v_tool_stats");
     q.exec("CREATE VIEW v_tool_stats AS "
            "SELECT (SELECT COUNT(*) FROM tool_info) AS total_tools,"
@@ -1159,7 +1157,7 @@ bool DatabaseManager::seedBusinessData() {
            "(SELECT COALESCE(SUM(borrow_qty),0) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')) AS borrowed_qty");
 
     // v_tool_latest_operation 最近操作视图
-    // [2026-06-27] 机组隔离：只统计活跃借用(borrowing/overdue)
+    // 机组隔离：只统计活跃借用(borrowing/overdue)
     // 修复视图重复行Bug（latest_op_user改子查询LIMIT 1）
     q.exec("DROP VIEW IF EXISTS v_tool_latest_operation");
     q.exec("CREATE VIEW v_tool_latest_operation AS "
@@ -1181,13 +1179,13 @@ bool DatabaseManager::seedBusinessData() {
 
     qInfo() << "[DB] V7.0 views created: v_tool_stats + v_tool_latest_operation";
 
-    // 修复：删除DELETE+INSERT改为INSERT IGNORE
+    // 注意：删除DELETE+INSERT改为INSERT IGNORE
     // 根因：每次启动DELETE FROM task_type/task_type_tool清空了用户数据！
     // 用户在系统维护中添加的任务工具，重启后被种子数据覆盖。
-    // 修复：INSERT IGNORE只插入不存在的主键，不覆盖已有数据。
+    // 注意：INSERT IGNORE只插入不存在的主键，不覆盖已有数据。
     // 举一反三：对照关系(tool_position_mapping)种子数据不受影响（无DELETE）
     // 播种任务类型数据 — 只插入不存在的记录（INSERT IGNORE）
-    // [2026-06-27] 默认任务类型：航前检查/航后维护等10种
+    // 默认任务类型：航前检查/航后维护等10种
     struct { int id; const char* code; const char* name; const char* desc; int dur; int sort; } taskTypes[] = {
         {1, "PRECHECK",   "航前检查",     "航班起飞前对工具柜工具进行全面检查与准备", 60, 1},
         {2, "POSTCHECK",  "航后维护",     "航班降落后对工具进行归位、清洁与维护", 60, 2},
@@ -1209,7 +1207,7 @@ bool DatabaseManager::seedBusinessData() {
     }
 
     // 播种任务类型-推荐工具关联数据 — 只插入不存在的记录
-    // [V2.03u] 不再DELETE FROM task_type_tool！用户添加的工具关联必须保留
+    // 不DELETE FROM task_type_tool！用户添加的工具关联必须保留
     struct { int typeId; int toolId; int sort; } ttRel[] = {
         // 航前检查(1) → 本机组所有工具（10个，覆盖全面检查场景）
         {1,1,1}, {1,2,2}, {1,3,3}, {1,5,4}, {1,6,5}, {1,9,6}, {1,10,7}, {1,11,8}, {1,13,9}, {1,19,10},
@@ -1233,7 +1231,7 @@ bool DatabaseManager::seedBusinessData() {
         {10,19,1}, {10,6,2}, {10,11,3}, {10,25,4}, {10,5,5},
     };
     for (auto& r : ttRel) {
-        // [V2.03u] INSERT IGNORE：如果(type_id,tool_id)组合已存在则跳过，不覆盖用户数据
+        // INSERT IGNORE：如果(type_id,tool_id)组合已存在则跳过，不覆盖用户数据
         q.prepare("INSERT IGNORE INTO task_type_tool(type_id,tool_id,sort_order,recommended_qty) VALUES(?,?,?,1)");
         q.addBindValue(r.typeId); q.addBindValue(r.toolId); q.addBindValue(r.sort);
         q.exec();

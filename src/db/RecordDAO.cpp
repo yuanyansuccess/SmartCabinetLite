@@ -9,6 +9,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
+#include "common/Constants.h"
 
 namespace db {
 
@@ -76,7 +77,7 @@ int RecordDAO::insert(const QJsonObject& record) {
     q.bindValue(":reason", record["borrowReason"].toString(record["purpose"].toString("")));
     q.bindValue(":ert", record["expectedReturnTime"].toString(""));
     q.bindValue(":rmk", record["remark"].toString(""));
-    q.bindValue(":st", record["status"].toString("borrowing"));
+    q.bindValue(":st", record["status"].toString(SC::RECORD_BORROWING));
     q.bindValue(":mid", record["mappingId"].toInt() > 0 ? record["mappingId"].toInt() : QVariant());
     if (!safeExec(q)) { return -1; }
     return q.lastInsertId().toInt();
@@ -111,7 +112,7 @@ QJsonObject RecordDAO::findAll(int userId, int toolId, const QString& status,
     if (!startDate.isEmpty()) { conditions << "r.borrow_time>=:sd"; binds[":sd"] = startDate; }
     if (!endDate.isEmpty()) { conditions << "r.borrow_time<=:ed"; binds[":ed"] = endDate; }
     QString where = conditions.isEmpty() ? "1=1" : conditions.join(" AND ");
-    
+
     QSqlQuery cq(db);
     cq.prepare("SELECT COUNT(*) FROM tool_borrow_record r WHERE " + where);
     for (auto it = binds.begin(); it != binds.end(); ++it) cq.bindValue(it.key(), it.value());
@@ -197,7 +198,7 @@ int RecordDAO::countActiveByMachineGroup(int machineGroupId) {
 // 入参：toolId 工具ID，limit 返回记录数(默认5)
 // 返回：QJsonArray，每项含 borrowTime/borrowerName/borrowQty/borrowReason/status/expectedReturnTime
 // 排序优化：借用中/逾期优先，已归还在后，确保两种状态都能显示
-//   作者：袁燕 — 要求详情页借用记录既体现借用中也体现已归还
+//   要求详情页借用记录既体现借用中也体现已归还
 QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
@@ -360,7 +361,7 @@ QList<BorrowRecord> RecordDAO::findBorrows(int page, int pageSize,
 
 int RecordDAO::borrowCount(const QString& keyword, const QString& status, int userId,
                             const QDate& startDate, const QDate& endDate) {
-    // [2026-06-26 修复] keyword筛选条件必须与findBorrows完全一致（含flow_no），否则COUNT与数据不匹配
+    // keyword筛选条件必须与findBorrows完全一致（含flow_no），否则COUNT与数据不匹配
     QString sql = "SELECT br.* FROM tool_borrow_record br "
                   "LEFT JOIN sys_user u ON br.user_id=u.user_id "
                   "LEFT JOIN tool_info ti ON br.tool_id=ti.tool_id WHERE 1=1";

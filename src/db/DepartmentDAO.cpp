@@ -2,7 +2,7 @@
  * @file DepartmentDAO.cpp
  * @brief 部门数据访问对象实现
  * @author 袁燕
- * [2026-06-23] 从 dao/ 迁移到 db/，namespace db 包裹
+ * 从 dao/ 迁移到 db/，namespace db 包裹
  */
 #include "DepartmentDAO.h"
 

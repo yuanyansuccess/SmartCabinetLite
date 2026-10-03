@@ -1,6 +1,5 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  AppConfig实现
-// 日期：2026-06-21
-// [2026-06-26v19] 重构：QSettings改用显式INI文件，30个系统配置项统一走本地INI读写
+// 智能柜Qt Widget 2.0  AppConfig实现
+// // QSettings显式INI文件，30个系统配置项统一走本地INI读写
 #include "AppConfig.h"
 #include "Constants.h"
 #include <QCoreApplication>
@@ -19,13 +18,13 @@ AppConfig::AppConfig()
     , m_name(SC::DB_NAME), m_user(SC::DB_USER), m_pass(SC::DB_PASS)
     , m_localGroupId(0)
 {
-    // [v19] 使用显式INI文件路径，存放在程序目录下的config/子目录
-    // [2026-06-27] 要求：必须有和执行文件同级的ini文件
+    // 使用显式INI文件路径，存放在程序目录下的config/子目录
+    // 要求：必须有和执行文件同级的ini文件
     // 方案：ini文件直接放在程序根目录下（与exe同级），文件名system.ini
     // 原先放在config/子目录调整为与exe同级，更符合用户习惯
     QString appDir = QCoreApplication::applicationDirPath();
     m_iniPath = appDir + "/system.ini";
-    // [2026-06-27] 首次运行时创建默认INI文件，写入软件版本等默认值
+    // 首次运行时创建默认INI文件，写入软件版本等默认值
     if (!QFile::exists(m_iniPath)) {
         createDefaultIni(m_iniPath);
     }
@@ -38,16 +37,16 @@ AppConfig::~AppConfig() { delete m_settings; }
 
 QString AppConfig::iniFilePath() const { return m_iniPath; }
 
-// [2026-06-27] 首次运行时创建默认INI文件（与执行文件同级）
+// 首次运行时创建默认INI文件（与执行文件同级）
 // 写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
-// [Qt6兼容] QTextStream::setCodec已移除，改用QFile::write直接写UTF-8字节流
+// [Qt6兼容] QTextStream::setCodec已移除，QFile::write直接写UTF-8字节流
 void AppConfig::createDefaultIni(const QString& path) {
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "[AppConfig] 无法创建默认INI文件:" << path;
         return;
     }
-    // [2026-06-27] 用QString拼接INI内容，统一toUtf8写入，避免C++字面量指针相加编译错误
+    // 用QString拼接INI内容，统一toUtf8写入，避免C++字面量指针相加编译错误
     QString content;
     content += "[System]\n";
     content += "version=" + SC::APP_VERSION + "\n";
@@ -103,7 +102,7 @@ void AppConfig::createDefaultIni(const QString& path) {
     qInfo() << "[AppConfig] 已创建默认INI文件:" << path;
 }
 
-// [2026-06-27] 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
+// 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
 // 修改版本号只需编辑exe同级目录的system.ini中[System]节的version字段
 QString AppConfig::appVersion() const {
     QMutexLocker l(&m_mutex);

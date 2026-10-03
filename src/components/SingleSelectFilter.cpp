@@ -3,11 +3,9 @@
  * @brief 通用单选筛选组件实现
  * @author 袁燕
  * @说明 2026-06-24 用于替换筛选栏QComboBox
- *   - CheckBox弹出面板外观（与MultiSelectFilter一致）
- *   - 单选互斥行为：点击任意项→取消其他项→关闭面板→发射信号
- *   - 无"清空"和"确定"按钮，用户体验更简洁
  */
 #include "SingleSelectFilter.h"
+#include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QScrollArea>
@@ -17,18 +15,23 @@
 SingleSelectFilter::SingleSelectFilter(const QString& placeholder, QWidget* parent)
     : QWidget(parent), m_placeholder(placeholder)
 {
+    setupUI();
+}
+
+void SingleSelectFilter::setupUI()
+{
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // [2026-06-25] 统一边框画在容器QWidget上(与搜索框QFrame模式一致)
+    // 统一边框画在容器QWidget上(与搜索框QFrame模式一致)
     // 容器固定48px，border在容器外侧，内部QPushButton无边框避免Qt原生样式margin
-    this->setFixedHeight(48);
+    this->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     this->setAttribute(Qt::WA_StyledBackground, true);
     this->setStyleSheet(
         "SingleSelectFilter{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
     );
-    m_filterBtn = new QPushButton(placeholder);
+    m_filterBtn = new QPushButton(m_placeholder);
     m_filterBtn->setStyleSheet(
         "QPushButton{padding:0 16px;border:none;border-radius:10px;"
         "font-size:16px;background:transparent;color:#333;text-align:left;min-width:110px;}"
@@ -38,7 +41,7 @@ SingleSelectFilter::SingleSelectFilter(const QString& placeholder, QWidget* pare
     connect(m_filterBtn, &QPushButton::clicked, this, &SingleSelectFilter::onFilterBtnClicked);
     layout->addWidget(m_filterBtn);
 
-    // 弹出面板 [V7.9] 不设parent避免Qt自动删除与析构手动delete冲突导致双重删除
+    // 弹出面板 不设parent避免Qt自动删除与析构手动delete冲突导致双重删除
     m_popup = new QDialog(nullptr);
     m_popup->setWindowFlags(Qt::FramelessWindowHint | Qt::Popup);
     m_popup->setModal(false);

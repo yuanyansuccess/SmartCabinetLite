@@ -1,5 +1,4 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  BorrowController实现
-// 日期：2026-06-21
+// 智能柜Qt Widget 2.0  BorrowController实现
 #include "BorrowController.h"
 
 BorrowController::BorrowController(QObject* parent) : QObject(parent) {}

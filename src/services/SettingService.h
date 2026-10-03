@@ -14,14 +14,10 @@ public:
     explicit SettingService(QObject* parent = nullptr);
     QJsonObject getDashboardStats();
     QJsonArray getRecentLogs(int limit = 10);
-    QJsonArray getRecentAlerts(int limit = 5);          // 获取最近告警列表
+    // 告警域查询已迁移至 AlertService（getRecentAlerts/getAllAlerts/getAlertDetail/getAlertStats/getAlertTypes）
     QJsonObject getAllAlerts(int page = 1, int pageSize = 200,  // 获取告警分页列表（含JOIN关联信息）
                             const QString& type = "", const QString& level = "",
-                            const QString& keyword = "");  // AlertLogsPage数据源 [2026-06-25] 返回QJsonObject含total
-    QJsonObject getAlertDetail(int alertId);  // 获取单条告警详情（含处理人信息）
-    QJsonObject getAlertStats(const QString& type, const QString& level,
-                              const QString& keyword);  // 获取告警全局统计（含筛选条件，不受分页影响）
-    QJsonArray getAlertTypes();               // 获取告警类型列表（供前端筛选使用）
+                            const QString& keyword = "");  // AlertLogsPage数据源 返回QJsonObject含total（待随分域拆分迁移）
     QJsonObject getUserDashboardStats(int userId);       // 获取用户首页统计
     QJsonArray getUserBorrowRecords(int userId, int limit = 10);  // 获取用户借用记录（含归还提醒数据）
     QJsonObject getLedgerStats();

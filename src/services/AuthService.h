@@ -2,7 +2,7 @@
  * @file AuthService.h
  * @brief 认证服务 - 支持密码+人脸双因子登录
  * @author 袁燕
- * [V1.00.8] 添加人脸登录功能
+ * 添加人脸登录功能
  */
 #pragma once
 #include <QObject>

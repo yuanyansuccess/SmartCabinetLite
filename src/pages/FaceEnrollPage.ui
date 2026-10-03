@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FaceEnrollPage</class>
+ <widget class="QWidget" name="FaceEnrollPage">
+  <property name="styleSheet">
+   <string notr="true">background:qlineargradient(x1:0,y1:0,x2:0.35,y2:1,stop:0 #f5f7fa,stop:1 #e4e8ed);</string>
+  </property>
+  <layout class="QVBoxLayout" name="outerLayout" stretch="0,1,0">
+   <property name="spacing">
+    <number>20</number>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignTop|Qt::AlignHCenter</set>
+   </property>
+   <property name="leftMargin">
+    <number>32</number>
+   </property>
+   <property name="topMargin">
+    <number>24</number>
+   </property>
+   <property name="rightMargin">
+    <number>32</number>
+   </property>
+   <property name="bottomMargin">
+    <number>24</number>
+   </property>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QWidget" name="headerWidget">
+     <property name="maximumSize">
+      <size>
+       <width>720</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background:transparent;</string>
+     </property>
+     <layout class="QVBoxLayout" name="headerLayout">
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="styleSheet">
+         <string notr="true">font-size:20px; font-weight:700; color:#1a1a2e; background:transparent;</string>
+        </property>
+        <property name="text">
+         <string>👤 人脸信息录入</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="descLabel">
+        <property name="styleSheet">
+         <string notr="true">font-size:16px; color:#888; background:transparent;</string>
+        </property>
+        <property name="text">
+         <string>请面向摄像头，保持正脸清晰可见，系统将采集人脸特征</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="versionLabel">
+        <property name="styleSheet">
+         <string notr="true">font-size:14px; font-weight:bold; color:#ffffff; background:#e53935; border-radius:6px; padding:2px 10px;</string>
+        </property>
+        <property name="text">
+         <string>V2.17fix-0706</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QWidget" name="card">
+     <property name="maximumSize">
+      <size>
+       <width>720</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background:white; border-radius:12px;</string>
+     </property>
+     <layout class="QVBoxLayout" name="cardLayout">
+      <property name="spacing">
+       <number>24</number>
+      </property>
+      <property name="leftMargin">
+       <number>40</number>
+      </property>
+      <property name="topMargin">
+       <number>32</number>
+      </property>
+      <property name="rightMargin">
+       <number>40</number>
+      </property>
+      <property name="bottomMargin">
+       <number>32</number>
+      </property>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="FaceCameraWidget" name="camera">
+        <property name="minimumSize">
+         <size>
+          <width>260</width>
+          <height>300</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>320</width>
+          <height>360</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="directionLabel">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>64</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">font-size:24px; font-weight:700; color:#ffffff; background:#4da3ff; border-radius:16px; padding:12px 24px;</string>
+        </property>
+        <property name="text">
+         <string>选择用户后点击「开始录入」</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="instructionLabel">
+        <property name="styleSheet">
+         <string notr="true">font-size:16px; color:#666; background:transparent;</string>
+        </property>
+        <property name="text">
+         <string>请选择用户后点击「开始录入」</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="resultBox">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+        <layout class="QVBoxLayout" name="rbLayout">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <item>
+          <widget class="QLabel" name="resultIcon">
+           <property name="styleSheet">
+            <string notr="true">font-size:48px; background:transparent;</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="resultText">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="enrollPanel">
+        <property name="styleSheet">
+         <string notr="true">background:transparent;</string>
+        </property>
+        <layout class="QVBoxLayout" name="epLayout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="selLabel">
+           <property name="styleSheet">
+            <string notr="true">font-size:17px; font-weight:700; color:#555; background:transparent;</string>
+           </property>
+           <property name="text">
+            <string>选择要录入人脸的用户：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="userCombo">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>52</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
+QComboBox:focus { border-color: #4da3ff; }
+QComboBox::drop-down { border: none; width: 36px; }
+QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="statusLabel">
+           <property name="styleSheet">
+            <string notr="true">font-size:16px; color:#fa8c16; background:transparent; padding:6px;</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="btnLayout">
+        <property name="spacing">
+         <number>12</number>
+        </property>
+        <item>
+         <widget class="QPushButton" name="startBtn">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton{background:#4da3ff;color:white;border:none;border-radius:10px;
+font-size:16px;font-weight:bold;min-height:52px;padding:12px 32px;}
+QPushButton:hover:!disabled{background:#3d8ae0;}
+QPushButton:disabled{background:#a0c4ff;color:white;}</string>
+          </property>
+          <property name="text">
+           <string>请先选择用户</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="confirmBtn">
+          <property name="visible">
+           <bool>false</bool>
+          </property>
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton { background: #43a047; color: white; border: none; border-radius: 10px; padding: 10px 28px; font-size: 14px; font-weight: 700; min-height: 44px; min-width: 100px; }
+QPushButton:hover { background: #388e3c; }
+QPushButton:pressed { background: #2e7d32; }
+QPushButton:disabled { background: #cccccc; color: #888888; }</string>
+          </property>
+          <property name="text">
+           <string>✅ 确认保存</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="cancelBtn">
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton { background: white; color: #4da3ff; border: 1px solid #4da3ff; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 700; min-height: 44px; min-width: 80px; }
+QPushButton:hover { background: #f0f7ff; }
+QPushButton:pressed { background: #e6f0ff; }</string>
+          </property>
+          <property name="text">
+           <string>取消</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="btnSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QPushButton" name="clearBtn">
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton{background:#ff6b6b;color:white;border:none;border-radius:10px;
+font-size:14px;font-weight:700;min-height:44px;padding:10px 28px;}
+QPushButton:hover{background:#ee5a5a;}
+QPushButton:pressed{background:#e74c3c;}</string>
+        </property>
+        <property name="text">
+         <string>清除人脸信息</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="bottomStretch">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>FaceCameraWidget</class>
+   <extends>QWidget</extends>
+   <header>components/FaceCameraWidget.h</header>
+   <container>0</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -5,6 +5,7 @@
  * @说明 2026-06-24v8 从UserManagementPage部门筛选逻辑提取为通用组件
  */
 #include "MultiSelectFilter.h"
+#include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QScrollArea>
@@ -13,18 +14,23 @@
 MultiSelectFilter::MultiSelectFilter(const QString& placeholder, QWidget* parent)
     : QWidget(parent), m_placeholder(placeholder)
 {
+    setupUI();
+}
+
+void MultiSelectFilter::setupUI()
+{
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // [2026-06-25] 统一边框画在容器QWidget上(与搜索框QFrame模式一致)
+    // 统一边框画在容器QWidget上(与搜索框QFrame模式一致)
     // 容器固定48px，border在容器外侧，内部QPushButton无边框避免Qt原生样式margin
-    this->setFixedHeight(48);
+    this->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     this->setAttribute(Qt::WA_StyledBackground, true);
     this->setStyleSheet(
         "MultiSelectFilter{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
     );
-    m_filterBtn = new QPushButton(placeholder);
+    m_filterBtn = new QPushButton(m_placeholder);
     m_filterBtn->setStyleSheet(
         "QPushButton{padding:0 16px;border:none;border-radius:10px;"
         "font-size:16px;background:transparent;color:#333;text-align:left;min-width:130px;}"
@@ -34,7 +40,7 @@ MultiSelectFilter::MultiSelectFilter(const QString& placeholder, QWidget* parent
     connect(m_filterBtn, &QPushButton::clicked, this, &MultiSelectFilter::onFilterBtnClicked);
     layout->addWidget(m_filterBtn);
 
-    // 弹出面板 [V7.9] 不设parent避免Qt自动删除与析构手动delete冲突导致双重删除
+    // 弹出面板 不设parent避免Qt自动删除与析构手动delete冲突导致双重删除
     m_popup = new QDialog(nullptr);
     m_popup->setWindowFlags(Qt::FramelessWindowHint | Qt::Popup);
     m_popup->setModal(false);
@@ -76,7 +82,7 @@ void MultiSelectFilter::setOptions(const QStringList& options) {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // [2026-06-24v9] 选项>6个时启用滚动条，限制最大高度
+    // 选项>6个时启用滚动条，限制最大高度
     int itemCount = options.size();
     int scrollHeight = qMin(itemCount, 8) * 40 + 4;  // 每项约40px，最多显示8项
     bool needScroll = itemCount > 6;

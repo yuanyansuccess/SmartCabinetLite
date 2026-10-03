@@ -2,7 +2,6 @@
  * @file FaceRecogLogDAO.h
  * @brief 人脸识别识别统计日志数据访问对象 — db/目录统一namespace db
  * @author 袁燕
- * @修改说明 2026-08-24 新增：记录每次人脸识别尝试，用于统计误识率(FAR)/拒识率(FRR)/识别延迟，
  *          支撑专利交底书实测数据回填。数据库操作统一在db层（遵守袁总铁律）。
  */
 #pragma once

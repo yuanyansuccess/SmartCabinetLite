@@ -3,7 +3,7 @@
  * @brief 深度学习人脸特征提取器实现 — HTTP调用常驻face-server.js
  * @author 袁燕
  *
- * [V2.03 2026-06-28] 性能优化：从"每次启动node进程"改为"HTTP调用常驻服务"
+ * 性能优化：从"每次启动node进程"改为"HTTP调用常驻服务"
  *   原方案：QProcess启动node extract-feature.js → 加载模型2-3s/次
  *   新方案：ensureServerRunning()启动face-server.js常驻 → HTTP POST /extract
  *   提速：2-3s → <300ms（约10倍）
@@ -28,6 +28,11 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QThread>
+
+namespace {
+// 服务就绪记忆：就绪后不再每帧重复做/health探测（HTTP风暴），响应异常时自动清除以便自愈
+bool g_serverReady = false;
+}
 
 DeepFaceExtractor::DeepFaceExtractor(QObject* parent) : QObject(parent) {}
 
@@ -190,6 +195,7 @@ void DeepFaceExtractor::prestartAsync() {
 }
 
 void DeepFaceExtractor::shutdownServer() {
+    g_serverReady = false;
     if (!g_faceServerProcess) return;                 // 未拉起过（外部服务）→ 不干预
     if (g_faceServerProcess->state() == QProcess::NotRunning) return;
     qInfo() << "[DeepFaceExtractor] 主程序退出，停止人脸识别服务";
@@ -201,8 +207,12 @@ void DeepFaceExtractor::shutdownServer() {
 }
 
 bool DeepFaceExtractor::ensureServerRunning() {
+    // 0. 已确认就绪（上次健康检查通过且服务未失联）→ 直接返回，避免高频/health探测
+    if (g_serverReady) return true;
+
     // 1. 服务已就绪（本程序拉起或外部已启动）→ 直接返回
     if (checkServerHealth()) {
+        g_serverReady = true;
         return true;
     }
 
@@ -210,7 +220,10 @@ bool DeepFaceExtractor::ensureServerRunning() {
     if (g_faceServerProcess && g_faceServerProcess->state() != QProcess::NotRunning) {
         for (int i = 0; i < 30; ++i) {
             QThread::msleep(500);
-            if (checkServerHealth()) return true;
+            if (checkServerHealth()) {
+                g_serverReady = true;
+                return true;
+            }
         }
         qWarning() << "[DeepFaceExtractor] face-server.js failed to become ready within 15s";
         return false;
@@ -238,6 +251,7 @@ bool DeepFaceExtractor::ensureServerRunning() {
     for (int i = 0; i < 30; ++i) {
         QThread::msleep(500);
         if (checkServerHealth()) {
+            g_serverReady = true;
             qDebug() << "[DeepFaceExtractor] face-server.js ready after" << (i + 1) * 500 << "ms";
             return true;
         }
@@ -264,6 +278,7 @@ QString DeepFaceExtractor::httpPostSync(const QString& url, const QByteArray& bo
 
     if (reply->error() != QNetworkReply::NoError) {
         qWarning() << "[DeepFaceExtractor] HTTP error:" << reply->errorString();
+        g_serverReady = false;   // 服务无响应 → 清除就绪记忆，下次调用重新走健康检查/拉起
         reply->deleteLater();
         return QString();
     }

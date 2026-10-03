@@ -1,6 +1,6 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0  数据库连接管理（单例）
-// 日期：2026-06-21 功能：管理MySQL连接、执行查询、事务控制
+// 智能柜Qt Widget 2.0  数据库连接管理（单例）
+// 功能：管理MySQL连接、执行查询、事务控制
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -47,10 +47,10 @@ private:
     DatabaseManager& operator=(const DatabaseManager&) = delete;
 
     bool ensureConnected();
-    bool tryMysql();            // [v12] 直连MySQL（127.0.0.1:3306/smart_cabinet）
-    // [V8.0 2026-06-28] 删除trySqlite——纯MySQL模式，不再支持SQLite回退
+    bool tryMysql();  // 直连MySQL（127.0.0.1:3306/smart_cabinet）
+    // 删除trySqlite——纯MySQL模式，不支持SQLite回退
     bool initSchemaIfNeeded();  // 自动建表+播种默认管理员
-    bool createViewsIfNeeded(); // [V7.1 2026-06-24] 每次启动确保视图存在（修复已有数据库视图缺失）
+    bool createViewsIfNeeded();  // 每次启动确保视图存在（修复已有数据库视图缺失）
     bool seedBusinessData();    // 播种完整业务数据（工具/记录/告警/日志）
 
     QSqlDatabase m_db;
@@ -58,5 +58,5 @@ private:
     int m_port = 3306;
     mutable QMutex m_mutex;
     QString m_connectionName;
-    // [V8.0 2026-06-28] 删除m_usingSqlite——纯MySQL模式
+    // 删除m_usingSqlite——纯MySQL模式
 };

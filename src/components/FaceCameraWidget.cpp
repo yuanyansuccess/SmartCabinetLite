@@ -1,6 +1,6 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  FaceCameraWidget实现  
-// 日期：2026-06-21 纯C++人脸检测+特征提取
-// [2026-06-21] 重写说明：
+// 智能柜Qt Widget 2.0  FaceCameraWidget实现  
+// 纯C++人脸检测+特征提取
+// 重写说明：
 // 1. 肤色人脸检测（YCrCb色彩空间+形态学开运算+连通域分析）
 // 2. 128维纹理特征提取（64x64灰度→8x8网格→均值+方差）
 // 3. 人脸框绘制（绿色矩形+蓝色特征点仿真）
@@ -9,8 +9,9 @@
 // 6. 摄像头圆框边框动画（灰色虚线→绿色实线→蓝色脉冲）
 // 替代之前的随机特征向量生成，实现真正的刷脸登录功能
 #include "FaceCameraWidget.h"
+#include "utils/StyleHelper.h"
 #include "CameraCapture.h"
-#include "DeepFaceExtractor.h"  // [V8.0] 深度学习人脸特征提取
+#include "DeepFaceExtractor.h"  // 深度学习人脸特征提取
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -66,7 +67,7 @@ void FaceCameraWidget::setupUI()
     mainLayout->setSpacing(0);
     mainLayout->setAlignment(Qt::AlignCenter);
 
-    // [2026-06-23] 摄像头圆形显示区域容器 - 增大到320x260确保录像框+状态提示完整显示
+    // 摄像头圆形显示区域容器 - 增大到320x260确保录像框+状态提示完整显示
     QWidget* cameraContainer = new QWidget(this);
     cameraContainer->setFixedSize(260, 260);
     cameraContainer->setStyleSheet("background:transparent;");
@@ -87,10 +88,10 @@ void FaceCameraWidget::setupUI()
     m_faceOverlay->setStyleSheet("background:transparent;");
     m_faceOverlay->hide();
 
-    // [2026-06-23] 状态提示标签 - 移到录像框下方，增大尺寸确保文字完整一行显示
+    // 状态提示标签 - 移到录像框下方，增大尺寸确保文字完整一行显示
     m_statusHint = new QLabel(cameraContainer);
-    m_statusHint->setFixedHeight(44);       // 40→44 防文字裁剪，触屏优化
-    m_statusHint->setMinimumWidth(260);     // 220→260 确保长文字不换行截断
+    m_statusHint->setFixedHeight(StyleHelper::Token::ControlHeight);       // 44 防文字裁剪，触屏优化
+    m_statusHint->setMinimumWidth(260);     // 260 确保长文字不换行截断
     m_statusHint->setMaximumWidth(260);
     m_statusHint->setAlignment(Qt::AlignCenter);
     m_statusHint->setWordWrap(false);       // 强制不换行
@@ -135,6 +136,11 @@ void FaceCameraWidget::setupUI()
 // ════════════════════════════════════════
 // 摄像头控制
 // ════════════════════════════════════════
+
+void FaceCameraWidget::setDetectPolicy(const DetectPolicy& policy)
+{
+    m_policy = policy;
+}
 
 void FaceCameraWidget::startCamera()
 {
@@ -237,7 +243,7 @@ void FaceCameraWidget::captureNow()
     if (m_cameraAvailable && !m_lastFrame.isNull() && !m_lastFaceRect.isNull())
     {
         m_capturing = true;
-        // [V2.17fix-0706 袁燕] 去掉重复提示，页面层有独立状态标签
+  // 去掉重复提示，页面层有独立状态标签
         m_glowAnim->start();
         emit stateChanged(3);
 
@@ -245,10 +251,10 @@ void FaceCameraWidget::captureNow()
             "background:#0a1628; border:4px solid #4da3ff; border-radius:110px;");
         m_glowAnim->start();
 
-        // [V2.03 2026-06-28] 同步提取特征 — 通过HTTP调用常驻face-server.js
+        // 同步提取特征 — 通过HTTP调用常驻face-server.js
         // 原方案：每次启动node进程加载模型 → 2-3s/次
         // 新方案：ensureServerRunning()启动常驻服务 → HTTP请求<300ms
-        //   作者：袁燕
+
         QString feature;
         double deepConfidence = 0;
         QString errMsg;
@@ -267,15 +273,16 @@ void FaceCameraWidget::captureNow()
             }
         }
 
-        // [V2.03] 使用face-api.js真实检测置信度，替代面积比估算
-        // 原逻辑：confidence = 0.5 + areaRatio*2.0（面积比，不反映检测质量）
-        // 新逻辑：优先用深度学习返回的confidence，面积比仅作兜底
-        double confidence = deepConfidence > 0 ? deepConfidence : 0.5;
+        // 使用face-api.js真实检测置信度，替代面积比估算
+        // 深度结果缺失时按面积比估算（系数取自 DetectPolicy，可外部配置）
+        const DetectPolicy& policy = m_policy;
+        double confidence = deepConfidence > 0 ? deepConfidence : policy.fallbackBaseConfidence;
         if (deepConfidence <= 0) {
             double imgArea = (double)(m_lastFrame.width() * m_lastFrame.height());
             double faceArea = (double)(m_lastFaceRect.width() * m_lastFaceRect.height());
             double areaRatio = imgArea > 0.0 ? faceArea / imgArea : 0.0;
-            confidence = qMin(0.95, 0.5 + areaRatio * 2.0);
+            confidence = qMin(policy.maxConfidence,
+                              policy.fallbackBaseConfidence + areaRatio * policy.fallbackAreaWeight);
         }
 
         m_capturing = false;
@@ -291,7 +298,7 @@ void FaceCameraWidget::captureNow()
         p.drawText(dummyImg.rect(), Qt::AlignCenter,
                    QString::fromUtf8("\xe6\x9c\xaa\xe6\xa3\x80\xe6\xb5\x8b\xe5\x88\xb0\xe4\xba\xba\xe8\x84\xb8"));
         p.end();
-        emit captureReady(dummyImg, 0.3);
+        emit captureReady(dummyImg, m_policy.fallbackCaptureValue);
     }
     else
     {
@@ -303,7 +310,7 @@ void FaceCameraWidget::captureNow()
         p.drawText(dummyImg.rect(), Qt::AlignCenter,
                    QString::fromUtf8("\xe6\x97\xa0\xe6\x91\x84\xe5\x83\x8f\xe5\xa4\xb4"));
         p.end();
-        emit captureReady(dummyImg, 0.5);
+        emit captureReady(dummyImg, m_policy.dummyCaptureValue);
     }
 }
 
@@ -382,7 +389,8 @@ void FaceCameraWidget::onDetectTick()
 
         double areaRatio = (double)(faceR.width() * faceR.height()) /
                           (double)(m_lastFrame.width() * m_lastFrame.height());
-        double confidence = qMin(0.95, 0.45 + areaRatio * 3.0);
+        double confidence = qMin(m_policy.maxConfidence,
+                                  m_policy.loopBaseConfidence + areaRatio * m_policy.loopAreaWeight);
 
         updateOverlay(faceR, confidence);
         handleFaceDetected(confidence);
@@ -474,7 +482,7 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
     int tw = tinyImg.width();
     int th = tinyImg.height();
 
-    // [2026-06-23] 优化：确保格式为RGB32以便直接访问bits，避免pixelColor()逐点调用
+    // 优化：确保格式为RGB32以便直接访问bits，避免pixelColor()逐点调用
     QImage workImg = tinyImg.convertToFormat(QImage::Format_RGB32);
     const uchar* bits = workImg.constBits();
     int bytesPerLine = workImg.bytesPerLine();
@@ -502,7 +510,7 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
     }
 
     double skinRatio = (double)skinPixels / (double)totalPixels;
-    if (skinRatio < 0.02) return QRect();
+    if (skinRatio < m_policy.minSkinRatio) return QRect();
 
     // 2. 形态学开运算
     morphOpenInPlace(skinMask.data(), tw, th, 3);
@@ -569,19 +577,19 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
 
     // 4. 验证面积和宽高比
     double faceRatio = (double)bestArea / (double)totalPixels;
-    if (faceRatio < 0.03) return QRect();
+    if (faceRatio < m_policy.minFaceRatio) return QRect();
 
     int fw = bestMaxX - bestMinX + 1;
     int fh = bestMaxY - bestMinY + 1;
     double aspectRatio = (double)fh / (double)fw;
-    if (aspectRatio < 0.6 || aspectRatio > 2.2) return QRect();
+    if (aspectRatio < m_policy.minAspectRatio || aspectRatio > m_policy.maxAspectRatio) return QRect();
 
     // 5. 映射回640x480坐标（加8%边距，避免框超出人脸太多）
-    // [2026-06-23] 0.20→0.08 缩小人脸框，使其紧贴人脸不超出
+    // 0.08 缩小人脸框，使其紧贴人脸不超出
     double scaleX = (double)rgbImage.width() / (double)tw;
     double scaleY = (double)rgbImage.height() / (double)th;
-    int expandX = (int)((double)fw * scaleX * 0.08);
-    int expandY = (int)((double)fh * scaleY * 0.08);
+    int expandX = (int)((double)fw * scaleX * m_policy.boxInsetRatio);
+    int expandY = (int)((double)fh * scaleY * m_policy.boxInsetRatio);
 
     int origX = qMax(0, (int)((double)bestMinX * scaleX) - expandX);
     int origY = qMax(0, (int)((double)bestMinY * scaleY) - expandY);
@@ -600,10 +608,10 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     Q_UNUSED(faceRect);  // 深度学习模式不使用faceRect，face-api.js自己检测
     if (frame.isNull()) return QString();
 
-    // [V2.02 2026-06-28] 深度学习特征提取（唯一方案）
+    // 深度学习特征提取（唯一方案）
     // 使用face-api.js的128维深度特征，替代8x8网格纹理哈希
     // 深度学习特征个体辨识力强，解决陌生人泛化误识问题
-    //   作者：袁燕 — 纹理哈希辨识力不足，不能用于身份验证，已彻底移除
+    //   纹理哈希辨识力不足，不能用于身份验证，已彻底移除
     static bool deepFaceChecked = false;
     static bool deepFaceAvailable = false;
     if (!deepFaceChecked) {
@@ -619,7 +627,7 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     }
 
     if (!deepFaceAvailable) {
-        // [V2.02] 深度学习不可用 → 返回空特征，LoginPage会提示使用密码登录
+        // 深度学习不可用 → 返回空特征，LoginPage会提示使用密码登录
         // 纹理哈希辨识力不足，两个不同人可能sim>0.85，不能用于身份验证
         return QString();
     }
@@ -632,7 +640,7 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     if (extractor.extract(frame, feature, confidence, message)) {
         return feature;
     }
-    // 深度学习提取失败 → 返回空，不再降级到纹理哈希
+    // 深度学习提取失败 → 返回空，不降级到纹理哈希
     qWarning() << "[FaceCamera] 深度学习提取失败:" << message;
     return QString();
 }
@@ -679,13 +687,13 @@ void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
     p.setRenderHint(QPainter::Antialiasing, true);
 
     // 人脸框：绿色圆角细线 (复刻Web端 #52c41a)
-    // [2026-06-23] 2.5→2.0px细线+圆角，更精致不臃肿
+    // 2.0px细线+圆角，更精致不臃肿
     p.setPen(QPen(QColor("#52c41a"), 2.0));
     p.setBrush(Qt::NoBrush);
     p.drawRoundedRect(displayX, displayY, displayW, displayH, 6, 6);
 
     // 特征点：蓝色小圆点 (复刻Web端 #4da3ff)
-    // [2026-06-23] 1.8→1.5 缩小特征点，更精致
+    // 1.5 缩小特征点，更精致
     p.setPen(Qt::NoPen);
     p.setBrush(QColor("#4da3ff"));
 
@@ -707,7 +715,7 @@ void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
     }
 
     // 置信度标签 - 更小巧精致
-    // [2026-06-23] 缩小标签尺寸，置于框内右上角
+    // 缩小标签尺寸，置于框内右上角
     int confW = 60;
     int confH = 14;
     int confX = displayX + displayW - confW - 2;
@@ -739,7 +747,7 @@ void FaceCameraWidget::handleFaceDetected(double confidence)
         m_faceDetected = true;
         m_videoLabel->setStyleSheet(
             "background:#0a1628; border:4px solid #52c41a; border-radius:110px;");
-        // [V2.17fix-0706 袁燕] 去掉重复提示，各页面有自己的状态标签
+  // 去掉重复提示，各页面有自己的状态标签
         m_statusHint->hide();
         m_statusDot->setStyleSheet(
             "background:#52c41a; border-radius:4px; min-width:8px; min-height:8px;");
@@ -760,7 +768,7 @@ void FaceCameraWidget::handleFaceLost()
         m_stableCount = 0;
         m_videoLabel->setStyleSheet(
             "background:#0a1628; border:4px dashed #d0d0d0; border-radius:110px;");
-        // [V2.17fix-0706 袁燕] 去掉重复提示，各页面有独立状态标签
+  // 去掉重复提示，各页面有独立状态标签
         m_statusHint->hide();
         m_statusDot->setStyleSheet(
             "background:#4da3ff; border-radius:4px; min-width:8px; min-height:8px;");
@@ -776,7 +784,7 @@ void FaceCameraWidget::tryAutoCapture()
     if (m_stableCount < m_stableFrames) return;
 
     m_capturing = true;
-    // [V2.17fix-0706 袁燕] 去掉重复提示，页面层有独立状态标签
+  // 去掉重复提示，页面层有独立状态标签
     m_glowAnim->start();
     emit stateChanged(3);
     m_glowAnim->start();
@@ -820,8 +828,7 @@ void FaceCameraWidget::estimatePosture(const QRect& faceRect, double& yaw, doubl
     double dy = (faceCenter.y() - centerY) / faceH;
 
     yaw = qBound(-1.0, dx, 1.0);
-    // pitch不反转：抬头dy<0→pitch负值，低头dy>0→pitch正值（与face-server.js一致）
+    // pitch不反转：抬头dy<pitch负值，低头dy>pitch正值（与face-server.js一致）
     // 放大2倍提高上下偏灵敏度
     pitch = qBound(-1.0, dy * 2.0, 1.0);
 }
-

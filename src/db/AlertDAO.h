@@ -2,7 +2,6 @@
  * @file AlertDAO.h
  * @brief 告警数据访问对象 — db/目录统一namespace db，合并QJsonObject API + 实体类API
  * @author 袁燕
- * @修改说明 V6.9 2026-06-24 合并dao/AlertDAO的实体类API到此文件，统一namespace db管理
  */
 #pragma once
 #include <QJsonObject>
@@ -47,11 +46,11 @@ public:
                                 int handled = -1, const QDate& startDate = {}, const QDate& endDate = {});
     bool            markHandled(int alertId, const QString& handledBy);
     bool            markAllHandled(const QString& handledBy);
-    bool            markIgnored(int alertId, const QString& handlerBy);  // [V7.9 2026-06-24] 忽略告警（DB保留，列表不显示）
+    bool            markIgnored(int alertId, const QString& handlerBy);  // 忽略告警（DB保留，列表不显示）
     int             unhandledCount();
     int             todayTotal();
 
-    // [V2.15 2026-07-05] 告警类型辅助查询（迁移自AlertController裸SQL）
+    // 告警类型辅助查询（迁移自AlertController裸SQL）
     int     findTypeIdByCode(const QString& typeCode);  // 按type_code查type_id，-1=未找到
     QString findTypeLevelById(int typeId);              // 按type_id查alert_level，空=未找到
 

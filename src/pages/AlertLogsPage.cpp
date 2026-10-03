@@ -1,12 +1,16 @@
 ﻿/**
  * @file AlertLogsPage.cpp
- * @brief 告警日志页面实现 — 告警列表、筛选、确认处理、统计卡片、导出
+ * @brief 告警日志页面实现 - UI与逻辑分离：静态布局在AlertLogsPage.ui，本文件只含动态构建与业务逻辑
  * @author 袁燕
  */
 #include "AlertLogsPage.h"
+#include "ui_AlertLogsPage.h"
+#include <QTableWidget>  // 告警日志表格
+#include "common/Constants.h"
 #include "utils/StyleHelper.h"
 #include "controller/AlertController.h"
-#include "services/SettingService.h"       // 使用SettingService::getAllAlerts()替换getMockAlerts()
+#include "services/SettingService.h"  // 分页列表数据源
+#include "services/AlertService.h"    // 告警统计/类型/详情       // 使用SettingService::getAllAlerts()替换getMockAlerts()
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"  // 多选筛选组件
 #include "components/SingleSelectFilter.h" // 通用单选筛选组件
@@ -25,229 +29,72 @@
 #include <QTextStream>    // 导出日志CSV流
 #include <QDebug>
 
-AlertLogsPage::AlertLogsPage(QWidget* parent) : QWidget(parent) {
-    setupUI();
+AlertLogsPage::AlertLogsPage(QWidget* parent) : QWidget(parent), ui(new Ui::AlertLogsPage) {
+    ui->setupUi(this);  // 静态布局来自AlertLogsPage.ui（Qt Designer可视化维护）
+    setupUI();          // 动态部分：筛选组件、统计卡片、信号槽连接
+}
+
+AlertLogsPage::~AlertLogsPage() {
+    delete ui;
 }
 
 void AlertLogsPage::setupUI() {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
+    // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
+    m_alarmIndicator = ui->alarmIndicator;
+    m_exportBtn = ui->exportBtn;
+    m_keywordEdit = ui->searchBar->lineEdit();
+    m_keywordEdit->setPlaceholderText(QStringLiteral("搜索工具名称..."));
+    ui->searchBar->setEditPadding(14);  // [等价保留] 本页搜索框内边距历史值14px
+    m_searchBtn = ui->searchBtn;
+    m_resetBtn = ui->resetBtn;
+    m_table = ui->table;
+    m_paginationBar = ui->paginationBar;
 
-    // 标题栏（匹配Web版）
-    auto* titleBar = new QHBoxLayout();
-    auto* title = new QLabel(QStringLiteral("告警日志管理"));
-    title->setStyleSheet(QString("font-size:20px;font-weight:bold;color:%1;").arg(StyleHelper::textColor()));  // 22→20对齐Vue
-    titleBar->addWidget(title);
-    titleBar->addStretch();
-
-    // 告警状态指示器+切换按钮（二态：正常/告警）
-    // 正常态：绿色"运行正常" + "触发告警"按钮；告警态：红色"告警中" + "解除告警"按钮
-    m_alarmIndicator = new QLabel(QStringLiteral("运行正常"));
-    m_alarmIndicator->setFixedHeight(40);
-    m_alarmIndicator->setMinimumWidth(90);
-    m_alarmIndicator->setAlignment(Qt::AlignCenter);
-    m_alarmIndicator->setStyleSheet(
-        "font-size:14px;font-weight:700;padding:8px 18px;border-radius:10px;"
-        "background:#f6ffed;color:#389e0d;"
-    );
-    titleBar->addWidget(m_alarmIndicator);
-
-    // 告警切换按钮（触发/解除告警）已下线，仅保留"运行正常"状态指示器
-
-    // 导出日志按钮 [2026-06-26] 尺寸对齐人员管理"新增人员"
-    m_exportBtn = new QPushButton(QStringLiteral("📥 导出日志"));
-    m_exportBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
-        "QPushButton:hover{background:#f0f7ff;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_exportBtn->setCursor(Qt::PointingHandCursor);
     connect(m_exportBtn, &QPushButton::clicked, this, &AlertLogsPage::onExportLogs);
-    titleBar->addWidget(m_exportBtn);
 
-    mainLayout->addLayout(titleBar);
+    // 类型多选筛选（自定义组件，动态创建装入.ui槽位）- 从数据库动态加载，不硬编码
+    m_typeFilter = new MultiSelectFilter(QStringLiteral("全部类型"), this);
+    // 初始空选项，loadAlertTypes() 中从数据库填充
+    connect(m_typeFilter, &MultiSelectFilter::selectionChanged, this, &AlertLogsPage::onSearch);
+    ui->typeFilterSlotLayout->addWidget(m_typeFilter);
 
-    // 告警统计卡片（匹配Web版）
-    auto* cardLayout = new QGridLayout();
-    cardLayout->setSpacing(10);
-    cardLayout->setContentsMargins(0, 0, 0, 0);
+    // 级别筛选：CheckBox样式单选组件
+    m_levelFilter = new SingleSelectFilter(QStringLiteral("全部级别"), this);
+    m_levelFilter->setOptions({QStringLiteral("全部级别"), QStringLiteral("严重"), QStringLiteral("一般"), QStringLiteral("提示")});
+    connect(m_levelFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadAlerts(); });
+    ui->levelFilterSlotLayout->addWidget(m_levelFilter);
 
-    // 创建统计卡片
+    // 搜索框软键盘按钮
+    connect(ui->searchBar->keyboardButton(), &QPushButton::clicked, this, &AlertLogsPage::onSearchFieldClicked);
+
+    connect(m_searchBtn, &QPushButton::clicked, this, &AlertLogsPage::onSearch);
+    connect(m_resetBtn, &QPushButton::clicked, this, &AlertLogsPage::onReset);
+
+    // 表格列宽策略（前7列拉伸，操作列固定180px）
+    for (int i = 0; i < 7; i++) {
+        m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
+    }
+    m_table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
+    m_table->setColumnWidth(7, 180);
+    m_table->horizontalHeader()->setStretchLastSection(false);
+    m_table->horizontalHeader()->setMinimumSectionSize(60);
+
+    // 分页按钮
+    connect(m_paginationBar, &PaginationBar::prevClicked, this, &AlertLogsPage::onPrevPage);
+    connect(m_paginationBar, &PaginationBar::nextClicked, this, &AlertLogsPage::onNextPage);
+
+    // 告警统计卡片（动态构建装入.ui网格）
     m_totalCard = createStatCard(QStringLiteral("告警总数"), "0", "#333");
     m_critCard = createStatCard(QStringLiteral("严重告警"), "0", "#cf1322");  // 高级深红
     m_warnCard = createStatCard(QStringLiteral("一般告警"), "0", "#fa8c16");
     m_infoCard = createStatCard(QStringLiteral("提示告警"), "0", "#4da3ff");
     m_resolvedCard = createStatCard(QStringLiteral("已处理"), "0", "#52c41a");
 
-    cardLayout->addWidget(m_totalCard, 0, 0);
-    cardLayout->addWidget(m_critCard, 0, 1);
-    cardLayout->addWidget(m_warnCard, 0, 2);
-    cardLayout->addWidget(m_infoCard, 0, 3);
-    cardLayout->addWidget(m_resolvedCard, 0, 4);
-
-    mainLayout->addLayout(cardLayout);
-
-    // 筛选栏（对齐人员管理页面风格：统一高度46px，font-size:14-15px）
-    auto* filterRow = new QHBoxLayout();
-    filterRow->setSpacing(12);
-
-    // 类型多选筛选 - 从数据库动态加载，不再硬编码
-    m_typeFilter = new MultiSelectFilter(QStringLiteral("全部类型"), this);
-    // 初始空选项，loadAlertTypes() 中从数据库填充
-
-    connect(m_typeFilter, &MultiSelectFilter::selectionChanged, this, &AlertLogsPage::onSearch);
-
-    // 级别筛选 - 改为CheckBox样式单选组件
-    m_levelFilter = new SingleSelectFilter(QStringLiteral("全部级别"), this);
-    m_levelFilter->setOptions({QStringLiteral("全部级别"), QStringLiteral("严重"), QStringLiteral("一般"), QStringLiteral("提示")});
-
-    connect(m_levelFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadAlerts(); });
-
-    // 关键词搜索框 [V6.6] 对齐UserManagementPage：外层QFrame包裹+⌨按钮
-    auto* searchInputWrap = new QFrame();
-    searchInputWrap->setAttribute(Qt::WA_StyledBackground, true);
-    searchInputWrap->setFixedWidth(280);
-    searchInputWrap->setFixedHeight(48);  // 与筛选按钮高度统一
-    searchInputWrap->setStyleSheet(
-        "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
-    );
-    auto* searchInputLayout = new QHBoxLayout(searchInputWrap);
-    // 右内边距1px防止按钮覆盖QFrame右下角边框
-    searchInputLayout->setContentsMargins(0, 0, 1, 0);
-    searchInputLayout->setSpacing(0);
-
-    m_keywordEdit = new QLineEdit();
-    m_keywordEdit->setPlaceholderText(QStringLiteral("搜索工具名称..."));
-    // 对齐UserManagementPage搜索框风格：无边框透明背景+padding:4px 14px
-    m_keywordEdit->setStyleSheet(
-        "QLineEdit{border:none;padding:0 14px;font-size:16px;background:transparent;color:#333;min-height:42px;}"
-    );
-    searchInputLayout->addWidget(m_keywordEdit, 1);
-
-    auto* kbdBtn = new QPushButton(QStringLiteral("⌨"));
-    kbdBtn->setFixedSize(46, 44);  // 适配48px搜索框(内部44px=48-2-2边框)
-    kbdBtn->setCursor(Qt::PointingHandCursor);
-    // 按钮圆角10px对齐QFrame内边距(12px外框-2px边框=10px内径)
-    kbdBtn->setStyleSheet(
-        "QPushButton{border:none;border-radius:0 10px 10px 0;"
-        "background:#f0f2f5;font-size:22px;color:#888;}"
-        "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}"
-    );
-    connect(kbdBtn, &QPushButton::clicked, this, &AlertLogsPage::onSearchFieldClicked);
-    searchInputLayout->addWidget(kbdBtn);
-
-    m_searchBtn = new QPushButton(QStringLiteral("查询"));
-    m_searchBtn->setFixedHeight(48);
-    m_searchBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "padding:0 24px;font-size:16px;font-weight:700;}"
-        "QPushButton:hover{background:#3d8ae0;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_searchBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_searchBtn, &QPushButton::clicked, this, &AlertLogsPage::onSearch);
-
-    m_resetBtn = new QPushButton(QStringLiteral("重置"));
-    m_resetBtn->setFixedHeight(48);
-    m_resetBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:12px;"
-        "padding:0 24px;font-size:16px;font-weight:700;}"
-        "QPushButton:hover{background:#f0f7ff;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_resetBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_resetBtn, &QPushButton::clicked, this, &AlertLogsPage::onReset);
-
-    filterRow->addWidget(m_typeFilter);
-    filterRow->addWidget(m_levelFilter);
-    filterRow->addWidget(searchInputWrap);  // 含软键盘按钮的搜索框
-    filterRow->addWidget(m_searchBtn);
-    filterRow->addWidget(m_resetBtn);
-    filterRow->addStretch();
-    mainLayout->addLayout(filterRow);
-
-    // ==================== 表格面板 [V8.2 2026-06-25] 去除外阴影，保持简洁 ====================
-    auto* panel = new QFrame();
-    panel->setStyleSheet("QFrame#alertTablePanel{ background:white; border-radius:12px; }");
-    panel->setObjectName("alertTablePanel");
-    auto* panelLayout = new QVBoxLayout(panel);
-    panelLayout->setContentsMargins(0, 0, 0, 0);
-    panelLayout->setSpacing(0);
-
-    // 精简为7列：合并"关联工具+存放位置"为"关联信息"，减少拥挤
-    // 列：时间 | 级别 | 类型 | 告警内容 | 关联信息 | 借用人 | 状态 | 操作
-    m_table = new QTableWidget();
-    m_table->setColumnCount(8);
-    m_table->setHorizontalHeaderLabels({
-        QStringLiteral("时间"), QStringLiteral("级别"), QStringLiteral("类型"),
-        QStringLiteral("告警内容"), QStringLiteral("关联信息"), QStringLiteral("借用人"),
-        QStringLiteral("状态"), QStringLiteral("操作")
-    });
-    m_table->horizontalHeader()->setStretchLastSection(false);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setAlternatingRowColors(false);
-    // 移除内联表格QSS，使用全局QSS统一表格样式（小米设计语言）
-    // 前7列保持拉伸
-    for (int i = 0; i < 7; i++) {
-        m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
-
-    // 操作列调整为180px（原130px）
-    m_table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
-    m_table->setColumnWidth(7, 180);
-
-    m_table->horizontalHeader()->setStretchLastSection(false);
-    m_table->horizontalHeader()->setMinimumSectionSize(60);
-    
-    panelLayout->addWidget(m_table, 1);
-
-    // 分页栏：共N条在左，页码按钮在右（参考UserManagementPage样式）
-    auto* pageRow = new QHBoxLayout();
-    pageRow->setContentsMargins(18, 12, 18, 12);
-    pageRow->setSpacing(6);
-
-    m_totalLabel = new QLabel(QStringLiteral("共 0 条"));
-    m_totalLabel->setStyleSheet("font-size:13px;color:#999;");
-
-    m_prevBtn = new QPushButton(QStringLiteral("上一页"));
-    m_prevBtn->setStyleSheet(
-        "QPushButton{border:1px solid #ddd;border-radius:6px;padding:5px 12px;"
-        "font-size:13px;font-weight:600;color:#555;background:#fff;min-height:30px;}"
-        "QPushButton:hover{border-color:#4da3ff;color:#4da3ff;}"
-        "QPushButton:disabled{opacity:0.35;}"
-    );
-    m_prevBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_prevBtn, &QPushButton::clicked, this, &AlertLogsPage::onPrevPage);
-
-    m_nextBtn = new QPushButton(QStringLiteral("下一页"));
-    m_nextBtn->setStyleSheet(
-        "QPushButton{border:1px solid #ddd;border-radius:6px;padding:5px 12px;"
-        "font-size:13px;font-weight:600;color:#555;background:#fff;min-height:30px;}"
-        "QPushButton:hover{border-color:#4da3ff;color:#4da3ff;}"
-        "QPushButton:disabled{opacity:0.35;}"
-    );
-    m_nextBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_nextBtn, &QPushButton::clicked, this, &AlertLogsPage::onNextPage);
-
-    m_pageLabel = new QLabel(QStringLiteral("第 1 页"));
-    m_pageLabel->setStyleSheet("font-size:13px;color:#999;padding:0 4px;");
-
-    // 布局顺序：stretch | 上一页 | 第X页 | 下一页 | 共N条
-    pageRow->addStretch();
-    pageRow->addWidget(m_prevBtn);
-    pageRow->addWidget(m_pageLabel);
-    pageRow->addWidget(m_nextBtn);
-    pageRow->addWidget(m_totalLabel);
-
-    auto* pageWidget = new QWidget();
-    pageWidget->setStyleSheet("border-top:1px solid #f0f0f0; background:transparent;");
-    pageWidget->setLayout(pageRow);
-    panelLayout->addWidget(pageWidget);
-    mainLayout->addWidget(panel, 1);
+    ui->cardsGrid->addWidget(m_totalCard, 0, 0);
+    ui->cardsGrid->addWidget(m_critCard, 0, 1);
+    ui->cardsGrid->addWidget(m_warnCard, 0, 2);
+    ui->cardsGrid->addWidget(m_infoCard, 0, 3);
+    ui->cardsGrid->addWidget(m_resolvedCard, 0, 4);
 }
 
 void AlertLogsPage::refresh() {
@@ -271,7 +118,7 @@ void AlertLogsPage::onReset() {
 
 void AlertLogsPage::loadAlerts() {
     // 从数据库sys_alert表JOIN加载真实告警数据，替换硬编码getMockAlerts()
-    // 类型筛选改为type_code匹配（从数据库缓存m_typeMap获取）
+    // 类型筛选为type_code匹配（从数据库缓存m_typeMap获取）
     QStringList typeNames = m_typeFilter->selectedOptions();
     QStringList dbTypes;
     for (const QString& cn : typeNames) {
@@ -291,7 +138,7 @@ void AlertLogsPage::loadAlerts() {
     QString keyword = m_keywordEdit->text().trimmed();
 
     SettingService svc;
-    // 改为服务端分页，使用m_currentPage/m_pageSize
+    // 服务端分页，使用m_currentPage/m_pageSize
     QJsonObject pageResult = svc.getAllAlerts(m_currentPage, m_pageSize, dbType, levelText, keyword);
     QJsonArray list = pageResult["list"].toArray();
     m_totalRecords = pageResult["total"].toInt();
@@ -301,11 +148,9 @@ void AlertLogsPage::loadAlerts() {
 
     // 更新分页信息
     int totalPages = (m_totalRecords + m_pageSize - 1) / m_pageSize;
-    m_pageLabel->setText(QStringLiteral("第 %1/%2 页").arg(m_currentPage).arg(qMax(1, totalPages)));
-    m_totalLabel->setText(QStringLiteral("共 %1 条").arg(m_totalRecords));
-    m_prevBtn->setEnabled(m_currentPage > 1);
-    m_nextBtn->setEnabled(m_currentPage < totalPages);
-    
+    m_paginationBar->setPageInfo(m_currentPage, totalPages);
+    m_paginationBar->setTotalRecords(m_totalRecords);
+
     // 更新统计卡片（全局统计，不受翻页影响）
     updateStatCards();
 
@@ -313,7 +158,7 @@ void AlertLogsPage::loadAlerts() {
     m_table->setRowCount(list.size());
     for (int i = 0; i < list.size(); ++i) {
         QJsonObject alert = list[i].toObject();
-        
+
         // 列0：时间
         QString time = alert["createdAt"].toString();
         if (!time.isEmpty() && time.length() > 19) time = time.left(19);
@@ -339,7 +184,7 @@ void AlertLogsPage::loadAlerts() {
         }
         m_table->setItem(i, 1, levelItem);
 
-        // 列2：类型 [2026-06-25] 数据库已返回中文类型名，直接显示
+        // 列2：类型 数据库已返回中文类型名，直接显示
         QString type = alert["alertType"].toString();
         m_table->setItem(i, 2, new QTableWidgetItem(type.isEmpty() ? "--" : type));
 
@@ -371,14 +216,14 @@ void AlertLogsPage::loadAlerts() {
         borrowerItem->setFont(borrowerFont);
         m_table->setItem(i, 5, borrowerItem);
 
-        // 列6：状态 [2026-06-27] 新增状态列，放在借用人旁边
+        // 列6：状态 新增状态列，放在借用人旁边
         QString status = alert["status"].toString();
         QString statusText, statusBg, statusColor;
-        if (status == "unhandled") {
+        if (status == SC::ALERT_UNHANDLED) {
             statusText = QStringLiteral("未处理"); statusBg = "#fff1f0"; statusColor = "#cf1322";
-        } else if (status == "handled") {
+        } else if (status == SC::ALERT_HANDLED) {
             statusText = QStringLiteral("已处理"); statusBg = "#f6ffed"; statusColor = "#389e0d";
-        } else if (status == "ignored") {
+        } else if (status == SC::ALERT_IGNORED) {
             statusText = QStringLiteral("已忽略"); statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
         } else {
             statusText = status.isEmpty() ? QStringLiteral("--") : status; statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
@@ -392,7 +237,7 @@ void AlertLogsPage::loadAlerts() {
         statusItem->setBackground(QColor(statusBg));
         m_table->setItem(i, 6, statusItem);
 
-        // 列7：操作（[V7.9 2026-06-24] 只保留忽略和详情，去掉确认按钮）
+        // 列7：操作（只保留忽略和详情，去掉确认按钮）
         int alertId = alert["alertId"].toInt();
         auto* opWidget = new QWidget();
         opWidget->setStyleSheet("background:transparent;");
@@ -400,7 +245,7 @@ void AlertLogsPage::loadAlerts() {
         opLayout->setContentsMargins(4, 4, 4, 4);
         opLayout->setSpacing(6);
 
-        if (status == "unhandled") {
+        if (status == SC::ALERT_UNHANDLED) {
             // 未处理告警：显示忽略按钮+详情按钮
             // 忽略按钮仅管理员可见可操作，普通用户隐藏
             if (isAdmin()) {
@@ -452,7 +297,7 @@ void AlertLogsPage::updateStatCards() {
     QString levelText = m_levelFilter->selectedIndex() > 0 ? m_levelFilter->selectedText() : "";
     QString keyword = m_keywordEdit->text().trimmed();
 
-    SettingService svc;
+    AlertService svc;
     QJsonObject stats = svc.getAlertStats(dbType, levelText, keyword);
 
     auto updateCardValue = [](QFrame* card, const QString& value) {
@@ -469,7 +314,7 @@ void AlertLogsPage::updateStatCards() {
 
 // 从数据库加载告警类型列表，填充筛选下拉
 void AlertLogsPage::loadAlertTypes() {
-    SettingService svc;
+    AlertService svc;
     QJsonArray types = svc.getAlertTypes();
     qInfo() << "[AlertLogsPage] loadAlertTypes: got" << types.size() << "types from DB";
     if (types.isEmpty()) {
@@ -495,9 +340,9 @@ void AlertLogsPage::loadAlertTypes() {
 }
 
 void AlertLogsPage::onAcknowledge(int alertId) {
-    // [V1.00.9.1 架构修复] 通过AlertController替代直接调用db/AlertDAO —— 作者：袁燕
+  // 通过AlertController替代直接调用db/AlertDAO
     AlertController ctrl;
-    if (ctrl.markHandled(alertId, "admin")) {
+    if (ctrl.markHandled(alertId, SC::ROLE_ADMIN)) {
         loadAlerts();
     } else {
         MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("确认失败"));
@@ -505,9 +350,9 @@ void AlertLogsPage::onAcknowledge(int alertId) {
 }
 
 void AlertLogsPage::onResolve(int alertId) {
-    // [V1.00.9.1 架构修复] 通过AlertController替代直接调用db/AlertDAO —— 作者：袁燕
+  // 通过AlertController替代直接调用db/AlertDAO
     AlertController ctrl;
-    if (ctrl.markHandled(alertId, "admin")) {
+    if (ctrl.markHandled(alertId, SC::ROLE_ADMIN)) {
         MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("告警已处理"));
         loadAlerts();
     } else {
@@ -532,7 +377,7 @@ void AlertLogsPage::onIgnore(int alertId) {
     }
 
     AlertController ctrl;
-    bool ok = ctrl.markIgnored(alertId, "admin");
+    bool ok = ctrl.markIgnored(alertId, SC::ROLE_ADMIN);
     qWarning() << "[AlertLogsPage] onIgnore RESULT: ok=" << ok << "alertId=" << alertId;
     if (ok) {
         MessageDialog::showSuccess(this, QStringLiteral("操作成功"), QStringLiteral("告警已忽略，状态已更新为「已忽略」"));
@@ -543,7 +388,7 @@ void AlertLogsPage::onIgnore(int alertId) {
 }
 
 void AlertLogsPage::onDetail(int alertId) {
-    SettingService svc;
+    AlertService svc;
     QJsonObject detail = svc.getAlertDetail(alertId);
     if (detail.isEmpty()) {
         MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("无法获取告警详情，请稍后重试"));
@@ -553,7 +398,7 @@ void AlertLogsPage::onDetail(int alertId) {
 }
 
 // 告警详情弹窗：显示完整告警信息及处理情况，设计美观、触屏友好
-// 改用BaseDialog统一圆角无边框风格
+// BaseDialog统一圆角无边框风格
 void AlertLogsPage::showAlertDetail(const QJsonObject& detail) {
     auto* dlg = new BaseDialog(this, 560);
     dlg->setDialogTitle(QStringLiteral("告警详情"));
@@ -656,7 +501,7 @@ void AlertLogsPage::showAlertDetail(const QJsonObject& detail) {
 
     // ── 处理情况区域（仅已处理或已忽略时显示）──
     QString status = detail["status"].toString();
-    if (status == "handled" || status == "ignored") {
+    if (status == SC::ALERT_HANDLED || status == SC::ALERT_IGNORED) {
         contentLayout->addSpacing(20);
 
         auto* handleSecLabel = new QLabel(QStringLiteral("处理情况"));
@@ -671,7 +516,7 @@ void AlertLogsPage::showAlertDetail(const QJsonObject& detail) {
         handleGrid->setSpacing(10);
 
         QString statusText, statusBg, statusColor;
-        if (status == "handled") {
+        if (status == SC::ALERT_HANDLED) {
             statusText = QStringLiteral("已处理"); statusBg = "#f6ffed"; statusColor = "#389e0d";
         } else {
             statusText = QStringLiteral("已忽略"); statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
@@ -737,8 +582,8 @@ void AlertLogsPage::showAlertDetail(const QJsonObject& detail) {
  * 创建统计卡片（匹配Web版样式）
  */
 QFrame* AlertLogsPage::createStatCard(const QString& label, const QString& value, const QString& color) {
-    // 对齐ToolManagementPage统计卡片样式：font-size 34→32px，高度固定100px
-    //   作者：袁燕 — 告警统计卡片与工具管理页面统一视觉风格
+    // 对齐ToolManagementPage统计卡片样式：font-size 32px，高度固定100px
+    //   告警统计卡片与工具管理页面统一视觉风格
     auto* card = new QFrame();
     card->setFixedHeight(100);
     card->setStyleSheet(QString(
@@ -763,17 +608,14 @@ QFrame* AlertLogsPage::createStatCard(const QString& label, const QString& value
 }
 
 /**
- * [2026-06-27] 根据当前用户角色应用权限控制
- * 解除告警按钮(m_dismissBtn)已下线，成员固定为空指针，此处空判断保证调用安全
+ * 根据当前用户角色应用权限控制
  */
 void AlertLogsPage::applyAdminPermission() {
-    if (m_dismissBtn) {
-        m_dismissBtn->setEnabled(isAdmin());
-    }
+    // 当前无角色差异控制项；保留接口供后续权限扩展
 }
 
 /**
- * [2026-06-26] 导出告警日志到桌面log文件夹(CSV格式)
+ * 导出告警日志到桌面log文件夹(CSV格式)
  */
 void AlertLogsPage::onExportLogs() {
     // 获取桌面路径，创建log子目录

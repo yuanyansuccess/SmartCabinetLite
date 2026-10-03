@@ -1,7 +1,7 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0  工具管理业务控制层
-// 日期：2026-06-21 功能：工具CRUD、分类管理、柜体管理、出入库
-// [V6.9 2026-06-24] 统一到db/目录namespace db
+// 智能柜Qt Widget 2.0  工具管理业务控制层
+// 功能：工具CRUD、分类管理、柜体管理、出入库
+// 统一到db/目录namespace db
 #include <QObject>
 #include <QDate>
 #include "model/ToolInfo.h"
@@ -26,7 +26,7 @@ public:
     int         addTool(const ToolInfo& tool);
     bool        updateTool(const ToolInfo& tool);
     bool        deleteTool(int toolId);
-    // [V2.02 2026-06-28] 详情页上传文档 — 轻量更新文档路径
+    // 详情页上传文档 — 轻量更新文档路径
     bool        updateToolDocument(int toolId, const QString& docPath);
 
     // 借用/归还流转
@@ -42,7 +42,7 @@ public:
     QStringList categoryNames();
     QStringList cabinetNames();
 
-    // [V7.0] 统计与机组管理
+    // 统计与机组管理
     QJsonObject getToolStats();
     QList<QJsonObject> getMachineGroups();
     QJsonObject getMachineGroupById(int groupId);

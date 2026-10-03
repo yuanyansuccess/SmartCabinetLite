@@ -1,0 +1,514 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ToolCheckoutPage</class>
+ <widget class="QWidget" name="ToolCheckoutPage">
+  <layout class="QVBoxLayout" name="mainLayout" stretch="0,1">
+   <property name="spacing">
+    <number>16</number>
+   </property>
+   <property name="leftMargin">
+    <number>24</number>
+   </property>
+   <property name="topMargin">
+    <number>24</number>
+   </property>
+   <property name="rightMargin">
+    <number>24</number>
+   </property>
+   <property name="bottomMargin">
+    <number>24</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="styleSheet">
+      <string notr="true">font-size:20px;font-weight:700;color:#1a1a2e;</string>
+     </property>
+     <property name="text">
+      <string>工具出库管理</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="styleSheet">
+      <string notr="true">QTabWidget::pane { border: none; background: transparent; }
+QTabBar::tab { background: #f0f2f5; color: #666; padding: 14px 28px; font-size: 17px; font-weight: 600; border-radius: 12px 12px 0 0; min-height: 48px; margin-right: 4px; }
+QTabBar::tab:selected { background: white; color: #4da3ff; border-bottom: 3px solid #4da3ff; }
+QTabBar::tab:hover { background: #e8f0fe; }</string>
+     </property>
+     <widget class="QWidget" name="checkoutTab">
+      <attribute name="title">
+       <string>📤 待出库</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="checkoutLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <layout class="QHBoxLayout" name="searchRow">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="SearchBar" name="searchBar">
+         <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+         <property name="maximumSize"><size><width>360</width><height>48</height></size></property>
+        </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="categoryFilterSlot">
+           <layout class="QHBoxLayout" name="categoryFilterSlotLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="searchBtn">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>48</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#3d8ae0;}
+QPushButton:pressed{background:#2e7ad6;}</string>
+           </property>
+           <property name="text">
+            <string>查询</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="searchResetBtn">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>48</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#f0f7ff;}
+QPushButton:pressed{background:#e6f0ff;}</string>
+           </property>
+           <property name="text">
+            <string>重置</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="searchRowSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QFrame" name="tipBar">
+         <property name="styleSheet">
+          <string notr="true">QFrame#tipBar{background:#fff8e1;border:1px solid #ffd54f;border-radius:10px;padding:12px 16px;}</string>
+         </property>
+         <layout class="QHBoxLayout" name="tipLayout">
+          <property name="leftMargin">
+           <number>12</number>
+          </property>
+          <property name="topMargin">
+           <number>8</number>
+          </property>
+          <property name="rightMargin">
+           <number>12</number>
+          </property>
+          <property name="bottomMargin">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="tipIcon">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">font-size:20px;color:#f57c00;background:transparent;</string>
+            </property>
+            <property name="text">
+             <string>⚠</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeft|Qt::AlignTop</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="tipText">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">font-size:15px;color:#1a1a2e;background:transparent;</string>
+            </property>
+            <property name="text">
+             <string>出库操作将从系统中移除该工具识别信息，工具将不再被系统追踪管理。请确认后操作。</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="panel">
+         <property name="styleSheet">
+          <string notr="true">QGroupBox{font-size:16px;font-weight:700;color:#1a1a2e;
+border:1px solid #e0e0e0;border-radius:12px;margin-top:10px;padding:16px;}
+QGroupBox::title{padding:0 10px;}</string>
+         </property>
+         <property name="title">
+          <string>选择待出库工具</string>
+         </property>
+         <layout class="QVBoxLayout" name="panelLayout">
+          <item>
+           <widget class="QLabel" name="selectedHint">
+            <property name="styleSheet">
+             <string notr="true">font-size:15px;color:#666666;font-weight:600;</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="table">
+            <property name="selectionBehavior">
+             <enum>QAbstractItemView::SelectRows</enum>
+            </property>
+            <property name="editTriggers">
+             <set>QAbstractItemView::NoEditTriggers</set>
+            </property>
+            <attribute name="verticalHeaderVisible">
+             <bool>false</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>选择</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>编号</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>工具名称</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>规格</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>机组</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>位置</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>出库原因</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>状态</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="pageSep">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>1</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>1</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QFrame{border-top:1px solid #f0f0f0;}</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="pageRow">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <property name="leftMargin">
+             <number>18</number>
+            </property>
+            <property name="topMargin">
+             <number>12</number>
+            </property>
+            <property name="rightMargin">
+             <number>18</number>
+            </property>
+            <property name="bottomMargin">
+             <number>12</number>
+            </property>
+              <item>
+      <widget class="PaginationBar" name="paginationBar"/>
+     </item>
+   </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="btnRow">
+         <item>
+          <spacer name="btnRowSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="resetBtn">
+           <property name="minimumSize">
+            <size>
+             <width>120</width>
+             <height>44</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background: #fff; color: #666; border: 1px solid #d0d0d0; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 600; min-height: 44px; min-width: 80px; }
+QPushButton:hover { background: #f5f5f5; border-color: #b0b0b0; }
+QPushButton:pressed { background: #e8e8e8; }</string>
+           </property>
+           <property name="text">
+            <string>重置</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="batchBtn">
+           <property name="minimumSize">
+            <size>
+             <width>140</width>
+             <height>44</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 28px; font-size: 14px; font-weight: 700; min-height: 44px; min-width: 100px; }
+QPushButton:hover { background: #3d8ae0; }
+QPushButton:pressed { background: #2e7bd6; }
+QPushButton:disabled { background: #cccccc; color: #888888; }</string>
+           </property>
+           <property name="text">
+            <string>批量出库</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="recordTab">
+      <attribute name="title">
+       <string>📋 出库记录</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="recordLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="recordTitle">
+         <property name="styleSheet">
+          <string notr="true">font-size:20px;font-weight:bold;color:#1a1a2e;</string>
+         </property>
+         <property name="text">
+          <string>出库历史记录</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="recordTable">
+         <property name="selectionBehavior">
+          <enum>QAbstractItemView::SelectRows</enum>
+         </property>
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <attribute name="verticalHeaderVisible">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>出库时间</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具名称</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具编号</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>出库数量</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>出库原因</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>操作人</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="recordPageRow">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+           <item>
+      <widget class="PaginationBar" name="recordPaginationBar"/>
+     </item>
+   </layout>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PaginationBar</class>
+   <extends>QWidget</extends>
+   <header>components/PaginationBar.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

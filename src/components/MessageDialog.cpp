@@ -5,6 +5,7 @@
  * @date 2026-06-25
  */
 #include "MessageDialog.h"
+#include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -39,7 +40,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
 
     // ── 图标 + 标题区域 ──
     auto* headerWidget = new QWidget();
-    headerWidget->setFixedHeight(56);
+    headerWidget->setFixedHeight(StyleHelper::Token::ControlHeightLarge);
     QString headerBg;
     QString iconChar;
     switch (type) {
@@ -112,14 +113,14 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
     // 取消按钮（仅Question类型显示）
     if (type == Question) {
         auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
-        cancelBtn->setFixedHeight(48);
+        cancelBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
         cancelBtn->setMinimumWidth(120);
         cancelBtn->setCursor(Qt::PointingHandCursor);
         cancelBtn->setStyleSheet(
             "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
             "font-size:16px;font-weight:500;}"
             "QPushButton:hover{background:#f5f5f5;border-color:#bbb;}"
-            "QPushButton:pressed{transform:scale(0.96);}"
+            "QPushButton:pressed{}"
         );
         connect(cancelBtn, &QPushButton::clicked, this, [this]() {
             m_confirmed = false;
@@ -130,7 +131,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
 
     // 确定按钮
     auto* okBtn = new QPushButton(type == Question ? QStringLiteral("确定") : QStringLiteral("知道了"));
-    okBtn->setFixedHeight(48);
+    okBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     okBtn->setMinimumWidth(120);
     okBtn->setCursor(Qt::PointingHandCursor);
     QString okBg, okHover;
@@ -147,7 +148,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
             .arg(okBg)
         + QString("QPushButton:hover{background:%1;}")
             .arg(okHover)
-        + QString("QPushButton:pressed{transform:scale(0.96);}")
+        + QString("QPushButton:pressed{}")
     );
     connect(okBtn, &QPushButton::clicked, this, [this]() {
         m_confirmed = true;
@@ -163,7 +164,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
     outerLayout->addWidget(card);
 }
 
-// [2026-06-25] 每次弹出自动居中到父窗口（showEvent保证实际尺寸已确定）
+// 每次弹出自动居中到父窗口（showEvent保证实际尺寸已确定）
 void MessageDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
@@ -233,7 +234,7 @@ bool MessageDialog::showQuestion(QWidget* parent, const QString& title, const QS
     return dlg.m_confirmed;
 }
 
-// [2026-06-26] 脏数据保存确认对话框（保存/不保存，无取消按钮）
+// 脏数据保存确认对话框（保存/不保存，无取消按钮）
 // 返回: 0=不保存, 1=保存
 // 风格统一：圆角卡片+图标+触屏按钮，不使用QMessageBox原生样式
 int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const QString& message,
@@ -260,7 +261,7 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
 
     // ── 图标 + 标题区域 ──
     auto* headerWidget = new QWidget();
-    headerWidget->setFixedHeight(56);
+    headerWidget->setFixedHeight(StyleHelper::Token::ControlHeightLarge);
     headerWidget->setStyleSheet("background:#f0f7ff;border-radius:16px 16px 0 0;");
 
     auto* headerLayout = new QHBoxLayout(headerWidget);
@@ -307,26 +308,26 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
 
     // 不保存按钮（次要按钮，灰色边框）
     auto* discardBtn = new QPushButton(dText);
-    discardBtn->setFixedHeight(48);
+    discardBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     discardBtn->setMinimumWidth(130);
     discardBtn->setCursor(Qt::PointingHandCursor);
     discardBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
         "font-size:16px;font-weight:500;}"
         "QPushButton:hover{background:#f5f5f5;border-color:#bbb;}"
-        "QPushButton:pressed{transform:scale(0.96);}");
+        "QPushButton:pressed{}");
     btnLayout->addWidget(discardBtn);
 
     // 保存按钮（主要按钮，蓝色实心）
     auto* saveBtn = new QPushButton(sText);
-    saveBtn->setFixedHeight(48);
+    saveBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     saveBtn->setMinimumWidth(130);
     saveBtn->setCursor(Qt::PointingHandCursor);
     saveBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
         "font-size:16px;font-weight:600;}"
         "QPushButton:hover{background:#3d8ae0;}"
-        "QPushButton:pressed{transform:scale(0.96);}");
+        "QPushButton:pressed{}");
     saveBtn->setDefault(true);
     btnLayout->addWidget(saveBtn);
 

@@ -10,18 +10,22 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QTableWidget>
+class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QLabel>
 #include <QFrame>
 
 class SoftKeyboard;         // 前向声明
 class MultiSelectFilter;  // 通用多选筛选组件
 class SingleSelectFilter;  // 通用单选筛选组件
+class PaginationBar;  // 通用分页栏组件
+
+namespace Ui { class AlertLogsPage; }  // Qt Designer 生成的静态布局
 
 class AlertLogsPage : public QWidget {
     Q_OBJECT
 public:
     explicit AlertLogsPage(QWidget* parent = nullptr);
+    ~AlertLogsPage();
     void refresh();
     // 设置当前登录用户（用于忽略按钮权限控制）
     void setUser(const QJsonObject& user) { m_user = user; applyAdminPermission(); }
@@ -52,7 +56,6 @@ private:
 
     // 标题栏
     QLabel* m_alarmIndicator;
-    QPushButton* m_dismissBtn = nullptr;  // 告警切换按钮已下线，固定为空指针（防止野指针）
     QPushButton* m_exportBtn;
 
     // 统计卡片
@@ -62,28 +65,25 @@ private:
     QFrame* m_infoCard;
     QFrame* m_resolvedCard;
 
-    // 筛选栏（匹配Web版AlertLogs.vue）[2026-06-24v8] 类型筛选改为多选弹出面板
+    // 筛选栏（匹配Web版AlertLogs.vue）类型筛选为多选弹出面板
     MultiSelectFilter* m_typeFilter;
-    SingleSelectFilter* m_levelFilter;  // 改为CheckBox样式单选组件
+    SingleSelectFilter* m_levelFilter;  // CheckBox样式单选组件
     QLineEdit* m_keywordEdit;  // 关键词搜索框（Web版有）
-    QLineEdit* m_startDateEdit = nullptr;        // [编译兼容] 开始日期
-    QLineEdit* m_endDateEdit = nullptr;          // [编译兼容] 结束日期
+    QLineEdit* m_startDateEdit = nullptr;  // 开始日期
+    QLineEdit* m_endDateEdit = nullptr;  // 结束日期
     QPushButton* m_searchBtn;
     QPushButton* m_resetBtn;
 
     // 表格
     QTableWidget* m_table;
 
-    // 分页 [2026-06-25]
-    QPushButton* m_prevBtn = nullptr;
-    QPushButton* m_nextBtn = nullptr;
-    QLabel* m_pageLabel = nullptr;
-    QLabel* m_totalLabel = nullptr;
+    // 分页 
+    PaginationBar* m_paginationBar = nullptr;  // 通用分页栏
     int m_currentPage = 1;
     int m_pageSize = 20;
     int m_totalRecords = 0;
 
-    // 软键盘 [V6.6]
+    // 软键盘 
     SoftKeyboard* m_softKeyboard = nullptr;
 
     // 告警类型缓存（从数据库sys_alert_type加载）
@@ -92,4 +92,6 @@ private:
 
     // 当前登录用户信息（用于忽略按钮权限控制）
     QJsonObject m_user;
+
+    Ui::AlertLogsPage* ui = nullptr;  // 静态布局（AlertLogsPage.ui）
 };

@@ -1,5 +1,5 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  AuthController实现
-// 日期：2026-06-21 登录流程：用户名密码→SHA256验证→生成Token
+// 智能柜Qt Widget 2.0  AuthController实现
+// 登录流程：用户名密码→SHA256验证→生成Token
 // 人脸登录：特征提取→余弦相似度→阈值判断
 #include "AuthController.h"
 #include <QCryptographicHash>
@@ -7,6 +7,7 @@
 #include <QUuid>
 #include <QDebug>
 #include <QtMath>
+#include "common/Constants.h"
 
 AuthController::AuthController(QObject* parent) : QObject(parent) {}
 
@@ -57,7 +58,7 @@ AuthController::LoginResult AuthController::login(const QString& username, const
         emit loginFailed(username, result.msg);
         return result;
     }
-    if (user.status != "active") {
+    if (user.status != SC::USER_ACTIVE) {
         result.msg = "账户已被禁用";
         emit loginFailed(username, result.msg);
         return result;
@@ -91,9 +92,9 @@ AuthController::LoginResult AuthController::loginByFace(const QString& faceFeatu
         return result;
     }
 
-    // [V1.00.8.4] 修复：使用UserDAO获取人脸列表，不再裸写SQL [V6.9] 方法名更新
+  // 注意：使用UserDAO获取人脸列表，不裸写SQL 方法名更新
     // 获取所有已录入人脸的用户
-    QList<User> enrolledUsers = m_userDao.findAllUsers(1, 10000, "", "", "active", "");
+    QList<User> enrolledUsers = m_userDao.findAllUsers(1, 10000, "", "", SC::USER_ACTIVE, "");
     double bestSimilarity = 0;
     int    bestUserId = 0;
 
@@ -107,8 +108,8 @@ AuthController::LoginResult AuthController::loginByFace(const QString& faceFeatu
     }
 
     // 陌生人判断
-    // [V2.03b 2026-06-29] 陌生人阈值 0.70→0.60（收紧，防止长相相似误判）
-    // [V2.03f 2026-06-29] 陌生人阈值 0.60→0.65（配合94%通过线，收紧陌生人判定）
+    // 陌生人阈值 0.60（收紧，防止长相相似误判）
+    // 陌生人阈值 0.65（配合94%通过线，收紧陌生人判定）
     if (bestSimilarity < 0.65) {
         result.ok  = false;
         result.msg = "检测到陌生人，该人员不在库中";
@@ -117,9 +118,9 @@ AuthController::LoginResult AuthController::loginByFace(const QString& faceFeatu
     }
 
     // 置信度分级
-    // [V2.03f] 要求94%以上才验证成功，杜绝偶发误判
-    // 高置信度 0.90→0.94（直接通过线）
-    // 中等置信度 0.85→0.90（需二次验证，简化为直接拒绝）
+    // 要求94%以上才验证成功，杜绝偶发误判
+    // 高置信度 0.94（直接通过线）
+    // 中等置信度 0.90（需二次验证，简化为直接拒绝）
     // 低于0.94一律拒绝
     if (bestSimilarity >= 0.94) {
         // 高置信度，直接通过

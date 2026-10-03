@@ -2,7 +2,7 @@
  * @file ToolService.h
  * @brief 工具服务类 - 提供工具入库/出库业务逻辑
  * @author 袁燕
- * [V1.00.8] 完善接口定义，统一字段命名
+ * 完善接口定义，统一字段命名
  */
 #pragma once
 #include <QJsonObject>

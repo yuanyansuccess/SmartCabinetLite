@@ -2,7 +2,6 @@
  * @file BaseDAO.h
  * @brief DAO基类模板 — db/目录统一namespace db
  * @author 袁燕
- * @修改说明 V6.9 2026-06-24 从dao/移入db/并包裹namespace db，统一DAO层架构
  */
 #pragma once
 #include <QList>

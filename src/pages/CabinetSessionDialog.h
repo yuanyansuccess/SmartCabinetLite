@@ -56,7 +56,7 @@ private:
     void updateDemoRows();     // 刷新演示面板各行状态文字
     void toggleDemoPanel();    // 显示/隐藏演示面板
 
-    // [2026-09-23] 开柜页"我的任务工具"只读面板（本机组任务类型+在库工具，位置维度）
+    // 开柜页"我的任务工具"只读面板（本机组任务类型+在库工具，位置维度）
     struct ToolRow { QString name; QString code; QString pos; };
     struct MyTypeTools { int typeId; QString typeName; QList<ToolRow> tools; };
     void loadMyTaskTools();                  // 读库：本机组全部任务类型及各自在库工具

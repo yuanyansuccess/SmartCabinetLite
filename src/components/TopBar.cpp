@@ -1,23 +1,24 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  TopBar实现
-// 日期：2026-06-21 1:1复刻Web前端TopBar.vue
-// [2026-06-21] 增强：底部分隔线+大号退出按钮+时间用户名清晰显示
-// [2026-06-23] 退出按钮改为"退出系统"：发射exitSystemClicked信号退出整个应用（非注销）
-// [V2.03 2026-06-29] 新增电池电量+网络状态指示器（小米极简美学，不抢眼但清晰）
-// [V2.03b 2026-06-29] 网络检测改为数据库连接状态（网卡Up≠联网），电池增加麒麟支持
+// 智能柜Qt Widget 2.0  TopBar实现
+// 1:1复刻Web前端TopBar.vue
+// 增强：底部分隔线+大号退出按钮+时间用户名清晰显示
+// 退出按钮为"退出系统"：发射exitSystemClicked信号退出整个应用（非注销）
+// 新增电池电量+网络状态指示器（小米极简美学，不抢眼但清晰）
+// 网络检测为数据库连接状态（网卡Up≠联网），电池增加麒麟支持
 #include "TopBar.h"
-#include "common/AppConfig.h"  // [2026-06-27] 从AppConfig读取软件版本号
-#include "common/DatabaseManager.h"  // [V2.03b] 网络状态检测用数据库连接
+#include "common/AppConfig.h"  // 从AppConfig读取软件版本号
+#include "common/DatabaseManager.h"  // 网络状态检测用数据库连接
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFont>
 #include <QFrame>
 #include <QDateTime>
 #include <QPixmap>
-#include <QNetworkInterface>  // [V2.03] 网络状态检测
-#include <QFile>              // [V2.03b] 麒麟电池状态读取
+#include <QNetworkInterface>  // 网络状态检测
+#include <QTcpSocket>  // 异步网络探测
+#include <QFile>  // 麒麟电池状态读取
 
 #ifdef Q_OS_WIN
-#include <windows.h>  // [V2.03] GetSystemPowerStatus 电池状态
+#include <windows.h>  // GetSystemPowerStatus 电池状态
 #endif
 
 TopBar::TopBar(QWidget* parent) : QWidget(parent) {
@@ -27,25 +28,25 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     m_clockTimer->start(1000);
     updateClock();
 
-    // [V2.03] 电池+网络状态定时器，每30秒刷新一次
+    // 电池+网络状态定时器，每30秒刷新一次
     // 电池和网络状态变化较慢，30秒足够；避免频繁API调用影响性能
     m_statusTimer = new QTimer(this);
     connect(m_statusTimer, &QTimer::timeout, this, [this]() {
         updateBatteryStatus();
         updateNetworkStatus();
     });
-    m_statusTimer->start(15000);  // [V2.03l] 30s→15s 更快响应网络变化
+    m_statusTimer->start(15000);  // 30s→15s 更快响应网络变化
     updateBatteryStatus();
     updateNetworkStatus();
 }
 
 void TopBar::setupUI() {
-    setFixedHeight(72);  // [2026-06-21] 68→72 增加触屏友好高度
+    setFixedHeight(72);  // 72 增加触屏友好高度
     setStyleSheet(
         "TopBar { background:#ffffff; border-bottom:2px solid #e8ecf1; }");
 
     QHBoxLayout* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(28, 0, 28, 0);  // [2026-06-21] 32→28 微调边距
+    layout->setContentsMargins(28, 0, 28, 0);  // 28 微调边距
     layout->setSpacing(0);
     layout->setAlignment(Qt::AlignVCenter);
 
@@ -53,7 +54,7 @@ void TopBar::setupUI() {
     QHBoxLayout* leftLayout = new QHBoxLayout();
     leftLayout->setSpacing(16);
 
-    // Logo图标 [2026-06-23] 替换为成飞电子公司Logo
+    // Logo图标 替换为成飞电子公司Logo
     QLabel* logoIcon = new QLabel();
     logoIcon->setFixedSize(48, 48);
     logoIcon->setAlignment(Qt::AlignCenter);
@@ -88,22 +89,22 @@ void TopBar::setupUI() {
         "margin-left:4px;");
     leftLayout->addWidget(m_pageTitle);
 
-    // [2026-06-27] 软件版本号标签，放在面包屑后面，蓝色徽章风格
+    // 软件版本号标签，放在面包屑后面，蓝色徽章风格
     // 版本号从AppConfig读取（非硬编码），用户可在exe同级system.ini中修改
     m_versionLabel = new QLabel();
-    // [2026-06-27] 小米极简风格：淡灰色文字+左侧细线分隔，不抢眼但精致
+    // 小米极简风格：淡灰色文字+左侧细线分隔，不抢眼但精致
     m_versionLabel->setStyleSheet(
         "color:#b0b8c1; font-size:11px; font-weight:400; background:transparent; "
         "margin-left:6px; padding-left:10px; border-left:1px solid #e0e4e8;");
     leftLayout->addWidget(m_versionLabel);
-    refreshVersionLabel();  // [2026-06-27] 从AppConfig读取版本号显示
+    // 版本号由页面层读取配置后经 setVersionText() 注入（组件不读 AppConfig）
 
     layout->addLayout(leftLayout);
     layout->addStretch();
 
     // ── 右侧：时钟 + 用户信息 + 退出 ──
-    // [2026-06-21] 用容器包装，登录页隐藏
-    // [2026-06-27] 小米/Apple极简风格重设计：
+    // 用容器包装，登录页隐藏
+    // 小米/Apple极简风格重设计：
     // 去掉所有"·"分隔点和竖线，按钮去边框改hover背景，增加呼吸感
     m_rightArea = new QWidget();
     m_rightArea->setStyleSheet("background:transparent;");
@@ -111,7 +112,7 @@ void TopBar::setupUI() {
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(24);  // 增加间距，呼吸感更好
 
-    // [V2.03 2026-06-29] 电池电量+网络状态指示器 — 小米极简美学
+    // 电池电量+网络状态指示器 — 小米极简美学
     // 设计理念：小图标+文字，淡色不抢眼，状态变化时颜色提醒
     // 放在时钟左侧，与用户信息区自然分隔
 
@@ -174,7 +175,7 @@ void TopBar::setupUI() {
 
     rightLayout->addLayout(userLayout);
 
-    // [2026-06-27] 小米极简按钮：无边框纯文字，hover时浅色背景胶囊形
+    // 小米极简按钮：无边框纯文字，hover时浅色背景胶囊形
     // 注销按钮：灰色文字，hover浅灰背景
     QPushButton* logoutBtn = new QPushButton(QStringLiteral("注销"));
     logoutBtn->setCursor(Qt::PointingHandCursor);
@@ -238,12 +239,12 @@ void TopBar::setPageTitle(const QString& title) {
 }
 
 void TopBar::updateClock() {
-    // [2026-06-21] 显示格式：2026-06-21 19:01:05
+    // 显示格式：2026-06-21 19:01:05
     m_clockLabel->setText(
         QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
 }
 
-/// [V2.03b 2026-06-29] 更新电池电量显示（跨平台：Windows API + 麒麟sysfs）
+/// 更新电池电量显示（跨平台：Windows API + 麒麟sysfs）
 /// Windows: GetSystemPowerStatus
 /// 麒麟/Linux: 读取 /sys/class/power_supply/BAT0/capacity 和 status
 /// 电量<20%红色警告，20-50%橙色，>50%灰色正常，充电中蓝色
@@ -261,7 +262,7 @@ void TopBar::updateBatteryStatus() {
         charging = (sps.ACLineStatus == 1);
     }
 #else
-    // [V2.03b] 麒麟/Linux：读取sysfs电池信息
+    // 麒麟/Linux：读取sysfs电池信息
     QFile capFile("/sys/class/power_supply/BAT0/capacity");
     if (capFile.open(QIODevice::ReadOnly)) {
         percent = capFile.readAll().trimmed().toInt();
@@ -304,15 +305,51 @@ void TopBar::updateBatteryStatus() {
 }
 
 /// 更新网络连接状态显示
-/// 改为检测真实物理网络连接（DatabaseManager::isNetworkConnected），
-/// 不再用数据库连接（isConnected）作为代理判断，
+/// 检测真实物理网络连接（DatabaseManager::isNetworkConnected），
+/// 不用数据库连接（isConnected）作为代理判断，
 /// 物理网卡断开时立即显示"未联网"
+/// 网络状态检测（异步化改造）：
+/// 原实现经 DatabaseManager::isNetworkConnected() 用 QEventLoop 同步等 TCP
+/// 握手结果（最长300ms）——断网时每15秒冻结UI一次。现为 QTcpSocket
+/// 非阻塞连接 + 信号回调，探测期间UI完全流畅；判定标准与超时保持一致。
 void TopBar::updateNetworkStatus() {
     if (!m_networkLabel) return;
 
-    bool networkOk = DatabaseManager::instance().isNetworkConnected();
+    if (!m_probeSocket) {
+        m_probeSocket = new QTcpSocket(this);
+        m_probeTimeout = new QTimer(this);
+        m_probeTimeout->setSingleShot(true);
+        m_probeTimeout->setInterval(300);  // 与原同步实现超时一致
 
-    if (networkOk) {
+        connect(m_probeTimeout, &QTimer::timeout, this, [this]() {
+            m_probeSocket->abort();
+            showNetworkState(false);
+        });
+        connect(m_probeSocket, &QTcpSocket::connected, this, [this]() {
+            m_probeTimeout->stop();
+            m_probeSocket->abort();
+            showNetworkState(true);
+        });
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+        connect(m_probeSocket, &QTcpSocket::errorOccurred, this, [this]() {
+#else
+        connect(m_probeSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, [this]() {
+#endif
+            m_probeTimeout->stop();
+            showNetworkState(false);
+        });
+    }
+
+    // 上一次探测尚未结束：跳过本轮（保持与原同步实现的串行语义一致）
+    if (m_probeSocket->state() != QAbstractSocket::UnconnectedState) return;
+
+    m_probeTimeout->start();
+    m_probeSocket->connectToHost("114.114.114.114", 53);  // 与原实现相同的探测目标
+}
+
+void TopBar::showNetworkState(bool online) {
+    if (!m_networkLabel) return;
+    if (online) {
         m_networkLabel->setText(QStringLiteral("🟢 已联网"));
         m_networkLabel->setStyleSheet(
             "color:#43a047; font-size:13px; background:transparent; font-weight:500;"
@@ -325,15 +362,13 @@ void TopBar::updateNetworkStatus() {
     }
 }
 
-/// [2026-06-21] 登录页隐藏右侧用户信息区（时间/用户名/退出）
+/// 登录页隐藏右侧用户信息区（时间/用户名/退出）
 void TopBar::setUserAreaVisible(bool visible) {
     if (m_rightArea) m_rightArea->setVisible(visible);
 }
 
-/// [2026-06-27] 更新版本号显示（从AppConfig读取system.ini中的System/version）
-/// 版本号格式示例：V2.00，显示在TopBar左侧品牌区后面
-void TopBar::refreshVersionLabel() {
+/// 外部注入版本号显示（页面层负责读配置，组件层只负责显示）
+void TopBar::setVersionText(const QString& version) {
     if (!m_versionLabel) return;
-    QString version = AppConfig::instance().appVersion();
     m_versionLabel->setText(version);
 }

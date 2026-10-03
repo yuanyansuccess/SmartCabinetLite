@@ -3,7 +3,7 @@
  * @brief 借用业务服务实现 - 表单校验、错误处理
  * @author 袁燕
  *
- * [V2.15 2026-07-05] 映射表操作迁移到ToolDAO，Service层纯业务逻辑
+ * 映射表操作迁移到ToolDAO，Service层纯业务逻辑
  */
 #include "BorrowService.h"
 #include "db/RecordDAO.h"
@@ -11,8 +11,9 @@
 #include "db/TaskTypeDAO.h"
 #include <QDateTime>
 #include <QDebug>
+#include "common/Constants.h"
 
-// [2026-06-21] 修复LNK2005：db/层已包裹namespace db
+// 修复LNK2005：db/层已包裹namespace db
 using db::RecordDAO;
 using db::ToolDAO;
 using db::TaskTypeDAO;
@@ -40,7 +41,8 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     ToolDAO toolDao;
     QJsonObject tool = toolDao.findById(toolId);
     if (tool.isEmpty()) { r.message = "工具不存在"; return r; }
-    // [2026-06-27] 机组隔离校验：用户只能借用本机组工具
+    // 机组隔离校验：用户只能借用本机组工具
+    // ⚠ 不可动：机型隔离是"查询层DAO过滤 + Service二次校验"双层，删掉任一层都会造成跨机组越权
     if (machineGroupId > 0) {
         int toolGroupId = tool["machineGroupId"].toInt();
         if (toolGroupId > 0 && toolGroupId != machineGroupId) {
@@ -53,9 +55,9 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     }
 
     // 按位置维度借用：检查映射表status必须为in_stock
-    // 不再检查tool_info.status（一个工具多位置时tool_info.status不代表单个位置状态）
+    // 不检查tool_info.status（一个工具多位置时tool_info.status不代表单个位置状态）
     // 映射表status才是位置占用的权威数据源
-    // [V2.15 2026-07-05] 迁移到ToolDAO::findMappingStatus/updateMappingStatus
+    // 迁移到ToolDAO::findMappingStatus/updateMappingStatus
     QString posStatus = toolDao.findMappingStatus(mappingId);
     if (posStatus.isEmpty()) {
         r.message = QStringLiteral("位置映射记录不存在");
@@ -68,7 +70,7 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
         return r;
     }
 
-    // [V2.15 2026-07-05] 更新映射表status='borrowed'（前置已校验in_stock，委托到DAO）
+    // 更新映射表status='borrowed'（前置已校验in_stock，委托到DAO）
     if (!toolDao.updateMappingStatus(mappingId, "borrowed")) {
         r.message = QStringLiteral("更新位置状态失败");
         qWarning() << "[BorrowService] 更新映射表status失败: mappingId=" << mappingId;
@@ -79,15 +81,15 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     QJsonObject rec;
     rec["flowNo"] = flowNo;
     rec["toolId"] = toolId;
-    rec["mappingId"] = mappingId;  // [V2.11] 记录借用的位置
+    rec["mappingId"] = mappingId;  // 记录借用的位置
     rec["userId"] = userId;
     rec["quantity"] = quantity;
     rec["purpose"] = reason;
     rec["expectedReturnTime"] = expectedReturnTime;
-    rec["status"] = "borrowing";
+    rec["status"] = SC::RECORD_BORROWING;
     r.recordId = recDao.insert(rec);
     if (r.recordId <= 0) {
-        // [V2.15 2026-07-05] 回滚：映射表status改回in_stock（委托到ToolDAO）
+        // 回滚：映射表status改回in_stock（委托到ToolDAO）
         if (!toolDao.updateMappingStatus(mappingId, "in_stock")) {
             qWarning() << "[BorrowService] 回滚映射表状态失败! mappingId=" << mappingId;
         }
@@ -124,14 +126,14 @@ QString BorrowService::generateFlowNo(const QString& reason) {
 
 QJsonObject BorrowService::getAllInStockTools(int page, int pageSize, int machineGroupId) {
     ToolDAO dao;
-    // 改为按工具种类聚合查询，同一工具一行+availableQty
+    // 按工具种类聚合查询，同一工具一行+availableQty
     // 借用列表按工具种类显示，用户选数量后自动分配位置
     return dao.findAllInStockByTool("", "", page, pageSize, machineGroupId);
 }
 
-// [V1.00.9.1 架构修复] 新增searchTools方法，替代页面直接调用db/ToolDAO —— 作者：袁燕
+  // 新增searchTools方法，替代页面直接调用db/ToolDAO
 QJsonObject BorrowService::searchTools(const QString& keyword, int page, int pageSize, int machineGroupId) {
     ToolDAO dao;
-    // 改用位置维度查询，与getAllInStockTools一致
+    // 位置维度查询，与getAllInStockTools一致
     return dao.findAllByPosition(keyword, "", "in_stock", 0, page, pageSize, machineGroupId);
 }

@@ -126,14 +126,32 @@ set(CONTROLLER_SOURCES
 # 服务层 (版本B)
 set(SERVICE_SOURCES
     src/services/AuthService.cpp
+    src/services/AlertService.cpp
+    src/services/CheckoutService.cpp
     src/services/BorrowService.cpp
     src/services/ToolService.cpp
     src/services/ReturnService.cpp
     src/services/SettingService.cpp
     src/services/FaceRecognitionService.cpp
+    src/services/MaintenanceService.cpp
 )
 
 # 页面层 (版本B的pages/)
+# UI布局文件（Qt Designer可视化维护，AUTOUIC生成ui_*.h）
+set(PAGE_UIS
+    src/pages/LedgerStatsPage.ui
+    src/pages/UserEntryDialog.ui
+    src/pages/AlertLogsPage.ui
+    src/pages/ToolReturnPage.ui
+    src/pages/FaceEnrollPage.ui
+    src/pages/SystemMaintenancePage.ui
+    src/pages/ToolCheckoutPage.ui
+    src/pages/ToolCheckinPage.ui
+    src/pages/ToolManagementPage.ui
+    src/pages/UserManagementPage.ui
+    src/pages/ToolBorrowPage.ui
+)
+
 set(PAGE_SOURCES
     src/pages/LoginPage.cpp
     src/pages/DashboardPage.cpp
@@ -169,6 +187,11 @@ set(COMPONENT_SOURCES
     src/components/TopBar.cpp
     src/components/MultiSelectFilter.cpp
     src/components/SingleSelectFilter.cpp
+    src/components/PaginationBar.cpp
+    src/components/SearchBar.cpp
+    src/components/DrawerOpeningDialog.cpp
+    src/components/VerifyAlertDialog.cpp
+    src/components/ResultDialog.cpp
     src/components/MessageDialog.cpp
     src/components/BaseDialog.cpp
 )
@@ -189,6 +212,7 @@ set(ALL_SOURCES
     ${UTILS_SOURCES}
     ${COMPONENT_SOURCES}
     ${MAINWINDOW_SOURCE}
+    ${PAGE_UIS}
     resources/resources.qrc
 )
 
@@ -338,9 +362,19 @@ endif()
 # ── VS启动项目设置 ──
 set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT QtSmartCabinet)
 
+# ═══════════════════════════════════════════
+# 单元测试（Qt Test，tests/test_components）
+# 开关：-DSMARTCABINET_BUILD_TESTS=OFF 可关闭；测试失败不影响主程序
+# ═══════════════════════════════════════════
+option(SMARTCABINET_BUILD_TESTS "构建单元测试" ON)
+if(SMARTCABINET_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # ── 安装规则 ──
 install(TARGETS QtSmartCabinet RUNTIME DESTINATION bin)
 install(DIRECTORY resources/ DESTINATION share/QtSmartCabinet/resources OPTIONAL)
-install(FILES src/style/global.qss DESTINATION share/QtSmartCabinet/style OPTIONAL)
+install(FILES styles/global.qss DESTINATION share/QtSmartCabinet/style OPTIONAL)
 
 message(STATUS "QtSmartCabinet 2.0 Fusion configuration complete")

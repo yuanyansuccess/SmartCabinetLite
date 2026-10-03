@@ -13,6 +13,7 @@
 #include "model/ToolCategory.h"
 #include "model/ToolCabinet.h"
 #include "BaseDAO.h"
+#include "common/Constants.h"
 
 namespace db {
 
@@ -64,7 +65,7 @@ public:
     bool            updateToolStatus(int toolId, const QString& status);
     bool            borrowTool(int toolId, int qty);
     bool            returnTool(int toolId, int qty);
-    // [V2.02 2026-06-28] 轻量更新文档路径 — 详情页上传文档专用，避免全字段updateTool
+    // 轻量更新文档路径 — 详情页上传文档专用，避免全字段updateTool
     bool            updateDocumentPath(int toolId, const QString& docPath);
 
     // 分类/柜体查询
@@ -87,7 +88,7 @@ public:
     int findCabinetIdByName(const QString& name);      // 按柜体名查cabinet_id，-1=未找到
     int countInStockPositions(int toolId);             // 统计工具in_stock位置数
     QString findMappingStatus(int mappingId);          // 查询映射表状态，空字符串=不存在
-    // [V2.15] 按位置条件更新映射表状态（条件更新，防止并发覆盖）
+    // 按位置条件更新映射表状态（条件更新，防止并发覆盖）
     bool updateMappingByPosition(int toolId, int cabinetId, const QString& layer,
                                  const QString& position, const QString& newStatus,
                                  const QString& expectedStatus);
@@ -120,7 +121,7 @@ public:
     // 位置对照
     QJsonArray  allToolsSimple();                           // 工具下拉列表 [{toolId,toolCode,toolName}]
     QJsonObject checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position);
-    bool        insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status = "pending");
+    bool        insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status = "pending");  // 值=SC::TOOL_PENDING
     QJsonObject findPositionMappingDetail(int mappingId);   // 映射详情（含工具名）
     bool        isPositionMappingOccupied(int mappingId);   // 该位置是否已有工具在库/借用
     bool        deletePositionMapping(int mappingId);

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ToolManagementPage</class>
+ <widget class="QWidget" name="ToolManagementPage">
+  <layout class="QVBoxLayout" name="mainLayout" stretch="0,0,0,1,0">
+   <property name="spacing"><number>16</number></property>
+   <property name="leftMargin"><number>24</number></property>
+   <property name="topMargin"><number>24</number></property>
+   <property name="rightMargin"><number>24</number></property>
+   <property name="bottomMargin"><number>24</number></property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="styleSheet"><string notr="true">font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;</string></property>
+     <property name="text"><string>工具机组管理</string></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="statsContainer">
+     <layout class="QHBoxLayout" name="statsLayout" stretch="1,1,1,1,1,1">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="searchRow">
+     <property name="spacing"><number>12</number></property>
+     <item>
+      <widget class="SearchBar" name="searchBar">
+         <property name="minimumSize"><size><width>280</width><height>48</height></size></property>
+         <property name="maximumSize"><size><width>280</width><height>48</height></size></property>
+        </widget>
+     </item>
+     <item>
+      <widget class="QWidget" name="categoryFilterSlot">
+       <layout class="QHBoxLayout" name="categoryFilterSlotLayout">
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QWidget" name="machineGroupFilterSlot">
+       <layout class="QHBoxLayout" name="machineGroupFilterSlotLayout">
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="searchBtn">
+       <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#3d8ae0;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>查询</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="resetBtn">
+       <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#f0f7ff;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>重置</string></property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="searchRowSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTableWidget" name="table">
+     <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+     <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+     <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+     <attribute name="horizontalHeaderStretchLastSection"><bool>false</bool></attribute>
+     <column><property name="text"><string>编号</string></property></column>
+     <column><property name="text"><string>类别</string></property></column>
+     <column><property name="text"><string>名称</string></property></column>
+     <column><property name="text"><string>规格型号</string></property></column>
+     <column><property name="text"><string>机组</string></property></column>
+     <column><property name="text"><string>位置</string></property></column>
+     <column><property name="text"><string>状态</string></property></column>
+     <column><property name="text"><string>借用人</string></property></column>
+     <column><property name="text"><string>最近操作</string></property></column>
+     <column><property name="text"><string>操作</string></property></column>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="pageRow">
+     <property name="spacing"><number>6</number></property>
+     <property name="leftMargin"><number>12</number></property>
+     <property name="topMargin"><number>12</number></property>
+     <property name="rightMargin"><number>12</number></property>
+     <property name="bottomMargin"><number>12</number></property>
+       <item>
+      <widget class="PaginationBar" name="paginationBar"/>
+     </item>
+   </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PaginationBar</class>
+   <extends>QWidget</extends>
+   <header>components/PaginationBar.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

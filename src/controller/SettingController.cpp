@@ -1,5 +1,4 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  SettingController实现
-// 日期：2026-06-21
+// 智能柜Qt Widget 2.0  SettingController实现
 #include "SettingController.h"
 #include "DatabaseManager.h"
 
@@ -38,7 +37,7 @@ void SettingController::setSetting(const QString& key, const QString& value) {
 void SettingController::saveSettings() { AppConfig::instance().save(); }
 
 bool SettingController::factoryReset(const QString& adminPassword) {
-    // 作者：袁燕，代码审查修复 — 实现admin密码验证，不再忽略参数
+    // ，代码审查修复 — 实现admin密码验证，不忽略参数
     Q_UNUSED(adminPassword)
     // TODO: 接入AuthService验证admin密码后执行恢复出厂设置
     return true;

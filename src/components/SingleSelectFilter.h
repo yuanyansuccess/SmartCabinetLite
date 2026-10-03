@@ -2,11 +2,6 @@
  * @file SingleSelectFilter.h
  * @brief 通用单选筛选组件（CheckBox弹出面板样式，但单选行为）
  * @author 袁燕
- * @说明 2026-06-24 从MultiSelectFilter派生，用于替换筛选栏QComboBox
- *   - 外观与MultiSelectFilter完全一致（CheckBox弹出面板）
- *   - 行为是单选：点击任意项即选中该项并关闭面板
- *   - 无"清空"和"确定"按钮（点击即生效，不需要二次确认）
- *   - 所有页面筛选栏的单选下拉框统一使用此组件
  */
 #pragma once
 #include <QWidget>
@@ -52,6 +47,8 @@ private slots:
     void onFilterBtnClicked();
 
 private:
+    void setupUI();  // 构建筛选按钮与弹出面板
+
     void updateButtonText();
     void rebuildPopup();
 

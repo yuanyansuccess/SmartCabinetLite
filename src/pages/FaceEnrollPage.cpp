@@ -3,16 +3,17 @@
  * @brief 人脸录入页面实现 - 1:1复刻Vue版FaceEnroll.vue
  * @author 袁燕
  *
- * [V2.16 2026-07-06] 5方位引导采集重构：实时检测人脸方位，匹配目标方位后才采集
+ * 5方位引导采集重构：实时检测人脸方位，匹配目标方位后才采集
  *   方位检测基于face-api.js 68关键点几何分析（鼻尖相对两眼中心位置）
  *   提示词字体放大到28px，方位标签36px醒目显示
  */
 #include "FaceEnrollPage.h"
+#include "ui_FaceEnrollPage.h"
 #include "components/FaceCameraWidget.h"
 #include "components/DeepFaceExtractor.h"
 #include "services/FaceRecognitionService.h"
 #include "controller/UserController.h"
-// [V1.00.9.1 架构修复] 移除db/UserDAO直接引用，改为通过UserController访问数据 —— 作者：袁燕
+// 通过UserController访问数据
 #include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -24,20 +25,18 @@
 #include <QDateTime>
 #include <QDebug>
 
-FaceEnrollPage::FaceEnrollPage(QWidget* parent) : QWidget(parent) {
-    // [修正] 完全匹配Web版背景渐变
-    setStyleSheet(QString(
-        "background:qlineargradient(x1:0,y1:0,x2:0.35,y2:1,stop:0 #f5f7fa,stop:1 #e4e8ed);"
-    ));
-    // [V8.2] 自动连续采集定时器
+FaceEnrollPage::FaceEnrollPage(QWidget* parent) : QWidget(parent), ui(new Ui::FaceEnrollPage) {
+    // 静态布局来自FaceEnrollPage.ui（Qt Designer可视化维护，含渐变背景）
+    ui->setupUi(this);
+    // 自动连续采集定时器
     m_autoCaptureTimer = new QTimer(this);
     m_autoCaptureTimer->setSingleShot(true);
     connect(m_autoCaptureTimer, &QTimer::timeout, this, &FaceEnrollPage::onCapture);
-    // [V2.16] 方位检测定时器
+    // 方位检测定时器
     m_postureTimer = new QTimer(this);
     m_postureTimer->setInterval(POSTURE_CHECK_INTERVAL_MS);
     connect(m_postureTimer, &QTimer::timeout, this, &FaceEnrollPage::onPostureCheck);
-    // [V2.17] 简单模式自动采集定时器（posture API不可用时的fallback）
+    // 简单模式自动采集定时器（posture API不可用时的fallback）
     m_simpleCaptureTimer = new QTimer(this);
     m_simpleCaptureTimer->setSingleShot(true);
     connect(m_simpleCaptureTimer, &QTimer::timeout, this, &FaceEnrollPage::onSimpleCapture);
@@ -46,6 +45,7 @@ FaceEnrollPage::FaceEnrollPage(QWidget* parent) : QWidget(parent) {
 
 FaceEnrollPage::~FaceEnrollPage() {
     if (m_camera) m_camera->stopCamera();
+    delete ui;
 }
 
 void FaceEnrollPage::setCurrentUser(const QJsonObject& user) {
@@ -55,55 +55,32 @@ void FaceEnrollPage::setCurrentUser(const QJsonObject& user) {
 // ==================== UI布局 ====================
 
 void FaceEnrollPage::setupUI() {
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(32, 24, 32, 24);
-    outerLayout->setSpacing(20);
-    outerLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+    // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
+    m_camera = ui->camera;             // FaceCameraWidget已在.ui中提升声明
+    m_directionLabel = ui->directionLabel;
+    m_instructionLabel = ui->instructionLabel;
+    m_resultBox = ui->resultBox;
+    m_resultIcon = ui->resultIcon;
+    m_resultText = ui->resultText;
+    m_enrollPanel = ui->enrollPanel;
+    m_userCombo = ui->userCombo;
+    m_statusLabel = ui->statusLabel;
+    m_startBtn = ui->startBtn;
+    m_confirmBtn = ui->confirmBtn;
+    m_cancelBtn = ui->cancelBtn;
 
-    // --- 标题区 ---
-    auto* headerWidget = new QWidget();
-    headerWidget->setMaximumWidth(720);
-    headerWidget->setStyleSheet("background:transparent;");
-    auto* headerLayout = new QVBoxLayout(headerWidget);
-    headerLayout->setSpacing(6);
-
-    auto* titleLabel = new QLabel(QStringLiteral("👤 人脸信息录入"));
-    titleLabel->setStyleSheet("font-size:20px; font-weight:700; color:#1a1a2e; background:transparent;");
-    auto* descLabel = new QLabel(QStringLiteral("请面向摄像头，保持正脸清晰可见，系统将采集人脸特征"));
-    descLabel->setStyleSheet("font-size:16px; color:#888; background:transparent;");
-    // [V2.17fix-0706 袁燕] 版本标签 — 红色醒目标记，确认运行的exe是更新后的版本
-    auto* versionLabel = new QLabel(QStringLiteral("V2.17fix-0706"));
-    versionLabel->setStyleSheet(
-        "font-size:14px; font-weight:bold; color:#ffffff; "
-        "background:#e53935; border-radius:6px; padding:2px 10px;");
-    headerLayout->addWidget(titleLabel);
-    headerLayout->addWidget(descLabel);
-    headerLayout->addWidget(versionLabel);
-    outerLayout->addWidget(headerWidget, 0, Qt::AlignHCenter);
-
-    // --- 主卡片容器 ---
-    auto* card = new QWidget();
-    card->setMaximumWidth(720);
-    card->setStyleSheet("background:white; border-radius:12px;");
-    // [V8.2 2026-06-25] 去除人脸录入卡片外阴影
-    auto* cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(40, 32, 40, 32);
-    cardLayout->setSpacing(24);
-
-    // --- 摄像头区域 ---
-    // [2026-06-23] 适配FaceCameraWidget新尺寸(260x300含状态气泡)，确保录像框+提示完整
-    m_camera = new FaceCameraWidget();
-    m_camera->setMinimumSize(260, 300);
-    m_camera->setMaximumSize(320, 360);
+    // --- 摄像头业务配置 ---
+    // 适配FaceCameraWidget新尺寸(260x300含状态气泡)，确保录像框+提示完整
     m_camera->setAutoCapture(false);  // 手动采集模式
-    m_camera->setMinConfidence(0.60);  // [V2.03l] 0.65→0.60 降低阈值，偏侧脸也能检测
-    m_camera->setStableFrames(6);      // [V2.03l] 20→6 减少稳定帧数，自动采集更快
-    m_camera->setDetectInterval(80);   // [V2.03l] 120→80 加快检测频率
-    // [V2.16fix] faceDetected/faceLost不再覆盖instructionLabel！
+    m_camera->setMinConfidence(0.60);  // 0.60 降低阈值，偏侧脸也能检测
+    m_camera->setStableFrames(6);  // 6 减少稳定帧数，自动采集更快
+    m_camera->setDetectInterval(80);  // 80 加快检测频率
+
+  // faceDetected/faceLost不覆盖instructionLabel！
     // Capturing状态下方位检测独占提示权，faceDetected/faceLost只更新状态指示灯
     connect(m_camera, &FaceCameraWidget::faceDetected, this, [this](){
         if (m_state == Idle) return;
-        // [V2.16fix] Capturing状态不覆盖instructionLabel（方位检测在控制提示）
+  // Capturing状态不覆盖instructionLabel（方位检测在控制提示）
         // 只在非Capturing状态（如Confirm）时更新提示
         if (m_state != Capturing) {
             m_instructionLabel->setText(QStringLiteral("✅ 已检测到人脸"));
@@ -112,7 +89,7 @@ void FaceEnrollPage::setupUI() {
     });
     connect(m_camera, &FaceCameraWidget::faceLost, this, [this](){
         if (m_state == Idle) return;
-        // [V2.16fix] Capturing状态不覆盖instructionLabel（方位检测在控制提示）
+  // Capturing状态不覆盖instructionLabel（方位检测在控制提示）
         if (m_state != Capturing) {
             m_instructionLabel->setText(QStringLiteral("🔍 正在检测人脸，请对准摄像头..."));
             m_instructionLabel->setStyleSheet("font-size:18px; color:#4da3ff; background:transparent;");
@@ -121,106 +98,17 @@ void FaceEnrollPage::setupUI() {
     connect(m_camera, &FaceCameraWidget::captureReady, this, &FaceEnrollPage::onFaceCaptured);
     connect(m_camera, &FaceCameraWidget::errorOccurred, this, &FaceEnrollPage::onCameraError);
 
-    cardLayout->addWidget(m_camera, 0, Qt::AlignCenter);
-
-    // 方位大字提示标签：左侧/右侧/上偏/下偏/居中
-    // 字体36px醒目显示，背景高亮，触屏远距离可见
-    // [V2.17fix-0706] 始终可见，默认显示"选择用户后点击开始录入"
-    m_directionLabel = new QLabel(QStringLiteral("选择用户后点击「开始录入」"));
-    m_directionLabel->setAlignment(Qt::AlignCenter);
-    m_directionLabel->setMinimumHeight(64);
-    m_directionLabel->setStyleSheet(
-        "font-size:24px; font-weight:700; color:#ffffff; "
-        "background:#4da3ff; border-radius:16px; padding:12px 24px;");
-    cardLayout->addWidget(m_directionLabel);
-
-    // 提示文字
-    m_instructionLabel = new QLabel(QStringLiteral("请选择用户后点击「开始录入」"));
-    m_instructionLabel->setAlignment(Qt::AlignCenter);
-    m_instructionLabel->setWordWrap(true);
-    m_instructionLabel->setStyleSheet("font-size:16px; color:#666; background:transparent;");
-    cardLayout->addWidget(m_instructionLabel);
-
-    // --- 结果框(成功/失败) ---
-    m_resultBox = new QWidget();
-    m_resultBox->setVisible(false);
-    auto* rbLayout = new QVBoxLayout(m_resultBox);
-    rbLayout->setSpacing(6);
-    rbLayout->setAlignment(Qt::AlignCenter);
-    m_resultIcon = new QLabel();
-    m_resultIcon->setAlignment(Qt::AlignCenter);
-    m_resultIcon->setStyleSheet("font-size:48px; background:transparent;");
-    m_resultText = new QLabel();
-    m_resultText->setAlignment(Qt::AlignCenter);
-    m_resultText->setWordWrap(true);
-    rbLayout->addWidget(m_resultIcon);
-    rbLayout->addWidget(m_resultText);
-    cardLayout->addWidget(m_resultBox);
-
-    // --- 用户选择区(仅在idle/success/fail阶段显示) ---
-    m_enrollPanel = new QWidget();
-    m_enrollPanel->setStyleSheet("background:transparent;");
-    auto* epLayout = new QVBoxLayout(m_enrollPanel);
-    epLayout->setContentsMargins(0,0,0,0);
-    epLayout->setSpacing(12);
-
-    auto* selLabel = new QLabel(QStringLiteral("选择要录入人脸的用户："));
-    selLabel->setStyleSheet("font-size:17px; font-weight:700; color:#555; background:transparent;");
-    epLayout->addWidget(selLabel);
-
-    m_userCombo = new QComboBox();
-    m_userCombo->setStyleSheet(StyleHelper::comboBox());
-    m_userCombo->setMinimumHeight(52);
+    // 用户选择
     connect(m_userCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &FaceEnrollPage::onUserSelected);
-    epLayout->addWidget(m_userCombo);
 
-    m_statusLabel = new QLabel("");
-    m_statusLabel->setStyleSheet("font-size:16px; color:#fa8c16; background:transparent; padding:6px;");  // [触屏优化] 字体16px，内边距增加
-    epLayout->addWidget(m_statusLabel);
-
-    cardLayout->addWidget(m_enrollPanel);
-
-    // --- 操作按钮区 ---
-    auto* btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(12);
-
-    m_startBtn = new QPushButton(QStringLiteral("请先选择用户"));
-    m_startBtn->setEnabled(false);
-    m_startBtn->setCursor(Qt::PointingHandCursor);
-    m_startBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;color:white;border:none;border-radius:10px;"
-        "font-size:16px;font-weight:bold;min-height:52px;padding:12px 32px;}"
-        "QPushButton:hover:!disabled{background:#3d8ae0;}"
-        "QPushButton:disabled{background:#a0c4ff;color:white;}");
+    // 操作按钮
     connect(m_startBtn, &QPushButton::clicked, this, &FaceEnrollPage::onStartEnroll);
-
-    m_confirmBtn = new QPushButton(QStringLiteral("✅ 确认保存"));
-    m_confirmBtn->setVisible(false);
-    m_confirmBtn->setCursor(Qt::PointingHandCursor);
-    m_confirmBtn->setStyleSheet(StyleHelper::buttonSuccess());
     connect(m_confirmBtn, &QPushButton::clicked, this, &FaceEnrollPage::onEnrollConfirm);
-
-    m_cancelBtn = new QPushButton(QStringLiteral("取消"));
-    m_cancelBtn->setCursor(Qt::PointingHandCursor);
-    m_cancelBtn->setStyleSheet(StyleHelper::buttonOutline());
     connect(m_cancelBtn, &QPushButton::clicked, this, &FaceEnrollPage::onCancel);
 
-    btnLayout->addWidget(m_startBtn);
-    btnLayout->addWidget(m_confirmBtn);
-    btnLayout->addWidget(m_cancelBtn);
-    btnLayout->addStretch();
-    cardLayout->addLayout(btnLayout);
-
     // 清除人脸按钮
-    auto* clearBtn = new QPushButton(QStringLiteral("清除人脸信息"));
-    clearBtn->setCursor(Qt::PointingHandCursor);
-    clearBtn->setStyleSheet(
-        "QPushButton{background:#ff6b6b;color:white;border:none;border-radius:10px;"
-        "font-size:14px;font-weight:700;min-height:44px;padding:10px 28px;}"
-        "QPushButton:hover{background:#ee5a5a;}"
-        "QPushButton:pressed{background:#e74c3c;}");
-    connect(clearBtn, &QPushButton::clicked, this, [this](){
+    connect(ui->clearBtn, &QPushButton::clicked, this, [this](){
         if (m_selectedUserId <= 0) {
             m_statusLabel->setText(QStringLiteral("请先选择用户"));
             return;
@@ -238,10 +126,6 @@ void FaceEnrollPage::setupUI() {
             }
         }
     });
-    cardLayout->addWidget(clearBtn, 0, Qt::AlignLeft);
-
-    outerLayout->addWidget(card, 1, Qt::AlignHCenter);
-    outerLayout->addStretch();
 
     // 初始加载用户列表
     loadUsers();
@@ -253,7 +137,7 @@ void FaceEnrollPage::loadUsers() {
     m_userCombo->clear();
     m_userCombo->addItem(QStringLiteral("-- 请选择用户 --"), -1);
 
-    // [V1.00.9.1 架构修复] 通过UserController替代直接调用db/UserDAO —— 作者：袁燕
+  // 通过UserController替代直接调用db/UserDAO
     UserController ctrl;
     auto pageResult = ctrl.getUserList(1, 999);
     QJsonArray users;
@@ -356,7 +240,7 @@ void FaceEnrollPage::onStartEnroll() {
 
     m_camera->startCamera();
 
-    // [V2.17fix-0706] 简化启动：等待face-server.js加载完成后再预检/posture
+  // 简化启动：等待face-server.js加载完成后再预检/posture
     // face-server.js首次启动需2-3秒加载模型，500ms太短导致误判不可用
     m_instructionLabel->setText(QStringLiteral("正在初始化人脸识别服务..."));
     m_instructionLabel->setStyleSheet("font-size:18px; color:#4da3ff; background:transparent;");
@@ -371,22 +255,21 @@ void FaceEnrollPage::onStartEnroll() {
     });
 }
 
-/// [V2.17fix-0706 袁燕] 检查face-server.js /posture端点是否可用，选择采集模式
+  /// 检查face-server.js /posture端点是否可用，选择采集模式
 /// 增加重试机制：face-server.js首次启动需2-3秒加载模型，
 /// 每次重试间隔500ms，最多重试REM次，确保不会误判为不可用
 void FaceEnrollPage::checkPostureServiceAndStart() {
-    // 重试计数器（静态局部变量保持状态跨多次QTimer回调）
-    static int retryCount = 0;
-    static const int MAX_RETRIES = 10;  // 最多重试10次（约5秒）
+    // 重试计数器用成员变量保持跨多次QTimer回调，避免static局部在多次录入间残留
+    int& retryCount = m_precheckRetryCount;
 
     QImage testFrame = m_camera->currentFrame();
     if (testFrame.isNull()) {
         // 摄像头还没准备好，等待后重试
-        if (retryCount < MAX_RETRIES) {
+        if (retryCount < POSTURE_PRECHECK_MAX_ATTEMPTS) {
             retryCount++;
             m_instructionLabel->setText(QStringLiteral("等待摄像头就绪... %1/%2")
-                .arg(retryCount).arg(MAX_RETRIES));
-            QTimer::singleShot(500, this, [this]() { checkPostureServiceAndStart(); });
+                .arg(retryCount).arg(POSTURE_PRECHECK_MAX_ATTEMPTS));
+            QTimer::singleShot(POSTURE_PRECHECK_INTERVAL_MS, this, [this]() { checkPostureServiceAndStart(); });
             return;
         }
         qWarning() << "[FaceEnroll] 摄像头始终未就绪 → 简单模式";
@@ -418,22 +301,22 @@ void FaceEnrollPage::checkPostureServiceAndStart() {
         startPostureCheck();
     } else {
         // /posture不可用 → 重试或fallback
-        if (retryCount < MAX_RETRIES) {
+        if (retryCount < POSTURE_PRECHECK_MAX_ATTEMPTS) {
             retryCount++;
             qDebug() << "[FaceEnroll] /posture重试 #" << retryCount << ": " << testErr;
-            m_instructionLabel->setText(QStringLiteral("正在连接人脸识别服务... %1/%2\n%3")
-                .arg(retryCount).arg(MAX_RETRIES).arg(testErr));
-            QTimer::singleShot(500, this, [this]() { checkPostureServiceAndStart(); });
+            m_instructionLabel->setText(QStringLiteral("正在等待人脸识别服务启动... %1/%2\n%3")
+                .arg(retryCount).arg(POSTURE_PRECHECK_MAX_ATTEMPTS).arg(testErr));
+            QTimer::singleShot(POSTURE_PRECHECK_INTERVAL_MS, this, [this]() { checkPostureServiceAndStart(); });
             return;
         }
-        qWarning() << "[FaceEnroll] /posture不可用(重试" << MAX_RETRIES << "次后放弃): "
+        qWarning() << "[FaceEnroll] /posture不可用(重试" << POSTURE_PRECHECK_MAX_ATTEMPTS << "次后放弃): "
                    << testErr << " → 简单模式";
         startSimpleMode();
         retryCount = 0;
     }
 }
 
-/// [V2.17fix-0706 袁燕] 简单模式启动：/posture API不可用时的fallback
+  /// 简单模式启动：/posture API不可用时的fallback
 /// 方向标签用橙色区分，明确告知用户当前是简易模式
 void FaceEnrollPage::startSimpleMode() {
     m_simpleMode = true;
@@ -450,7 +333,7 @@ void FaceEnrollPage::startSimpleMode() {
 
 void FaceEnrollPage::startPostureCheck() {
     m_postureMatchCount = 0;
-    m_postureFirstMatchTime = 0;  // [V2.17fix] 重置首次匹配时间
+    m_postureFirstMatchTime = 0;  // 重置首次匹配时间
     m_postureTimer->start();
 }
 
@@ -459,7 +342,7 @@ void FaceEnrollPage::stopPostureCheck() {
     m_postureMatchCount = 0;
 }
 
-// [V2.17 袁燕] 方位检测回调：实时检测当前人脸方位
+  // 方位检测回调：实时检测当前人脸方位
 // 每400ms调用face-server.js /posture接口检测yaw/pitch
 // 连续失败POSTURE_FAIL_FALLBACK次(10次≈4秒)→自动切换简单模式
 void FaceEnrollPage::onPostureCheck() {
@@ -469,7 +352,7 @@ void FaceEnrollPage::onPostureCheck() {
         return;
     }
 
-    // [V2.17] 已切换到简单模式时不再做posture检测
+    // 已切换到简单模式时不做posture检测
     if (m_simpleMode) {
         stopPostureCheck();
         return;
@@ -520,13 +403,13 @@ void FaceEnrollPage::onPostureCheck() {
     }
 
     if (!extractor.detectPosture(frame, yaw, pitch, errMsg)) {
-        // [V2.17] detectPosture连续失败计数 → 超过上限自动切换简单模式
+        // detectPosture连续失败计数 → 超过上限自动切换简单模式
         m_postureFailCount++;
         m_postureMatchCount = 0;
         qWarning() << "[FaceEnroll] detectPosture失败 #" << m_postureFailCount << ":" << errMsg;
 
         if (m_postureFailCount >= POSTURE_FAIL_FALLBACK) {
-            // 连续失败10次(约4秒) → 切换简单模式，不再浪费时间
+            // 连续失败10次(约4秒) → 切换简单模式，不浪费时间
             qWarning() << "[FaceEnroll] detectPosture连续失败" << m_postureFailCount
                        << "次 → 自动切换简单模式";
             m_simpleMode = true;
@@ -555,7 +438,7 @@ void FaceEnrollPage::onPostureCheck() {
     qDebug() << "[FaceEnroll] detectPosture成功: yaw=" << yaw << "pitch=" << pitch
              << "目标:" << POSTURE_TARGETS[m_targetDirection].name;
 
-    // [V2.17fix] 判断当前方位是否匹配目标方位（非居中方向用严格阈值）
+  // 判断当前方位是否匹配目标方位（非居中方向用严格阈值）
     const PostureTarget& target = POSTURE_TARGETS[m_targetDirection];
     bool matched = false;
     if (m_targetDirection == 0) {
@@ -578,7 +461,7 @@ void FaceEnrollPage::onPostureCheck() {
 
     if (matched) {
         m_postureMatchCount++;
-        // [V2.17fix] 记录首次匹配时间
+  // 记录首次匹配时间
         if (m_postureFirstMatchTime == 0) {
             m_postureFirstMatchTime = QDateTime::currentMSecsSinceEpoch();
         }
@@ -588,7 +471,7 @@ void FaceEnrollPage::onPostureCheck() {
 
         QString currentDir = QString("yaw=%1 pitch=%2").arg(yaw, 0, 'f', 2).arg(pitch, 0, 'f', 2);
 
-        // [V2.17fix] 方位标签显示倒计时——让袁总看到变化！
+  // 方位标签显示倒计时——让袁总看到变化！
         m_directionLabel->setText(QStringLiteral("【 %1 】 %2s")
             .arg(target.name).arg(remainSec));
         m_directionLabel->setStyleSheet(
@@ -601,7 +484,7 @@ void FaceEnrollPage::onPostureCheck() {
             .arg(currentDir).arg(remainSec));
         m_instructionLabel->setStyleSheet("font-size:18px; font-weight:bold; color:#389e0d; background:transparent;");
 
-        // [V2.17fix] 双重条件：连续帧数足够 AND 最小停留时间已过
+  // 双重条件：连续帧数足够 AND 最小停留时间已过
         if (m_postureMatchCount >= POSTURE_MATCH_REQUIRED && stayMs >= MIN_STAY_MS) {
             stopPostureCheck();
             m_directionLabel->setText(QStringLiteral("【 %1 】✓").arg(target.name));
@@ -630,7 +513,7 @@ void FaceEnrollPage::scheduleNextCapture() {
     if (m_state != Capturing) return;
 }
 
-/// [V2.17 袁燕] 简单模式自动采集回调（posture API不可用时的fallback）
+  /// 简单模式自动采集回调（posture API不可用时的fallback）
 /// 每个方向等待SIMPLE_CAPTURE_DELAY_MS(3秒)后采集，给用户看方向提示的时间
 void FaceEnrollPage::onSimpleCapture() {
     if (m_state != Capturing) return;
@@ -687,7 +570,7 @@ void FaceEnrollPage::onFaceCaptured(const QImage& image, double confidence) {
     }
 
     if (m_captureCount < MAX_ENROLL_CAPTURES) {
-        // [V2.17] 进入下一个方位的检测，兼容两种模式
+        // 进入下一个方位的检测，兼容两种模式
         m_targetDirection = m_captureCount;
         const PostureTarget& nextTarget = POSTURE_TARGETS[m_targetDirection];
         m_directionLabel->setText(QStringLiteral("【 %1 】").arg(nextTarget.name));
@@ -720,7 +603,7 @@ void FaceEnrollPage::onFaceCaptured(const QImage& image, double confidence) {
         m_state = Confirm;
         m_autoCaptureTimer->stop();
         stopPostureCheck();
-        // [V2.17fix-0706] 不隐藏标签，改为显示完成信息
+  // 不隐藏标签，显示完成信息
         m_directionLabel->setText(QStringLiteral("5方位采集完成"));
         m_directionLabel->setStyleSheet(
             "font-size:30px; font-weight:900; color:#ffffff; "
@@ -820,7 +703,7 @@ void FaceEnrollPage::resetEnroll() {
     m_confirmBtn->setVisible(false);
     m_cancelBtn->setVisible(true);
     m_camera->setVisible(true);
-    // [V2.17fix-0706] directionLabel始终可见，重置为默认文字
+  // directionLabel始终可见，重置为默认文字
     m_directionLabel->setText(QStringLiteral("选择用户后点击「开始录入」"));
     m_directionLabel->setStyleSheet(
         "font-size:24px; font-weight:700; color:#ffffff; "

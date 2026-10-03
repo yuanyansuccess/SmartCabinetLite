@@ -1,7 +1,7 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0  告警业务控制层
-// 日期：2026-06-21 功能：告警查询、处理、统计
-// [V6.9 2026-06-24] 统一到db/目录namespace db
+// 智能柜Qt Widget 2.0  告警业务控制层
+// 功能：告警查询、处理、统计
+// 统一到db/目录namespace db
 #include <QObject>
 #include <QDate>
 #include "model/AlertLog.h"
@@ -18,10 +18,10 @@ public:
                             const QDate& startDate = {}, const QDate& endDate = {});
     int        createAlert(const QString& typeCode, const QString& level,
                            const QString& message, int userId = 0, int toolId = 0, int recordId = 0);
-    int        createAlert(int typeId, const QString& message, int userId = 0, int toolId = 0, int recordId = 0);  // [2026-06-25] 直接传typeId
+    int        createAlert(int typeId, const QString& message, int userId = 0, int toolId = 0, int recordId = 0);  // 直接传typeId
     bool       markHandled(int alertId, const QString& handledBy);
     bool       markAllHandled(const QString& handledBy);
-    bool       markIgnored(int alertId, const QString& handlerBy);  // [V7.9 2026-06-24] 忽略告警
+    bool       markIgnored(int alertId, const QString& handlerBy);  // 忽略告警
     int        unhandledCount();
     int        todayTotal();
 

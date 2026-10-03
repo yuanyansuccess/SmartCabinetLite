@@ -2,8 +2,8 @@
  * @file AlertDAO.cpp
  * @brief 告警数据访问对象实现 — 合并QJsonObject API + 实体类API
  * @author 袁燕
- * [V6.9 2026-06-24] 合并dao/AlertDAO.cpp的实体类API到此文件，统一namespace db管理
- * [2026-06-25] 重构：改用sys_alert_type字典表，type_id引用替代硬编码alert_type/alert_level
+ * 合并dao/AlertDAO.cpp的实体类API到此文件，统一namespace db管理
+ * 重构：改用sys_alert_type字典表，type_id引用替代硬编码alert_type/alert_level
  */
 #include "AlertDAO.h"
 #include "DatabaseManager.h"
@@ -17,7 +17,7 @@
 
 namespace db {
 
-// [2026-06-27] 诊断日志写入文件（临时）
+// 诊断日志写入文件（临时）
 static void diagLog(const QString& msg) {
     QString path = QCoreApplication::applicationDirPath() + "/alert_diag.log";
     QFile f(path);
@@ -29,13 +29,13 @@ static void diagLog(const QString& msg) {
 }
 
 // ═══════════════════════════════════════════════
-// 实体类转换 [2026-06-25] JOIN sys_alert_type获取typeName/level
+// 实体类转换 JOIN sys_alert_type获取typeName/level
 // ═══════════════════════════════════════════════
 AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
     AlertLog alert;
     alert.alertId     = q.value("alert_id").toInt();
     alert.typeId      = q.value("type_id").toInt();
-    // [2026-06-25] 类型名/编码/级别从JOIN sys_alert_type获取
+    // 类型名/编码/级别从JOIN sys_alert_type获取
     alert.typeCode    = q.value("type_code").toString();
     alert.typeName    = q.value("type_name").toString();
     alert.alertLevel  = q.value("alert_level").toString();
@@ -43,7 +43,7 @@ AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
     alert.toolId      = q.value("tool_id").toInt();
     alert.recordId    = q.value("record_id").toInt();
     alert.message     = q.value("content").toString();
-    alert.status      = q.value("status").toString();  // [2026-06-25] 直接映射字符串状态
+    alert.status      = q.value("status").toString();  // 直接映射字符串状态
     alert.handledAt   = q.value("handled_at").toDateTime();
     alert.handledBy   = q.value("handler_id").toString();
     alert.createdAt   = q.value("created_at").toDateTime();
@@ -56,7 +56,7 @@ AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
 }
 
 // ═══════════════════════════════════════════════
-// QJsonObject API（Service层使用）[2026-06-25] 改用type_id
+// QJsonObject API（Service层使用）type_id
 // ═══════════════════════════════════════════════
 int AlertDAO::insert(const QJsonObject& alert) {
     // 补上alert_type/alert_level列，外键字段为0时设NULL
@@ -119,7 +119,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
                                const QString& endDate, int page, int pageSize) {
     QSqlDatabase db = getDb();
     QStringList conds; QMap<QString, QVariant> binds;
-    // [2026-06-25] 类型筛选改为按type_name过滤(JOIN后)
+    // 类型筛选为按type_name过滤(JOIN后)
     if (!alertType.isEmpty()) { conds << "at.type_name=:tp"; binds[":tp"] = alertType; }
     if (!alertLevel.isEmpty()) { conds << "at.alert_level=:lv"; binds[":lv"] = alertLevel; }
     if (!status.isEmpty()) { conds << "a.status=:st"; binds[":st"] = status; }
@@ -134,7 +134,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
     safeExec(cq); cq.next(); int total = cq.value(0).toInt();
 
     QSqlQuery dq(db);
-    // [2026-06-25] JOIN sys_alert_type获取type_name/level, 排序：待处理优先(unhandled在前)
+    // JOIN sys_alert_type获取type_name/level, 排序：待处理优先(unhandled在前)
     dq.prepare(
         "SELECT a.alert_id, a.type_id, a.tool_id, a.tool_code, a.content, "
         "a.status, a.user_id, a.created_at, a.handled_at, a.handler_id, a.remark, "
@@ -161,7 +161,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
         item["alertId"] = dq.value("alert_id").toInt();
         item["typeId"] = dq.value("type_id").toInt();
         item["typeCode"] = dq.value("type_code").toString();
-        item["alertType"] = dq.value("type_name").toString();   // [2026-06-25] 直接返回中文类型名
+        item["alertType"] = dq.value("type_name").toString();  // 直接返回中文类型名
         item["alertLevel"] = dq.value("alert_level").toString();
         item["toolId"] = dq.value("tool_id").toInt();
         item["toolCode"] = dq.value("tool_code").toString();
@@ -184,7 +184,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
 
 bool AlertDAO::acknowledge(int alertId, int handlerId, const QString& remark) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // [2026-06-26] SQLite不支持NOW()，改用datetime('now')
+    // SQLite不支持NOW()，datetime('now')
     q.prepare("UPDATE sys_alert SET status='handled', handled_at=CURRENT_TIMESTAMP, handler_id=:hid, remark=:rmk WHERE alert_id=:id");
     q.bindValue(":hid", handlerId); q.bindValue(":rmk", remark); q.bindValue(":id", alertId);
     return safeExec(q);
@@ -202,13 +202,13 @@ int AlertDAO::getUnresolvedCount() {
 }
 
 // ═══════════════════════════════════════════════
-// 实体类API（Controller层使用）[2026-06-25] JOIN sys_alert_type
+// 实体类API（Controller层使用）JOIN sys_alert_type
 // ═══════════════════════════════════════════════
 int AlertDAO::insertAlert(const AlertLog& a) {
     // 第四次修复告警写入：
     // 根因：INSERT不填alert_type/alert_level列→新告警这两个字段为空→
     // 每次启动hasLegacyData检测alert_type=''→DELETE FROM sys_alert→清空用户产生的告警→"永远是20条"
-    // 修复：INSERT补上alert_type和alert_level列，从sys_alert_type表查对应值
+    // 注意：INSERT补上alert_type和alert_level列，从sys_alert_type表查对应值
     // 外键约束：user_id/tool_id为0时设NULL
 
     QVariant userIdVal = (a.userId > 0) ? QVariant(a.userId) : QVariant();
@@ -238,7 +238,7 @@ int AlertDAO::insertAlert(const AlertLog& a) {
         {a.typeId, alertTypeCode, alertLevelStr, userIdVal, toolIdVal, a.toolCode, a.message, "unhandled"});
 
     if (result <= 0) {
-        // [V2.03l] 增加诊断日志：INSERT失败时输出完整参数，便于定位
+        // 增加诊断日志：INSERT失败时输出完整参数，便于定位
         qWarning() << "[AlertDAO] insertAlert FAILED: result=" << result
                    << "typeId=" << a.typeId << "userId=" << a.userId
                    << "toolId=" << a.toolId << "toolCode=" << a.toolCode
@@ -253,7 +253,7 @@ int AlertDAO::insertAlert(const AlertLog& a) {
 QList<AlertLog> AlertDAO::findAllAlerts(int page, int pageSize,
                                          const QString& type, const QString& level,
                                          int handled, const QDate& startDate, const QDate& endDate) {
-    // [2026-06-25] JOIN sys_alert_type获取type_name/type_code/alert_level
+    // JOIN sys_alert_type获取type_name/type_code/alert_level
     QString sql = "SELECT a.*, at.type_code, at.type_name, at.alert_level, "
                   "u.username, u.real_name, ti.tool_code, ti.tool_name, br.flow_no "
                   "FROM sys_alert a "
@@ -263,13 +263,13 @@ QList<AlertLog> AlertDAO::findAllAlerts(int page, int pageSize,
                   "LEFT JOIN tool_borrow_record br ON a.tool_id=br.tool_id "
                   "WHERE a.status != 'ignored' ";
     QVariantList params;
-    // [2026-06-25] 类型筛选改为按type_code匹配
+    // 类型筛选为按type_code匹配
     if (!type.isEmpty())    { sql += " AND at.type_code = ?";  params << type; }
     if (!level.isEmpty())   { sql += " AND at.alert_level = ?"; params << level; }
     if (handled >= 0)       { sql += " AND a.status = ?";  params << (handled ? "handled" : "unhandled"); }
     if (startDate.isValid()){ sql += " AND a.created_at >= ?";  params << startDate.startOfDay(); }
     if (endDate.isValid())  { sql += " AND a.created_at <= ?";  params << endDate.endOfDay(); }
-    // [2026-06-25] 排序：待处理优先，级别严重优先，时间倒序
+    // 排序：待处理优先，级别严重优先，时间倒序
     sql += " ORDER BY CASE a.status WHEN 'unhandled' THEN 0 ELSE 1 END, "
            "CASE at.alert_level WHEN 'crit' THEN 0 WHEN 'error' THEN 1 WHEN 'warn' THEN 2 ELSE 3 END, "
            "a.created_at DESC";
@@ -295,8 +295,8 @@ int AlertDAO::countAlerts(const QString& type, const QString& level,
 }
 
 bool AlertDAO::markHandled(int alertId, const QString& handledBy) {
-    // [2026-06-27v17] MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
-    // 传字符串"admin"在MySQL中因外键失败，改为NULL
+    // MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
+    // 传字符串"admin"在MySQL中因外键失败，NULL
     QSqlDatabase db = getDb();
     if (!db.isOpen()) return false;
     QSqlQuery q(db);
@@ -306,7 +306,7 @@ bool AlertDAO::markHandled(int alertId, const QString& handledBy) {
 }
 
 bool AlertDAO::markAllHandled(const QString& handledBy) {
-    // [2026-06-27v17] 同markHandled，handler_id=NULL避免外键约束失败
+    // 同markHandled，handler_id=NULL避免外键约束失败
     QSqlDatabase db = getDb();
     if (!db.isOpen()) return false;
     QSqlQuery q(db);
@@ -314,12 +314,12 @@ bool AlertDAO::markAllHandled(const QString& handledBy) {
     return safeExec(q);
 }
 
-// [V7.9 2026-06-24] 忽略告警：status设为ignored，DB保留记录供审计，列表查询时排除
-// [2026-06-26] 修复：SQLite不支持NOW()，改用datetime('now')
-// [2026-06-26v3] 改用getDb()+QSqlQuery直连路径，与acknowledge/insert等成功方法一致，
+// 忽略告警：status设为ignored，DB保留记录供审计，列表查询时排除
+// 注意：SQLite不支持NOW()，datetime('now')
+// getDb()+QSqlQuery直连路径，与acknowledge/insert等成功方法一致，
 // 避免BaseDAO::execute→executeNonQuery链路中的潜在连接状态问题
 bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
-    // [2026-06-27v16] 增加完整诊断日志，定位忽略失败根因
+    // 增加完整诊断日志，定位忽略失败根因
     QSqlDatabase db = getDb();
     diagLog(QString("markIgnored START: alertId=%1 driver=%2 isOpen=%3 connName=%4")
             .arg(alertId).arg(db.driverName()).arg(db.isOpen()).arg(db.connectionName()));
@@ -331,9 +331,9 @@ bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
         }
     }
     QSqlQuery q(db);
-    // [2026-06-27v17根因修复] MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
+    // MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
     // handler_id=0在sys_user中不存在→外键约束失败。
-    // 改为handler_id=NULL（外键允许NULL），与markHandled的行为一致（markHandled传字符串
+    // handler_id=NULL（外键允许NULL），与markHandled的行为一致（markHandled传字符串
     // "admin"在MySQL中也会因外键失败，但那个方法可能连的SQLite所以没暴露）。
     QString sql = "UPDATE sys_alert SET status='ignored', handled_at=CURRENT_TIMESTAMP, handler_id=NULL WHERE alert_id=?";
     q.prepare(sql);
@@ -352,11 +352,11 @@ int AlertDAO::unhandledCount() {
 }
 
 int AlertDAO::todayTotal() {
-    // [2026-06-26] SQLite不支持CURDATE()，改用date('now')
+    // SQLite不支持CURDATE()，date('now')
     return scalar("SELECT COUNT(*) FROM sys_alert WHERE DATE(created_at)=date('now')").toInt();
 }
 
-// [2026-06-25] 获取所有启用的告警类型列表，按sort_order排序
+// 获取所有启用的告警类型列表，按sort_order排序
 QJsonArray AlertDAO::getAlertTypes() {
     QJsonArray arr;
     QSqlDatabase db = getDb();

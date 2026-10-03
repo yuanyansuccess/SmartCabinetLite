@@ -1,10 +1,11 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  字母/符号软键盘实现
-// 日期：2026-06-21 1:1复刻Web端SoftKeyboard.vue
-// [2026-06-26v5] 清理冗余：移除所有数字/密码模式逻辑(NumKeypad独立接管)
-// [2026-06-26v8] 彻底重写rebuildKeys()：5行清晰布局，去掉_/⎵等歧义按钮
+// 智能柜Qt Widget 2.0  字母/符号软键盘实现
+// 1:1复刻Web端SoftKeyboard.vue
+// 清理冗余：移除所有数字/密码模式逻辑(NumKeypad独立接管)
+// 彻底重写rebuildKeys()：5行清晰布局，去掉_/⎵等歧义按钮
 // 新布局：行0数字 / 行1 Q-P / 行2 A-L / 行3 Shift Z-M 退格 / 行4 符号+空格
 // 每个按钮统一56px高度触屏优化，字体24px醒目清晰，无"线条状"按钮
 #include "SoftKeyboard.h"
+#include "utils/StyleHelper.h"
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QApplication>
@@ -20,7 +21,7 @@ SoftKeyboard::SoftKeyboard(QWidget* parent) : QWidget(parent), m_target(nullptr)
 }
 
 SoftKeyboard::~SoftKeyboard() {
-    // [v4.4新增] 清理独立顶层窗口m_panel，防止窗口泄漏
+    // 清理独立顶层窗口m_panel，防止窗口泄漏
     if (m_overlay) {
         m_overlay->hide();
         m_overlay->close();
@@ -37,14 +38,14 @@ SoftKeyboard::~SoftKeyboard() {
 
 void SoftKeyboard::ensurePanel() {
     if (m_panel) return;
-    // [v4.4致命修复] 独立顶层窗口(无父widget)，彻底杜绝鼠标事件穿透
+    // 独立顶层窗口(无父widget)，彻底杜绝鼠标事件穿透
     m_panel = new QWidget(nullptr);  // 无父窗口 = 独立顶层窗口
     m_panel->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    // [v6.6] 三重保险确保完全不透明
+    // 三重保险确保完全不透明
     m_panel->setAttribute(Qt::WA_TranslucentBackground, false);
     m_panel->setAutoFillBackground(true);
     m_panel->setStyleSheet("QWidget { background-color:#ffffff; border:none; }");
-    // [v5.1修复] 动态宽度：根据屏幕可用宽度自动适配
+    // 动态宽度：根据屏幕可用宽度自动适配
     int screenW = 460;
     if (QApplication::primaryScreen()) {
         int availW = QApplication::primaryScreen()->availableGeometry().width();
@@ -60,14 +61,14 @@ void SoftKeyboard::ensurePanel() {
     m_panel->updateGeometry();
     m_panel->hide();
 
-    // [v6.6致命修复] 创建全屏半透明遮罩窗口，彻底杜绝键盘穿透
+    // 创建全屏半透明遮罩窗口，彻底杜绝键盘穿透
     if (!m_overlay) {
         m_overlay = new QWidget(nullptr);
         m_overlay->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         m_overlay->setAttribute(Qt::WA_TranslucentBackground, true);
         m_overlay->setAttribute(Qt::WA_ShowWithoutActivating, false);
         m_overlay->setAutoFillBackground(false);
-        m_overlay->setStyleSheet("background:rgba(0,0,0,0.65);");  // [2026-06-27] 0.45→0.65 彻底杜绝底层按钮穿透
+        m_overlay->setStyleSheet("background:rgba(0,0,0,0.65);");  // 0.65 彻底杜绝底层按钮穿透
         m_overlay->hide();
         m_overlay->installEventFilter(this);
     }
@@ -81,7 +82,7 @@ void SoftKeyboard::setupUI() {
     // ═══════ 顶部工具栏 ═══════
     QWidget* toolbar = new QWidget();
     toolbar->setAutoFillBackground(true);
-    toolbar->setFixedHeight(44);
+    toolbar->setFixedHeight(StyleHelper::Token::ControlHeight);
     toolbar->setStyleSheet(
         "background:#f8f9fb; "
         "border-bottom:1px solid #e8e8e8; "
@@ -98,7 +99,7 @@ void SoftKeyboard::setupUI() {
     tbLayout->addWidget(title);
     tbLayout->addStretch();
 
-    // [v5] 关闭按钮
+    // 关闭按钮
     QPushButton* closeBtn = new QPushButton(QStringLiteral("✕"));
     closeBtn->setFixedSize(34, 34);
     closeBtn->setCursor(Qt::PointingHandCursor);
@@ -150,14 +151,14 @@ void SoftKeyboard::setupUI() {
     footerLayout->setContentsMargins(16, 8, 16, 14);
 
     m_confirmBtn = new QPushButton(m_confirmText.isEmpty() ? QStringLiteral("确 认") : m_confirmText);
-    m_confirmBtn->setMinimumHeight(48);
+    m_confirmBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_confirmBtn->setCursor(Qt::PointingHandCursor);
     m_confirmBtn->setStyleSheet(
         "QPushButton { background:#4da3ff; color:#ffffff; border:none; "
         "border-radius:12px; font-size:17px; font-weight:700; "
         "letter-spacing:4px; }"
         "QPushButton:hover { background:#3d8ae0; }"
-        "QPushButton:pressed { background:#2d7ad0; transform:scale(0.96); }"
+        "QPushButton:pressed { background:#2d7ad0;  }"
         "QPushButton:disabled { background:#c0c0c0; color:#e0e0e0; }");
     connect(m_confirmBtn, &QPushButton::clicked, this, [this]() {
         emit confirmed();
@@ -165,13 +166,13 @@ void SoftKeyboard::setupUI() {
     });
     footerLayout->addWidget(m_confirmBtn);
     m_mainLayout->addWidget(m_footerArea);
-    // [2026-06-26v9] 默认隐藏底部确认区，仅setConfirmText()调用后显示
+    // 默认隐藏底部确认区，仅setConfirmText()调用后显示
     m_footerArea->setVisible(false);
 
     rebuildKeys();
 }
 
-/// [2026-06-26v8] 彻底重写键盘布局
+/// 彻底重写键盘布局
 /// 反馈：底部_下划线按钮看起来像"——"分隔线，用户无法识别为可点击按钮
 /// 根治方案：完全去掉_和⎵等视觉有歧义的符号按钮，重新设计5行清晰布局
 /// 新布局：
@@ -199,7 +200,7 @@ void SoftKeyboard::rebuildKeys() {
     keysLayout->setContentsMargins(10, 10, 10, 6);
     keysLayout->setSpacing(8);
 
-    // [v8] 新键盘布局定义
+    // 新键盘布局定义
     // 每个键: {显示文本, 输入字符, 是否功能键, 列拉伸倍数}
     struct KeyDef { QString label; QString input; bool isFn; int span; };
     struct RowDef { QList<KeyDef> keys; };
@@ -213,18 +214,18 @@ void SoftKeyboard::rebuildKeys() {
         {{{"A","A"},{"S","S"},{"D","D"},{"F","F"},{"G","G"},{"H","H"},{"J","J"},{"K","K"},{"L","L"}}},
         // 行3: Shift + Z-M + 退格
         {{{"Shift","",true,0},{"Z","Z"},{"X","X"},{"C","C"},{"V","V"},{"B","B"},{"N","N"},{"M","M"},{"退格","",true,0}}},
-        // 行4: 符号行 — [2026-06-26v9] 去掉空格按钮，符号均分填充
+        // 行4: 符号行 — 去掉空格按钮，符号均分填充
         {{{",",","},{".",".",false,2},{"/","/",false,2},{"@","@",false,2},{"-","-",false,2}}},
     };
 
     // ── 创建单个按键按钮 ──
     auto createKeyBtn = [this](const KeyDef& kd, int span) -> QPushButton* {
         QPushButton* btn = new QPushButton(kd.label);
-        btn->setFixedHeight(56);             // [v8] 统一56px触屏友好高度
+        btn->setFixedHeight(StyleHelper::Token::ControlHeightLarge);  // 统一56px触屏友好高度
         btn->setMinimumWidth(36);
         btn->setCursor(Qt::PointingHandCursor);
 
-        // [2026-06-27] 字体统一：全部20px + Microsoft YaHei，消除视觉不和谐
+        // 字体统一：全部20px + Microsoft YaHei，消除视觉不和谐
         QString style;
         if (kd.isFn) {
             // 功能键：灰底深灰字
@@ -257,7 +258,7 @@ void SoftKeyboard::rebuildKeys() {
                 doBackspace();
                 emit backspacePressed();
             } else if (kd.label == "Shift") {
-                // [v8] Shift暂保持大写模式（后续可扩展大小写切换）
+                // Shift暂保持大写模式（后续可扩展大小写切换）
             } else {
                 appendChar(kd.input);
                 emit keyPressed(kd.input);
@@ -280,7 +281,7 @@ void SoftKeyboard::rebuildKeys() {
     updateDisplay();
 }
 
-/// [2026-06-21] 追加字符
+/// 追加字符
 void SoftKeyboard::appendChar(const QString& ch) {
     if (!m_target) return;
     QString current = m_target->text();
@@ -288,7 +289,7 @@ void SoftKeyboard::appendChar(const QString& ch) {
     updateDisplay();
 }
 
-/// [2026-06-21] 退格
+/// 退格
 void SoftKeyboard::doBackspace() {
     if (!m_target) return;
     QString current = m_target->text();
@@ -298,7 +299,7 @@ void SoftKeyboard::doBackspace() {
     }
 }
 
-/// [2026-06-21] 更新输入显示区（纯文本模式，无密码圆点逻辑）
+/// 更新输入显示区（纯文本模式，无密码圆点逻辑）
 void SoftKeyboard::updateDisplay() {
     if (!m_target || !m_displayLabel || !m_displayCount) return;
     QString text = m_target->text();
@@ -337,7 +338,7 @@ void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
             QRect geo = screen->geometry();
             m_overlay->setGeometry(geo);
         }
-        m_overlay->setWindowOpacity(1.0);  // [2026-06-27] 确保遮罩完全不透明渲染
+        m_overlay->setWindowOpacity(1.0);  // 确保遮罩完全不透明渲染
         m_overlay->show();
         m_overlay->raise();
     }
@@ -349,7 +350,7 @@ void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
         screenW = qMax(320, screenW);
     }
     m_panel->setFixedWidth(screenW);
-    m_panel->setWindowOpacity(1.0);  // [2026-06-27] 确保面板完全不透明
+    m_panel->setWindowOpacity(1.0);  // 确保面板完全不透明
     m_panel->show();
     m_panel->raise();
     m_panel->activateWindow();
@@ -373,7 +374,7 @@ void SoftKeyboard::show() {
             QRect geo = screen->geometry();
             m_overlay->setGeometry(geo);
         }
-        m_overlay->setWindowOpacity(1.0);  // [2026-06-27] 确保遮罩完全不透明渲染
+        m_overlay->setWindowOpacity(1.0);  // 确保遮罩完全不透明渲染
         m_overlay->show();
         m_overlay->raise();
     }
@@ -385,7 +386,7 @@ void SoftKeyboard::show() {
         screenW = qMax(320, screenW);
     }
     m_panel->setFixedWidth(screenW);
-    m_panel->setWindowOpacity(1.0);  // [2026-06-27] 确保面板完全不透明
+    m_panel->setWindowOpacity(1.0);  // 确保面板完全不透明
     m_panel->show();
     m_panel->raise();
     m_panel->activateWindow();
@@ -406,7 +407,7 @@ void SoftKeyboard::show() {
 }
 
 void SoftKeyboard::hide() {
-    // [2026-06-26v6致命修复] 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
+    // 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
     // close()后置nullptr，确保下次show()时ensurePanel()会重建
     if (m_overlay) { m_overlay->hide(); m_overlay->close(); m_overlay = nullptr; }
     if (m_panel)   { m_panel->hide();   m_panel->close();   m_panel = nullptr; }
@@ -425,7 +426,7 @@ void SoftKeyboard::setConfirmText(const QString& text) {
     m_confirmText = text;
     if (m_confirmBtn) {
         m_confirmBtn->setText(text);
-        // [2026-06-26v9] 设置确认文字时自动显示底部确认区
+        // 设置确认文字时自动显示底部确认区
         if (m_footerArea) m_footerArea->setVisible(true);
     }
 }
@@ -438,7 +439,7 @@ QString SoftKeyboard::currentText() const {
     return m_target ? m_target->text() : QString();
 }
 
-/// [v6.6] 遮罩点击事件拦截 — 点击遮罩区域关闭键盘
+/// 遮罩点击事件拦截 — 点击遮罩区域关闭键盘
 bool SoftKeyboard::eventFilter(QObject* obj, QEvent* event) {
     if (obj == m_overlay && event->type() == QEvent::MouseButtonPress) {
         emit cancelled();
@@ -449,7 +450,7 @@ bool SoftKeyboard::eventFilter(QObject* obj, QEvent* event) {
     return QWidget::eventFilter(obj, event);
 }
 
-/// [2026-06-21] 错误抖动动画
+/// 错误抖动动画
 void SoftKeyboard::triggerShake() {
     if (!m_panel) return;
     QPoint orig = m_panel->pos();

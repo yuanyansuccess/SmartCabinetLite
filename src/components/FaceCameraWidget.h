@@ -1,7 +1,7 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0  人脸摄像头组件
-// 日期：2026-06-21 功能：摄像头预览 + 人脸检测 + 特征提取
-// [2026-06-21] 重写：纯C++肤色人脸检测 + 纹理特征提取(128维)
+// 智能柜Qt Widget 2.0  人脸摄像头组件
+// 功能：摄像头预览 + 人脸检测 + 特征提取
+// 重写：纯C++肤色人脸检测 + 纹理特征提取(128维)
 // 替代之前的随机特征向量，实现真正的刷脸登录
 // Web端1:1复刻：人脸框/特征点/状态提示/指示灯/边框动画
 #include <QWidget>
@@ -22,8 +22,31 @@ class FaceCameraWidget : public QWidget {
     Q_OBJECT
     Q_PROPERTY(int borderGlow READ borderGlow WRITE setBorderGlow)
 public:
+    /// 本地启发式检测策略（可外部调整，UI 与检测算法解耦）
+    /// 默认值与历史实测校准值逐项一致，改动需同步回归测试
+    struct DetectPolicy {
+        double fallbackBaseConfidence = 0.5;   ///< 无深度结果时的基础置信度
+        double fallbackAreaWeight    = 2.0;   ///< 面积比对置信度的权重
+        double maxConfidence        = 0.95;   ///< 置信度上限（防面积比虚高）
+        double fallbackCaptureValue  = 0.3;   ///< 未检测到人脸时的占位置信度
+        double dummyCaptureValue     = 0.5;   ///< 无摄像头时的占位置信度
+        double minSkinRatio          = 0.02;  ///< 肤色像素占比下限（低于此判为无人脸）
+        double minFaceRatio          = 0.03;  ///< 人脸框占画面比例下限
+        double minAspectRatio        = 0.6;   ///< 人脸框宽高比下限
+        double maxAspectRatio        = 2.2;   ///< 人脸框宽高比上限
+        double boxInsetRatio         = 0.08;  ///< 人脸框内缩比例（使框紧贴人脸）
+        // 检测循环内的置信度估算（实时反馈用，系数与采集兜底路径不同）
+        double loopBaseConfidence    = 0.45;
+        double loopAreaWeight        = 3.0;
+    };
+
     explicit FaceCameraWidget(QWidget* parent = nullptr);
     ~FaceCameraWidget();
+
+    /// 覆盖检测策略（页面/设置可调，组件内不再硬编码阈值）
+    void setDetectPolicy(const DetectPolicy& policy);
+    /// 读取当前检测策略
+    const DetectPolicy& detectPolicy() const { return m_policy; }
 
     /// 启动摄像头采集+人脸检测
     void startCamera();
@@ -46,15 +69,15 @@ public:
     QString getLastDescriptor() const;
     /// 返回当前人脸检测边界框（相对于220x220显示区域）
     QRect faceRect() const;
-    /// [V2.16] 获取当前摄像头帧（用于方位检测）
+    /// 获取当前摄像头帧（用于方位检测）
     QImage currentFrame() const { return m_lastFrame; }
     void reset();
     /// 检查摄像头硬件是否可用
     bool hasCamera() const;
-    /// [V2.17fix-0706] 本地方位估算（不依赖HTTP，0延迟）
+  /// 本地方位估算（不依赖HTTP，0延迟）
     void estimatePosture(const QRect& faceRect, double& yaw, double& pitch);
 
-    // [2026-06-21] 边框发光动画属性(用于CSS pulse效果)
+    // 边框发光动画属性(用于CSS pulse效果)
     int borderGlow() const { return m_borderGlow; }
     void setBorderGlow(int v) { m_borderGlow = v; emit borderGlowChanged(); }
 
@@ -67,7 +90,7 @@ signals:
     void captureReady(QImage image, double confidence);
     void stateChanged(int state);   // 0=off 1=scanning 2=detected 3=capturing 4=success 5=error
     void errorOccurred(QString message);
-    // [2026-06-21] 新增：人脸检测状态变化
+    // 新增：人脸检测状态变化
     void faceDetectionChanged(bool detected, double confidence);
     void borderGlowChanged();
 
@@ -116,12 +139,13 @@ private:
     bool m_capturing = false;
     int m_stableCount = 0;
     int m_borderGlow = 0;
+    DetectPolicy m_policy;                      ///< 本地检测策略（可外部覆盖）
 
     // ── 配置参数（版本B兼容）──
     bool m_autoCapture = false;
-    double m_minConfidence = 0.70;          // [V2.17fix-0706] 0.60→0.70 降低陌生人误识
-    int m_stableFrames = 3;                 // [V2.17fix-0706] 6→3 更快确认
-    int m_captureDelay = 100;               // [V2.17fix-0706] 150→100ms 更快采集
-    int m_detectIntervalMs = 40;            // [V2.17fix-0706] 60→40ms 更快检测响应
+    double m_minConfidence = 0.70;  // 0.70 降低陌生人误识
+    int m_stableFrames = 3;  // 3 更快确认
+    int m_captureDelay = 100;  // 100ms 更快采集
+    int m_detectIntervalMs = 40;  // 40ms 更快检测响应
     int m_detectSkipCounter = 0;            // 跳帧计数（实际检测约每60ms一次）
 };

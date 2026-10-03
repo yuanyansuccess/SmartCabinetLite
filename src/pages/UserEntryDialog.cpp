@@ -1,14 +1,18 @@
 /**
  * @file UserEntryDialog.cpp
- * @brief 普通用户功能选择对话框实现 - 空白页 + 两个大按钮（借用/归还、查询）
+ * @brief 普通用户功能选择对话框实现 - UI与逻辑分离：主界面静态布局在UserEntryDialog.ui
  * @author 袁燕
  * @说明 样式与CabinetSessionDialog开柜页保持一致：全屏、浅灰背景、大圆角按钮。
  *   触屏优化：按钮高110px、字号26px，符合8寸屏触控标准。
+ *   借用明细/告警日志对话框为运行时动态构建（含数据填充），保留在本文件。
  */
 #include "UserEntryDialog.h"
+#include "ui_UserEntryDialog.h"
 #include "utils/StyleHelper.h"
 #include "db/RecordDAO.h"
 #include "db/AlertDAO.h"
+#include "services/AlertService.h"
+#include "common/Constants.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -21,96 +25,42 @@
 #include <QJsonArray>
 
 UserEntryDialog::UserEntryDialog(const QJsonObject& user, QWidget* parent)
-    : QDialog(parent), m_user(user)
+    : QDialog(parent), m_user(user), ui(new Ui::UserEntryDialog)
 {
+    ui->setupUi(this);  // 静态布局来自UserEntryDialog.ui（Qt Designer可视化维护）
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setModal(true);
-    setStyleSheet("QDialog { background: " + StyleHelper::bgColor() + "; }");
 
-    QVBoxLayout* lay = new QVBoxLayout(this);
-    lay->setContentsMargins(40, 24, 40, 48);
-    lay->setSpacing(24);
+    // 左上角"退出登录"
+    connect(ui->logoutBtn, &QPushButton::clicked, this, &QDialog::reject);
 
-    // 左上角"退出登录"（小按钮，防止误入后无路可退）
-    QHBoxLayout* topRow = new QHBoxLayout();
-    auto* logoutBtn = new QPushButton(QStringLiteral("退出登录"));
-    logoutBtn->setCursor(Qt::PointingHandCursor);
-    logoutBtn->setStyleSheet(StyleHelper::buttonDefault());
-    connect(logoutBtn, &QPushButton::clicked, this, &QDialog::reject);
-    topRow->addWidget(logoutBtn);
-    topRow->addStretch();
-    lay->addLayout(topRow);
+    // 欢迎语（用户姓名运行时填充）
+    ui->welcomeLabel->setText(QStringLiteral("您好，%1").arg(m_user["realName"].toString()));
 
-    lay->addStretch(2);
-
-    // 欢迎语
-    auto* welcome = new QLabel(QStringLiteral("您好，%1").arg(m_user["realName"].toString()));
-    welcome->setAlignment(Qt::AlignCenter);
-    welcome->setStyleSheet(QString("font-size: 34px; font-weight: 700; color: %1; background: transparent;")
-                               .arg(StyleHelper::textColor()));
-    lay->addWidget(welcome);
-
-    auto* hint = new QLabel(QStringLiteral("请选择您要进行的操作"));
-    hint->setAlignment(Qt::AlignCenter);
-    hint->setStyleSheet(QString("font-size: 18px; color: %1; background: transparent;")
-                            .arg(StyleHelper::textSecondary()));
-    lay->addWidget(hint);
-
-    lay->addSpacing(16);
-
-    // 大按钮1：借用/归还（蓝色）
-    auto* borrowBtn = new QPushButton(QStringLiteral("借  用 /  归  还"));
-    borrowBtn->setCursor(Qt::PointingHandCursor);
-    borrowBtn->setStyleSheet(QString(
-        "QPushButton { background: %1; color: white; border: none; border-radius: 14px;"
-        "  font-size: 26px; font-weight: 700; min-height: 110px; min-width: 420px; }"
-        "QPushButton:hover { background: %2; }"
-        "QPushButton:pressed { background: #2e7bd6; }"
-    ).arg(StyleHelper::primaryColor(), StyleHelper::primaryHover()));
-    connect(borrowBtn, &QPushButton::clicked, this, [this]() {
+    // 大按钮1：借用/归还
+    connect(ui->borrowBtn, &QPushButton::clicked, this, [this]() {
         m_choice = Choice::BorrowReturn;
         accept();
     });
-    lay->addWidget(borrowBtn, 0, Qt::AlignCenter);
 
-    // 大按钮2：查询（绿色）
-    auto* queryBtn = new QPushButton(QStringLiteral("查          询"));
-    queryBtn->setCursor(Qt::PointingHandCursor);
-    queryBtn->setStyleSheet(QString(
-        "QPushButton { background: %1; color: white; border: none; border-radius: 14px;"
-        "  font-size: 26px; font-weight: 700; min-height: 110px; min-width: 420px; }"
-        "QPushButton:hover { background: %2; }"
-        "QPushButton:pressed { background: #2e7d32; }"
-    ).arg(StyleHelper::successColor(), StyleHelper::successHover()));
-    connect(queryBtn, &QPushButton::clicked, this, [this]() {
-        // [2026-09-23] 查询改为弹出本用户借用明细对话框（不再进入系统首页）
+    // 大按钮2：查询 → 弹出本用户借用明细对话框
+    connect(ui->queryBtn, &QPushButton::clicked, this, [this]() {
         showBorrowDetail();
     });
-    lay->addWidget(queryBtn, 0, Qt::AlignCenter);
 
-    // [2026-09-23] 大按钮3：告警日志（橙色）——查询按钮下方新增
-    auto* alertBtn = new QPushButton(QStringLiteral("告  警  日  志"));
-    alertBtn->setCursor(Qt::PointingHandCursor);
-    alertBtn->setStyleSheet(QString(
-        "QPushButton { background: #fa8c16; color: white; border: none; border-radius: 14px;"
-        "  font-size: 26px; font-weight: 700; min-height: 110px; min-width: 420px; }"
-        "QPushButton:hover { background: #e8960c; }"
-        "QPushButton:pressed { background: #d48806; }"
-    ));
-    connect(alertBtn, &QPushButton::clicked, this, [this]() {
+    // 大按钮3：告警日志
+    connect(ui->alertBtn, &QPushButton::clicked, this, [this]() {
         showAlertDialog();
     });
-    lay->addWidget(alertBtn, 0, Qt::AlignCenter);
 
     // 醒目提示：存在未处理告警时显示（袁总要求：按钮下方醒目颜色提示）
-    m_alertHintLabel = new QLabel(QStringLiteral("⚠ 当前系统存在告警日志，请点击查询"));
-    m_alertHintLabel->setAlignment(Qt::AlignCenter);
-    m_alertHintLabel->setStyleSheet(
-        "font-size: 20px; font-weight: 700; color: #ff4d4f; background: transparent; padding-top: 4px;");
+    m_alertHintLabel = ui->alertHintLabel;
     m_alertHintLabel->setVisible(unhandledAlertCount() > 0);
-    lay->addWidget(m_alertHintLabel, 0, Qt::AlignCenter);
+}
 
-    lay->addStretch(3);
+UserEntryDialog::~UserEntryDialog()
+{
+    delete ui;
 }
 
 UserEntryDialog::Choice UserEntryDialog::execChoice()
@@ -123,7 +73,7 @@ UserEntryDialog::Choice UserEntryDialog::execChoice()
     return m_choice;
 }
 
-// [2026-09-23] 查询：弹出当前用户借用明细对话框（全屏模态，触屏风格）
+// 查询：弹出当前用户借用明细对话框（全屏模态，触屏风格）
 // 展示该用户全部借用记录（当前借用在前），关闭后停留在功能选择页
 // 数据源：RecordDAO::findBorrowsByUser（DAO层现成接口，零新增SQL）
 // 输入：无（使用m_user.userId）；输出：无（仅展示）
@@ -135,7 +85,7 @@ void UserEntryDialog::showBorrowDetail()
     // 统计：当前借用件数（borrowing/overdue）+ 累计借用次数
     int activeCount = 0;
     for (const auto& r : records) {
-        if (r.status == "borrowing" || r.status == "overdue") activeCount++;
+        if (r.status == SC::RECORD_BORROWING || r.status == SC::RECORD_OVERDUE) activeCount++;
     }
 
     QDialog dlg(this);
@@ -200,9 +150,9 @@ void UserEntryDialog::showBorrowDetail()
         // 状态列：中文+配色（借用中蓝/已逾期红/已归还绿）
         QString statusText;
         QString statusColor;
-        if (r.status == "borrowing")      { statusText = "借用中"; statusColor = "#4da3ff"; }
-        else if (r.status == "overdue")   { statusText = "已逾期"; statusColor = "#ff4d4f"; }
-        else if (r.status == "returned")  { statusText = "已归还"; statusColor = "#43a047"; }
+        if (r.status == SC::RECORD_BORROWING) { statusText = "借用中"; statusColor = "#4da3ff"; }
+        else if (r.status == SC::RECORD_OVERDUE)  { statusText = "已逾期"; statusColor = "#ff4d4f"; }
+        else if (r.status == SC::RECORD_RETURNED) { statusText = "已归还"; statusColor = "#43a047"; }
         else                              { statusText = r.status; statusColor = "#666666"; }
         auto* statusItem = new QTableWidgetItem(statusText);
         statusItem->setForeground(QColor(statusColor));
@@ -233,15 +183,15 @@ void UserEntryDialog::showBorrowDetail()
     dlg.exec();
 }
 
-// [2026-09-23] 未处理告警数（提示显隐依据）
+// 未处理告警数（提示显隐依据）
 // 输入：无；返回：sys_alert中status=unhandled的记录数（查询失败返回0）
 int UserEntryDialog::unhandledAlertCount()
 {
-    db::AlertDAO dao;
-    return dao.unhandledCount();
+    AlertService svc;
+    return svc.unhandledCount();
 }
 
-// [2026-09-23] 告警日志：弹出系统告警列表对话框（全屏模态，触屏风格）
+// 告警日志：弹出系统告警列表对话框（全屏模态，触屏风格）
 // 展示告警内容/类型/借用人/时间/状态，待处理排前；关闭后停留在功能选择页
 // 数据源：AlertDAO::findAll（含JOIN类型字典/借用人/工具，DAO零改动）
 // 输入：无；输出：无（仅展示）
@@ -254,7 +204,7 @@ void UserEntryDialog::showAlertDialog()
 
     int unhandled = 0;
     for (const auto& v : list) {
-        if (v.toObject()["status"].toString() == "unhandled") unhandled++;
+        if (v.toObject()["status"].toString() == SC::ALERT_UNHANDLED) unhandled++;
     }
 
     QDialog dlg(this);
@@ -315,7 +265,7 @@ void UserEntryDialog::showAlertDialog()
         table->setItem(i, 3, new QTableWidgetItem(borrower.isEmpty() ? QStringLiteral("系统") : borrower));
 
         // 状态列：待处理红/已处理绿
-        const bool isUnhandled = (a["status"].toString() == "unhandled");
+        const bool isUnhandled = (a["status"].toString() == SC::ALERT_UNHANDLED);
         auto* statusItem = new QTableWidgetItem(isUnhandled ? QStringLiteral("待处理") : QStringLiteral("已处理"));
         statusItem->setForeground(QColor(isUnhandled ? "#ff4d4f" : "#43a047"));
         statusItem->setFont(QFont(QString(), -1, QFont::Bold));

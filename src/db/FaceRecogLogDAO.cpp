@@ -2,7 +2,6 @@
  * @file FaceRecogLogDAO.cpp
  * @brief 人脸识别识别统计日志数据访问对象实现 — 全部参数化查询
  * @author 袁燕
- * @修改说明 2026-08-24 新增：识别日志写入与统计汇总，支撑专利实测数据
  */
 #include "FaceRecogLogDAO.h"
 #include <QSqlQuery>

@@ -1,10 +1,7 @@
 /**
  * @file MultiSelectFilter.h
- * @brief 通用多选筛选组件（复刻人员管理部门筛选样式）
+ * @brief 通用多选筛选组件（按钮+弹出复选面板，选中后点确定生效）
  * @author 袁燕
- * @说明 2026-06-24v8 从UserManagementPage部门筛选逻辑提取为通用组件
- *   - 触发按钮 + 弹出面板(checkbox多选 + 清空/确定按钮)
- *   - 外观样式统一对齐部门筛选：border:2px, border-radius:10px, min-height:42px
  */
 #pragma once
 #include <QWidget>
@@ -46,6 +43,8 @@ private slots:
     void onConfirm();
 
 private:
+    void setupUI();  // 构建筛选按钮与弹出面板
+
     void updateButtonText();
 
     QPushButton* m_filterBtn;

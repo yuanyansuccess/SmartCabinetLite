@@ -42,4 +42,7 @@ CMakeLists_*.txt
 /0
 /1
 /107
-/{console.log*
+/console.log*
+*.autosave
+*.autosave-*
+*.bak

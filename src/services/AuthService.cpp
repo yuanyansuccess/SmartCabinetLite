@@ -3,8 +3,8 @@
  * @brief 认证服务实现 - 支持密码+人脸双因子登录
  * @author 袁燕
  *
- * [V1.00.8.3] 统一使用驼峰命名字段，与Qt Widget前端保持一致
- * [2026-06-21v4] 修复loginByFace致命Bug：字符串严格相等(==)永远无法匹配人脸特征向量
+ * 统一使用驼峰命名字段，与Qt Widget前端保持一致
+ * 修复loginByFace致命Bug：字符串严格相等(==)永远无法匹配人脸特征向量
  *             改为委托FaceRecognitionService::matchFace做余弦相似度比对
  */
 #include "AuthService.h"
@@ -13,8 +13,9 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QDebug>
+#include "common/Constants.h"
 
-// [2026-06-21] 修复LNK2005：db/层已包裹namespace db
+// 修复LNK2005：db/层已包裹namespace db
 using db::UserDAO;
 
 AuthService::AuthService(QObject* parent) : QObject(parent) {}
@@ -25,7 +26,7 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
     UserDAO dao;
     QJsonObject user = dao.findByUsername(username);
     if (user.isEmpty()) { r.message = "用户名或密码错误"; return r; }
-    if (user["status"].toString() != "active") { r.message = "账户已被禁用"; return r; }
+    if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已被禁用"; return r; }
     if (!verifyPassword(password, user["passwordSalt"].toString(), user["passwordHash"].toString())) {
         r.message = "用户名或密码错误"; return r;
     }
@@ -36,7 +37,7 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
 }
 
 AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
-    // [2026-06-21v4] 修复致命Bug：之前用storedFeature==faceFeature严格字符串相等比对
+    // 修复致命Bug：之前用storedFeature==faceFeature严格字符串相等比对
     // 两个人脸捕获的特征向量不可能完全相等，必须用余弦相似度等数值比对
     // 委托给FaceRecognitionService::matchFace做专业比对（余弦相似度+欧氏距离双验证）
     LoginResult r; r.success = false;
@@ -48,7 +49,7 @@ AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
     if (matchResult.success) {
         UserDAO dao;
         QJsonObject userInfo = dao.findById(matchResult.userId);
-        if (!userInfo.isEmpty() && userInfo["status"].toString() == "active") {
+        if (!userInfo.isEmpty() && userInfo["status"].toString() == SC::USER_ACTIVE) {
             dao.recordLoginSuccess(matchResult.userId);
             userInfo.remove("passwordHash"); userInfo.remove("passwordSalt");
             r.success = true;
@@ -67,11 +68,11 @@ AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
 }
 
 bool AuthService::isAdmin(const QJsonObject& user) const { 
-    return user["role"].toString() == "admin"; 
+    return user["role"].toString() == SC::ROLE_ADMIN; 
 }
 
 bool AuthService::isActive(const QJsonObject& user) const { 
-    return user["status"].toString() == "active"; 
+    return user["status"].toString() == SC::USER_ACTIVE; 
 }
 
 QString AuthService::hashPassword(const QString& password, const QString& salt) {
@@ -85,7 +86,7 @@ QString AuthService::generateSalt() {
 }
 
 bool AuthService::verifyPassword(const QString& pw, const QString& salt, const QString& hash) {
-    // 作者：袁燕，代码审查修复 — 使用恒定时间比较，防止时序侧信道攻击
+    // ，代码审查修复 — 使用恒定时间比较，防止时序侧信道攻击
     QString computed = hashPassword(pw, salt);
     if (computed.size() != hash.size()) return false;
     int result = 0;
@@ -93,5 +94,3 @@ bool AuthService::verifyPassword(const QString& pw, const QString& salt, const Q
         result |= computed[i].toLatin1() ^ hash[i].toLatin1();
     return result == 0;
 }
-
-

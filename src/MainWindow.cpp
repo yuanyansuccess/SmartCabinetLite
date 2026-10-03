@@ -2,7 +2,6 @@
  * @file MainWindow.cpp
  * @brief 主窗口实现 - TopBar(68px) + 左侧240px深蓝侧边栏 + 页面栈
  * @author 袁燕
- * @修改说明 2026-06-21 融合版：集成TopBar组件，版本B页面为核心
  */
 #include "MainWindow.h"
 #include "components/TopBar.h"
@@ -17,18 +16,18 @@
 #include "pages/LedgerStatsPage.h"
 #include "pages/AlertLogsPage.h"
 #include "pages/SystemSettingsPage.h"
-#include "pages/SystemMaintenancePage.h"  // [V2.03g] 系统维护页面
-#include "pages/CabinetSessionDialog.h"   // [V2.06] 普通用户智能柜会话（开柜提示+关柜清单）
-#include "pages/UserEntryDialog.h"        // [V2.07] 普通用户功能选择页（借用/归还、查询）
+#include "pages/SystemMaintenancePage.h"  // 系统维护页面
+#include "pages/CabinetSessionDialog.h"  // 普通用户智能柜会话（开柜提示+关柜清单）
+#include "pages/UserEntryDialog.h"  // 普通用户功能选择页（借用/归还、查询）
 #include "utils/StyleHelper.h"
-#include "common/AppConfig.h"          // [2026-06-27] 读取锁屏时间/备份配置
-#include "common/DatabaseManager.h"    // [2026-06-27] 备份检查
+#include "common/AppConfig.h"  // 读取锁屏时间/备份配置
+#include "common/DatabaseManager.h"  // 备份检查
 #include <QScrollArea>
 #include <QFont>
 #include <QFrame>
 #include <QLabel>
-#include <QApplication>  // [2026-06-23] qApp->quit()退出整个系统
-#include <QGraphicsOpacityEffect>  // [2026-06-24] 页面切换淡入淡出动画
+#include <QApplication>  // qApp->quit()退出整个系统
+#include <QGraphicsOpacityEffect>  // 页面切换淡入淡出动画
 #include <QPropertyAnimation>
 #include <QTimer>
 #include <QMouseEvent>
@@ -36,6 +35,31 @@
 #include <QFile>
 #include <QDir>
 #include <QProcess>
+#include "common/Constants.h"
+
+// ── 页面注册表（唯一真相源：页面名/栈索引/标题） ──
+// 新人新增页面只需：1)本表加一行 2)setupUI()里addWidget 3)refreshPage()加一分支。
+// 顺序必须与 setupUI() 中 m_stack->addWidget 的添加顺序一致（索引即栈位置）。
+namespace {
+struct PageDef { QString name; int index; QString title; };
+static const QVector<PageDef>& pageRegistry() {
+    static const QVector<PageDef> reg = {
+        {"login",       0,  QString()},
+        {"dashboard",   1,  QStringLiteral("系统概览")},
+        {"users",       2,  QStringLiteral("人员管理")},
+        {"tools",       3,  QStringLiteral("工具管理")},
+        {"borrow",      4,  QStringLiteral("工具借用")},
+        {"return",      5,  QStringLiteral("工具归还")},
+        {"checkin",     6,  QStringLiteral("工具入库")},
+        {"checkout",    7,  QStringLiteral("工具出库")},
+        {"ledger",      8,  QStringLiteral("台账统计")},
+        {"alerts",      9,  QStringLiteral("告警日志")},
+        {SC::TOOL_MAINTENANCE, 10, QStringLiteral("系统维护")},
+        {"settings",    11, QStringLiteral("系统设置")},
+    };
+    return reg;
+}
+} // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     , m_topBar(nullptr), m_stack(nullptr), m_sidebar(nullptr), m_contentArea(nullptr)
@@ -65,7 +89,7 @@ void MainWindow::setupUI() {
 
     // ── TopBar (68px固定高度) ──
     setupTopBar();
-    m_topBar->setUserAreaVisible(false);  // [2026-06-21] 初始登录页隐藏用户信息
+    m_topBar->setUserAreaVisible(false);  // 初始登录页隐藏用户信息
     mainLayout->addWidget(m_topBar);
 
     // ── 内容区 (侧边栏 + 页面栈) ──
@@ -74,7 +98,7 @@ void MainWindow::setupUI() {
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
 
-    // 左侧边栏 [2026-09-23] 8寸屏适配：宽度240→264px配合菜单项加大
+    // 左侧边栏 8寸屏适配：宽度264px配合菜单项加大
     m_sidebar = createSidebar();
     m_sidebar->setFixedWidth(264);
     contentLayout->addWidget(m_sidebar);
@@ -94,10 +118,10 @@ void MainWindow::setupUI() {
     m_ledgerPage    = new LedgerStatsPage();
     m_alertsPage    = new AlertLogsPage();
     m_settingsPage  = new SystemSettingsPage();
-    m_maintenancePage = new SystemMaintenancePage();  // [V2.03g] 系统维护
+    m_maintenancePage = new SystemMaintenancePage();  // 系统维护
 
-    // [2026-06-23] 移除人脸录入独立页面，人脸录入功能已集成到人员管理页
-    // [V2.03g] 索引：0:登录 1:仪表盘 2:用户管理 3:工具管理 4:借用 5:归还 6:入库 7:出库 8:台账 9:告警 10:系统维护 11:设置
+    // 移除人脸录入独立页面，人脸录入功能已集成到人员管理页
+    // 索引：0:登录 1:仪表盘 2:用户管理 3:工具管理 4:借用 5:归还 6:入库 7:出库 8:台账 9:告警 10:系统维护 11:设置
     m_stack->addWidget(m_loginPage);
     m_stack->addWidget(m_dashboardPage);
     m_stack->addWidget(m_userMgmtPage);
@@ -108,10 +132,10 @@ void MainWindow::setupUI() {
     m_stack->addWidget(m_checkoutPage);
     m_stack->addWidget(m_ledgerPage);
     m_stack->addWidget(m_alertsPage);
-    m_stack->addWidget(m_maintenancePage);  // [V2.03g] 系统维护(索引10)
+    m_stack->addWidget(m_maintenancePage);  // 系统维护(索引10)
     m_stack->addWidget(m_settingsPage);     // 系统设置(索引11)
 
-    // [2026-09-24] 普通用户流程遮罩页(索引12)：登录后入口页/借用归还会话期间主界面停在本页，
+    // 普通用户流程遮罩页(索引12)：登录后入口页/借用归还会话期间主界面停在本页，
     // 避免两个全屏弹窗切换间隙露出背后的登录页（闪现按键页面问题）
     m_userFlowCover = new QWidget();
     m_userFlowCover->setStyleSheet("background:" + StyleHelper::bgColor() + ";");
@@ -123,17 +147,17 @@ void MainWindow::setupUI() {
     // 信号连接
     connect(m_loginPage, &LoginPage::loginSuccess, this, &MainWindow::onLoginSuccess);
     connect(m_dashboardPage, &DashboardPage::navigateRequested, this, &MainWindow::navigateToPage);
-    // [2026-06-27] 工具借用页面点击归还按钮 → 跳转工具归还页面并自动选中对应工具
+    // 工具借用页面点击归还按钮 → 跳转工具归还页面并自动选中对应工具
     connect(m_borrowPage, &ToolBorrowPage::returnRequested, this, [this](int recordId) {
         m_returnPage->setPendingReturnRecordId(recordId);
         navigateToPage("return");
     });
-    // [2026-06-23] TopBar退出按钮 → 退出整个系统（非注销）
+    // TopBar退出按钮 → 退出整个系统（非注销）
     connect(m_topBar, &TopBar::exitSystemClicked, qApp, &QApplication::quit);
     // 侧边栏"退出登录"按钮 → 注销回登录页（保留）
     connect(m_topBar, &TopBar::logoutClicked, this, &MainWindow::onLogout);
 
-    // [2026-06-27] 自动锁屏定时器：读取AppConfig的lockTime，超时自动退出登录
+    // 自动锁屏定时器：读取AppConfig的lockTime，超时自动退出登录
     int lockMinutes = AppConfig::instance().borrowLockTime();
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(lockMinutes * 60 * 1000);  // 分钟转毫秒
@@ -142,10 +166,10 @@ void MainWindow::setupUI() {
     connect(m_idleTimer, &QTimer::timeout, this, &MainWindow::onAutoLockTimeout);
     m_idleTimer->start();
 
-    // [2026-06-27] 安装全局事件过滤器：监听鼠标/键盘活动，重置空闲计时器
+    // 安装全局事件过滤器：监听鼠标/键盘活动，重置空闲计时器
     qApp->installEventFilter(this);
 
-    // [2026-06-27] 数据库备份检查定时器：每小时检查一次是否到了备份时间
+    // 数据库备份检查定时器：每小时检查一次是否到了备份时间
     m_backupCheckTimer = new QTimer(this);
     m_backupCheckTimer->setInterval(60 * 60 * 1000);  // 1小时检查一次
     connect(m_backupCheckTimer, &QTimer::timeout, this, &MainWindow::onBackupCheckTimeout);
@@ -155,6 +179,8 @@ void MainWindow::setupUI() {
 void MainWindow::setupTopBar() {
     m_topBar = new TopBar();
     m_topBar->setFixedHeight(68);
+    // 版本号由页面层读配置后注入顶栏（组件层不读 AppConfig）
+    m_topBar->setVersionText(AppConfig::instance().appVersion());
 }
 
 QWidget* MainWindow::createSidebar() {
@@ -164,7 +190,7 @@ QWidget* MainWindow::createSidebar() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // 标题区 [2026-09-23] 8寸屏适配：标题22→24px，高度72→76px
+    // 标题区 8寸屏适配：标题24px，高度76px
     QLabel* title = new QLabel(QStringLiteral("  智能工具柜"));
     title->setStyleSheet("color:white; font-size:24px; font-weight:bold; padding:20px 12px; background:#151528;");
     title->setFixedHeight(76);
@@ -183,20 +209,20 @@ QWidget* MainWindow::createSidebar() {
     navWidget->setStyleSheet("background:transparent;");
     m_sidebarNav = new QVBoxLayout(navWidget);
     m_sidebarNav->setContentsMargins(8, 8, 8, 8);
-    m_sidebarNav->setSpacing(6);  // [2026-09-23] 4→6，菜单项间距加大防误触
+    m_sidebarNav->setSpacing(6);  // 6，菜单项间距加大防误触
 
     struct NavItem { QString id; QString label; };
     QList<NavItem> items = {
         {"dashboard",  QStringLiteral("📊 系统概览")},
         {"users",      QStringLiteral("👥 人员管理")},
         {"tools",      QStringLiteral("🔧 工具管理")},
-        // [2026-09-23] 管理员借用/归还入口合并为一项，点击进入模拟数据智能柜会话
+        // 管理员借用/归还入口合并为一项，点击进入模拟数据智能柜会话
         {"borrowreturn", QStringLiteral("📤 工具借用/归还")},
         {"checkin",    QStringLiteral("📦 工具入库")},
         {"checkout",   QStringLiteral("📋 工具出库")},
         {"ledger",     QStringLiteral("📈 台账统计")},
         {"alerts",     QStringLiteral("🔔 告警日志")},
-        {"maintenance",QStringLiteral("🛠️ 系统维护")},  // [V2.03g] 系统维护
+        {SC::TOOL_MAINTENANCE,QStringLiteral("🛠️ 系统维护")},  // 系统维护
         {"settings",   QStringLiteral("⚙️ 系统设置")},
     };
 
@@ -204,7 +230,7 @@ QWidget* MainWindow::createSidebar() {
         QPushButton* btn = new QPushButton("  " + item.label);
         btn->setObjectName(item.id);
         btn->setCursor(Qt::PointingHandCursor);
-        // [2026-09-23] 8寸屏适配：菜单项高度52→60px，字体16→18px，触控目标加大防误触
+        // 8寸屏适配：菜单项高度60px，字体18px，触控目标加大防误触
         btn->setMinimumHeight(60);
         btn->setStyleSheet(
             "QPushButton { color:#c0c0d0; font-size:18px; text-align:left; padding-left:18px; "
@@ -213,7 +239,7 @@ QWidget* MainWindow::createSidebar() {
             "QPushButton[active=\"true\"] { background:#4da3ff; color:white; font-weight:bold; }"
         );
         connect(btn, &QPushButton::clicked, this, [this, id = item.id] {
-            // [2026-09-23] 借用/归并入口不进页面栈，直接启动模拟会话
+            // 借用/归并入口不进页面栈，直接启动模拟会话
             if (id == "borrowreturn") { openBorrowReturnSession(); return; }
             navigateToPage(id);
         });
@@ -228,41 +254,44 @@ QWidget* MainWindow::createSidebar() {
 }
 
 void MainWindow::showPage(const QString& name) {
-    // [V2.07 权限拦截] 普通用户仅允许访问 系统概览/工具机组查询，
+  // 普通用户仅允许访问 系统概览/工具机组查询，
     // 防止其他入口（如告警跳转）绕过侧边栏限制
-    bool isAdmin = (m_user["role"].toString() == "admin");
+    bool isAdmin = (m_user["role"].toString() == SC::ROLE_ADMIN);
     if (!m_user.isEmpty() && !isAdmin && name != "dashboard" && name != "tools") {
         qInfo() << "[MainWindow] 普通用户无权访问页面:" << name << "，重定向到 dashboard";
         showPage("dashboard");
         return;
     }
-    // [2026-06-24v4] 覆盖层遮罩切换：overlay盖住页面→切换→overlay淡出→透出新页
-    static QMap<QString, int> map = {
-        {"login", 0}, {"dashboard", 1}, {"users", 2}, {"tools", 3},
-        {"borrow", 4}, {"return", 5}, {"checkin", 6}, {"checkout", 7},
-        {"ledger", 8}, {"alerts", 9}, {"maintenance", 10}, {"settings", 11}
-    };
-    int idx = map.value(name, 1);
+    // 覆盖层遮罩切换：overlay盖住页面→切换→overlay淡出→透出新页
+    int idx = 1;  // 未知名默认dashboard（与原map.value(name,1)一致）
+    for (const auto& pd : pageRegistry()) {
+        if (pd.name == name) { idx = pd.index; break; }
+    }
     // 去掉"同页面不刷新"限制，菜单点击时即使同页面也强制refresh
     // 反馈：系统维护页面切换时不刷新，根因是索引相同直接return
     // 举一反三：所有页面都需要在菜单切换时刷新数据（可能后台数据已变化）
     bool isSamePage = (idx == m_stack->currentIndex());
 
-    // [V2.03t] 同页面只做refresh，不重复切换动画
+    // 页面刷新统一入口（同页点击与跨页切换共用）
+    auto refreshPage = [this](const QString& n) {
+        if (n == "dashboard" && m_dashboardPage)      m_dashboardPage->refresh();
+        else if (n == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
+        else if (n == "tools" && m_toolMgmtPage)      m_toolMgmtPage->refresh();
+        else if (n == "borrow" && m_borrowPage)        m_borrowPage->refresh();
+        else if (n == "return" && m_returnPage)        m_returnPage->refresh();
+        else if (n == "checkin" && m_checkinPage)      m_checkinPage->refresh();
+        else if (n == "checkout" && m_checkoutPage)    m_checkoutPage->refresh();
+        else if (n == "ledger" && m_ledgerPage)        m_ledgerPage->refresh();
+        else if (n == "alerts" && m_alertsPage)        m_alertsPage->refresh();
+        else if (n == SC::TOOL_MAINTENANCE && m_maintenancePage) m_maintenancePage->refresh();
+        else if (n == "settings" && m_settingsPage)    m_settingsPage->refresh();
+        else qWarning() << "[MainWindow] Unknown page name for refresh:" << n;
+    };
+
+    // 同页面只做refresh，不重复切换动画
     if (isSamePage) {
         // 同页面：直接refresh，不需要遮罩动画
-        if (name == "dashboard" && m_dashboardPage)      m_dashboardPage->refresh();
-        else if (name == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
-        else if (name == "tools" && m_toolMgmtPage)      m_toolMgmtPage->refresh();
-        else if (name == "borrow" && m_borrowPage)        m_borrowPage->refresh();
-        else if (name == "return" && m_returnPage)        m_returnPage->refresh();
-        else if (name == "checkin" && m_checkinPage)      m_checkinPage->refresh();
-        else if (name == "checkout" && m_checkoutPage)    m_checkoutPage->refresh();
-        else if (name == "ledger" && m_ledgerPage)        m_ledgerPage->refresh();
-        else if (name == "alerts" && m_alertsPage)        m_alertsPage->refresh();
-        else if (name == "maintenance" && m_maintenancePage) m_maintenancePage->refresh();
-        else if (name == "settings" && m_settingsPage)    m_settingsPage->refresh();
-        else qWarning() << "[MainWindow] Unknown page name for refresh:" << name;
+        refreshPage(name);
         return;
     }
 
@@ -277,7 +306,7 @@ void MainWindow::showPage(const QString& name) {
     m_stack->setCurrentIndex(idx);
     updateSidebarActive(name);
 
-    // 3. 遮罩淡出→透出新页面 [2026-06-27] 350ms→150ms，提升菜单切换响应速度
+    // 3. 遮罩淡出→透出新页面 350ms→150ms，提升菜单切换响应速度
     auto* overlayEffect = new QGraphicsOpacityEffect(overlay);
     overlayEffect->setOpacity(1.0);
     overlay->setGraphicsEffect(overlayEffect);
@@ -291,25 +320,16 @@ void MainWindow::showPage(const QString& name) {
     });
     fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
 
-    // 更新TopBar页面标题
-    static QMap<QString, QString> titles = {
-        {"dashboard", QStringLiteral("系统概览")},
-        {"users", QStringLiteral("人员管理")},
-        {"tools", QStringLiteral("工具管理")},
-        {"borrow", QStringLiteral("工具借用")},
-        {"return", QStringLiteral("工具归还")},
-        {"checkin", QStringLiteral("工具入库")},
-        {"checkout", QStringLiteral("工具出库")},
-        {"ledger", QStringLiteral("台账统计")},
-        {"alerts", QStringLiteral("告警日志")},
-        {"maintenance", QStringLiteral("系统维护")},  // [V2.03t] 补充缺失的系统维护标题
-        {"settings", QStringLiteral("系统设置")},
-    };
+    // 更新TopBar页面标题（标题来自页面注册表）
+    QString pageTitle;
+    for (const auto& pd : pageRegistry()) {
+        if (pd.name == name) { pageTitle = pd.title; break; }
+    }
     if (name == "login") {
         m_topBar->setPageTitle("");
-        m_topBar->setUserAreaVisible(false);  // [2026-06-21] 登录页隐藏时间/用户名/退出
+        m_topBar->setUserAreaVisible(false);  // 登录页隐藏时间/用户名/退出
     } else {
-        m_topBar->setPageTitle(titles.value(name, ""));
+        m_topBar->setPageTitle(pageTitle);
         m_topBar->setUserAreaVisible(true);
     }
 
@@ -318,25 +338,12 @@ void MainWindow::showPage(const QString& name) {
     // 优化：用QTimer::singleShot(0)将refresh延迟到下一轮事件循环
     // 让setCurrentIndex+遮罩动画先渲染，再执行DB查询
     // 效果：用户立即看到页面切换动画，DB查询在后台进行不卡顿
-    QMetaObject::invokeMethod(this, [this, name]() {
-        if (name == "dashboard" && m_dashboardPage)      m_dashboardPage->refresh();
-        else if (name == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
-        else if (name == "tools" && m_toolMgmtPage)      m_toolMgmtPage->refresh();
-        else if (name == "borrow" && m_borrowPage)        m_borrowPage->refresh();
-        else if (name == "return" && m_returnPage)        m_returnPage->refresh();
-        else if (name == "checkin" && m_checkinPage)      m_checkinPage->refresh();
-        else if (name == "checkout" && m_checkoutPage)    m_checkoutPage->refresh();
-        else if (name == "ledger" && m_ledgerPage)        m_ledgerPage->refresh();
-        else if (name == "alerts" && m_alertsPage)        m_alertsPage->refresh();
-        else if (name == "maintenance" && m_maintenancePage) m_maintenancePage->refresh();
-        else if (name == "settings" && m_settingsPage)    m_settingsPage->refresh();
-        else qWarning() << "[MainWindow] Unknown page name for async refresh:" << name;
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, [this, name, refreshPage]() { refreshPage(name); }, Qt::QueuedConnection);
 }
 
 void MainWindow::updateSidebarActive(const QString& name) {
     for (auto* btn : m_navButtons) {
-        // [2026-09-24] 防御：跳过空指针（防异常构建状态下脏指针导致崩溃）
+        // 防御：跳过空指针（防异常构建状态下脏指针导致崩溃）
         if (!btn) continue;
         bool active = (btn->objectName() == name);
         btn->setProperty("active", active ? "true" : "false");
@@ -350,15 +357,15 @@ void MainWindow::updateSidebarVisibility() {
     m_sidebar->setVisible(loggedIn);
     for (auto* btn : m_navButtons) {
         QString id = btn->objectName();
-        bool isAdmin = m_user["role"].toString() == "admin";
+        bool isAdmin = m_user["role"].toString() == SC::ROLE_ADMIN;
         bool show;
         if (isAdmin) {
-            // [2026-09-23] 借用/归还合并为borrowreturn入口（模拟会话）
+            // 借用/归还合并为borrowreturn入口（模拟会话）
             show = (id == "dashboard" || id == "tools" || id == "borrowreturn" || id == "alerts")
                 || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
-                     || id == "maintenance" || id == "settings");  // [V2.03g] 管理员可见系统维护
+                     || id == SC::TOOL_MAINTENANCE || id == "settings");  // 管理员可见系统维护
         } else {
-            // [V2.07 权限] 普通用户仅开放 系统概览/工具机组查询
+  // 普通用户仅开放 系统概览/工具机组查询
             show = (id == "dashboard" || id == "tools");
         }
         btn->setVisible(show);
@@ -367,7 +374,7 @@ void MainWindow::updateSidebarVisibility() {
 
 void MainWindow::setCurrentUser(const QJsonObject& user) {
     m_user = user;
-    // [2026-06-23] 用户信息仅在TopBar显示，侧边栏不再重复展示
+    // 用户信息仅在TopBar显示，侧边栏不重复展示
     m_topBar->setUserName(user["realName"].toString());
     m_topBar->setDepartment(user["department"].toString());
 
@@ -375,29 +382,29 @@ void MainWindow::setCurrentUser(const QJsonObject& user) {
 }
 
 void MainWindow::onLoginSuccess(const QJsonObject& user) {
-    // [2026-06-23] 登录成功后确保摄像头已关闭（兜底保险）
+    // 登录成功后确保摄像头已关闭（兜底保险）
     m_loginPage->stopFaceRecognitionPublic();
     setCurrentUser(user);
     m_dashboardPage->setUser(user);
     m_borrowPage->setUser(user);
     m_returnPage->setUser(user);
-    // [2026-06-27] 出库页面设置当前用户（出库记录写入正确操作人）
+    // 出库页面设置当前用户（出库记录写入正确操作人）
     m_checkoutPage->setUser(user);
-    // [V2.01 2026-06-27] 入库页面设置当前用户（入库记录写入正确操作人）
+    // 入库页面设置当前用户（入库记录写入正确操作人）
     m_checkinPage->setUser(user);
-    // [2026-06-27] 告警日志页面设置当前用户（忽略按钮权限控制）
+    // 告警日志页面设置当前用户（忽略按钮权限控制）
     m_alertsPage->setUser(user);
-    // [2026-06-27] 登录成功后刷新TopBar版本号显示（从INI读取最新版本）
-    m_topBar->refreshVersionLabel();
+    // 登录成功后刷新TopBar版本号显示（页面层读配置后注入）
+    m_topBar->setVersionText(AppConfig::instance().appVersion());
 
-    // [V2.07] 普通用户登录成功后进入功能选择页（普通用户首页）：
-    // [2026-09-23] 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
+    // 普通用户登录成功后进入功能选择页（普通用户首页）：
+    // 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
     // "借用/归还"→进入智能柜会话，会话结束→循环回本页
     // "查询/告警日志"→弹出明细对话框（不关闭本页）
     // "退出登录"→回登录页
-    bool isAdmin = (user["role"].toString() == "admin");
+    bool isAdmin = (user["role"].toString() == SC::ROLE_ADMIN);
     if (!isAdmin) {
-        // [2026-09-24] 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏，
+        // 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏，
         // 防止入口页与借用归还会话两个全屏弹窗切换间隙闪现登录页
         if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
         m_sidebar->setVisible(false);
@@ -410,7 +417,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
                 session.startSession();                             // 流程结束→循环回功能选择页
                 continue;
             }
-            // Query兜底（查询按钮已改为弹出对话框不再accept，理论不可达）
+            // Query兜底（查询按钮已为弹出对话框不accept，理论不可达）
             updateSidebarVisibility();  // 恢复侧边栏后再进首页
             showPage("dashboard");
             emit userLoggedIn(user);
@@ -426,22 +433,24 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
 
 void MainWindow::onLogout() {
     m_user = QJsonObject();
-    // [2026-06-23] 侧边栏已移除用户区域，仅重置TopBar
+    // 侧边栏已移除用户区域，仅重置TopBar
     m_topBar->setUserName(QStringLiteral("未登录"));
     m_topBar->setDepartment("");
     updateSidebarVisibility();
-    // [V6.3致命修复] 退出登录必须重置LoginPage所有状态
+  // 退出登录必须重置LoginPage所有状态
     // 否则残留"身份验证通过"、张三识别信息、m_autoJumpTimer未停等问题
     m_loginPage->resetPageState();
-    // [2026-09-24fix] 注销必须可靠回到登录刷脸页：直接切索引，
-    // 绕过showPage的遮罩/动画/异步刷新链路（此前出现过未切换停留原页的情况）
+    // 注销必须可靠回到登录刷脸页：直接切索引，
+    // ⚠ 不可动：绕开showPage的遮罩/动画/异步刷新链路（规避偶发不切换停留原页的问题）
     m_stack->setCurrentIndex(0);
     m_topBar->setPageTitle(QStringLiteral(""));
     m_topBar->setUserAreaVisible(false);
     updateSidebarActive(QStringLiteral("login"));
-    // [2026-09-24fix] 注销后抑制自动刷脸登录：人未离开摄像头画面时不立即自动回登，
+    // 注销后抑制自动刷脸登录：人未离开摄像头画面时不立即自动回登，
     // 离开画面后恢复（onFaceLost清除），保证注销后稳定停在刷脸页面
     m_loginPage->suppressAutoLoginAfterLogout();
+    // 摄像头识别恢复：注销已停掉摄像头，切回登录页时重新启动（否则需重启程序才能刷脸）
+    m_loginPage->resumeFaceRecognition();
     emit userLoggedOut();
 }
 
@@ -455,9 +464,9 @@ void MainWindow::navigateToPage(const QString& name) {
     showPage(name);
 }
 
-// [2026-09-23] 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
+// 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
 // CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
-// [2026-09-23fix] 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
+// 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
 void MainWindow::openBorrowReturnSession() {
     if (m_user.isEmpty()) return;
     CabinetSessionDialog session(m_user, this);
@@ -465,7 +474,7 @@ void MainWindow::openBorrowReturnSession() {
     showPage("dashboard");  // 管理员流程结束 → 回系统概览（管理页面）
 }
 
-// [2026-06-27] 自动锁屏超时：退出登录回到登录页
+// 自动锁屏超时：退出登录回到登录页
 void MainWindow::onAutoLockTimeout() {
     // 仅在已登录状态下触发锁屏
     if (m_user.isEmpty()) return;
@@ -474,7 +483,7 @@ void MainWindow::onAutoLockTimeout() {
     onLogout();
 }
 
-// [2026-06-27] 定时检查是否到了数据库备份时间
+// 定时检查是否到了数据库备份时间
 // 每小时检查一次，根据备份周期（每日/每周一/每周日）判断是否需要备份
 // 同一天只备份一次（通过 m_lastBackupDate 去重）
 void MainWindow::onBackupCheckTimeout() {
@@ -569,7 +578,7 @@ void MainWindow::onBackupCheckTimeout() {
     }
 }
 
-// [2026-06-27] 重置空闲计时器（用户有操作时调用）
+// 重置空闲计时器（用户有操作时调用）
 void MainWindow::resetIdleTimer() {
     m_lastActivity = QDateTime::currentDateTime();
     if (m_idleTimer && m_idleTimer->isActive()) {
@@ -577,7 +586,7 @@ void MainWindow::resetIdleTimer() {
     }
 }
 
-// [2026-06-27] 全局事件过滤器：监听鼠标点击/移动、键盘按键，重置空闲计时器
+// 全局事件过滤器：监听鼠标点击/移动、键盘按键，重置空闲计时器
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress ||
         event->type() == QEvent::MouseMove ||

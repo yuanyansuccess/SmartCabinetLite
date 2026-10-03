@@ -61,7 +61,7 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(m_stack);
 
-    loadMyTaskTools();  // [2026-09-23] 先读本机组任务类型在库工具（开柜页面板数据）
+    loadMyTaskTools();  // 先读本机组任务类型在库工具（开柜页面板数据）
     buildOpenPage();
     buildResultPage();
 }
@@ -82,7 +82,7 @@ void CabinetSessionDialog::startSession()
 
 /**
  * @brief 页面0：开柜提示页
- *   [2026-09-23] 改版：新增"我的任务工具"只读面板（方案B：任务类型横排页签+工具卡片三列）
+ *   改版：新增"我的任务工具"只读面板（方案B：任务类型横排页签+工具卡片三列）
  *   用户可按本机组任务类型查看在库工具及其位置（仅供拿取参考，不可操作），适配8寸屏
  */
 void CabinetSessionDialog::buildOpenPage()
@@ -196,7 +196,7 @@ void CabinetSessionDialog::buildOpenPage()
     m_stack->addWidget(page);
 }
 
-// [2026-09-23] 读库：本机组全部启用任务类型及各自在库工具（位置维度）
+// 读库：本机组全部启用任务类型及各自在库工具（位置维度）
 // 输入：无（机组ID取AppConfig本机机组）；输出：填充m_myTypes
 void CabinetSessionDialog::loadMyTaskTools()
 {
@@ -223,7 +223,7 @@ void CabinetSessionDialog::loadMyTaskTools()
     }
 }
 
-// [2026-09-23] 切换任务类型页签：更新选中态并重建卡片区
+// 切换任务类型页签：更新选中态并重建卡片区
 void CabinetSessionDialog::selectTypeTab(int idx)
 {
     if (idx < 0 || idx >= m_myTypes.size()) return;
@@ -233,7 +233,7 @@ void CabinetSessionDialog::selectTypeTab(int idx)
     rebuildToolCards();
 }
 
-// [2026-09-23] 按当前页签重建工具卡片网格（三列；空态显示灰色提示）
+// 按当前页签重建工具卡片网格（三列；空态显示灰色提示）
 void CabinetSessionDialog::rebuildToolCards()
 {
     if (!m_toolsScroll) return;
@@ -266,7 +266,7 @@ void CabinetSessionDialog::rebuildToolCards()
     m_toolsScroll->setWidget(host);   // QScrollArea自动销毁旧内容
 }
 
-// [2026-09-23] 构建单个只读工具卡片（工具名/编号/位置徽章，左侧绿色竖条标识在库）
+// 构建单个只读工具卡片（工具名/编号/位置徽章，左侧绿色竖条标识在库）
 QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
 {
     QWidget* card = new QWidget();

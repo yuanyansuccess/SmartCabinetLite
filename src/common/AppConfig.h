@@ -1,7 +1,7 @@
 #pragma once
-// 作者：袁燕  智能柜Qt Widget 2.0  应用配置管理（单例，基于本地INI文件）
-// 日期：2026-06-21 功能：管理数据库连接、系统参数、读写本地ini配置文件
-// [2026-06-26v19] 重构：QSettings改用显式INI文件路径，30个系统配置项统一走INI读写
+// 智能柜Qt Widget 2.0  应用配置管理（单例，基于本地INI文件）
+// 功能：管理数据库连接、系统参数、读写本地ini配置文件
+// QSettings显式INI文件路径，30个系统配置项统一走INI读写
 #include <QString>
 #include <QSettings>
 #include <QMutex>
@@ -21,7 +21,7 @@ public:
     void setDbConfig(const QString& host, int port,
                      const QString& name, const QString& user, const QString& pass);
 
-    // [2026-06-27] 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
+    // 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
     QString appVersion() const;
     void    setAppVersion(const QString& version);
 
@@ -105,7 +105,7 @@ public:
     void    setValue(const QString& key, const QString& value);
     void    save();   // 同步写入INI文件
     void    load();   // 从INI文件加载
-    QString iniFilePath() const;  // [v19] 返回INI文件路径
+    QString iniFilePath() const;  // 返回INI文件路径
 
 private:
     AppConfig();
@@ -113,7 +113,7 @@ private:
     AppConfig(const AppConfig&) = delete;
     AppConfig& operator=(const AppConfig&) = delete;
 
-    // [2026-06-27] 首次运行时创建默认INI文件（与执行文件同级）
+    // 首次运行时创建默认INI文件（与执行文件同级）
     void createDefaultIni(const QString& path);
 
     QSettings* m_settings = nullptr;

@@ -4,8 +4,8 @@
  * @author 袁燕
  * @date 2026-06-26
  *
- * [2026-06-26] 初始创建：从SoftKeyboard中独立纯数字键盘，QPainter自绘。
- * [2026-06-26v2] 改用顶层Popup窗口方案（参考SoftKeyboard）：
+ * 初始创建：从SoftKeyboard中独立纯数字键盘，QPainter自绘。
+ * 改用顶层Popup窗口方案（参考SoftKeyboard）：
  *   show()时将NumKeypad加入m_panel布局，hide()时移回页面所属。
  *   彻底解决父布局空间不足导致的裁剪问题。
  */
@@ -43,7 +43,7 @@ NumKeypad::NumKeypad(QWidget* parent)
 
 NumKeypad::~NumKeypad()
 {
-    // [2026-06-26v2] 安全解绑：移除从面板布局，防止双重删除
+    // 安全解绑：移除从面板布局，防止双重删除
     if (m_panel && m_panel->layout()) {
         m_panel->layout()->removeWidget(this);
     }
@@ -58,14 +58,14 @@ void NumKeypad::ensurePanel()
     if (m_panel) return;
 
     // ── 全屏半透明遮罩 ──
-    // [2026-06-26v3致命修复] WA_TranslucentBackground必须为true+setAutoFillBackground必须为false
+    // WA_TranslucentBackground必须为true+setAutoFillBackground必须为false
     // 否则rgba半透明不生效，显示为纯黑→造成黑屏闪烁。
     // 与SoftKeyboard遮罩方案完全对齐。
     m_overlay = new QWidget(nullptr);
     m_overlay->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     m_overlay->setAttribute(Qt::WA_TranslucentBackground, true);
     m_overlay->setAutoFillBackground(false);
-    m_overlay->setStyleSheet("background:rgba(0,0,0,0.65);");  // [2026-06-27] 0.45→0.65 杜绝底层按钮穿透
+    m_overlay->setStyleSheet("background:rgba(0,0,0,0.65);");  // 0.65 杜绝底层按钮穿透
 
     // ── 键盘面板（独立顶层窗口） ──
     m_panel = new QWidget(nullptr);
@@ -115,13 +115,13 @@ void NumKeypad::show()
     QScreen* screen = QApplication::primaryScreen();
     if (screen && m_overlay) {
         m_overlay->setGeometry(screen->geometry());
-        m_overlay->setWindowOpacity(1.0);  // [2026-06-27] 确保遮罩完全不透明渲染
+        m_overlay->setWindowOpacity(1.0);  // 确保遮罩完全不透明渲染
         m_overlay->show();
         m_overlay->raise();
     }
 
     // ── 显示面板 ──
-    m_panel->setWindowOpacity(1.0);  // [2026-06-27] 确保面板完全不透明
+    m_panel->setWindowOpacity(1.0);  // 确保面板完全不透明
     m_panel->show();
     m_panel->raise();
     m_panel->activateWindow();
@@ -138,7 +138,7 @@ void NumKeypad::show()
 
 void NumKeypad::hide()
 {
-    // [2026-06-26v2] 恢复父控件归属，防止页面销毁时双重删除
+    // 恢复父控件归属，防止页面销毁时双重删除
     if (m_panel && m_panel->layout()) {
         m_panel->layout()->removeWidget(this);
     }
@@ -164,7 +164,7 @@ void NumKeypad::hide()
     // Qt 内部随后访问已释放的 QWidget/QWindow → 访问冲突；随后整条登录链
     // （onPasswordLogin → loginSuccess → MainWindow::onLoginSuccess）继续在已损坏的
     // 窗口状态上跑，最终在 onLoginSuccess 第一处 Qt 调用处崩溃。
-    // 修复：面板/遮罩的关闭与销毁延迟到本轮事件派发结束（singleShot(0)）执行，
+    // 注意：面板/遮罩的关闭与销毁延迟到本轮事件派发结束（singleShot(0)）执行，
     // 且必须真正 deleteLater —— 原实现只 close()+置空指针，每次登录泄漏一个全屏半透明顶层窗口。
     QObject* ctx = m_ownerWidget ? static_cast<QObject*>(m_ownerWidget)
                                  : static_cast<QObject*>(this);
@@ -464,8 +464,8 @@ void NumKeypad::paintEvent(QPaintEvent*)
 
         p.setPen(isFn ? QColor(COLOR_KEY_FN_TEXT) : QColor(COLOR_KEY_TEXT));
         QFont keyFont;
-        keyFont.setFamily(QStringLiteral("Microsoft YaHei"));   // [2026-06-27] 统一中文系统字体
-        keyFont.setPixelSize(20);                                // [2026-06-27] 统一20px，消除功能键/数字键视觉不和谐
+        keyFont.setFamily(QStringLiteral("Microsoft YaHei"));  // 统一中文系统字体
+        keyFont.setPixelSize(20);  // 统一20px，消除功能键/数字键视觉不和谐
         keyFont.setWeight(QFont::DemiBold);
         p.setFont(keyFont);
         p.drawText(r, Qt::AlignCenter, kr.text);

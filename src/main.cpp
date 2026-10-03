@@ -1,5 +1,5 @@
-// 作者：袁燕  智能柜Qt Widget 2.0  程序入口
-// 日期：2026-06-21 融合版：版本B页面(功能完整) + 版本A组件(TopBar/软键盘/摄像头)
+// 智能柜Qt Widget 2.0  程序入口
+// 融合版：版本B页面(功能完整) + 版本A组件(TopBar/软键盘/摄像头)
 #include <QApplication>
 #include <QFont>
 #include <QFontDatabase>
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     app.setStyle(QStyleFactory::create("Fusion"));
 
     // ── 初始化数据库连接 ──
-    // [2026-06-26] 策略：优先本地SQLite存储，远程MySQL为可选同步
+    // 策略：优先本地SQLite存储，远程MySQL为可选同步
     AppConfig& cfg = AppConfig::instance();
     DatabaseManager& db = DatabaseManager::instance();
     if (!db.initialize(cfg.dbHost(), cfg.dbPort(), cfg.dbName(), cfg.dbUser(), cfg.dbPass())) {
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     qInfo() << "Database initialized successfully, connected:" << db.isConnected();
 
     // ── 设置程序图标 ──
-    // [v4.1] 窗口标题栏图标用公司logo，exe图标用专业工具图标(app.rc控制)
+    // 窗口标题栏图标用公司logo，exe图标用专业工具图标(app.rc控制)
     app.setWindowIcon(QIcon(":/resources/logo.png"));
 
     // ── 加载全局QSS ──
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
         QString qss = qssFile.readAll();
         qssFile.close();
-        // [2026-06-27] 强制去除所有表格单元格选中时的虚线焦点框
+        // 强制去除所有表格单元格选中时的虚线焦点框
         // 追加在全局样式末尾，确保优先级最高
         qss += "\n/* 强制去除表格焦点框 */\n"
                "QTableWidget { outline: none; }\n"
@@ -63,12 +63,12 @@ int main(int argc, char* argv[]) {
     }
 
     // ── 人脸识别常驻服务：随主程序启动拉起，随主程序退出停止 ──
-    // [2026-09-24] 袁燕：服务进程由应用托管，避免开机后服务未启动导致人脸功能全废
+    // 袁燕：服务进程由应用托管，避免开机后服务未启动导致人脸功能全废
     DeepFaceExtractor::prestartAsync();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &DeepFaceExtractor::shutdownServer);
 
     // ── 主窗口 ──
-    // [v4.1] 触屏智能柜系统强制全屏模式运行
+    // 触屏智能柜系统强制全屏模式运行
     MainWindow w;
     w.showFullScreen();
 

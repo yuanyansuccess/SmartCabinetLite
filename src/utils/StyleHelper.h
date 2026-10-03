@@ -19,6 +19,50 @@
 
 class StyleHelper {
 public:
+    // ============ 触屏设计令牌（消除魔鬼数字的唯一来源）============
+    // 规约：控件高度只用本表枚举值；新代码禁止裸写数字
+    //   表格内紧凑控件另用 Compact* 系列，不得占用触屏高度
+    struct Token {
+        // ---- 字号（px）----
+        static constexpr int FontCaption  = 12;  // 角标/极次要说明
+        static constexpr int FontSmall    = 13;  // 版权/次要信息
+        static constexpr int FontBody     = 14;  // 表格正文/表单标签
+        static constexpr int FontLabel    = 15;  // 表单标签/列表项
+        static constexpr int FontInput    = 16;  // 输入框与按钮文字
+        static constexpr int FontTitle    = 18;  // 卡片标题
+        static constexpr int FontHeading  = 20;  // 页面标题
+        static constexpr int FontDisplay  = 22;  // 大标题/关键数值
+
+        // ---- 控件高度（px）----
+        static constexpr int ControlHeight       = 44;  // 常规按钮与输入框
+        static constexpr int ControlHeightTouch  = 48;  // 触屏标准高度（主要交互控件）
+        static constexpr int ControlHeightLarge  = 56;  // 大按钮/强调操作
+        static constexpr int ControlHeightCompact = 32;  // 表格内紧凑控件
+        static constexpr int ControlHeightCompactInput = 40;  // 设置页紧凑输入框
+        static constexpr int RowHeight           = 44;  // 表格行高
+
+        // ---- 圆角（px）----
+        static constexpr int RadiusSmall  = 8;
+        static constexpr int Radius       = 10;
+        static constexpr int RadiusMedium = 12;
+        static constexpr int RadiusLarge  = 14;
+
+        // ---- 状态指示点直径（px）----
+        static constexpr int StatusDotSize = 8;
+    };
+
+    // ============ 触屏尺寸片段生成（消除 QSS 内魔数）============
+    /// 生成 font-size 片段（字号统一走 Token，新代码禁止裸写数字）
+    /// @param level 取 StyleHelper::Token::Font* 系列值
+    static QString fontSize(int level) {
+        return QString("font-size:%1px;").arg(level);
+    }
+
+    /// 生成 min-height 片段（控件高度统一走 Token）
+    static QString minHeight(int level) {
+        return QString("min-height:%1px;").arg(level);
+    }
+
     // ============ 颜色方案 ============
     static QString bgColor()         { return "#f0f2f5"; }
     static QString whiteColor()      { return "#ffffff"; }
@@ -35,7 +79,7 @@ public:
     static QString purpleColor()     { return "#6c5ce7"; }
     static QString purpleHover()     { return "#5a4bd1"; }
 
-    /// 默认按钮 (白底灰边，用于返回/取消) [2026-06-27] 统一触屏标准: 44px高 14px字体 10px圆角
+    /// 默认按钮 (白底灰边，用于返回/取消) 统一触屏标准: 44px高 14px字体 10px圆角
     static QString buttonDefault() {
         return QString(
             "QPushButton {"
@@ -50,7 +94,7 @@ public:
     }
 
     // ============ 按钮样式 ============
-    /// 主按钮 (蓝色实底，用于保存/确认等主要操作) [2026-06-27] 统一触屏标准: 44px高 14px字体 10px圆角
+    /// 主按钮 (蓝色实底，用于保存/确认等主要操作) 统一触屏标准: 44px高 14px字体 10px圆角
     static QString buttonPrimary() {
         return QString(
             "QPushButton {"
@@ -61,6 +105,18 @@ public:
             "QPushButton:hover { background: #3d8ae0; }"
             "QPushButton:pressed { background: #2e7bd6; }"
             "QPushButton:disabled { background: #cccccc; color: #888888; }"
+        );
+    }
+
+    /// 流程确认清单的清单表格样式（借用/归还/出库"确认清单"对话框共用，唯一定义点）
+    static QString listTableStyle() {
+        return QString(
+            "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
+            "  font-family:\"Microsoft YaHei\",sans-serif; font-size:14px; }"
+            "QTableWidget::item { padding:10px 12px; color:#333; border:none; "
+            "  border-bottom:1px solid #f3f3f3; }"
+            "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; "
+            "  font-size:13px; padding:10px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
         );
     }
 
@@ -78,7 +134,7 @@ public:
         );
     }
 
-    /// 轮廓按钮 (白底蓝边，用于辅助操作) [2026-06-27] 统一触屏标准
+    /// 轮廓按钮 (白底蓝边，用于辅助操作) 统一触屏标准
     static QString buttonOutline() {
         return QString(
             "QPushButton {"
@@ -106,7 +162,7 @@ public:
     }
 
     // ============ 输入框样式 ============
-    /// [2026-06-27] 统一触屏标准: 48px高 16px字体 10px圆角 1px边框
+    /// 统一触屏标准: 48px高 16px字体 10px圆角 1px边框
     static QString lineEdit() {
         return QString(
             "QLineEdit {"
@@ -120,19 +176,19 @@ public:
     }
 
     // ============ 设置页面专用样式（触屏优化标准：48px高，16px字体）============
-    // [2026-06-23 统一触屏标准] 38px→48px, 14px→16px，与其他管理页面风格一致
-    // [2026-06-24v5] 去掉内部边框+纯白背景，文字深色清晰
+    // 48px, 16px，与其他管理页面风格一致
+    // 去掉内部边框+纯白背景，文字深色清晰
     static QString settingLineEdit() {
         return QString(
             "QLineEdit {"
             "  border: none; border-radius: 8px;"
-            "  padding: 0 16px; font-size: 14px; color: %1;"  // [V2.03l] 16→14小米紧凑
-            "  background: white; min-height: 40px;"  // [V2.03l] 48→40紧凑
+            "  padding: 0 16px; font-size: 14px; color: %1;"  // 14小米紧凑
+            "  background: white; min-height: 40px;"  // 40紧凑
             "}"
         ).arg(textColor());
     }
 
-    // [2026-06-24v5] 去掉内部边框+纯白背景
+    // 去掉内部边框+纯白背景
     static QString settingComboBox() {
         return QString(
             "QComboBox {"
@@ -145,8 +201,8 @@ public:
         ).arg(textColor());
     }
 
-    // [2026-06-24v5] 去掉内部边框+纯白背景
-    // [2026-06-24v8] 修复：数字区域下方仍有边框，彻底去掉所有边框和outline
+    // 去掉内部边框+纯白背景
+    // 注意：数字区域下方仍有边框，彻底去掉所有边框和outline
     static QString settingSpinBox() {
         return QString(
             "QSpinBox {"
@@ -210,7 +266,7 @@ public:
     }
 
     // ============ 表格内嵌控件样式（紧凑版，适配56px行高）============
-    // [V7.1 2026-06-24] 表格内的ComboBox/SpinBox/Button需要紧凑样式
+    // 表格内的ComboBox/SpinBox/Button需要紧凑样式
     static QString tableComboBox() {
         return QString(
             "QComboBox {"
@@ -265,7 +321,7 @@ public:
             "QWidget { background: %2; color: %3; }"
         ).arg(fontFamily, bgColor(), textColor());
     }
-    
+
     // ============ 弹窗样式 ============
     /// 统一弹窗样式（标题栏、背景、边框）
     static QString dialogStyle() {
@@ -283,7 +339,7 @@ public:
             "}"
         ).arg(whiteColor(), borderColor(), textColor());
     }
-    
+
     // ============ 麒麟系统字体适配 ============
     /// 检测系统中文字体，返回最佳可用字体
     static QString detectChineseFont() {
@@ -297,11 +353,11 @@ public:
             "SimHei",                 // 黑体
             "Microsoft YaHei"         // 微软雅黑 (备用)
         };
-        
+
         // 检测系统可用字体
         QFontDatabase fontDb;
         QStringList availableFonts = fontDb.families();
-        
+
         for (const QString &font : fontCandidates) {
             for (const QString &available : availableFonts) {
                 if (available.contains(font, Qt::CaseInsensitive)) {
@@ -310,29 +366,39 @@ public:
                 }
             }
         }
-        
+
         // 如果没有找到任何中文字体，返回默认sans-serif
         qWarning() << "[StyleHelper] No Chinese font detected, using default";
         return "sans-serif";
     }
-    
+
     /// 获取适配的字体对象
     static QFont getChineseFont(int pointSize = 16) {
         QString fontName = detectChineseFont();
         QFont font(fontName, pointSize);
-        
+
         // 设置字体属性
         font.setStyleStrategy(QFont::PreferAntialias);
-        
+
         // 如果是文泉驿微米黑，稍微增大字号（该字体偏小）
         if (fontName.contains("WenQuanYi", Qt::CaseInsensitive)) {
             font.setPointSize(pointSize + 1);
         }
-        
+
         return font;
     }
 
     // ============ 位置格式统一 ============
+    /// 提取层/位号中的数字并规范为两位（不足两位补零，超过两位原样保留）
+    /// 注意：按字符串长度判断补零，不能按数值大小（"03"数值3<10会被误补成"003"）
+    static QString twoDigitCode(const QString& raw) {
+        QString code = raw;
+        code.remove(QRegularExpression("[^0-9]"));
+        if (!code.isEmpty() && code.size() < 2)
+            code = QStringLiteral("0") + code;
+        return code;
+    }
+
     /// 格式化位置显示为 柜号-层号-位号（两位补零，如A-01-03）
     /// @param cabinetName 柜体全名（如"A柜"），取首字母作为柜号
     /// @param layer 层号字符串（如"03层"或"3"），提取数字后两位补零
@@ -340,14 +406,6 @@ public:
     /// @return 格式化后的位置字符串，如"A-01-03"
     static QString formatPosition(const QString& cabinetName, const QString& layer, const QString& position) {
         QString cabCode = cabinetName.isEmpty() ? "-" : cabinetName.left(1);
-        QString layerCode = layer;
-        layerCode.remove(QRegularExpression("[^0-9]"));
-        if (!layerCode.isEmpty() && layerCode.toInt() < 10)
-            layerCode = QStringLiteral("0") + layerCode;
-        QString posCode = position;
-        posCode.remove(QRegularExpression("[^0-9]"));
-        if (!posCode.isEmpty() && posCode.toInt() < 10)
-            posCode = QStringLiteral("0") + posCode;
-        return QStringLiteral("%1-%2-%3").arg(cabCode, layerCode, posCode);
+        return QStringLiteral("%1-%2-%3").arg(cabCode, twoDigitCode(layer), twoDigitCode(position));
     }
 };

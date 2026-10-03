@@ -2,7 +2,6 @@
  * @file ToolManagementPage.cpp
  * @brief 工具管理页面实现 - 参考工程机组管理风格重做
  * @author 袁燕
- * @修改说明 V7.0 2026-06-24 全面改造：
  *   1. 顶部统计卡片（全部工具/在库/已借用/维护中）
  *   2. 表格列：编号/名称/规格型号/机组/位置/状态/最近操作/操作
  *   3. 状态用彩色标签（在库绿/已借用橙/维护中灰）
@@ -10,7 +9,10 @@
  *   5. 数据使用数据库 machine_group + tool_info 关联查询
  */
 #include "ToolManagementPage.h"
+#include "ui_ToolManagementPage.h"
+#include "components/PaginationBar.h"
 #include "utils/StyleHelper.h"
+#include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
 #include "controller/ToolController.h"
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"
@@ -40,13 +42,17 @@
 #include <QDir>                // 创建文档存储目录
 #include <QTimer>              // 上传后延迟重新打开详情对话框
 
-ToolManagementPage::ToolManagementPage(QWidget* parent) : QWidget(parent),
+ToolManagementPage::ToolManagementPage(QWidget* parent) : QWidget(parent), ui(new Ui::ToolManagementPage),
     m_toolDialog(nullptr), m_editToolId(0), m_currentPage(1), m_pageSize(20), m_totalRecords(0) {
+    // 静态布局来自ToolManagementPage.ui（Qt Designer可视化维护）
+    ui->setupUi(this);
     setupUI();
     loadStats();  // 加载统计
 }
 
-ToolManagementPage::~ToolManagementPage() = default;
+ToolManagementPage::~ToolManagementPage() {
+    delete ui;
+}
 
 // 创建单个统计卡片
 static QFrame* createStatCard(const QString& title, const QString& icon, const QString& color, QLabel*& countLabel) {
@@ -86,7 +92,7 @@ static QFrame* createStatCard(const QString& title, const QString& icon, const Q
 }
 
 void ToolManagementPage::setupStatsCards() {
-    // 统计卡片行 [V7.0]
+    // 统计卡片行 
     // 统计按"种类+位置"唯一标识排列
     // 工具总数=在库+已借出（不含出库/待入库）
     // 新增"待入库"卡片，pending=配置层尚未物理入库
@@ -100,120 +106,41 @@ void ToolManagementPage::setupStatsCards() {
 }
 
 void ToolManagementPage::setupUI() {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
-
-    // 标题
-    auto* title = new QLabel(QStringLiteral("工具机组管理"));
-    title->setStyleSheet("font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;");
-    mainLayout->addWidget(title);
-
-    // ==================== 统计卡片 [V7.0] ====================
-    setupStatsCards();
-    auto* statsRow = new QHBoxLayout();
-    statsRow->setSpacing(16);
-    statsRow->addWidget(m_statsCardAll, 1);
-    statsRow->addWidget(m_statsCardInStock, 1);
-    statsRow->addWidget(m_statsCardBorrowed, 1);
-    statsRow->addWidget(m_statsCardCheckedOut, 1);
-    statsRow->addWidget(m_statsCardPending, 1);  // 待入库卡片
-    statsRow->addWidget(m_statsCardMaintenance, 1);
-    mainLayout->addLayout(statsRow);
-
-    // ==================== 搜索筛选行 ====================
-    auto* searchRow = new QHBoxLayout();
-    searchRow->setSpacing(12);
-
-    // 搜索框
-    auto* searchInputWrap = new QFrame();
-    searchInputWrap->setAttribute(Qt::WA_StyledBackground, true);
-    searchInputWrap->setFixedWidth(280);
-    searchInputWrap->setFixedHeight(48);
-    searchInputWrap->setStyleSheet(
-        "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
-    );
-    auto* searchInputLayout = new QHBoxLayout(searchInputWrap);
-    // 右内边距1px防止按钮覆盖QFrame右下角边框
-    searchInputLayout->setContentsMargins(0, 0, 1, 0);
-    searchInputLayout->setSpacing(0);
-
-    m_searchEdit = new QLineEdit();
+    // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
+    m_searchEdit = ui->searchBar->lineEdit();
     m_searchEdit->setPlaceholderText(QStringLiteral("搜索工具名称/编号..."));
-    m_searchEdit->setStyleSheet(
-        "QLineEdit{border:none;padding:0 16px;font-size:16px;background:transparent;color:#333;min-height:42px;}"
-    );
-    searchInputLayout->addWidget(m_searchEdit, 1);
+    m_searchBtn = ui->searchBtn;
+    m_resetBtn = ui->resetBtn;
+    m_table = ui->table;
+    m_paginationBar = ui->paginationBar;
 
-    auto* searchKbdBtn = new QPushButton(QStringLiteral("⌨"));
-    searchKbdBtn->setFixedSize(46, 44);
-    searchKbdBtn->setCursor(Qt::PointingHandCursor);
-    // 按钮圆角10px对齐QFrame内边距(12px外框-2px边框=10px内径)
-    searchKbdBtn->setStyleSheet(
-        "QPushButton{border:none;border-radius:0 10px 10px 0;"
-        "background:#f0f2f5;font-size:22px;color:#888;}"
-        "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}"
-    );
-    connect(searchKbdBtn, &QPushButton::clicked, this, &ToolManagementPage::onSearchKeyboardClicked);
-    searchInputLayout->addWidget(searchKbdBtn);
+    // 统计卡片（SC常量样式动态构建装入.ui容器）
+    setupStatsCards();
+    ui->statsLayout->addWidget(m_statsCardAll, 1);
+    ui->statsLayout->addWidget(m_statsCardInStock, 1);
+    ui->statsLayout->addWidget(m_statsCardBorrowed, 1);
+    ui->statsLayout->addWidget(m_statsCardCheckedOut, 1);
+    ui->statsLayout->addWidget(m_statsCardPending, 1);
+    ui->statsLayout->addWidget(m_statsCardMaintenance, 1);
 
-    // 类别筛选——从DB动态获取
+    // 搜索框软键盘按钮
+    connect(ui->searchBar->keyboardButton(), &QPushButton::clicked, this, &ToolManagementPage::onSearchKeyboardClicked);
+
+    // 类别筛选——从DB动态获取（自定义组件装入.ui槽位）
     m_categoryFilter = new MultiSelectFilter(QStringLiteral("全部类别"), this);
     connect(m_categoryFilter, &MultiSelectFilter::selectionChanged, this, &ToolManagementPage::onSearch);
+    ui->categoryFilterSlotLayout->addWidget(m_categoryFilter);
 
     // 机组筛选——从machine_group表动态获取
     m_machineGroupFilter = new MultiSelectFilter(QStringLiteral("全部机组"), this);
     connect(m_machineGroupFilter, &MultiSelectFilter::selectionChanged, this, &ToolManagementPage::onSearch);
+    ui->machineGroupFilterSlotLayout->addWidget(m_machineGroupFilter);
 
-    m_searchBtn = new QPushButton(QStringLiteral("查询"));
-    m_searchBtn->setFixedHeight(48);
-    m_searchBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "padding:0 24px;font-size:16px;font-weight:700;}"
-        "QPushButton:hover{background:#3d8ae0;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_searchBtn->setCursor(Qt::PointingHandCursor);
     connect(m_searchBtn, &QPushButton::clicked, this, &ToolManagementPage::onSearch);
-
-    m_resetBtn = new QPushButton(QStringLiteral("重置"));
-    m_resetBtn->setFixedHeight(48);
-    m_resetBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:12px;"
-        "padding:0 24px;font-size:16px;font-weight:700;}"
-        "QPushButton:hover{background:#f0f7ff;}"
-        "QPushButton:pressed{transform:scale(0.96);}"
-    );
-    m_resetBtn->setCursor(Qt::PointingHandCursor);
     connect(m_resetBtn, &QPushButton::clicked, this, &ToolManagementPage::onReset);
 
-    searchRow->addWidget(searchInputWrap, 1);
-    searchRow->addWidget(m_categoryFilter);
-    searchRow->addWidget(m_machineGroupFilter);
-    searchRow->addWidget(m_searchBtn);
-    searchRow->addWidget(m_resetBtn);
-    searchRow->addStretch();
-    mainLayout->addLayout(searchRow);
-
-    // ==================== 表格 [V2.03e 2026-06-29] 列：编号/类别/名称/规格型号/机组/位置/状态/借用人/最近操作/操作 ====================
-    // 删除"库存"列（某机组某柜某层某位只有一个库存，位置即唯一标识）
-    // 位置列改为唯一标识格式：柜名-层号-位号
-    // 删除"借用中"列（一个位置=一个工具，状态列已说明在库/借出）
-    m_table = new QTableWidget();
-    m_table->setColumnCount(10);
-    m_table->setHorizontalHeaderLabels({
-        QStringLiteral("编号"), QStringLiteral("类别"), QStringLiteral("名称"), QStringLiteral("规格型号"),
-        QStringLiteral("机组"), QStringLiteral("位置"), QStringLiteral("状态"),
-        QStringLiteral("借用人"), QStringLiteral("最近操作"), QStringLiteral("操作")
-    });
+    // 表格列宽策略：数据列Stretch均分，操作列Fixed紧凑130px（触屏按钮）
     m_table->horizontalHeader()->setStretchLastSection(false);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setAlternatingRowColors(false);
-    // 移除内联表格QSS，使用全局QSS统一表格样式（小米设计语言）
-    // 数据列Stretch均分，操作列Fixed紧凑（触屏按钮~130px）
-    // 列：编号(0) 类别(1) 名称(2) 规格型号(3) 机组(4) 位置(5) 状态(6) 借用人(7) 最近操作(8) 操作(9)
     for (int i = 0; i < 9; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
     }
@@ -221,47 +148,10 @@ void ToolManagementPage::setupUI() {
     m_table->setColumnWidth(9, 130);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->horizontalHeader()->setMinimumSectionSize(60);
-    mainLayout->addWidget(m_table, 1);
 
-    // ==================== 分页 ====================
-    // 统一分页样式：按钮文字改为"上一页""下一页"，与其他页面一致
-    auto* pageRow = new QHBoxLayout();
-    pageRow->setContentsMargins(12, 12, 12, 12);
-    pageRow->setSpacing(6);
-
-    m_prevBtn = new QPushButton(QStringLiteral("上一页"));
-    m_prevBtn->setStyleSheet(
-        "QPushButton{border:1px solid #ddd;border-radius:6px;padding:5px 12px;"
-        "font-size:13px;font-weight:600;color:#555;background:#fff;min-height:30px;}"
-        "QPushButton:hover{border-color:#4da3ff;color:#4da3ff;}"
-        "QPushButton:disabled{opacity:0.35;}"
-    );
-    m_prevBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_prevBtn, &QPushButton::clicked, this, &ToolManagementPage::onPrevPage);
-
-    m_nextBtn = new QPushButton(QStringLiteral("下一页"));
-    m_nextBtn->setStyleSheet(
-        "QPushButton{border:1px solid #ddd;border-radius:6px;padding:5px 12px;"
-        "font-size:13px;font-weight:600;color:#555;background:#fff;min-height:30px;}"
-        "QPushButton:hover{border-color:#4da3ff;color:#4da3ff;}"
-        "QPushButton:disabled{opacity:0.35;}"
-    );
-    m_nextBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_nextBtn, &QPushButton::clicked, this, &ToolManagementPage::onNextPage);
-
-    m_pageLabel = new QLabel(QStringLiteral("第 1 页"));
-    m_pageLabel->setStyleSheet("font-size:13px;color:#999;padding:0 4px;");
-
-    m_totalLabel = new QLabel(QStringLiteral("共 0 条"));
-    m_totalLabel->setStyleSheet("font-size:13px;color:#999;");
-
-    // 布局顺序：stretch | 上一页 | 第X页 | 下一页 | 共N条
-    pageRow->addStretch();
-    pageRow->addWidget(m_prevBtn);
-    pageRow->addWidget(m_pageLabel);
-    pageRow->addWidget(m_nextBtn);
-    pageRow->addWidget(m_totalLabel);
-    mainLayout->addLayout(pageRow);
+    // 分页
+    connect(m_paginationBar, &PaginationBar::prevClicked, this, &ToolManagementPage::onPrevPage);
+    connect(m_paginationBar, &PaginationBar::nextClicked, this, &ToolManagementPage::onNextPage);
 
     loadCategories();
     loadMachineGroups();
@@ -309,7 +199,7 @@ void ToolManagementPage::loadMachineGroups() {
 }
 
 // 加载统计数据
-// 改为按工具件数统计（total_qty/current_qty/borrowed_qty），不再按种类数
+// 按工具件数统计（total_qty/current_qty/borrowed_qty），不按种类数
 void ToolManagementPage::loadStats() {
     ToolController ctrl;
     QJsonObject stats = ctrl.getToolStats();
@@ -318,7 +208,6 @@ void ToolManagementPage::loadStats() {
     // 待入库 = 映射表中空闲位置数（有位置记录但无工具占用）
     //int total = stats["inStockCount"].toInt() + stats["borrowedCount"].toInt()
     // + stats["pendingCount"].toInt() + stats["checkedOutCount"].toInt();
-
 
     int total = stats["inStockCount"].toInt() + stats["borrowedCount"].toInt();
 
@@ -334,7 +223,7 @@ void ToolManagementPage::loadTools() {
     QString kw = m_searchEdit->text().trimmed();
     QStringList cats = m_categoryFilter->selectedOptions();
     QString cat = cats.join(",");
-    // 动态判断全选（不再硬编码5）
+    // 动态判断全选（不硬编码5）
     bool allCatSel = (cats.size() == m_allCategories.size());
     if (allCatSel || cats.isEmpty()) cat = "";
 
@@ -350,13 +239,11 @@ void ToolManagementPage::loadTools() {
 
     // 分页
     int totalPages = (m_totalRecords + m_pageSize - 1) / m_pageSize;
-    m_pageLabel->setText(QStringLiteral("第 %1/%2 页").arg(m_currentPage).arg(qMax(1, totalPages)));
-    m_totalLabel->setText(QStringLiteral("共 %1 条").arg(m_totalRecords));
-    m_prevBtn->setEnabled(m_currentPage > 1);
-    m_nextBtn->setEnabled(m_currentPage < totalPages);
+    m_paginationBar->setPageInfo(m_currentPage, totalPages);
+    m_paginationBar->setTotalRecords(m_totalRecords);
 
     // 填充表格：编号/类别/名称/规格型号/机组/位置/状态/借用中/借用人/最近操作/操作
-    // 删除了"库存"列，位置改为唯一标识格式
+    // 无"库存"列：一个位置(机组-柜-层-位号)=一个工具，位置为唯一标识格式
     m_table->setRowCount(pageResult.list.size());
     for (int i = 0; i < pageResult.list.size(); ++i) {
         const ToolInfo& t = pageResult.list[i];
@@ -366,7 +253,7 @@ void ToolManagementPage::loadTools() {
         m_table->setItem(i, 2, new QTableWidgetItem(t.toolName));               // 名称
         m_table->setItem(i, 3, new QTableWidgetItem(t.spec));                   // 规格型号
 
-        // 机组 [V7.0]
+        // 机组 
         QString groupName = t.machineGroupName.isEmpty() ? QStringLiteral("未分配") : t.machineGroupName;
         m_table->setItem(i, 4, new QTableWidgetItem(groupName));
 
@@ -378,22 +265,22 @@ void ToolManagementPage::loadTools() {
         posItem->setForeground(QColor("#333333"));
         m_table->setItem(i, 5, posItem);
 
-        // 状态 - 彩色标签样式 [V7.0]
+        // 状态 - 彩色标签样式 
         QString statusText;
         QString statusColor;
-        if (t.status == "in_stock") {
+        if (t.status == SC::TOOL_IN_STOCK) {
             statusText = QStringLiteral("在库");
             statusColor = "#43a047";
         } else if (t.status == "borrowed") {
             statusText = QStringLiteral("已借用");
             statusColor = "#f57c00";
-        } else if (t.status == "checked_out") {           // 新增已出库状态
+        } else if (t.status == SC::TOOL_CHECKED_OUT) {           // 新增已出库状态
             statusText = QStringLiteral("已出库");          // 区别于已借用，表示永久出库消耗
-            statusColor = "#e53935";                       //   红色警示，作者：袁燕
-        } else if (t.status == "maintenance") {
+            statusColor = "#e53935";  //   红色警示，作者：袁燕
+        } else if (t.status == SC::TOOL_MAINTENANCE) {
             statusText = QStringLiteral("维护中");
             statusColor = "#999999";
-        } else if (t.status == "pending") {               // 新增待入库状态
+        } else if (t.status == SC::TOOL_PENDING) {               // 新增待入库状态
             statusText = QStringLiteral("待入库");          // 系统维护新建工具未入库
             statusColor = "#1890ff";
         } else {
@@ -410,7 +297,7 @@ void ToolManagementPage::loadTools() {
 
         // 已删除"借用中"列（一个位置=一个工具，状态列已说明）
 
-        // 借用人 [2026-06-27] 显示最近借用人 [V2.03e] 列索引7
+        // 借用人 显示最近借用人 列索引7
         QString borrowerName = t.latestOpUser;
         auto* borrowerItem = new QTableWidgetItem(borrowerName.isEmpty() ? QStringLiteral("--") : borrowerName);
         borrowerItem->setTextAlignment(Qt::AlignCenter);
@@ -424,13 +311,13 @@ void ToolManagementPage::loadTools() {
         }
         m_table->setItem(i, 7, borrowerItem);
 
-        // 最近操作 [V7.0] [V2.03e] 列索引8
+        // 最近操作 列索引8
         QString lastOp;
         if (!t.latestOpTime.isEmpty()) {
             QString opType;
             if (t.latestOpType == "borrow") opType = QStringLiteral("借用");
-            else if (t.latestOpType == "checkout") opType = QStringLiteral("出库");
-            else if (t.latestOpType == "checkin") opType = QStringLiteral("入库");
+            else if (t.latestOpType == SC::OP_CHECKOUT) opType = QStringLiteral("出库");
+            else if (t.latestOpType == SC::OP_CHECKIN) opType = QStringLiteral("入库");
             else opType = QStringLiteral("操作");
             lastOp = t.latestOpTime + "\n" + opType;
         } else {
@@ -441,7 +328,7 @@ void ToolManagementPage::loadTools() {
         opItem->setForeground(QColor("#888888"));
         m_table->setItem(i, 8, opItem);
 
-        // 操作列 - 详情按钮 [V7.3 2026-06-24] 去掉编辑按钮，只保留详情
+        // 操作列 - 详情按钮 去掉编辑按钮，只保留详情
         int toolId = t.toolId;
         auto* opWidget = new QWidget();
         opWidget->setStyleSheet("background:transparent;");
@@ -479,33 +366,58 @@ void ToolManagementPage::onNextPage() {
 }
 
 // 查看工具详情：美观弹窗展示所有字段
-// 改用BaseDialog统一圆角无边框风格
-// 改为接收ToolInfo（含位置信息），操作记录按位置过滤
+// BaseDialog统一圆角无边框风格
+// 接收ToolInfo（含位置信息），操作记录按位置过滤
 // 同一工具在多个位置，每个位置的详情只显示该位置相关的操作记录
+/** 工具详情对话框会话上下文：聚合对话框控件与权威工具数据 */
+struct ToolDetailCtx {
+    BaseDialog* dlg = nullptr;
+    QTabWidget* tabWidget = nullptr;
+    ToolInfo t;               // 补全位置信息后的权威工具数据
+    db::RecordDAO recDao;     // 操作记录查询（Tab1最后操作与Tab2记录共用）
+};
+
+/** 工具详情 — 统一BaseDialog圆角风格，Tab选项卡式（详情/操作记录/文档） */
 void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
+    ToolDetailCtx ctx;
+    ctx.t = resolveToolInfo(toolInfo);
+    if (ctx.t.toolId == 0) return;
+
+    // 对话框加宽到900，确保操作记录表格列宽不截断
+    ctx.dlg = new BaseDialog(this, 900);
+    ctx.dlg->setDialogTitle(QStringLiteral("工具详情"));
+    ctx.dlg->setAttribute(Qt::WA_DeleteOnClose);
+
+    auto* cl = ctx.dlg->contentLayout();
+    cl->setSpacing(0);
+
+    buildDetailHeader(cl, ctx.t);
+    ctx.tabWidget = createDetailTabWidget();
+    buildToolDetailTab(ctx);
+    buildOperationRecordTab(ctx);
+    finalizeDetailDialog(ctx);
+}
+
+/** 补全工具数据：getToolById取基础字段，位置信息以映射表（位置维度查询）为权威覆盖 */
+ToolInfo ToolManagementPage::resolveToolInfo(const ToolInfo& toolInfo) {
     ToolController ctrl;
-    // 补全基础信息（toolInfo来自findAllTools位置维度查询，含位置；getToolById补全其他字段）
+    // toolInfo来自findAllTools位置维度查询，含位置；getToolById补全其他字段
     ToolInfo t = ctrl.getToolById(toolInfo.toolId);
-    if (t.toolId == 0) return;
+    if (t.toolId == 0) return t;
     // 用位置维度查询的位置信息覆盖（findAllTools的位置来自映射表，是权威数据源）
     // 必须覆盖mappingId，否则getToolById返回mappingId=0
-    // → onDetailTool走兜底findByToolId → 显示所有位置的借用记录（不按位置过滤）
+    // → 操作记录走兜底findByToolId → 显示所有位置的借用记录（不按位置过滤）
     t.mappingId = toolInfo.mappingId;
     t.cabinetId = toolInfo.cabinetId;
     t.cabinetName = toolInfo.cabinetName;
     t.layer = toolInfo.layer;
     t.position = toolInfo.position;
     t.status = toolInfo.status;  // 映射表status（位置占用状态）
+    return t;
+}
 
-    // 对话框加宽到900，确保操作记录表格列宽不截断
-    auto* dlg = new BaseDialog(this, 900);
-    dlg->setDialogTitle(QStringLiteral("工具详情"));
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-
-    auto* cl = dlg->contentLayout();
-    cl->setSpacing(0);
-
-    // 顶部标题区：工具名称 + 状态标签
+/** 构建对话框顶部标题区：工具名称 + 状态标签 + 分隔线 */
+void ToolManagementPage::buildDetailHeader(QVBoxLayout* cl, const ToolInfo& t) {
     auto* headerRow = new QHBoxLayout();
     headerRow->setSpacing(16);
 
@@ -513,14 +425,8 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     nameLabel->setStyleSheet("font-size:22px;font-weight:700;color:#1a1a2e;background:transparent;");
     headerRow->addWidget(nameLabel);
 
-    QString statusText;
-    QString statusBg;
-    if (t.status == "in_stock") { statusText = QStringLiteral("在库"); statusBg = "#43a047"; }
-    else if (t.status == "borrowed") { statusText = QStringLiteral("已借用"); statusBg = "#f57c00"; }
-    else if (t.status == "checked_out") { statusText = QStringLiteral("已出库"); statusBg = "#e53935"; }  // 已出库红色
-    else if (t.status == "maintenance") { statusText = QStringLiteral("维护中"); statusBg = "#999999"; }
-    else if (t.status == "pending") { statusText = QStringLiteral("待入库"); statusBg = "#1890ff"; }  // 待入库
-    else { statusText = t.status; statusBg = "#999999"; }
+    QString statusText = SC::toolStatusText(t.status, true);   // [等价保留] 本页borrowed历史文案"已借用"
+    QString statusBg = SC::toolStatusColor(t.status);
 
     auto* statusLabel = new QLabel(statusText);
     statusLabel->setAlignment(Qt::AlignCenter);
@@ -537,9 +443,10 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     divider->setFrameShape(QFrame::HLine);
     divider->setStyleSheet("QFrame{color:#e8e8e8;margin:16px 0;}");
     cl->addWidget(divider);
+}
 
-    // 改为Tab选项卡式：工具详情 + 借用记录 分两个Tab
-    // 避免借用记录过多撑大对话框，分开显示更清晰
+/** 创建详情对话框TabWidget（统一样式） */
+QTabWidget* ToolManagementPage::createDetailTabWidget() {
     auto* tabWidget = new QTabWidget();
     tabWidget->setStyleSheet(QString(
         "QTabWidget::pane { border: none; background: transparent; }"
@@ -549,15 +456,19 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         "QTabBar::tab:selected { background: white; color: %1; border-bottom: 3px solid %1; }"
         "QTabBar::tab:hover { background: #e8f0fe; }"
     ).arg(StyleHelper::primaryColor()));
+    return tabWidget;
+}
 
-    // ====== Tab1: 工具详情 ======
+/** 构建Tab1工具详情：信息卡片网格（基础字段+最近出入库操作） */
+void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
+    const ToolInfo& t = ctx.t;
+
     auto* detailTab = new QWidget();
     auto* detailLayout = new QVBoxLayout(detailTab);
     detailLayout->setContentsMargins(0, 12, 0, 0);
     detailLayout->setSpacing(0);
 
     // infoCard外包QScrollArea，已出库工具字段多时可滚动
-    //   作者：袁燕 — 修复已出库工具详情页关闭按钮被内容挤压截断的问题
     auto* detailScroll = new QScrollArea();
     detailScroll->setWidgetResizable(true);
     detailScroll->setFrameShape(QFrame::NoFrame);
@@ -571,126 +482,103 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     infoLayout->setHorizontalSpacing(40);
     infoLayout->setVerticalSpacing(14);
 
-    auto makeFieldLabel = [](const QString& text) -> QLabel* {
-        auto* l = new QLabel(text);
-        l->setStyleSheet("font-size:14px;color:#999;background:transparent;");
-        return l;
-    };
-    auto makeFieldValue = [](const QString& text) -> QLabel* {
-        auto* l = new QLabel(text);
-        l->setStyleSheet("font-size:15px;color:#333;font-weight:600;background:transparent;");
-        l->setWordWrap(true);
-        return l;
-    };
-
     int row = 0;
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("工具编号")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.toolCode.isEmpty() ? QStringLiteral("-") : t.toolCode), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("工具编号")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.toolCode.isEmpty() ? QStringLiteral("-") : t.toolCode), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("规格型号")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.spec.isEmpty() ? QStringLiteral("-") : t.spec), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("规格型号")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.spec.isEmpty() ? QStringLiteral("-") : t.spec), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("所属分类")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.categoryName.isEmpty() ? QStringLiteral("未分类") : t.categoryName), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("所属分类")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.categoryName.isEmpty() ? QStringLiteral("未分类") : t.categoryName), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("所属机组")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.machineGroupName.isEmpty() ? QStringLiteral("未分配") : t.machineGroupName), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("所属机组")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.machineGroupName.isEmpty() ? QStringLiteral("未分配") : t.machineGroupName), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("存放位置")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("存放位置")), row, 0);
     QString posDisplay = StyleHelper::formatPosition(t.cabinetName, t.layer, t.position);
-    infoLayout->addWidget(makeFieldValue(posDisplay), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldValue(posDisplay), row++, 1);
 
-    // 删除"库存总数"和"当前在库"字段
-    // 设计理念：一个位置(机组-柜-层-位号)=一个工具，数量恒为1
-    //   状态字段已说明在库/借出，无需重复显示数量。作者：袁燕
+    // 不显示库存数量字段：一个位置(机组-柜-层-位号)=一个工具，数量恒为1，状态字段已说明在库/借出
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("视觉标签")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.visionTag.isEmpty() ? QStringLiteral("未绑定") : t.visionTag), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("视觉标签")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.visionTag.isEmpty() ? QStringLiteral("未绑定") : t.visionTag), row++, 1);
 
     // 识别方式显示
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("识别方式")), row, 0);
-    QString recogText = (t.recognitionMethod == SC::RECOGNITION_VISION)
-                        ? QStringLiteral("视觉识别") : QStringLiteral("视觉识别");
-    infoLayout->addWidget(makeFieldValue(recogText), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("识别方式")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(QStringLiteral("视觉识别")), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("创建时间")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.createdAt.isValid() ? t.createdAt.toString("yyyy-MM-dd HH:mm") : QStringLiteral("-")), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("创建时间")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.createdAt.isValid() ? t.createdAt.toString("yyyy-MM-dd HH:mm") : QStringLiteral("-")), row++, 1);
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("借用人")), row, 0);
-    infoLayout->addWidget(makeFieldValue(t.latestOpUser.isEmpty() ? QStringLiteral("无") : t.latestOpUser), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("借用人")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldValue(t.latestOpUser.isEmpty() ? QStringLiteral("无") : t.latestOpUser), row++, 1);
 
     // 已出库/入库工具显示操作人和操作时间
-    db::RecordDAO recDao;
     {
-        if (t.status == "checked_out") {
-            QJsonObject log = recDao.findLastOperationLog(t.toolCode, "checkout");
+        if (t.status == SC::TOOL_CHECKED_OUT) {
+            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, SC::OP_CHECKOUT);
             if (!log.isEmpty()) {
                 QString checkoutTime = log["time"].toString();
                 QString checkoutUser = log["operator"].toString();
-                infoLayout->addWidget(makeFieldLabel(QStringLiteral("出库人")), row, 0);
-                infoLayout->addWidget(makeFieldValue(checkoutUser.isEmpty() ? QStringLiteral("--") : checkoutUser), row++, 1);
-                infoLayout->addWidget(makeFieldLabel(QStringLiteral("出库时间")), row, 0);
-                infoLayout->addWidget(makeFieldValue(checkoutTime.left(16).isEmpty() ? QStringLiteral("--") : checkoutTime.left(16)), row++, 1);
+                infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("出库人")), row, 0);
+                infoLayout->addWidget(FormFactory::fieldValue(checkoutUser.isEmpty() ? QStringLiteral("--") : checkoutUser), row++, 1);
+                infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("出库时间")), row, 0);
+                infoLayout->addWidget(FormFactory::fieldValue(checkoutTime.left(16).isEmpty() ? QStringLiteral("--") : checkoutTime.left(16)), row++, 1);
             }
-        } else if (t.status == "in_stock") {
-            QJsonObject log = recDao.findLastOperationLog(t.toolCode, "checkin");
+        } else if (t.status == SC::TOOL_IN_STOCK) {
+            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, SC::OP_CHECKIN);
             if (!log.isEmpty()) {
                 QString checkinTime = log["time"].toString();
                 QString checkinUser = log["operator"].toString();
-                infoLayout->addWidget(makeFieldLabel(QStringLiteral("入库人")), row, 0);
-                infoLayout->addWidget(makeFieldValue(checkinUser.isEmpty() ? QStringLiteral("--") : checkinUser), row++, 1);
-                infoLayout->addWidget(makeFieldLabel(QStringLiteral("入库时间")), row, 0);
-                infoLayout->addWidget(makeFieldValue(checkinTime.left(16).isEmpty() ? QStringLiteral("--") : checkinTime.left(16)), row++, 1);
+                infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("入库人")), row, 0);
+                infoLayout->addWidget(FormFactory::fieldValue(checkinUser.isEmpty() ? QStringLiteral("--") : checkinUser), row++, 1);
+                infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("入库时间")), row, 0);
+                infoLayout->addWidget(FormFactory::fieldValue(checkinTime.left(16).isEmpty() ? QStringLiteral("--") : checkinTime.left(16)), row++, 1);
             }
         }
     }
 
-    infoLayout->addWidget(makeFieldLabel(QStringLiteral("最近操作")), row, 0);
+    infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("最近操作")), row, 0);
     QString lastOpStr;
     if (!t.latestOpTime.isEmpty()) {
         QString opType;
         if (t.latestOpType == "borrow") opType = QStringLiteral("借用");
-        else if (t.latestOpType == "checkout") opType = QStringLiteral("出库");
-        else if (t.latestOpType == "checkin") opType = QStringLiteral("入库");
+        else if (t.latestOpType == SC::OP_CHECKOUT) opType = QStringLiteral("出库");
+        else if (t.latestOpType == SC::OP_CHECKIN) opType = QStringLiteral("入库");
         else opType = QStringLiteral("操作");
         lastOpStr = QStringLiteral("%1 %2").arg(t.latestOpTime, opType);
     } else {
         lastOpStr = QStringLiteral("暂无操作记录");
     }
-    infoLayout->addWidget(makeFieldValue(lastOpStr), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldValue(lastOpStr), row++, 1);
 
     detailScroll->setWidget(infoCard);
     detailLayout->addWidget(detailScroll);
-    tabWidget->addTab(detailTab, QStringLiteral("📋 工具详情"));
+    ctx.tabWidget->addTab(detailTab, QStringLiteral("📋 工具详情"));
+}
 
-    // ====== Tab2: 操作记录 [V2.03b 2026-06-29] ======
-    // 合并借用记录+入库记录+出库记录，统一展示全部操作历史
-    // 按时间降序排列，类型标签区分（借用橙/入库绿/出库红）
-    auto* recordTab = new QWidget();
-    auto* recordLayout = new QVBoxLayout(recordTab);
-    recordLayout->setContentsMargins(0, 12, 0, 0);
-    recordLayout->setSpacing(0);
+/** 收集操作记录：借用/入库/出库合并为统一列表，按时间降序排序 */
+QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ctx) {
+    const ToolInfo& t = ctx.t;
 
-    // 综合操作记录：借用/归还/入库/出库 4种类型，按时间降序排列
-    // borrow记录根据status拆分：borrowing/overdue→"借用"，returned→"归还"
     // 借用记录按位置过滤：用mappingId查，只显示当前位置的借用记录
     QJsonArray borrowRecords;
     if (t.mappingId > 0) {
-        borrowRecords = recDao.findByMappingId(t.mappingId, 20);
+        borrowRecords = ctx.recDao.findByMappingId(t.mappingId, 20);
     } else {
         // 旧数据无mappingId，兜底用toolId查
-        borrowRecords = recDao.findByToolId(t.toolId, 20);
+        borrowRecords = ctx.recDao.findByToolId(t.toolId, 20);
     }
 
-    // 入库/出库记录从DAO层查询（通过sys_operation_log）
+    // 入库/出库记录从DAO层查询（通过sys_operation_log，按位置过滤）
     QString posKey = StyleHelper::formatPosition(t.cabinetName, t.layer, t.position);
 
-    // 查询入库记录（按位置过滤）
-    QJsonArray checkinLogs = recDao.findOperationLogs(t.toolCode, "checkin", posKey, 10);
+    QJsonArray checkinLogs = ctx.recDao.findOperationLogs(t.toolCode, SC::OP_CHECKIN, posKey, 10);
     QJsonArray checkinRecords;
     for (const auto& log : checkinLogs) {
         QJsonObject obj = log.toObject();
-        obj["type"] = "checkin";
+        obj["type"] = SC::OP_CHECKIN;
         obj["status"] = "completed";
         obj["reason"] = QStringLiteral("入库");
         // 从content解析供应商
@@ -700,12 +588,11 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         checkinRecords.append(obj);
     }
 
-    // 查询出库记录（按位置过滤）
-    QJsonArray checkoutLogs = recDao.findOperationLogs(t.toolCode, "checkout", posKey, 10);
+    QJsonArray checkoutLogs = ctx.recDao.findOperationLogs(t.toolCode, SC::OP_CHECKOUT, posKey, 10);
     QJsonArray checkoutRecords;
     for (const auto& log : checkoutLogs) {
         QJsonObject obj = log.toObject();
-        obj["type"] = "checkout";
+        obj["type"] = SC::OP_CHECKOUT;
         obj["status"] = "completed";
         // 从content解析出库原因
         QRegularExpression reReason("原因：(.+)");
@@ -716,7 +603,6 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
 
     // 合并所有记录到统一列表
     // 一条借用记录(returned)拆分为"借用"和"归还"两条，完整展示工具生命周期
-    // borrowing/overdue只显示"借用"，returned显示"借用"+"归还"
     QList<QJsonObject> allRecords;
     for (const auto& r : borrowRecords) {
         QJsonObject obj = r.toObject();
@@ -730,7 +616,7 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         allRecords.append(borrowObj);
 
         // 已归还的记录追加一条"归还"记录（归还时间作为操作时间）
-        if (borrowStatus == "returned") {
+        if (borrowStatus == SC::RECORD_RETURNED) {
             QJsonObject returnObj = obj;
             returnObj["type"] = "return";
             returnObj["reason"] = QStringLiteral("归还");
@@ -746,6 +632,113 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         [](const QJsonObject& a, const QJsonObject& b) {
             return a["time"].toString() > b["time"].toString();
         });
+    return allRecords;
+}
+
+/** 填充操作记录表格：操作人/操作时间/操作类型/任务类型/状态 */
+void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<QJsonObject>& allRecords) {
+    recordTable->setColumnCount(5);
+    recordTable->setHorizontalHeaderLabels({
+        QStringLiteral("操作人"), QStringLiteral("操作时间"), QStringLiteral("操作类型"),
+        QStringLiteral("任务类型"), QStringLiteral("状态")
+    });
+    recordTable->setRowCount(allRecords.size());
+    recordTable->verticalHeader()->setVisible(false);
+    recordTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    recordTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    recordTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);  // 操作人
+    recordTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);    // 操作时间
+    recordTable->setColumnWidth(1, 170);  // 加宽确保 yyyy-MM-dd HH:mm 完整显示
+    recordTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);    // 操作类型
+    recordTable->setColumnWidth(2, 80);
+    recordTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);  // 任务类型
+    recordTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);    // 状态
+    recordTable->setColumnWidth(4, 90);
+    recordTable->horizontalHeader()->setStretchLastSection(false);
+
+    for (int i = 0; i < allRecords.size(); ++i) {
+        const QJsonObject& rec = allRecords[i];
+        QString opType = rec["type"].toString();
+
+        // 操作人（借用/归还记录使用userName+workNo，入库/出库记录使用operator）
+        QString operatorName;
+        if (opType == "borrow" || opType == "return") {
+            QString userName = rec["userName"].toString();
+            QString workNo = rec["userWorkNo"].toString();
+            operatorName = userName.isEmpty() ? QStringLiteral("--")
+                : (workNo.isEmpty() ? userName : QStringLiteral("%1(%2)").arg(userName, workNo));
+        } else {
+            operatorName = rec["operator"].toString();
+            if (operatorName.isEmpty()) operatorName = QStringLiteral("--");
+        }
+        auto* opItem = new QTableWidgetItem(operatorName);
+        QFont opFont = opItem->font();
+        opFont.setBold(true);
+        opItem->setFont(opFont);
+        recordTable->setItem(i, 0, opItem);
+
+        // 操作时间（截取到分钟）
+        QString timeStr = rec["time"].toString();
+        if (timeStr.length() > 16) timeStr = timeStr.left(16);
+        recordTable->setItem(i, 1, new QTableWidgetItem(timeStr.isEmpty() ? QStringLiteral("--") : timeStr));
+
+        // 操作类型标签（4种彩色）：借用橙/归还蓝/入库绿/出库红
+        QString typeText;
+        QString typeColor;
+        if (opType == "borrow") { typeText = QStringLiteral("借用"); typeColor = "#fa8c16"; }
+        else if (opType == "return") { typeText = QStringLiteral("归还"); typeColor = "#4da3ff"; }
+        else if (opType == SC::OP_CHECKIN) { typeText = QStringLiteral("入库"); typeColor = "#43a047"; }
+        else if (opType == SC::OP_CHECKOUT) { typeText = QStringLiteral("出库"); typeColor = "#e53935"; }
+        else { typeText = QStringLiteral("操作"); typeColor = "#999"; }
+        auto* typeLabel = new QLabel(typeText);
+        typeLabel->setAlignment(Qt::AlignCenter);
+        typeLabel->setFixedSize(64, 26);
+        typeLabel->setStyleSheet(QString(
+            "QLabel{background:%1;color:#fff;border-radius:6px;font-size:12px;font-weight:600;}"
+        ).arg(typeColor));
+        recordTable->setCellWidget(i, 2, typeLabel);
+
+        // 任务类型（借用=任务类型/借用原因，入库=供应商，出库=出库原因）
+        QString remark;
+        if (opType == "borrow") remark = rec["borrowReason"].toString();
+        else if (opType == SC::OP_CHECKIN) remark = rec["supplier"].toString();
+        else if (opType == SC::OP_CHECKOUT) remark = rec["reason"].toString();
+        else remark = QStringLiteral("--");
+        recordTable->setItem(i, 3, new QTableWidgetItem(remark.isEmpty() ? QStringLiteral("--") : remark));
+
+        // 状态（借用按借用状态着色，入库/出库固定"已完成"）
+        QString status = rec["status"].toString();
+        QString statusText;
+        QString statusColor;
+        if (opType == "borrow") {
+            if (status == SC::RECORD_BORROWING) { statusText = QStringLiteral("借用中"); statusColor = "#fa8c16"; }
+            else if (status == SC::RECORD_RETURNED) { statusText = QStringLiteral("已归还"); statusColor = "#43a047"; }
+            else if (status == SC::RECORD_OVERDUE) { statusText = QStringLiteral("已逾期"); statusColor = "#e53935"; }
+            else { statusText = status.isEmpty() ? QStringLiteral("--") : status; statusColor = "#999"; }
+        } else {
+            statusText = QStringLiteral("已完成");
+            statusColor = "#43a047";
+        }
+        auto* statusItem = new QTableWidgetItem(statusText);
+        statusItem->setForeground(QColor(statusColor));
+        QFont sf = statusItem->font();
+        sf.setBold(true);
+        statusItem->setFont(sf);
+        statusItem->setTextAlignment(Qt::AlignCenter);
+        recordTable->setItem(i, 4, statusItem);
+
+        recordTable->setRowHeight(i, 44);
+    }
+}
+
+/** 构建Tab2操作记录：综合借用/入库/出库记录表格 */
+void ToolManagementPage::buildOperationRecordTab(ToolDetailCtx& ctx) {
+    auto* recordTab = new QWidget();
+    auto* recordLayout = new QVBoxLayout(recordTab);
+    recordLayout->setContentsMargins(0, 12, 0, 0);
+    recordLayout->setSpacing(0);
+
+    QList<QJsonObject> allRecords = collectOperationRecords(ctx);
 
     if (allRecords.isEmpty()) {
         auto* emptyLabel = new QLabel(QStringLiteral("暂无操作记录"));
@@ -754,105 +747,8 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         recordLayout->addWidget(emptyLabel);
         recordLayout->addStretch();
     } else {
-        // 操作记录表格：操作人/操作时间/操作类型/任务类型/状态
-        // 删除"数量"列（一个位置=一个工具，数量恒为1无意义）
-        // "备注"改为"任务类型"
         auto* recordTable = new QTableWidget();
-        recordTable->setColumnCount(5);
-        recordTable->setHorizontalHeaderLabels({
-            QStringLiteral("操作人"), QStringLiteral("操作时间"), QStringLiteral("操作类型"),
-            QStringLiteral("任务类型"), QStringLiteral("状态")
-        });
-        recordTable->setRowCount(allRecords.size());
-        recordTable->verticalHeader()->setVisible(false);
-        recordTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-        recordTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        recordTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);  // 操作人
-        recordTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);    // 操作时间
-        recordTable->setColumnWidth(1, 170);  // 加宽确保 yyyy-MM-dd HH:mm 完整显示
-        recordTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);    // 操作类型
-        recordTable->setColumnWidth(2, 80);
-        recordTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);  // 任务类型
-        recordTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);    // 状态
-        recordTable->setColumnWidth(4, 90);
-        recordTable->horizontalHeader()->setStretchLastSection(false);
-
-        for (int i = 0; i < allRecords.size(); ++i) {
-            const QJsonObject& rec = allRecords[i];
-            QString opType = rec["type"].toString();
-
-            // 操作人（借用/归还记录使用userName+workNo，入库/出库记录使用operator）
-            QString operatorName;
-            if (opType == "borrow" || opType == "return") {
-                QString userName = rec["userName"].toString();
-                QString workNo = rec["userWorkNo"].toString();
-                operatorName = userName.isEmpty() ? QStringLiteral("--")
-                    : (workNo.isEmpty() ? userName : QStringLiteral("%1(%2)").arg(userName, workNo));
-            } else {
-                operatorName = rec["operator"].toString();
-                if (operatorName.isEmpty()) operatorName = QStringLiteral("--");
-            }
-            auto* opItem = new QTableWidgetItem(operatorName);
-            QFont opFont = opItem->font();
-            opFont.setBold(true);
-            opItem->setFont(opFont);
-            recordTable->setItem(i, 0, opItem);
-
-            // 操作时间（截取到分钟）
-            QString timeStr = rec["time"].toString();
-            if (timeStr.length() > 16) timeStr = timeStr.left(16);
-            recordTable->setItem(i, 1, new QTableWidgetItem(timeStr.isEmpty() ? QStringLiteral("--") : timeStr));
-
-            // 操作类型标签（4种彩色）：借用橙/归还蓝/入库绿/出库红
-            QString typeText;
-            QString typeColor;
-            if (opType == "borrow") { typeText = QStringLiteral("借用"); typeColor = "#fa8c16"; }
-            else if (opType == "return") { typeText = QStringLiteral("归还"); typeColor = "#4da3ff"; }
-            else if (opType == "checkin") { typeText = QStringLiteral("入库"); typeColor = "#43a047"; }
-            else if (opType == "checkout") { typeText = QStringLiteral("出库"); typeColor = "#e53935"; }
-            else { typeText = QStringLiteral("操作"); typeColor = "#999"; }
-            auto* typeLabel = new QLabel(typeText);
-            typeLabel->setAlignment(Qt::AlignCenter);
-            typeLabel->setFixedSize(64, 26);
-            typeLabel->setStyleSheet(QString(
-                "QLabel{background:%1;color:#fff;border-radius:6px;font-size:12px;font-weight:600;}"
-            ).arg(typeColor));
-            recordTable->setCellWidget(i, 2, typeLabel);
-
-            // 删除"数量"列（一个位置=一个工具，数量恒为1）
-
-            // 任务类型（借用=任务类型/借用原因，入库=供应商，出库=出库原因）
-            QString remark;
-            if (opType == "borrow") remark = rec["borrowReason"].toString();
-            else if (opType == "checkin") remark = rec["supplier"].toString();
-            else if (opType == "checkout") remark = rec["reason"].toString();
-            else remark = QStringLiteral("--");
-            recordTable->setItem(i, 3, new QTableWidgetItem(remark.isEmpty() ? QStringLiteral("--") : remark));
-
-            // 状态
-            QString status = rec["status"].toString();
-            QString statusText;
-            QString statusColor;
-            if (opType == "borrow") {
-                if (status == "borrowing") { statusText = QStringLiteral("借用中"); statusColor = "#fa8c16"; }
-                else if (status == "returned") { statusText = QStringLiteral("已归还"); statusColor = "#43a047"; }
-                else if (status == "overdue") { statusText = QStringLiteral("已逾期"); statusColor = "#e53935"; }
-                else { statusText = status.isEmpty() ? QStringLiteral("--") : status; statusColor = "#999"; }
-            } else {
-                // 入库/出库状态固定为"已完成"
-                statusText = QStringLiteral("已完成");
-                statusColor = "#43a047";
-            }
-            auto* statusItem = new QTableWidgetItem(statusText);
-            statusItem->setForeground(QColor(statusColor));
-            QFont sf = statusItem->font();
-            sf.setBold(true);
-            statusItem->setFont(sf);
-            statusItem->setTextAlignment(Qt::AlignCenter);
-            recordTable->setItem(i, 4, statusItem);
-
-            recordTable->setRowHeight(i, 44);
-        }
+        fillRecordTable(recordTable, allRecords);
         // 将表格放入滚动区域，让滚动条拉满可用空间
         auto* recordScroll = new QScrollArea();
         recordScroll->setWidgetResizable(true);
@@ -864,23 +760,27 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     }
 
     // Tab名称"操作记录"，涵盖借用/出库/入库全部操作
-    tabWidget->addTab(recordTab, QStringLiteral("📝 操作记录"));
+    ctx.tabWidget->addTab(recordTab, QStringLiteral("📝 操作记录"));
+}
 
-    // ====== Tab3: 工具文档 [V2.01 2026-06-27] 下载+在线浏览 ======
-    QWidget* docTab = createDocumentTab(t.toolId, t.documentPath);
-    tabWidget->addTab(docTab, QStringLiteral("📄 工具文档"));
+/** 详情对话框收尾：文档Tab、自适应尺寸、关闭按钮与模态执行 */
+void ToolManagementPage::finalizeDetailDialog(ToolDetailCtx& ctx) {
+    // Tab3: 工具文档 下载+在线浏览
+    QWidget* docTab = createDocumentTab(ctx.t.toolId, ctx.t.documentPath);
+    ctx.tabWidget->addTab(docTab, QStringLiteral("📄 工具文档"));
 
     // 对话框高度自适应屏幕，避免内容增加后溢出看不到关闭按钮
+    auto* cl = ctx.dlg->contentLayout();
     int screenHeight = QApplication::primaryScreen()->availableGeometry().height();
     int dlgHeight = qMin(screenHeight * 88 / 100, 820);
-    dlg->setMinimumHeight(500);
-    dlg->resize(900, dlgHeight);
-    cl->addWidget(tabWidget);
+    ctx.dlg->setMinimumHeight(500);
+    ctx.dlg->resize(900, dlgHeight);
+    cl->addWidget(ctx.tabWidget);
     cl->addSpacing(20);
 
-    // 关闭按钮 [2026-06-26] 统一弹窗按钮风格：44px高/12px圆角/16px字体，居中显示
+    // 关闭按钮 统一弹窗按钮风格：44px高/12px圆角/16px字体，居中显示
     auto* closeBtn = new QPushButton(QStringLiteral("关闭"));
-    closeBtn->setFixedHeight(44);
+    closeBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
     closeBtn->setMinimumWidth(100);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
@@ -888,9 +788,9 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
         "font-size:16px;font-weight:600;}"
         "QPushButton:hover{background:#e0e0e0;}"
     );
-    connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::accept);
+    connect(closeBtn, &QPushButton::clicked, ctx.dlg, &QDialog::accept);
 
-    auto* btnLayout = dlg->buttonLayout();
+    auto* btnLayout = ctx.dlg->buttonLayout();
     // 清除默认stretch后重新居中布局
     QLayoutItem* item;
     while ((item = btnLayout->takeAt(0)) != nullptr) delete item;
@@ -898,7 +798,7 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     btnLayout->addWidget(closeBtn);
     btnLayout->addStretch();
 
-    dlg->exec();
+    ctx.dlg->exec();
 }
 
 // 构建详情对话框的工具文档Tab
@@ -914,8 +814,8 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
     layout->setAlignment(Qt::AlignTop);
 
     if (docPath.isEmpty() || !QFileInfo::exists(docPath)) {
-        // 无文档 — 友好提示 + 上传入口 [V2.02 2026-06-28]
-        //  作者：袁燕 — 要求详情页可直接上传文档，无需进入入库流程
+        // 无文档 — 友好提示 + 上传入口 
+        //  要求详情页可直接上传文档，无需进入入库流程
         auto* emptyCard = new QFrame();
         emptyCard->setStyleSheet("QFrame{background:#f8f9fb;border-radius:12px;}");
         auto* emptyLayout = new QVBoxLayout(emptyCard);
@@ -942,7 +842,7 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
         auto* uploadBtn = new QPushButton(QStringLiteral("⬆ 上传文档"));
         uploadBtn->setStyleSheet(StyleHelper::buttonPrimary());
         uploadBtn->setCursor(Qt::PointingHandCursor);
-        uploadBtn->setFixedHeight(48);
+        uploadBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
         uploadBtn->setMinimumWidth(160);
         uploadBtn->setMaximumWidth(240);
         // 上传成功后关闭详情对话框并重新打开，刷新文档Tab
@@ -1018,7 +918,7 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
     auto* downloadBtn = new QPushButton(QStringLiteral("⬇ 下载文档"));
     downloadBtn->setStyleSheet(StyleHelper::buttonPrimary());
     downloadBtn->setCursor(Qt::PointingHandCursor);
-    downloadBtn->setFixedHeight(48);
+    downloadBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     downloadBtn->setMinimumWidth(160);
     connect(downloadBtn, &QPushButton::clicked, this, [docPath, docInfo, this]() {
         QString defaultName = docInfo.fileName();
@@ -1042,7 +942,7 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
     auto* viewBtn = new QPushButton(QStringLiteral("👁 在线浏览"));
     viewBtn->setStyleSheet(StyleHelper::buttonOutline());
     viewBtn->setCursor(Qt::PointingHandCursor);
-    viewBtn->setFixedHeight(48);
+    viewBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     viewBtn->setMinimumWidth(160);
     connect(viewBtn, &QPushButton::clicked, this, [docPath, this]() {
         // QDesktopServices::openUrl 调用系统默认程序打开文档
@@ -1074,7 +974,7 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
 // 输入: toolId - 工具ID
 // 输出: bool - true=上传成功, false=用户取消或失败
 // 功能: 选文件→校验格式大小→复制到AppData→更新DB document_path
-//  作者：袁燕 — 校验规则与入库页完全一致，保证一致性
+//  校验规则与入库页完全一致，保证一致性
 bool ToolManagementPage::onUploadDocument(int toolId) {
     // 文件过滤器：Word文档 + PDF（与入库页一致）
     QString filter = QStringLiteral(
@@ -1142,7 +1042,7 @@ bool ToolManagementPage::onUploadDocument(int toolId) {
 void ToolManagementPage::onAddTool() {
     m_editToolId = 0;
     if (!m_toolDialog) {
-        // 改用BaseDialog统一圆角无边框风格
+        // BaseDialog统一圆角无边框风格
         m_toolDialog = new BaseDialog(this, 460);
         m_toolDialog->setDialogTitle(QStringLiteral("添加工具"));
 
@@ -1249,14 +1149,14 @@ void ToolManagementPage::onSubmitTool() {
     info.toolCode = m_dlgCode->text().trimmed();
     info.categoryId = m_dlgCategory->currentData().toInt();
     info.position = m_dlgPosition->text().trimmed();
-    // 数量恒为1（一个位置=一个工具），不再从输入框读取
+    // 数量恒为1（一个位置=一个工具），不从输入框读取
     info.totalQty = 1;
     info.currentQty = 1;
     info.spec = m_dlgSpec->text().trimmed();
     info.cabinetId = 0;
     // 从AppConfig读取本机机组ID，系统设置页面配置
     info.machineGroupId = AppConfig::instance().localMachineGroupId();
-    info.status = "in_stock";
+    info.status = SC::TOOL_IN_STOCK;
 
     ToolController ctrl;
     bool ok;

@@ -2,7 +2,7 @@
  * @file TaskTypeDAO.cpp
  * @brief 任务类型数据访问对象实现 — 合并QJsonObject API + 实体类API
  * @author 袁燕
- * [V6.9 2026-06-24] 合并dao/TaskTypeDAO.cpp的实体类API到此文件，统一namespace db管理
+ * 合并dao/TaskTypeDAO.cpp的实体类API到此文件，统一namespace db管理
  */
 #include "TaskTypeDAO.h"
 #include "DatabaseManager.h"
@@ -56,7 +56,7 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
         QString ph = ":t" + QString::number(i);
         phs << ph; binds[ph] = typeIds[i];
     }
-    // 改为按工具种类查询（去掉位置JOIN，加availableQty）
+    // 按工具种类查询（去掉位置JOIN，加availableQty）
     // 借用列表按工具种类显示，推荐工具自动选中，借用时自动分配位置
     // availableQty=映射表in_stock位置数（用户可选的借用数量上限）
     QString sql = "SELECT DISTINCT tt.tool_id, ti.tool_name, ti.tool_code, ti.spec, ti.total_qty, ti.current_qty, tt.recommended_qty, "
@@ -85,7 +85,7 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
         o["totalQty"] = q.value("total_qty").toInt();
         o["currentQty"] = q.value("current_qty").toInt();
         o["recommendedQty"] = q.value("recommended_qty").toInt();
-        o["availableQty"] = q.value("available_qty").toInt();  // [V2.12] 可用位置数
+        o["availableQty"] = q.value("available_qty").toInt();  // 可用位置数
         o["unit"] = q.value("unit").toString().isEmpty() ? QStringLiteral("件") : q.value("unit").toString();
         // 位置（tool_info的位置，借用时自动分配具体位置）
         QString cabName = q.value("cabinet_name").toString();
@@ -107,7 +107,7 @@ QList<TaskType> TaskTypeDAO::findAll() {
     return list;
 }
 
-// [2026-09-23] 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
+// 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
 // JOIN映射表取实际在库位置（一个位置一个工具），供开柜页"我的任务工具"只读展示
 // 入参：typeId 任务类型ID；machineGroupId 机组ID（>0时启用机组隔离）
 // 返回：[{toolName, toolCode, cabinetName, layer, position}]

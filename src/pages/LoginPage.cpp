@@ -3,8 +3,8 @@
  * @brief 登录页面实现 - 双栏布局+刷脸登录+密码降级 (1:1复刻Vue版Login.vue)
  * @author 袁燕
  *
- * [2026-06-14] 完善BS端复刻：接入状态圆点、陌生人卡片、密码表单提示
- * [2026-06-21v3] 人脸识别改走后端API：发送face image→后端face-api.js提取特征→余弦比对
+ * 完善BS端复刻：接入状态圆点、陌生人卡片、密码表单提示
+ * 人脸识别改走后端API：发送face image→后端face-api.js提取特征→余弦比对
  *           修复本地纹理哈希与Web版face-api.js特征不兼容导致刷脸进不去的致命问题
  */
 #include "LoginPage.h"
@@ -23,7 +23,7 @@
 #include <QMouseEvent>
 #include <QDateTime>
 #include <QDebug>
-#include <QRegularExpression>  // [2026-09-23] 工号纯数字校验
+#include <QRegularExpression>  // 工号纯数字校验
 #include <QPixmap>
 #include <QCoreApplication>
 #include <QNetworkAccessManager>
@@ -32,16 +32,17 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QApplication>  // [V2.03u] qApp->quit()退出系统
+#include <QApplication>  // qApp->quit()退出系统
+#include "common/Constants.h"
 
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_faceCamera(nullptr) {
-    // 暗蓝渐变背景 (复刻Vue版) [2026-06-21] stop0.5→0.4对齐Vue版40%断点
+    // 暗蓝渐变背景 (复刻Vue版) stop0.4对齐Vue版40%断点
     setStyleSheet("background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0d1b2a,stop:0.4 #162d45,stop:1 #1e3f5e);");
     setupUI();
 
     // 初始化数字键盘
-    // [2026-09-23] 账号改为纯数字工号：用户名/密码统一由NumKeypad输入，移除字母软键盘
+    // 账号为纯数字工号：用户名/密码统一由NumKeypad输入，移除字母软键盘
     m_numKeypad = new NumKeypad(this);
     connect(m_numKeypad, &NumKeypad::confirmed, this, [this]() {
         m_numKeypad->hide();
@@ -51,12 +52,12 @@ LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
             m_activeField = "password";
             QTimer::singleShot(150, this, &LoginPage::onPasswordFieldClicked);
         } else if (m_passwordEdit->text().length() >= 6) {
-            // 崩溃修复：不能在软键盘 mouseReleaseEvent 事件派发过程中
+            // 注意：不能在软键盘 mouseReleaseEvent 事件派发过程中
             // 同步执行 onPasswordLogin()。该函数会发出 loginSuccess → MainWindow::onLoginSuccess，
             // 后者内部还有模态对话框的嵌套事件循环；而此刻键盘面板窗口正在派发鼠标事件，
             // 叠加 hide() 的窗口拆装，Qt 内部状态不一致 → onLoginSuccess 内第一处 Qt 调用
             // （m_topBar->refreshVersionLabel()）崩溃（0xC0000005 读取 0xFFFFFFFFFFFFFFFF）。
-            // 改为事件派发结束后的下一轮执行，登录流程在干净的窗口状态下运行。
+            // 事件派发结束后的下一轮执行，登录流程在干净的窗口状态下运行。
             QTimer::singleShot(0, this, &LoginPage::onPasswordLogin);
         }
     });
@@ -69,14 +70,14 @@ LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_autoJumpTimer = new QTimer(this);
     m_autoJumpTimer->setSingleShot(true);
     connect(m_autoJumpTimer, &QTimer::timeout, this, [this]() {
-        if (m_destroying) return;  // [v4] 析构保护
+        if (m_destroying) return;  // 析构保护
         if (!m_pendingUser.isEmpty())
             emit loginSuccess(m_pendingUser);
     });
 }
 
 LoginPage::~LoginPage() {
-    // [v4] 析构期间必须标记+断开所有信号，防止Qt递归删除子对象时信号触发访问半销毁的this
+    // 析构期间必须标记+断开所有信号，防止Qt递归删除子对象时信号触发访问半销毁的this
     m_destroying = true;
 
     // 1. 停止所有定时器
@@ -110,15 +111,15 @@ void LoginPage::setupUI() {
     // 主容器 - min-height:600 可撑高 (复刻Vue版 login-container) [触屏优化]
     auto* card = new QWidget();
     card->setFixedWidth(1000);
-    // [2026-06-23修复] card最小高度750：摄像头区(~300)+状态行(~40)+间距(20)+密码表单(~280)+底部按钮+版权(~50)+余量
+    // card最小高度750：摄像头区(~300)+状态行(~40)+间距(20)+密码表单(~280)+底部按钮+版权(~50)+余量
     // 原620不够导致底部"重新扫脸"按钮和版权文字被裁剪
     card->setMinimumHeight(750);
-    // [v4.7修复] WA_StyledBackground启用后border-radius才能裁剪背景
+    // WA_StyledBackground启用后border-radius才能裁剪背景
     card->setAttribute(Qt::WA_StyledBackground, true);
     card->setStyleSheet(QString(
         "background:%1; border-radius:20px;"
     ).arg(StyleHelper::whiteColor()));
-    // [V8.2 2026-06-25] 去除登录卡片外阴影
+    // 去除登录卡片外阴影
 
     auto* cardLayout = new QHBoxLayout(card);
     cardLayout->setContentsMargins(0, 0, 0, 0);
@@ -126,53 +127,53 @@ void LoginPage::setupUI() {
 
     // 左侧品牌区 (1:1复刻Vue版 login-left: flex:1, 454px)
     auto* leftWidget = new QWidget();
-    // [v4.7修复] 移除fixedWidth(454)，使用stretch比例动态计算
+    // 移除fixedWidth(454)，使用stretch比例动态计算
     // card总宽1000px, stretch 454:546 = Web版 flex:1 vs flex:1.2
     leftWidget->setMinimumWidth(300);  // 防挤压下限
     leftWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-    // [v4.7修复] WA_StyledBackground启用border-radius背景裁剪
+    // WA_StyledBackground启用border-radius背景裁剪
     leftWidget->setAttribute(Qt::WA_StyledBackground, true);
     leftWidget->setStyleSheet(
         "background:qlineargradient(x1:0,y1:0,x2:0.34,y2:1,stop:0 #132940,stop:1 #1a3f60);"
         "border-top-left-radius:20px; border-bottom-left-radius:20px;");
     auto* leftLayout = new QVBoxLayout(leftWidget);
-    leftLayout->setContentsMargins(40, 60, 40, 40);  // [2026-06-26] 上边距50→60让中间内容视觉下沉更均衡，下边距50→40配合stretch布局
+    leftLayout->setContentsMargins(40, 60, 40, 40);  // 上边距60让中间内容视觉下沉更均衡，下边距40配合stretch布局
     leftLayout->setAlignment(Qt::AlignCenter);
-    leftLayout->setSpacing(18);  // [2026-06-26] 间距20→18紧凑化
+    leftLayout->setSpacing(18);  // 间距18紧凑化
     setupLeftPanel(leftLayout);
 
     // 右侧认证区 (复刻Vue版 login-right)
     auto* rightWidget = new QWidget();
-    // [v4.7修复] WA_StyledBackground启用圆角背景裁剪
+    // WA_StyledBackground启用圆角背景裁剪
     rightWidget->setAttribute(Qt::WA_StyledBackground, true);
     rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     rightWidget->setStyleSheet(QString("background:%1; border-top-right-radius:20px; border-bottom-right-radius:20px;")
         .arg(StyleHelper::whiteColor()));
     auto* rightLayout = new QVBoxLayout(rightWidget);
-    // [2026-06-23修复] 缩小padding为内容腾空间：50→30(top/bottom)，48→36(left/right)
+    // 缩小padding为内容腾空间：30(top/bottom)，36(left/right)
     rightLayout->setContentsMargins(36, 30, 36, 30);
     rightLayout->setSpacing(12);
     setupRightPanel(rightLayout);
 
-    // [v4.7修复] Web版left:flex:1, right:flex:1.2 → 比例 454:546 (1000*1/2.2=454)
+    // Web版left:flex:1, right:flex:1.2 → 比例 454:546 (1000*1/2.2=454)
     // 使用stretch精确控制，leftWidget去除fixedWidth让stretch决定实际宽度
     cardLayout->addWidget(leftWidget, 454);
     cardLayout->addWidget(rightWidget, 546);
     outer->addWidget(card, 0, Qt::AlignCenter);
 
-    // [2026-06-23 速度优化] 启动延迟500→100ms，摄像头初始化足够
+    // 启动延迟100ms，摄像头初始化足够
     QTimer::singleShot(100, this, &LoginPage::startFaceRecognition);
 }
 
 void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
-    // [2026-06-14] Logo区 - 显示公司logo图片 (复刻Vue版 .logo-wrap)
+    // Logo区 - 显示公司logo图片 (复刻Vue版 .logo-wrap)
     auto* logoWrap = new QWidget();
     logoWrap->setFixedSize(200, 80);
     logoWrap->setStyleSheet(
         "background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.15);"
         "border-radius:20px;");
     auto* ll = new QVBoxLayout(logoWrap);
-    ll->setContentsMargins(18, 18, 18, 18);  // [2026-06-21] top/bottom 12→18 对齐Vue版 padding:18px 28px
+    ll->setContentsMargins(18, 18, 18, 18);  // top/bottom 18 对齐Vue版 padding:18px 28px
     ll->setAlignment(Qt::AlignCenter);
 
     // 加载logo图片 - 使用Qt资源系统 (跨平台兼容)
@@ -203,73 +204,83 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
         }
     }
     ll->addWidget(logoImg);
-    // [2026-06-26v2] 顶部留白，让Logo区域视觉居中偏上
+    // 顶部留白，让Logo区域视觉居中偏上
     layout->addStretch(1);
 
     layout->addWidget(logoWrap, 0, Qt::AlignCenter);
-    layout->addSpacing(16);  // [2026-06-26v2] 24→16 紧凑化，Logo和图标间距收紧
+    layout->addSpacing(16);  // 16 紧凑化，Logo和图标间距收紧
 
     // 品牌图标 (复刻Vue版 .brand-icon)
     auto* icon = new QLabel(QStringLiteral("🛠"));
     icon->setAlignment(Qt::AlignCenter);
-    icon->setStyleSheet("font-size:68px; background:transparent; margin-bottom:8px;");  // [2026-06-26v2] margin-bottom:16→8 紧凑化，图标和标题收紧
+    icon->setStyleSheet("font-size:68px; background:transparent; margin-bottom:8px;");  // margin-bottom:8 紧凑化，图标和标题收紧
     layout->addWidget(icon);
 
     // 品牌名称 (复刻Vue版 .brand-name) [触屏优化 2026-06-15]
     auto* name = new QLabel(QStringLiteral("智能工具柜"));
     name->setAlignment(Qt::AlignCenter);
-    name->setStyleSheet("color:white; font-size:28px; font-weight:700; letter-spacing:3px; background:transparent; margin-bottom:6px;");  // [2026-06-26v2] margin-bottom:10→6 紧凑化
+    name->setStyleSheet("color:white; font-size:28px; font-weight:700; letter-spacing:3px; background:transparent; margin-bottom:6px;");  // margin-bottom:6 紧凑化
     layout->addWidget(name);
 
-    // [2026-06-26] 弹性空间 - 将描述文字推至底部区域，视觉更大气
-    layout->addStretch(4);  // [2026-06-26v2] 3→4 加大弹性比例，描述文字更下沉
+    // 弹性空间 - 将描述文字推至底部区域，视觉更大气
+    layout->addStretch(4);  // 4 加大弹性比例，描述文字更下沉
 
     // 品牌描述 (复刻Vue版 .brand-desc) [触屏优化 2026-06-15]
     auto* desc = new QLabel(QStringLiteral("智能化工具管理系统\n视觉识别 · 刷脸认证 · 秒级盘点"));
     desc->setAlignment(Qt::AlignCenter);
     desc->setWordWrap(true);
-    desc->setStyleSheet("color:rgba(255,255,255,0.8); font-size:16px; background:transparent; line-height:1.8; margin-bottom:12px;");  // [2026-06-26] 字号15→16，行高1.7→1.8，视觉下沉更沉稳
+    desc->setStyleSheet("color:rgba(255,255,255,0.8); font-size:16px; background:transparent; line-height:1.8; margin-bottom:12px;");  // 字号16，行高1.8，视觉下沉更沉稳
     layout->addWidget(desc);
 
     layout->addStretch(1);
 }
 
 void LoginPage::setupRightPanel(QVBoxLayout* layout) {
-    // 欢迎文字 (复刻Vue版 .welcome-text) [触屏优化 2026-06-15]
+    buildWelcomeHeader(layout);
+    buildFaceScanArea(layout);
+    buildStatusRow(layout);
+    buildPasswordForm(layout);
+    buildSuccessCard(layout);
+    buildStrangerCard(layout);
+    layout->addStretch();
+
+    buildExitButton();
+    buildCopyright(layout);
+}
+
+/** 构建右侧顶部欢迎文字与副标题 */
+void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
     m_welcomeLabel = new QLabel(QStringLiteral("欢迎使用"));
     m_welcomeLabel->setAlignment(Qt::AlignCenter);
-    m_welcomeLabel->setStyleSheet(QString("font-size:27px; font-weight:800; color:%1; background:transparent; margin-bottom:4px;")  // [修正] 对齐Vue版 font-size:27px
+    m_welcomeLabel->setStyleSheet(QString("font-size:27px; font-weight:800; color:%1; background:transparent; margin-bottom:4px;")
         .arg("#1a1a2e"));
     layout->addWidget(m_welcomeLabel);
 
     m_subtitleLabel = new QLabel(QStringLiteral("请面向摄像头完成身份验证"));
     m_subtitleLabel->setAlignment(Qt::AlignCenter);
     m_subtitleLabel->setWordWrap(true);
-    m_subtitleLabel->setStyleSheet(QString("font-size:15px; color:%1; background:transparent; margin-bottom:28px;")  // [v4.2] Web: 15px #999 mb:28px
+    m_subtitleLabel->setStyleSheet(QString("font-size:15px; color:%1; background:transparent; margin-bottom:28px;")
         .arg("#999999"));
     layout->addWidget(m_subtitleLabel);
+}
 
-    // --- 人脸识别区 ---
-    m_cameraWrap = new QWidget();  // [v4] 存为成员变量，切换模式时整体显隐
+/** 构建人脸扫描区：摄像头、三态状态圆圈、采集进度与密码登录入口 */
+void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
+    m_cameraWrap = new QWidget();  // 存为成员变量，切换模式时整体显隐
     m_cameraWrap->setStyleSheet("background:transparent;");
     auto* camLayout = new QVBoxLayout(m_cameraWrap);
     camLayout->setAlignment(Qt::AlignCenter);
     camLayout->setSpacing(12);
 
-    // [2026-06-23] 增大摄像头区域260x300，确保录像框(220)和状态提示完整显示
+    // 摄像头区域260x300，确保录像框和状态提示完整显示
+    // 采集参数：3稳定帧×40ms+50ms延迟=170ms即开始采集
     m_faceCamera = new FaceCameraWidget();
     m_faceCamera->setFixedSize(260, 300);
-    // [2026-06-23 速度优化] 稳定帧20→8(640ms足够确认人脸稳定)，采集延迟500→200ms，检测间隔100→80ms
     m_faceCamera->setAutoCapture(true);
     m_faceCamera->setMinConfidence(0.60);
-    // [V2.04 2026-06-28] 识别速度优化：8→3帧(240ms)，延迟200→50ms，间隔80→40ms
-    // 原参数：8×80+200=840ms 才开始采集
-    // 新参数：3×40+50=170ms 即开始采集，提速约5倍
-    //   作者：袁燕
     m_faceCamera->setStableFrames(3);
     m_faceCamera->setCaptureDelay(50);
     m_faceCamera->setDetectInterval(40);
-    // Web: border:4px dashed #d0d0d0; border-radius:50%;
     m_faceCamera->setStyleSheet(
         "border:4px dashed #d0d0d0; border-radius:90px;"
         "background:#fafbfc;");
@@ -281,11 +292,8 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     camLayout->addWidget(m_faceCamera, 0, Qt::AlignCenter);
 
-    // [V6.5] 状态圆圈 - 1:1复刻Web版 .camera-area.success/.fail/.stranger
+    // 状态圆圈 - 1:1复刻Web版 .camera-area.success/.fail/.stranger
     // Web设计：180x180圆形，4px solid边框，背景色，内部emoji(50px)+文字(14px)
-    // 成功: 绿边框#52c41a 浅绿底#f6ffed ✅ "识别成功"
-    // 失败: 红边框#ff4d4f 浅红底#fff2f0 ❌ "识别失败"
-    // 陌生人: 橙边框#faad14 浅黄底#fffbe6 ⚠️ "检测到陌生人"
 
     // === 成功状态圆圈 (Web: .camera-area.success) ===
     m_statusCircleSuccess = new QLabel();
@@ -341,7 +349,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     m_strangerStatusText->setVisible(false);
     camLayout->addWidget(m_strangerStatusText, 0, Qt::AlignCenter);
 
-    // [2026-06-23] 采集进度文字加大确保触屏清晰可读
+    // 采集进度文字加大确保触屏清晰可读
     m_captureProgress = new QLabel("");
     m_captureProgress->setAlignment(Qt::AlignCenter);
     m_captureProgress->setStyleSheet(QString("font-size:15px; color:%1; background:transparent; font-weight:600; margin-top:8px;")
@@ -349,7 +357,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     m_captureProgress->setVisible(false);
     camLayout->addWidget(m_captureProgress);
 
-    // [V6.4] 密码登录入口移入cameraWrap (Web: .alt-login-hint 在scanning模板内，仅扫描时可见)
+    // 密码登录入口移入cameraWrap (Web: .alt-login-hint 在scanning模板内，仅扫描时可见)
     m_altLoginHint = new QPushButton(QStringLiteral("🔑 使用账号密码登录"));
     m_altLoginHint->setStyleSheet(
         "QPushButton{color:#4da3ff;font-size:14px;border:none;background:transparent;"
@@ -363,7 +371,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     layout->addWidget(m_cameraWrap);
 
-    // [V6.4] 状态指示行移出cameraWrap (Web: .status-line 在摄像头模板外，始终可见)
+}
+
+/** 构建状态指示行：状态圆点+文字（始终可见，Web: .status-line） */
+void LoginPage::buildStatusRow(QVBoxLayout* layout) {
     auto* statusRow = new QHBoxLayout();
     statusRow->setAlignment(Qt::AlignCenter);
     statusRow->setSpacing(8);
@@ -375,15 +386,17 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     statusRow->addWidget(m_statusDot);
 
     m_cameraStatusText = new QLabel(QStringLiteral("正在初始化人脸识别..."));
-    m_cameraStatusText->setMinimumWidth(280);   // [2026-06-23] 确保长文字一行显示全
+    m_cameraStatusText->setMinimumWidth(280);  // 确保长文字一行显示全
     m_cameraStatusText->setWordWrap(true);
     m_cameraStatusText->setStyleSheet(QString("font-size:14px; font-weight:600; color:%1; background:transparent;")
         .arg("#555555"));
     statusRow->addWidget(m_cameraStatusText);
     layout->addLayout(statusRow);
-    layout->addSpacing(20);  // [v4.2] Web: .status-line margin-bottom:20px
+    layout->addSpacing(20);  // Web: .status-line margin-bottom:20px
+}
 
-    // --- [完善] 密码登录区 (默认隐藏) - 复刻Vue版login-form ---
+/** 构建密码登录区（默认隐藏，复刻Vue版login-form） */
+void LoginPage::buildPasswordForm(QVBoxLayout* layout) {
     m_passwordForm = new QWidget();
     m_passwordForm->setVisible(false);
     m_passwordForm->setStyleSheet("background:transparent;");
@@ -393,23 +406,22 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     // 人脸识别失败/摄像头不可用 提示条 (Web: .form-error-tip)
     m_errorLabel = new QLabel();
-    m_errorLabel->setStyleSheet(QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")  // [v4.2] Web: 15px #ff4d4f mb:14px
+    m_errorLabel->setStyleSheet(QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
         .arg(StyleHelper::dangerColor()));
     m_errorLabel->setWordWrap(true);
     m_errorLabel->setVisible(false);
     pfLayout->addWidget(m_errorLabel);
 
-    // 工号标签 (Web: .form-label 14px #555) [2026-09-23] 账号改纯数字工号
+    // 工号标签 (Web: .form-label 14px #555)
     auto* unameLabel = new QLabel(QStringLiteral("工号"));
     unameLabel->setStyleSheet(QString("font-size:14px; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
     pfLayout->addWidget(unameLabel);
 
-    // [v4.2 重构] 用户名输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
-    // Web: input(border-radius:10px 0 0 10px) + button(border-radius:0 10px 10px 0, border-left:none)
-    // [2026-06-23v3] 修复边框圆角渲染：添加WA_StyledBackground+固定高度对齐内部控件
+    // 用户名输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
+    // WA_StyledBackground修复边框圆角渲染，固定高度对齐内部控件
     auto* unameWrap = new QFrame();
     unameWrap->setAttribute(Qt::WA_StyledBackground, true);
-    unameWrap->setFixedHeight(48);
+    unameWrap->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     unameWrap->setStyleSheet(
         "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
         "QFrame:focus-within{border-color:#4da3ff;}");
@@ -444,11 +456,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     pwdLabel->setStyleSheet(QString("font-size:14px; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
     pfLayout->addWidget(pwdLabel);
 
-    // [v4.2 重构] 密码输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
-    // [2026-06-23v3] 修复边框圆角渲染：添加WA_StyledBackground+固定高度对齐内部控件
+    // 密码输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
     auto* pwdWrap = new QFrame();
     pwdWrap->setAttribute(Qt::WA_StyledBackground, true);
-    pwdWrap->setFixedHeight(48);
+    pwdWrap->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     pwdWrap->setStyleSheet(
         "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
         "QFrame:focus-within{border-color:#4da3ff;}");
@@ -479,12 +490,11 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     pfLayout->addWidget(pwdWrap);
 
-    // [2026-06-26] 数字键盘占位 - 构造函数中创建，此处添加到布局
+    // 数字键盘占位 - 构造函数中创建，此处添加到布局
     // 初始隐藏，点击密码框⌨按钮时显示
 
     // 登录按钮 (Web: .login-btn border-radius:10px font-size:17px padding:14px)
     m_loginBtn = new QPushButton(QStringLiteral("登  录"));
-    // [v4.8修复] 1:1复刻Web版 login-btn: font-size:17px, font-weight:700, padding:14px
     m_loginBtn->setCursor(Qt::PointingHandCursor);
     m_loginBtn->setStyleSheet(
         "QPushButton{ background:#4da3ff; color:white; border:none; border-radius:10px;"
@@ -507,10 +517,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     pfLayout->addWidget(m_tryFaceBtn);
 
     layout->addWidget(m_passwordForm);
+}
 
-    // [V6.4] 密码登录入口已移入cameraWrap内 (对齐Web版在scanning模板内含.alt-login-hint)
-
-    // ===== 成功信息卡片 (Web: .info-box) [2026-06-23重写] =====
+/** 构建成功信息卡片（Web: .info-box，默认隐藏） */
+void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
     m_successBox = new QWidget();
     m_successBox->setVisible(false);
     m_successBox->setStyleSheet(
@@ -582,8 +592,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     sbl->addWidget(successMsg);
 
     layout->addWidget(m_successBox);
+}
 
-    // ===== 陌生人警告卡片 (Web: .stranger-box) [触屏优化 2026-06-15] =====
+/** 构建陌生人警告卡片（Web: .stranger-box，默认隐藏） */
+void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
     m_strangerBox = new QWidget();
     m_strangerBox->setVisible(false);
     m_strangerBox->setStyleSheet("background:#fffbe6; border:2px solid #ffe58f; border-radius:12px; padding:16px 20px;");
@@ -620,7 +632,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     auto* strConfirmBtn = new QPushButton(QStringLiteral("确认并继续使用"));
     strConfirmBtn->setStyleSheet(StyleHelper::buttonPrimary());
     strConfirmBtn->setCursor(Qt::PointingHandCursor);
-    strConfirmBtn->setMinimumHeight(56);
+    strConfirmBtn->setMinimumHeight(StyleHelper::Token::ControlHeightLarge);
     auto scClicked = static_cast<void(QPushButton::*)(bool)>(&QPushButton::clicked);
     connect(strConfirmBtn, scClicked, this, [this](bool) {
         handleStrangerConfirm();
@@ -630,7 +642,7 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     auto* strRetryBtn = new QPushButton(QStringLiteral("🔄 重新尝试识别"));
     strRetryBtn->setStyleSheet(StyleHelper::buttonOutline());
     strRetryBtn->setCursor(Qt::PointingHandCursor);
-    strRetryBtn->setMinimumHeight(56);
+    strRetryBtn->setMinimumHeight(StyleHelper::Token::ControlHeightLarge);
     connect(strRetryBtn, scClicked, this, [this](bool) {
         retryFace();
     });
@@ -638,15 +650,12 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     strl->addLayout(strActionLayout);
     layout->addWidget(m_strangerBox);
+}
 
-    layout->addStretch();
-
-    // 退出按钮改为右上角悬浮设计
-    // 设计理念：右上角半透明圆形按钮，不抢登录画面视觉焦点
-    // 暗蓝背景上用半透明白色，hover时微亮，符合系统整体暗蓝风格
-    // 48px满足触屏最小点击尺寸
+/** 构建右上角悬浮退出按钮（半透明圆形，不抢登录画面视觉焦点） */
+void LoginPage::buildExitButton() {
     m_exitBtn = new QPushButton(QStringLiteral("✕"), this);
-    m_exitBtn->setFixedSize(48, 48);
+    m_exitBtn->setFixedSize(48, 48);  // 满足触屏最小点击尺寸
     m_exitBtn->setCursor(Qt::PointingHandCursor);
     m_exitBtn->setStyleSheet(
         "QPushButton{"
@@ -666,8 +675,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
     // 右上角悬浮定位
     m_exitBtn->move(this->width() - 60, 12);
     m_exitBtn->raise();
+}
 
-    // 底部版权 (Web: .login-footer 13px #cccccc)
+/** 构建底部版权行（Web: .login-footer 13px #cccccc） */
+void LoginPage::buildCopyright(QVBoxLayout* layout) {
     auto* copyright = new QLabel(QStringLiteral("成都成飞电子科技有限公司 © 2026"));
     copyright->setAlignment(Qt::AlignCenter);
     copyright->setStyleSheet("font-size:13px; color:#cccccc; background:transparent; margin-top:16px;");
@@ -684,7 +695,7 @@ void LoginPage::setStatusDot(const QString& colorStyle) {
 }
 
 void LoginPage::startFaceRecognition() {
-    m_faceResult = "scanning";  // [2026-06-21] 重置状态，防止上次fail状态残留
+    m_faceResult = FaceResult::Scanning;  // 重置状态，防止上次fail状态残留
     m_samples.clear();
     m_captureCount = 0;
     m_isVerifying = false;
@@ -695,7 +706,7 @@ void LoginPage::startFaceRecognition() {
     m_passwordForm->setVisible(false);
     m_tryFaceBtn->setVisible(false);
     m_errorLabel->setVisible(false);
-    // [V6.5] 恢复摄像头+隐藏所有状态圆圈+文字 (扫描模式：仅显示FaceCamera)
+    // 恢复摄像头+隐藏所有状态圆圈+文字 (扫描模式：仅显示FaceCamera)
     if (m_cameraWrap) m_cameraWrap->setVisible(true);
     m_faceCamera->setVisible(true);
     if (m_statusCircleSuccess) m_statusCircleSuccess->setVisible(false);
@@ -710,9 +721,9 @@ void LoginPage::startFaceRecognition() {
     m_faceCamera->reset();
     m_hasCamera = m_faceCamera->hasCamera();
 
-    // [v4.2] 设置状态点为蓝色闪烁 (Web: .dot-blue animation:blink 1.2s infinite)
+    // 设置状态点为蓝色闪烁 (Web: .dot-blue animation:blink 1.2s infinite)
     setStatusDot("background:#4da3ff;");
-    // [v4] 清理旧的闪烁定时器，防止重复startFaceRecognition时内存泄漏和信号堆积
+    // 清理旧的闪烁定时器，防止重复startFaceRecognition时内存泄漏和信号堆积
     if (m_dotBlinkTimer) {
         m_dotBlinkTimer->stop();
         m_dotBlinkTimer->disconnect();
@@ -741,17 +752,18 @@ void LoginPage::startFaceRecognition() {
     }
 
     m_faceCamera->startCamera();
+    m_faceRecognitionActive = true;
     m_captureProgress->setVisible(false);
 
-    // [2026-06-26v9] 总超时90s→30s，用户体验优化
+    // 总超时90s→30s，用户体验优化
     m_timeoutTimer->start(30000);
     connect(m_timeoutTimer, &QTimer::timeout, this, [this]() {
-        if (m_destroying) return;  // [v4] 析构保护
-        if (m_faceResult == "scanning" || m_faceResult == "capturing") {
+        if (m_destroying) return;  // 析构保护
+        if (m_faceResult == FaceResult::Scanning || m_faceResult == FaceResult::Capturing) {
             qDebug() << "[LoginPage] Face recognition timeout, falling back to password";
             stopFaceRecognition();
-            setFaceResult("fail");
-            // [2026-06-23] 对齐Web版：超时显示"人脸验证未通过"而非"人脸验证超时"
+            setFaceResult(FaceResult::Fail);
+            // 对齐Web版：超时显示"人脸验证未通过"而非"人脸验证超时"
             m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
             m_errorLabel->setText(QStringLiteral("⚠️ 人脸识别超时，请使用账号密码登录"));
             m_errorLabel->setVisible(true);
@@ -763,47 +775,49 @@ void LoginPage::startFaceRecognition() {
 void LoginPage::stopFaceRecognition() {
     m_timeoutTimer->stop();
     m_autoJumpTimer->stop();
-    // [新增] 停止闪烁
+    // 停止闪烁
     if (m_dotBlinkTimer) {
         m_dotBlinkTimer->stop();
         delete m_dotBlinkTimer;
         m_dotBlinkTimer = nullptr;
     }
     if (m_faceCamera) m_faceCamera->stopCamera();
+    m_faceRecognitionActive = false;
 }
 
 void LoginPage::onFaceDetected() {
-    m_faceResult = "scanning";
+    m_faceResult = FaceResult::Scanning;
     m_cameraStatusText->setText(QStringLiteral("已检测到人脸，请保持不动..."));
 }
 
 void LoginPage::onFaceLost() {
-    // [2026-09-24] 人离开摄像头画面 → 清除注销抑制，恢复正常自动刷脸登录
+    // 人离开摄像头画面 → 清除注销抑制（含截止时间），恢复正常自动刷脸登录
     m_logoutSuppressed = false;
-    if (m_faceResult == "scanning") {
+    m_logoutSuppressUntilMs = 0;
+    if (m_faceResult == FaceResult::Scanning) {
         m_cameraStatusText->setText(QStringLiteral("正在检测人脸，请对准摄像头..."));
     }
 }
 
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
-    // [V2.03 2026-06-28] 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
+    // 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
     // 根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
     // stopFaceRecognition()但没有等待异步提取完成，导致fail状态覆盖success显示
-    //   作者：袁燕
-    if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
+
+    if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] onFaceCaptured ignored: already in success/pending state";
         return;
     }
 
-    // [2026-09-24] 注销后抑制自动登录：人未离开画面时不自动识别回登，避免注销被立即弹回
-    if (m_logoutSuppressed) {
+    // 注销后抑制自动登录：仅在抑制窗口内且人未离开画面时不自动识别回登
+    if (isLogoutSuppressed()) {
         m_cameraStatusText->setText(QStringLiteral("已注销，请离开摄像头画面后重新刷脸登录"));
         m_faceCamera->reset();
-        m_faceResult = "scanning";
+        m_faceResult = FaceResult::Scanning;
         return;
     }
 
-    // [2026-06-21修复] 作者：袁燕 - 修复描述符为空时静默返回、用户无任何提示的致命Bug
+    // 修复描述符为空时静默返回、用户无任何提示的致命Bug
     QString descriptor = m_faceCamera->getLastDescriptor();
     if (descriptor.isEmpty()) {
         qWarning() << "[LoginPage] 人脸特征提取失败(描述符为空), confidence:" << confidence;
@@ -811,7 +825,7 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
         if (m_captureCount >= 2) {
             stopDotBlink();
             setStatusDot("background:#ff4d4f;");
-            setFaceResult("fail");
+            setFaceResult(FaceResult::Fail);
             m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
             m_errorLabel->setText(QStringLiteral("⚠️ 人脸特征提取失败，请使用账号密码登录"));
             m_errorLabel->setVisible(true);
@@ -819,33 +833,33 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
         } else {
             // 第一帧就失败 → 重置重试
             m_faceCamera->reset();
-            m_faceResult = "scanning";
+            m_faceResult = FaceResult::Scanning;
             m_cameraStatusText->setText(QStringLiteral("正在检测人脸，请对准摄像头..."));
         }
         return;
     }
 
-    m_faceResult = "capturing";
+    m_faceResult = FaceResult::Capturing;
     m_cameraStatusText->setText(QStringLiteral("正在验证身份..."));
     m_captureProgress->setVisible(false);
 
-    // [V8.0 2026-06-28] 增强质量过滤：检查特征维度+置信度+描述符非空
-    //   作者：袁燕 - 原#8问题：无姿态/光照/模糊度检查
+    // 增强质量过滤：检查特征维度+置信度+描述符非空
+    //   原#8问题：无姿态/光照/模糊度检查
     int descDim = descriptor.split(",").size();
     double quality = confidence * 0.6 + (descDim >= 128 ? 0.4 : 0.2);
     if (confidence < 0.60 || descDim < 64) {
         m_faceCamera->reset();
-        m_faceResult = "scanning";
+        m_faceResult = FaceResult::Scanning;
         return;
     }
     m_samples.append({descriptor, image, confidence, quality});
     m_captureCount = m_samples.size();
 
-    // [V2.04 2026-06-28] 极速优化：第一帧直接验证，不再等待多帧
+    // 极速优化：第一帧直接验证，不等待多帧
     // 原逻辑：置信度>0.85且2帧 → 等待时间长
     // 新逻辑：只要特征有效(descDim>=128)直接验证，1帧搞定
     // 提速：2-3s → 1s
-    //   作者：袁燕
+
     if (descDim >= 128 && m_captureCount >= 1) {
         collectBestSample();
         return;
@@ -856,8 +870,8 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
         m_captureProgress->setText(QStringLiteral("已采集 %1/2 帧，请保持面部自然...").arg(m_captureCount));
         m_captureProgress->setVisible(true);
         m_faceCamera->reset();
-        m_faceResult = "scanning";
-        // [V6.1] 对齐Web端：采集期间保持"已检测到人脸"状态文字
+        m_faceResult = FaceResult::Scanning;
+        // 对齐Web端：采集期间保持"已检测到人脸"状态文字
         m_cameraStatusText->setText(QStringLiteral("已检测到人脸，请保持不动..."));
     } else {
         collectBestSample();
@@ -865,11 +879,11 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
 }
 
 void LoginPage::collectBestSample() {
-    // [V2.03] 竞态防护：已登录成功不再采集
-    if (m_samples.isEmpty() || m_isVerifying || m_faceResult == "success") return;
+    // 竞态防护：已登录成功不采集
+    if (m_samples.isEmpty() || m_isVerifying || m_faceResult == FaceResult::Success) return;
     if (!m_pendingUser.isEmpty()) return;
     m_isVerifying = true;
-    m_faceResult = "capturing";
+    m_faceResult = FaceResult::Capturing;
     m_cameraStatusText->setText(QStringLiteral("正在验证身份..."));
     m_captureProgress->setVisible(false);
 
@@ -881,15 +895,15 @@ void LoginPage::collectBestSample() {
     verifyFace(best.descriptor, best.image);
 }
 
-/// [V2.05 2026-06-28] 人脸验证 — 直接本地比对，不再走8088后端
+/// 人脸验证 — 直接本地比对，不走8088后端
 /// @author 袁燕 - 架构简化：去掉8088 C++后端依赖，Qt客户端直接连MySQL比对
 /// 原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
 /// 新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
 /// 现场无Web前端，8088后端不需要部署
 void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
     Q_UNUSED(image);
-    // [V2.05] 竞态防护：已登录成功则不重复验证
-    if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
+    // 竞态防护：已登录成功则不重复验证
+    if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] verifyFace ignored: already in success state";
         return;
     }
@@ -897,11 +911,10 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
     doLocalFaceVerify(descriptor);
 }
 
-/// [v4 新增] 本地FaceRecognitionService验证
+/// 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
-/// [V2.17 2026-07-06] 阈值对齐FaceRecognitionService默认值(0.94/0.95/0.35/0.15/0.80)
+/// 阈值对齐FaceRecognitionService默认值(0.94/0.95/0.35/0.15/0.80)
 /// 单人脸模式必须95%以上才通过，陌生人绝对不能登录
-///   作者：袁燕
 void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     FaceRecognitionService svc;
     auto result = svc.matchFace(descriptor);  // 使用默认参数(0.94/0.95/0.35/0.15/0.80)
@@ -915,7 +928,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
         resp["work_no"] = result.workNo;
         resp["department"] = result.department;
         resp["similarity"] = result.similarity * 100.0;
-        resp["role"] = result.role.isEmpty() ? "user" : result.role;  // [V6.3] 从DB读取真实角色，不再硬编码"user"
+        resp["role"] = result.role.isEmpty() ? SC::ROLE_USER : result.role;  // 从DB读取真实角色，不硬编码SC::ROLE_USER
         resp["token"] = QString::number(QDateTime::currentSecsSinceEpoch());
         handleFaceSuccess(resp);
     } else if (result.isStranger) {
@@ -931,21 +944,21 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     }
 }
 
-/// [v4 提取] 人脸识别成功处理 (HTTP和本地共用)
+/// 人脸识别成功处理 (HTTP和本地共用)
 void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
-    // [V2.03] 双重调用防护：已成功则忽略
-    if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
+    // 双重调用防护：已成功则忽略
+    if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] handleFaceSuccess ignored: already in success state";
         return;
     }
     stopDotBlink();
-    // [V7.9] 隐藏采集进度提示，避免识别成功后残留"已采集2/3帧"文字
+    // 隐藏采集进度提示，避免识别成功后残留"已采集2/3帧"文字
     m_captureProgress->setVisible(false);
-    // [2026-06-23] 识别成功后立即关闭摄像头释放硬件资源
+    // 识别成功后立即关闭摄像头释放硬件资源
     stopFaceRecognition();
     setStatusDot("background:#52c41a;");
-    setFaceResult("success");
-    // [V6.5] 显示成功状态圆圈+下方文字 (1:1复刻Web版 .camera-area.success)
+    setFaceResult(FaceResult::Success);
+    // 显示成功状态圆圈+下方文字 (1:1复刻Web版 .camera-area.success)
     m_faceCamera->setVisible(false);
     m_statusCircleSuccess->setVisible(true);
     m_statusCircleFail->setVisible(false);
@@ -978,22 +991,22 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     user["role"] = resp["role"].toString();
     user["token"] = resp["token"].toString();
     m_pendingUser = user;
-    m_autoJumpTimer->start(1200);  // [2026-06-26v9] 2s→1.2s，加快成功跳转
+    m_autoJumpTimer->start(1200);  // 2s→1.2s，加快成功跳转
 }
 
-/// [v4 提取] 陌生人处理 (HTTP和本地共用)
+/// 陌生人处理 (HTTP和本地共用)
 void LoginPage::handleFaceStranger(const QJsonObject& resp) {
-    // [V2.03] 竞态防护：已登录成功则忽略陌生人回调
-    if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
+    // 竞态防护：已登录成功则忽略陌生人回调
+    if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] handleFaceStranger ignored: already in success state";
         return;
     }
     stopDotBlink();
-    // [2026-06-23] 陌生人检测后停止摄像头采集
+    // 陌生人检测后停止摄像头采集
     stopFaceRecognition();
     setStatusDot("background:#faad14;");
-    setFaceResult("stranger");
-    // [V6.5] 显示陌生人状态圆圈+下方文字 (1:1复刻Web版 .camera-area.stranger)
+    setFaceResult(FaceResult::Stranger);
+    // 显示陌生人状态圆圈+下方文字 (1:1复刻Web版 .camera-area.stranger)
     m_faceCamera->setVisible(false);
     m_statusCircleSuccess->setVisible(false);
     m_statusCircleFail->setVisible(false);
@@ -1011,22 +1024,22 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
     m_cameraStatusText->setText(QStringLiteral("检测到陌生人，该人员不在库中"));
 }
 
-/// [v3 新增] 处理验证失败，尝试备用帧
-/// [v5.1修复] 致命Bug：用户切回密码登录时onPasswordLoginClicked()清空了m_samples，
+/// 处理验证失败，尝试备用帧
+/// 致命Bug：用户切回密码登录时onPasswordLoginClicked()清空了m_samples，
 /// 但之前人脸验证的异步HTTP回调可能尚未到达，导致removeFirst()在空列表上断言崩溃
 void LoginPage::handleVerifyFailure(const QString& errMsg) {
-    // [V2.03] 竞态防护：已登录成功则忽略验证失败回调
+    // 竞态防护：已登录成功则忽略验证失败回调
     // 场景：handleFaceSuccess→stopFaceRecognition→异步captureReady到达→验证→失败→此处
     // 此时successBox已显示、autoJumpTimer已启动，禁止fail状态覆盖
-    if (m_faceResult == "success" || !m_pendingUser.isEmpty()) {
+    if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] handleVerifyFailure ignored: already in success state";
         m_isVerifying = false;
         return;
     }
     m_isVerifying = false;
-    // [v5.1] 防御：m_samples可能已被异步清空（用户切换登录模式）
+    // 防御：m_samples可能已被异步清空（用户切换登录模式）
     if (m_samples.isEmpty()) {
-        setFaceResult("fail");
+        setFaceResult(FaceResult::Fail);
         return;
     }
     m_samples.removeFirst();
@@ -1041,7 +1054,7 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
     stopDotBlink();
     stopFaceRecognition();
     setStatusDot("background:#ff4d4f;");
-    setFaceResult("fail");
+    setFaceResult(FaceResult::Fail);
     m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
     m_errorLabel->setText(QStringLiteral("⚠️ %1").arg(errMsg));
     m_errorLabel->setVisible(true);
@@ -1053,7 +1066,7 @@ void LoginPage::onCameraError(const QString& msg) {
     m_hasCamera = false;
     stopDotBlink();
     setStatusDot("background:#ff4d4f;");
-    setFaceResult("no-camera");
+    setFaceResult(FaceResult::NoCamera);
     m_faceCamera->setVisible(false);
     m_errorLabel->setText(QStringLiteral("⚠️ 摄像头不可用: %1").arg(msg));
     m_errorLabel->setVisible(true);
@@ -1068,7 +1081,7 @@ void LoginPage::onFaceStateChanged(int state) {}
 
 void LoginPage::onUsernameFieldClicked() {
     m_activeField = "username";
-    // [2026-09-23] 工号改纯数字：统一使用数字键盘（不随机打乱、明文显示）
+    // 工号改纯数字：统一使用数字键盘（不随机打乱、明文显示）
     if (m_numKeypad) {
         m_numKeypad->setShuffle(false);
         m_numKeypad->setShowPassword(true);
@@ -1079,7 +1092,7 @@ void LoginPage::onUsernameFieldClicked() {
 
 void LoginPage::onPasswordFieldClicked() {
     m_activeField = "password";
-    // [2026-06-26v2] NumKeypad作为顶层Popup弹窗显示，不受布局约束
+    // NumKeypad作为顶层Popup弹窗显示，不受布局约束
     if (m_numKeypad) {
         m_numKeypad->setShuffle(true);
         m_numKeypad->setShowPassword(false);
@@ -1098,7 +1111,7 @@ void LoginPage::onPasswordLogin() {
         m_errorLabel->setVisible(true);
         return;
     }
-    // [2026-09-23] 工号改为纯数字（与数字键盘输入、DB存储格式统一）
+    // 工号为纯数字（与数字键盘输入、DB存储格式统一）
     static const QRegularExpression workNoRe(QStringLiteral("^\\d{1,32}$"));
     if (!workNoRe.match(username).hasMatch()) {
         m_errorLabel->setText(QStringLiteral("工号应为1-32位纯数字"));
@@ -1139,7 +1152,7 @@ void LoginPage::onPasswordLogin() {
     }
 }
 
-/// [V6.3] 重置所有登录状态——退出登录/登出后清除上一用户的所有残留信息
+/// 重置所有登录状态——退出登录/登出后清除上一用户的所有残留信息
 /// @details 解决致命Bug：退出登录后LoginPage仍显示"身份验证通过"、张三识别信息、
 /// 自动跳转定时器未停等状态残留，导致界面混乱。
 /// @author 袁燕 - 2026-06-21
@@ -1197,30 +1210,30 @@ void LoginPage::resetPageState() {
     QTimer::singleShot(500, this, &LoginPage::startFaceRecognition);
 }
 
-/// [V6.3] 清除所有表单输入和采集数据
+/// 清除所有表单输入和采集数据
 void LoginPage::clearAllForms() {
     if (m_usernameEdit) m_usernameEdit->clear();
     if (m_passwordEdit) m_passwordEdit->clear();
     m_samples.clear();
     m_captureCount = 0;
-    m_faceResult = "scanning";
+    m_faceResult = FaceResult::Scanning;
 }
 
-/** [v2.0] 切换到密码登录 */
+/** 切换到密码登录 */
 void LoginPage::switchToPasswordLogin() {
     stopFaceRecognition();
-    setFaceResult("fail");
+    setFaceResult(FaceResult::Fail);
     stopDotBlink();
     setStatusDot("background:#ff4d4f;");
     m_errorLabel->setText(QStringLiteral("⚠️ 人脸识别失败，请使用账号密码登录"));
     m_errorLabel->setVisible(true);
     m_subtitleLabel->setText(QStringLiteral("请输入账号密码"));
     m_cameraStatusText->setText(QStringLiteral("已切换到账号密码登录"));
-    // [V6.4] cameraWrap保持可见(fail圆圈已由setFaceResult管理)，不再额外隐藏
+    // cameraWrap保持可见(fail圆圈已由setFaceResult管理)，不额外隐藏
 }
 
 void LoginPage::onTryFaceAgain() {
-    if (m_faceResult == "fail" || m_faceResult == "no-camera") {
+    if (m_faceResult == FaceResult::Fail || m_faceResult == FaceResult::NoCamera) {
         // 当前在密码模式，切换回人脸识别
         retryFace();
     } else {
@@ -1229,8 +1242,11 @@ void LoginPage::onTryFaceAgain() {
     }
 }
 
-/** [复刻Vue版] 重新尝试人脸识别 */
+/** 重新尝试人脸识别 */
 void LoginPage::retryFace() {
+    // 用户主动点击重试 → 清除注销抑制，立即恢复识别
+    m_logoutSuppressed = false;
+    m_logoutSuppressUntilMs = 0;
     m_errorLabel->setVisible(false);
     m_usernameEdit->clear();
     m_passwordEdit->clear();
@@ -1249,7 +1265,12 @@ void LoginPage::retryFace() {
 // 修复Bug：setupUI时this->width()返回默认值，按钮定位到错误位置
 void LoginPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    // [V2.05] 窗口显示时立即定位退出按钮到右上角
+    // 回到登录页且识别未运行（注销/自动锁屏后）→ 自动恢复人脸识别，避免摄像头停着不工作
+    if (!m_faceRecognitionActive) {
+        qInfo() << "[LoginPage] showEvent: face recognition inactive, restarting...";
+        startFaceRecognition();
+    }
+    // 窗口显示时立即定位退出按钮到右上角
     if (m_exitBtn) {
         m_exitBtn->move(this->width() - 60, 12);
         m_exitBtn->raise();
@@ -1292,7 +1313,7 @@ void LoginPage::onExitSystem() {
     btnRow->setSpacing(16);
 
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
-    cancelBtn->setMinimumHeight(44);
+    cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
     cancelBtn->setMinimumWidth(120);
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
@@ -1303,7 +1324,7 @@ void LoginPage::onExitSystem() {
     connect(cancelBtn, &QPushButton::clicked, dlg, &QDialog::reject);
 
     auto* confirmBtn = new QPushButton(QStringLiteral("退出"));
-    confirmBtn->setMinimumHeight(44);
+    confirmBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
     confirmBtn->setMinimumWidth(120);
     confirmBtn->setCursor(Qt::PointingHandCursor);
     confirmBtn->setStyleSheet(
@@ -1324,7 +1345,7 @@ void LoginPage::onExitSystem() {
     delete dlg;
 }
 
-/** [复刻Vue版] 处理陌生人确认 → 切换密码登录 */
+/** 处理陌生人确认 → 切换密码登录 */
 void LoginPage::handleStrangerConfirm() {
     qDebug() << "[LoginPage] Stranger confirmed, switching to password login";
     m_strangerBox->setVisible(false);
@@ -1341,10 +1362,23 @@ void LoginPage::stopDotBlink() {
 /** [保留] MOC生成代码引用的空方法 */
 void LoginPage::retryFaceTimeout() {}
 
-void LoginPage::setFaceResult(const QString& state) {
+QString LoginPage::faceResultName(FaceResult result) {
+    switch (result) {
+    case FaceResult::Idle:      return QStringLiteral("idle");
+    case FaceResult::Scanning:  return QStringLiteral("scanning");
+    case FaceResult::Capturing: return QStringLiteral("capturing");
+    case FaceResult::Success:   return QStringLiteral("success");
+    case FaceResult::Fail:      return QStringLiteral("fail");
+    case FaceResult::Stranger:  return QStringLiteral("stranger");
+    case FaceResult::NoCamera:  return QStringLiteral("no-camera");
+    }
+    return QStringLiteral("unknown");
+}
+
+void LoginPage::setFaceResult(FaceResult state) {
     m_faceResult = state;
-    if (state == "fail") {
-        // [V6.5] fail状态显示红色❌圆圈+下方文字 (复刻Web版 .camera-area.fail)，cameraWrap保持可见
+    if (state == FaceResult::Fail) {
+        // fail状态显示红色❌圆圈+下方文字 (复刻Web版 .camera-area.fail)，cameraWrap保持可见
         m_faceCamera->setVisible(false);
         m_statusCircleSuccess->setVisible(false);
         m_statusCircleFail->setVisible(true);
@@ -1356,10 +1390,10 @@ void LoginPage::setFaceResult(const QString& state) {
         m_altLoginHint->setVisible(false);
         m_passwordForm->setVisible(true);
         m_tryFaceBtn->setVisible(true);
-        // [2026-06-23] 对齐Web版：失败状态红点 (dot-red)
+        // 对齐Web版：失败状态红点 (dot-red)
         setStatusDot("background:#ff4d4f;");
-    } else if (state == "no-camera") {
-        // [V6.4] no-camera状态隐藏整个摄像头容器 (Web版无camera-area占位)
+    } else if (state == FaceResult::NoCamera) {
+        // no-camera状态隐藏整个摄像头容器 (Web版无camera-area占位)
         if (m_cameraWrap) m_cameraWrap->setVisible(false);
         m_passwordForm->setVisible(true);
         m_tryFaceBtn->setVisible(true);

@@ -63,7 +63,7 @@ private:
     /** 生成CSV模板文件（UTF-8 BOM，Excel/WPS兼容） */
     bool generateTemplate(const QString& filePath);
 
-    // [2026-06-27] 查询数据库已存在的CF+数字格式工号，返回下一个可用工号
+    // 查询数据库已存在的CF+数字格式工号，返回下一个可用工号
     QString generateNextWorkNo() const;
 
     /** 解析文件并校验格式 */

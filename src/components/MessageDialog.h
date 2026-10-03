@@ -4,9 +4,6 @@
  * @author 袁燕
  * @date 2026-06-25
  * @说明 美观的模态对话框，支持4种类型：成功(Success)、失败(Error)、警告(Warning)、询问(Question)
- *   - 触屏友好：按钮48px，字体16px
- *   - 圆角卡片风格，绿色/红色/橙色/蓝色图标+标题
- *   - 支持单按钮(alert)和双按钮(confirm)模式
  */
 #ifndef MESSAGEDIALOG_H
 #define MESSAGEDIALOG_H
@@ -64,7 +61,7 @@ public:
                                  const QString& discardText = QString());
 
 protected:
-    void showEvent(QShowEvent* event) override;   // [2026-06-25] 每次弹出自动居中
+    void showEvent(QShowEvent* event) override;  // 每次弹出自动居中
 
 private:
     MessageDialog(DialogType type, QWidget* parent);

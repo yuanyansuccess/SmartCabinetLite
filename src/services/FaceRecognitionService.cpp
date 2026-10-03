@@ -10,8 +10,9 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <algorithm>
+#include "common/Constants.h"
 
-// [2026-06-21] 修复LNK2005：db/层已包裹namespace db
+// 修复LNK2005：db/层已包裹namespace db
 using db::UserDAO;
 using db::FaceRecogLogDAO;
 using db::FaceRecogLog;
@@ -45,10 +46,10 @@ double FaceRecognitionService::cosineSimilarity(const QVector<double>& a, const 
     normalizeL2(bn);
     double dot = 0;
     for (int i = 0; i < an.size(); ++i) dot += an[i] * bn[i];
-    // [V2.02 2026-06-28] 移除(dot+1)/2映射 → 直接返回原始余弦相似度
+    // 移除(dot+1)/2映射 → 直接返回原始余弦相似度
     // 原映射把不同人sim从0.3抬高到0.65，超过rejectThreshold被纳入候选
     // 原始值：同一个人>0.9，不同人<0.5，辨识力强
-    //   作者：袁燕 — 修复陌生人泛化误识P0致命Bug
+    //   修复陌生人泛化误识P0致命Bug
     return dot;
 }
 
@@ -99,10 +100,10 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         return result;
     }
 
-    // [V2.02 2026-06-28] 遍历所有已录入人脸，计算余弦相似度+欧氏距离
+    // 遍历所有已录入人脸，计算余弦相似度+欧氏距离
     // 移除提前退出逻辑：陌生人sim碰巧高时直接return success=true是致命Bug
     // 所有候选必须遍历完再综合判断
-    //   作者：袁燕 — 修复陌生人泛化误识P0致命Bug
+    //   修复陌生人泛化误识P0致命Bug
     struct Candidate {
         int userId;
         QString username;
@@ -125,7 +126,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         if (dbVec.size() < 64) continue;
         double sim = cosineSimilarity(inputVec, dbVec);
         double dist = euclideanDistance(inputVec, dbVec);
-        // [V2.02] 只记录超过rejectThreshold的候选（原始余弦相似度，不同人<0.5）
+        // 只记录超过rejectThreshold的候选（原始余弦相似度，不同人<0.5）
         if (sim > rejectThreshold) {
             candidates.append({
                 obj["userId"].toInt(),
@@ -155,16 +156,16 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     auto& best = candidates[0];
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
 
-    // [V2.17 2026-07-06 袁总指令] 单人脸严格策略：系统仅1人脸时必须95%以上
+  // 单人脸严格策略：系统仅1人脸时必须95%以上
     // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，陌生人碰巧0.94+就可能通过
-    // 修复：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
+    // 注意：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
-    //   作者：袁燕
+
     const double singleFaceThreshold = 0.97;  // 单人脸最低门槛（袁总确认95%以上才通过）
     bool cosOk = false;
 
     if (candidates.size() == 1) {
-        // [V2.17] 单人脸模式：没有第二名候选，必须达到singleFaceThreshold(0.95)才通过
+        // 单人脸模式：没有第二名候选，必须达到singleFaceThreshold(0.95)才通过
         // 杜绝陌生人误识：只有1个人脸时，任何低于95%的匹配一律拒绝
         cosOk = (best.similarity >= singleFaceThreshold);
         qDebug() << "[FaceRecog] 单人脸模式: best.sim=" << best.similarity
@@ -192,7 +193,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), best.workNo });
     } else {
-        // [V2.02] 未通过双验证 → 一律判定为陌生人（宁误拒不误识）
+        // 未通过双验证 → 一律判定为陌生人（宁误拒不误识）
         result.isStranger = true;
         result.message = QStringLiteral("人脸验证失败，相似度: %.1f%% 距离: %.3f (未通过双验证)")
                           .arg(best.similarity * 100).arg(best.euclideanDist);
@@ -213,13 +214,13 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 检查用户状态
     UserDAO dao;
     QJsonObject user = dao.findById(best.userId);
-    if (user["status"].toString() != "active") {
+    if (user["status"].toString() != SC::USER_ACTIVE) {
         result.success = false;
         result.message = QStringLiteral("用户已被禁用或锁定");
     }
-    // [V6.3] 从数据库读取真实角色，防止doLocalFaceVerify硬编码"user"导致管理员降级
+    // 从数据库读取真实角色，防止doLocalFaceVerify硬编码"user"导致管理员降级
     result.role = user["role"].toString();
-    // [V6.3] 安全回填：getAllFaceFeatures可能缺少workNo/department，从findById补全
+    // 安全回填：getAllFaceFeatures可能缺少workNo/department，从findById补全
     if (result.workNo.isEmpty() && !user["workNo"].toString().isEmpty())
         result.workNo = user["workNo"].toString();
     if (result.department.isEmpty() && !user["department"].toString().isEmpty())

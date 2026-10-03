@@ -3,7 +3,7 @@
  * @brief 系统设置页面实现 - 1:1复刻BS端SystemSettings.vue
  * @author 袁燕
  *
- * [2026-06-15 重构] 完全重写以1:1匹配BS端SystemSettings.vue
+ * 完全重写以1:1匹配BS端SystemSettings.vue
  * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
  * 底部：保存全部设置/恢复默认/软件升级按钮
  * 安全：危险操作使用SoftKeyboard安全键盘验证管理员密码
@@ -11,11 +11,12 @@
 #include "SystemSettingsPage.h"
 #include "components/SoftKeyboard.h"
 #include "components/NumKeypad.h"
-#include "components/BaseDialog.h"       // [2026-06-26] 统一圆角对话框
+#include "components/BaseDialog.h"  // 统一圆角对话框
 #include "utils/StyleHelper.h"
+#include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
 #include "services/SettingService.h"
 #include "services/AuthService.h"
-#include "common/AppConfig.h"            // [2026-06-26v7] 机组名称配置
+#include "common/AppConfig.h"  // 机组名称配置
 #include "common/DatabaseManager.h"     // DB写入机组配置
 #include "db/RecordDAO.h"               // 校验机组下未归还记录
 #include "db/ToolDAO.h"                 // 加载活跃机组列表
@@ -37,22 +38,21 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QFocusEvent>
-#include <QShowEvent>                   // [2026-06-26v7] 页面切换还原
-#include <QHideEvent>                   // [2026-06-26v7]
-#include <QSqlError>                    // [2026-06-26v7]
-#include <QTableWidget>                 // [V2.03f] 任务类型配置表格
-#include <QHeaderView>                  // [V2.03f] 表格列宽控制
-#include <QTableWidgetItem>             // [V2.03f] 表格单元格
-#include <QProgressBar>                 // [2026-06-26] 软件升级进度条
-#include <QTimer>                      // [2026-06-26] 软件升级定时器
-#include <QProcess>                    // [2026-06-27] 调用PowerShell设置显示器亮度
-#include <QFile>                       // [2026-06-27] WMI结果日志记录
-#include <QDateTime>                   // [2026-06-27] 亮度日志时间戳
-#include <QDir>                        // [2026-06-27] 备份目录操作
-#include <QStorageInfo>                // [2026-06-27] 跨平台磁盘空间读取
-#include <QSysInfo>                    // [2026-06-27] 跨平台系统信息读取
-#include <QRegularExpression>          // [2026-06-27] 解析os-release
-#include <QFileInfoList>               // [2026-06-27] 备份文件清理
+#include <QShowEvent>  // 页面切换还原
+#include <QHideEvent>
+#include <QTableWidget>  // 任务类型配置表格
+#include <QHeaderView>  // 表格列宽控制
+#include <QTableWidgetItem>  // 表格单元格
+#include <QProgressBar>  // 软件升级进度条
+#include <QTimer>  // 软件升级定时器
+#include <QProcess>  // 调用PowerShell设置显示器亮度
+#include <QFile>  // WMI结果日志记录
+#include <QDateTime>  // 亮度日志时间戳
+#include <QDir>  // 备份目录操作
+#include <QStorageInfo>  // 跨平台磁盘空间读取
+#include <QSysInfo>  // 跨平台系统信息读取
+#include <QRegularExpression>  // 解析os-release
+#include <QFileInfoList>  // 备份文件清理
 
 SystemSettingsPage::SystemSettingsPage(QWidget* parent) : QWidget(parent) {
     setupUI();
@@ -63,19 +63,19 @@ SystemSettingsPage::SystemSettingsPage(QWidget* parent) : QWidget(parent) {
 
 void SystemSettingsPage::setupUI() {
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);  // [2026-06-27] 20→24对齐其他页面
-    mainLayout->setSpacing(16);  // [2026-06-27] 12→16对齐其他页面
+    mainLayout->setContentsMargins(24, 24, 24, 24);  // 24对齐其他页面
+    mainLayout->setSpacing(16);  // 16对齐其他页面
 
-    // [2026-06-27] 标题栏：对齐其他页面 20px标题 + 蓝色实底主操作按钮
+    // 标题栏：对齐其他页面 20px标题 + 蓝色实底主操作按钮
     auto* titleBar = new QHBoxLayout();
     titleBar->setContentsMargins(0, 0, 0, 0);
     titleBar->setSpacing(12);
     auto* title = new QLabel(QStringLiteral("系统参数配置"));
-    title->setStyleSheet("font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;");  // 22→20对齐
+    title->setStyleSheet("font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;");  // 20对齐
     titleBar->addWidget(title);
     titleBar->addStretch();
 
-    // [2026-06-27] 操作按钮统一风格：主操作蓝色实底/次操作白底蓝边/危险操作白底红边
+    // 操作按钮统一风格：主操作蓝色实底/次操作白底蓝边/危险操作白底红边
     m_restoreBtn = new QPushButton(QStringLiteral("恢复默认"));
     m_restoreBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;"
@@ -111,7 +111,7 @@ void SystemSettingsPage::setupUI() {
     titleBar->addWidget(m_upgradeBtn);
     mainLayout->addLayout(titleBar);
 
-    // [2026-06-27] 选项卡栏：对齐借用页QTabWidget风格（灰底白选中+主色下划线）
+    // 选项卡栏：对齐借用页QTabWidget风格（灰底白选中+主色下划线）
     auto* tabContainer = new QFrame();
     tabContainer->setAttribute(Qt::WA_StyledBackground, true);
     tabContainer->setStyleSheet(
@@ -123,7 +123,7 @@ void SystemSettingsPage::setupUI() {
 
     QStringList tabLabels = {QStringLiteral("网络配置"), QStringLiteral("告警参数"),
                             QStringLiteral("借还设置"), QStringLiteral("备份管理")};
-    // [V2.03g] 任务配置已迁移到系统维护页面
+    // 任务配置已迁移到系统维护页面
     m_tabLabels.clear();
     for (int i = 0; i < tabLabels.size(); ++i) {
         auto* tab = new QLabel(tabLabels[i]);
@@ -143,8 +143,8 @@ void SystemSettingsPage::setupUI() {
     m_activeTabIndex = 0;
     updateTabStyles();
 
-    // [V2.03j 2026-06-29] 改为QStackedWidget切换，去掉滚动（对齐系统维护页面）
-    // [V2.03k 2026-06-29] 备份面板内容多(表单+系统信息+机组配置)，单独包QScrollArea避免字体压扁
+    // QStackedWidget切换，去掉滚动（对齐系统维护页面）
+    // 备份面板内容多(表单+系统信息+机组配置)，单独包QScrollArea避免字体压扁
     m_stackedWidget = new QStackedWidget();
     m_stackedWidget->addWidget(m_networkPanel = createNetworkPanel());
     m_stackedWidget->addWidget(m_alertPanel = createAlertPanel());
@@ -169,24 +169,24 @@ void SystemSettingsPage::setupUI() {
 }
 
 void SystemSettingsPage::updateTabStyles() {
-    // [2026-06-27] Tab样式对齐借用页QTabWidget：灰底白选中+主色下划线，去渐变胶囊
+    // Tab样式对齐借用页QTabWidget：灰底白选中+主色下划线，去渐变胶囊
     for (int i = 0; i < m_tabLabels.size(); ++i) {
         if (i == m_activeTabIndex) {
             m_tabLabels[i]->setStyleSheet(
                 QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                        "color:%1;background:#fff;cursor:pointer;min-height:44px;"
+                        "color:%1;background:#fff;min-height:44px;"
                         "border-bottom:3px solid %1;")
                 .arg(StyleHelper::primaryColor()));
         } else {
             m_tabLabels[i]->setStyleSheet(
                 QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                        "color:%1;background:#f0f2f5;cursor:pointer;min-height:44px;")
+                        "color:%1;background:#f0f2f5;min-height:44px;")
                 .arg(StyleHelper::textSecondary()));
         }
     }
 }
 
-// [V2.03j 2026-06-29] 改为switchTab（QStackedWidget切换），替代highlightPanel
+// switchTab（QStackedWidget切换）
 void SystemSettingsPage::switchTab(int index) {
     if (index < 0 || index >= m_tabLabels.size()) return;
     m_activeTabIndex = index;
@@ -197,7 +197,7 @@ void SystemSettingsPage::switchTab(int index) {
 }
 
 bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
-    // [V2.03j] 简化：Tab点击切换QStackedWidget + Hover效果，去掉滚动和焦点高亮
+    // 简化：Tab点击切换QStackedWidget + Hover效果，去掉滚动和焦点高亮
     if (event->type() == QEvent::MouseButtonPress) {
         for (int i = 0; i < m_tabLabels.size(); ++i) {
             if (watched == m_tabLabels[i]) {
@@ -210,7 +210,7 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_tabLabels[i] && i != m_activeTabIndex) {
                 m_tabLabels[i]->setStyleSheet(
                     QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                            "color:%1;background:#e8f0fe;cursor:pointer;min-height:44px;")
+                            "color:%1;background:#e8f0fe;min-height:44px;")
                         .arg(StyleHelper::primaryColor())
                 );
                 break;
@@ -221,7 +221,7 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_tabLabels[i] && i != m_activeTabIndex) {
                 m_tabLabels[i]->setStyleSheet(
                     QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                            "color:%1;background:#f0f2f5;cursor:pointer;min-height:44px;")
+                            "color:%1;background:#f0f2f5;min-height:44px;")
                         .arg(StyleHelper::textSecondary())
                 );
                 break;
@@ -232,16 +232,16 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
 }
 
 // ==================== 网络配置面板 ====================
-// [V2.03l 2026-06-30] 小米工程师优化：标签36px高/form 8px间距/面板24,12边距，紧凑美观大气
+// 小米工程师优化：标签36px高/form 8px间距/面板24,12边距，紧凑美观大气
 QWidget* SystemSettingsPage::createNetworkPanel() {
     auto* panel = new QFrame();
     panel->setObjectName("netPanel");
     panel->setStyleSheet(QString("QFrame#netPanel{background:white;border-radius:12px;border:none;}"));
     auto* layout = new QVBoxLayout(panel);
-    layout->setSpacing(6);      // [V2.03l] 8→6更紧凑
-    layout->setContentsMargins(20, 10, 20, 10);  // [V2.03l] 24,12→20,10
+    layout->setSpacing(6);  // 6更紧凑
+    layout->setContentsMargins(20, 10, 20, 10);  // 24,20,10
 
-    // [V2.03l 2026-06-30] 标题不占满宽度，左对齐+主色底边细线分隔
+    // 标题不占满宽度，左对齐+主色底边细线分隔
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("网络参数配置"));
     // 标题样式调整：去掉padding-bottom，减小font-size
@@ -255,39 +255,39 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     layout->addWidget(sep);
 
     auto* form = new QFormLayout();
-    form->setSpacing(8);      // [V2.03l] 12→8紧凑
+    form->setSpacing(8);  // 8紧凑
     form->setContentsMargins(0, 0, 0, 0);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // [V2.03u] 表单字段自动扩展
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // [V2.03u] 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());  // 16→14
+    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
+    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());  // 14
     auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // [V2.03u] 限宽100px，防止标签列过宽
+        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // 限宽100px，防止标签列过宽
     };
 
-    // [v4] 使用Web端小尺寸settingLineEdit：14px/38px高
+    // 使用Web端小尺寸settingLineEdit：14px/38px高
     m_ipEdit = new QLineEdit("192.168.1.100");
     m_ipEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("IP 地址")), m_ipEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("IP 地址")), m_ipEdit);
 
     m_maskEdit = new QLineEdit("255.255.255.0");
     m_maskEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("子网掩码")), m_maskEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("子网掩码")), m_maskEdit);
 
     m_gatewayEdit = new QLineEdit("192.168.1.1");
     m_gatewayEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("默认网关")), m_gatewayEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("默认网关")), m_gatewayEdit);
 
     m_dnsEdit = new QLineEdit("8.8.8.8");
     m_dnsEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("DNS 服务器")), m_dnsEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("DNS 服务器")), m_dnsEdit);
 
-    // [V7.0] 网口速率：按钮组替代QComboBox
-    // [2026-06-26] 统一按钮尺寸：44px高/Preferred策略不再Expanding撑满
+    // 网口速率：按钮组替代QComboBox
+    // 统一按钮尺寸：44px高/Preferred策略不Expanding撑满
     auto makeSpeedBtn = [&](const QString& text, int mode) -> QPushButton* {
         auto* btn = new QPushButton(text);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(40);
+        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
         btn->setMinimumWidth(110);
         btn->setMaximumWidth(220);
         btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -308,15 +308,15 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     speedBtnLayout->addWidget(m_speedBtn1);
     speedBtnLayout->addWidget(m_speedBtn2);
     updateSpeedBtnStyles();
-    form->addRow(makeLabel(QStringLiteral("网口速率")), speedBtnGroup);
+    form->addRow(FormFactory::formLabel(QStringLiteral("网口速率")), speedBtnGroup);
 
-    // [V7.0] 组网模式：按钮组替代QComboBox
-    // [2026-06-26] 统一按钮尺寸：44px高/Preferred策略
+    // 组网模式：按钮组替代QComboBox
+    // 统一按钮尺寸：44px高/Preferred策略
     auto makeModeBtn = [&](const QString& text, int mode) -> QPushButton* {
         auto* btn = new QPushButton(text);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(40);
+        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
         btn->setMinimumWidth(110);
         btn->setMaximumWidth(220);
         btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -337,20 +337,20 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     modeBtnLayout->addWidget(m_modeBtn1);
     modeBtnLayout->addWidget(m_modeBtn2);
     updateModeBtnStyles();
-    form->addRow(makeLabel(QStringLiteral("组网模式")), modeBtnGroup);
+    form->addRow(FormFactory::formLabel(QStringLiteral("组网模式")), modeBtnGroup);
 
     m_serverEdit = new QLineEdit();
     m_serverEdit->setPlaceholderText(QStringLiteral("组网管理时配置"));
     m_serverEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("服务器地址")), m_serverEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("服务器地址")), m_serverEdit);
 
     layout->addLayout(form);
 
-    // [v5] 保存栏：右对齐+顶部分割线，48px按钮
+    // 保存栏：右对齐+顶部分割线，48px按钮
     auto* saveBar = new QFrame();
     saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
     auto* saveBarLayout = new QHBoxLayout(saveBar);
-    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // [V2.03l] 12→8
+    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
     auto* saveBtn = new QPushButton(QStringLiteral("保存网络设置"));
     saveBtn->setStyleSheet(StyleHelper::settingSaveBtn());
@@ -359,7 +359,7 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // [V2.03j] installFocusEvents已移除
+    // installFocusEvents已移除
     return panel;
 }
 
@@ -385,25 +385,9 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     auto* form = new QFormLayout();
     form->setSpacing(8);
     form->setContentsMargins(0, 0, 0, 0);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // [V2.03u] 表单字段自动扩展
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // [V2.03u] 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());
-    auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // [V2.03u] 限宽100px
-    };
-    // [v4] 统一开关样式 [V7.1] 统一22px indicator + 选中态蓝色
-    auto makeToggle = [&](bool checked = true) {
-        auto* cb = new QCheckBox();
-        cb->setChecked(checked);
-        cb->setStyleSheet(
-            "QCheckBox{font-size:15px;background:transparent;spacing:6px;}"
-            "QCheckBox::indicator{width:22px;height:22px;border-radius:4px;"
-            "border:2px solid #d0d0d0;background:white;}"
-            "QCheckBox::indicator:hover{border-color:#4da3ff;}"
-            "QCheckBox::indicator:checked{background:#4da3ff;border-color:#4da3ff;}"
-        );
-        return cb;
-    };
+    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
+    // 统一开关样式 统一22px indicator + 选中态蓝色
 
     m_buzzerSlider = new QSlider(Qt::Horizontal);
     m_buzzerSlider->setRange(70, 110);
@@ -420,41 +404,41 @@ QWidget* SystemSettingsPage::createAlertPanel() {
         m_buzzerValueLabel->setText(QString("%1dB").arg(val));
     });
     auto* buzzerWidget = new QWidget();
-    buzzerWidget->setStyleSheet("background:transparent;");  // [2026-06-24v5] 去灰
+    buzzerWidget->setStyleSheet("background:transparent;");  // 去灰
     auto* buzzerLayout = new QHBoxLayout(buzzerWidget);
     buzzerLayout->setContentsMargins(0, 0, 0, 0);
     buzzerLayout->setSpacing(8);
     buzzerLayout->addWidget(m_buzzerSlider);
     buzzerLayout->addWidget(m_buzzerValueLabel);
-    form->addRow(makeLabel(QStringLiteral("蜂鸣器音量")), buzzerWidget);
+    form->addRow(FormFactory::formLabel(QStringLiteral("蜂鸣器音量")), buzzerWidget);
 
-    m_ledCheck = makeToggle(true);
-    form->addRow(makeLabel(QStringLiteral("LED告警灯")), m_ledCheck);
+    m_ledCheck = FormFactory::toggle(true);
+    form->addRow(FormFactory::formLabel(QStringLiteral("LED告警灯")), m_ledCheck);
 
     m_overdueSpin = new QSpinBox();
     m_overdueSpin->setRange(1, 168);
     m_overdueSpin->setValue(24);
     m_overdueSpin->setSuffix(QStringLiteral(" 小时"));
     m_overdueSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("逾期告警阈值")), m_overdueSpin);
+    form->addRow(FormFactory::formLabel(QStringLiteral("逾期告警阈值")), m_overdueSpin);
 
     m_doorTimeoutSpin = new QSpinBox();
     m_doorTimeoutSpin->setRange(5, 300);
     m_doorTimeoutSpin->setValue(30);
     m_doorTimeoutSpin->setSuffix(QStringLiteral(" 秒"));
     m_doorTimeoutSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("柜门未关告警")), m_doorTimeoutSpin);
+    form->addRow(FormFactory::formLabel(QStringLiteral("柜门未关告警")), m_doorTimeoutSpin);
 
-    m_visionCheck = makeToggle(true);
-    form->addRow(makeLabel(QStringLiteral("视觉识别异常告警")), m_visionCheck);
+    m_visionCheck = FormFactory::toggle(true);
+    form->addRow(FormFactory::formLabel(QStringLiteral("视觉识别异常告警")), m_visionCheck);
 
-    // [V7.0] 断电告警方式：用按钮组替代QComboBox，风格统一
-    // [2026-06-26] 统一按钮尺寸：44px高/Preferred策略，三按钮最大宽180px
+    // 断电告警方式：用按钮组替代QComboBox，风格统一
+    // 统一按钮尺寸：44px高/Preferred策略，三按钮最大宽180px
     auto makeAlarmBtn = [&](const QString& text, int mode) -> QPushButton* {
         auto* btn = new QPushButton(text);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(40);
+        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
         btn->setMinimumWidth(100);
         btn->setMaximumWidth(180);
         btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -479,18 +463,18 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     alarmBtnLayout->addWidget(m_powerAlarmBtn2);
     alarmBtnLayout->addWidget(m_powerAlarmBtn3);
     updatePowerAlarmBtnStyles();
-    form->addRow(makeLabel(QStringLiteral("断电告警方式")), alarmBtnGroup);
+    form->addRow(FormFactory::formLabel(QStringLiteral("断电告警方式")), alarmBtnGroup);
 
-    m_autoConfirmCheck = makeToggle(true);
-    form->addRow(makeLabel(QStringLiteral("告警自动确认")), m_autoConfirmCheck);
+    m_autoConfirmCheck = FormFactory::toggle(true);
+    form->addRow(FormFactory::formLabel(QStringLiteral("告警自动确认")), m_autoConfirmCheck);
 
     layout->addLayout(form);
 
-    // [v5] 保存栏：右对齐+顶部分割线，48px按钮
+    // 保存栏：右对齐+顶部分割线，48px按钮
     auto* saveBar = new QFrame();
     saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
     auto* saveBarLayout = new QHBoxLayout(saveBar);
-    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // [V2.03l] 12→8
+    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
     auto* saveBtn = new QPushButton(QStringLiteral("保存告警设置"));
     saveBtn->setStyleSheet(StyleHelper::settingSaveBtn());
@@ -499,7 +483,7 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // [V2.03j] installFocusEvents已移除
+    // installFocusEvents已移除
     return panel;
 }
 
@@ -525,48 +509,32 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     auto* form = new QFormLayout();
     form->setSpacing(8);
     form->setContentsMargins(0, 0, 0, 0);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // [V2.03u] 表单字段自动扩展
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // [V2.03u] 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());
-    auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // [V2.03u] 限宽100px
-    };
-    // [v5] 统一开关样式+透明背景 [V7.1] 统一22px indicator + 选中态蓝色
-    auto makeToggle = [&](bool checked = true) {
-        auto* cb = new QCheckBox();
-        cb->setChecked(checked);
-        cb->setStyleSheet(
-            "QCheckBox{font-size:15px;background:transparent;spacing:6px;}"
-            "QCheckBox::indicator{width:22px;height:22px;border-radius:4px;"
-            "border:2px solid #d0d0d0;background:white;}"
-            "QCheckBox::indicator:hover{border-color:#4da3ff;}"
-            "QCheckBox::indicator:checked{background:#4da3ff;border-color:#4da3ff;}"
-        );
-        return cb;
-    };
+    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
+    // 统一开关样式+透明背景 统一22px indicator + 选中态蓝色
 
     //m_maxBorrowSpin = new QSpinBox();
     //m_maxBorrowSpin->setRange(1, 20);
     //m_maxBorrowSpin->setValue(5);
     //m_maxBorrowSpin->setSuffix(QStringLiteral(" 件"));
     //m_maxBorrowSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    //form->addRow(makeLabel(QStringLiteral("单次最大借出数量")), m_maxBorrowSpin);
+    //form->addRow(FormFactory::formLabel(QStringLiteral("单次最大借出数量")), m_maxBorrowSpin);
 
     m_defaultPeriodSpin = new QSpinBox();
     m_defaultPeriodSpin->setRange(1, 168);
     m_defaultPeriodSpin->setValue(48);
     m_defaultPeriodSpin->setSuffix(QStringLiteral(" 小时"));
     m_defaultPeriodSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("默认借用期限")), m_defaultPeriodSpin);
+    form->addRow(FormFactory::formLabel(QStringLiteral("默认借用期限")), m_defaultPeriodSpin);
 
     m_returnBufferSpin = new QSpinBox();
     m_returnBufferSpin->setRange(0, 120);
     m_returnBufferSpin->setValue(30);
     m_returnBufferSpin->setSuffix(QStringLiteral(" 分钟"));
     m_returnBufferSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("归还缓冲时间")), m_returnBufferSpin);
+    form->addRow(FormFactory::formLabel(QStringLiteral("归还缓冲时间")), m_returnBufferSpin);
 
-    // [V2.03c 2026-06-29] 删除3项：手动开锁验证、人脸识别灵敏度、自动锁屏时间
+    // 删除3项：手动开锁验证、人脸识别灵敏度、自动锁屏时间
     // 确认删除，只保留：借出数量/借用期限/归还缓冲/显示屏亮度
     m_brightnessSlider = new QSlider(Qt::Horizontal);
     m_brightnessSlider->setRange(30, 100);
@@ -583,21 +551,21 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
         m_brightnessValueLabel->setText(QString("%1%").arg(val));
     });
     auto* brightWidget = new QWidget();
-    brightWidget->setStyleSheet("background:transparent;");  // [2026-06-24v5] 去灰
+    brightWidget->setStyleSheet("background:transparent;");  // 去灰
     auto* brightLayout = new QHBoxLayout(brightWidget);
     brightLayout->setContentsMargins(0, 0, 0, 0);
     brightLayout->setSpacing(8);
     brightLayout->addWidget(m_brightnessSlider);
     brightLayout->addWidget(m_brightnessValueLabel);
-    form->addRow(makeLabel(QStringLiteral("显示屏亮度")), brightWidget);
+    form->addRow(FormFactory::formLabel(QStringLiteral("显示屏亮度")), brightWidget);
 
     layout->addLayout(form);
 
-    // [v5] 保存栏：右对齐+顶部分割线，48px按钮
+    // 保存栏：右对齐+顶部分割线，48px按钮
     auto* saveBar = new QFrame();
     saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
     auto* saveBarLayout = new QHBoxLayout(saveBar);
-    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // [V2.03l] 12→8
+    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
     auto* saveBtn = new QPushButton(QStringLiteral("保存借还设置"));
     saveBtn->setStyleSheet(StyleHelper::settingSaveBtn());
@@ -606,7 +574,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // [V2.03j] installFocusEvents已移除
+    // installFocusEvents已移除
     return panel;
 }
 
@@ -629,39 +597,32 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     sep->setStyleSheet(QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}").arg(StyleHelper::borderColor()));
     layout->addWidget(sep);
 
+    buildBackupForm(layout);
+    buildSystemInfoSection(layout);
+    buildMachineGroupSection(layout);
+    buildBackupSaveBar(layout);
+
+    return panel;
+}
+
+/** 构建备份设置表单：自动备份开关/备份周期按钮组/存储路径/断网缓存时长 */
+void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     auto* form = new QFormLayout();
     form->setSpacing(8);
     form->setContentsMargins(0, 0, 0, 0);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // [V2.03u] 表单字段自动扩展
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // [V2.03u] 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());
-    auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // [V2.03u] 限宽100px
-    };
-    // [v5] 统一开关样式+透明背景 [V7.1] 统一22px indicator + 选中态蓝色
-    auto makeToggle = [&](bool checked = true) {
-        auto* cb = new QCheckBox();
-        cb->setChecked(checked);
-        cb->setStyleSheet(
-            "QCheckBox{font-size:15px;background:transparent;spacing:6px;}"
-            "QCheckBox::indicator{width:22px;height:22px;border-radius:4px;"
-            "border:2px solid #d0d0d0;background:white;}"
-            "QCheckBox::indicator:hover{border-color:#4da3ff;}"
-            "QCheckBox::indicator:checked{background:#4da3ff;border-color:#4da3ff;}"
-        );
-        return cb;
-    };
+    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
+    // 统一开关样式：透明背景 22px indicator 选中态蓝色
 
-    m_autoBackupCheck = makeToggle(true);
-    form->addRow(makeLabel(QStringLiteral("自动备份")), m_autoBackupCheck);
+    m_autoBackupCheck = FormFactory::toggle(true);
+    form->addRow(FormFactory::formLabel(QStringLiteral("自动备份")), m_autoBackupCheck);
 
-    // [V7.0] 备份周期：按钮组替代QComboBox
-    // [2026-06-26] 统一按钮尺寸：44px高/Preferred策略
+    // 备份周期按钮组（统一44px高触屏尺寸）
     auto makeBackupBtn = [&](const QString& text, int mode) -> QPushButton* {
         auto* btn = new QPushButton(text);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(40);
+        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
         btn->setMinimumWidth(80);
         btn->setMaximumWidth(160);
         btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -684,65 +645,66 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     backupBtnLayout->addWidget(m_backupBtn2);
     backupBtnLayout->addWidget(m_backupBtn3);
     updateBackupPeriodBtnStyles();
-    form->addRow(makeLabel(QStringLiteral("备份周期")), backupBtnGroup);
+    form->addRow(FormFactory::formLabel(QStringLiteral("备份周期")), backupBtnGroup);
 
     m_backupPathEdit = new QLineEdit("/mnt/backup");
     m_backupPathEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(makeLabel(QStringLiteral("备份存储路径")), m_backupPathEdit);
+    form->addRow(FormFactory::formLabel(QStringLiteral("备份存储路径")), m_backupPathEdit);
 
     m_cacheHoursSpin = new QSpinBox();
     m_cacheHoursSpin->setRange(1, 24);
     m_cacheHoursSpin->setValue(4);
     m_cacheHoursSpin->setSuffix(QStringLiteral(" 小时"));
     m_cacheHoursSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    form->addRow(makeLabel(QStringLiteral("断网缓存时长")), m_cacheHoursSpin);
+    form->addRow(FormFactory::formLabel(QStringLiteral("断网缓存时长")), m_cacheHoursSpin);
 
     layout->addLayout(form);
+}
 
-    // 系统信息 [v5] 触屏优化
+/** 构建系统信息区：版本/系统/设备编号/运行时长/磁盘/CPU/内存（label成员供refresh()更新） */
+void SystemSettingsPage::buildSystemInfoSection(QVBoxLayout* layout) {
     auto* sysInfoFrame = new QFrame();
     sysInfoFrame->setStyleSheet("QFrame{background:transparent;}");
     auto* sysLayout = new QVBoxLayout(sysInfoFrame);
     sysLayout->setSpacing(6);
-    sysLayout->setContentsMargins(0, 8, 0, 0);  // [V2.03l] 12→8
+    sysLayout->setContentsMargins(0, 8, 0, 0);
 
-    // 系统信息标题
     auto* sysTitle = new QLabel(QStringLiteral("系统信息"));
     sysTitle->setStyleSheet(QString("font-size:16px;font-weight:700;color:%1;margin-bottom:6px;").arg(StyleHelper::textColor()));
     sysLayout->addWidget(sysTitle);
 
-    // [2026-06-23v6] 修复空指针崩溃：系统信息value label必须赋值给成员变量供refresh()使用
-    // 旧createInfoRow未保存valueLabel到成员变量，refresh()访问时为nullptr导致0xC0000005崩溃
+    // value label必须赋值给成员变量供refresh()使用（否则refresh()访问nullptr崩溃）
     auto createInfoRowEx = [&](const QString& key, const QString& value, QLabel*& valueMember) {
         auto* row = new QHBoxLayout();
-        row->setContentsMargins(0, 6, 0, 6);  // [V2.03k] 4→6增加行间距避免压扁
+        row->setContentsMargins(0, 6, 0, 6);  // 行间距避免压扁
         auto* keyLabel = new QLabel(key);
         keyLabel->setStyleSheet("font-size:14px;color:#999;background:transparent;");
         keyLabel->setFixedWidth(90);
-        keyLabel->setMinimumHeight(22);  // [V2.03k] 确保字体不被压扁
+        keyLabel->setMinimumHeight(22);  // 确保字体不被压扁
         valueMember = new QLabel(value);
         valueMember->setStyleSheet("font-size:14px;color:#333;font-weight:600;background:transparent;");
-        valueMember->setMinimumHeight(22);  // [V2.03k] 确保字体不被压扁
-        valueMember->setWordWrap(true);     // [V2.03k] 长文本换行不截断
+        valueMember->setMinimumHeight(22);  // 确保字体不被压扁
+        valueMember->setWordWrap(true);  // 长文本换行不截断
         row->addWidget(keyLabel);
         row->addWidget(valueMember, 1);
         return row;
     };
 
-    // [2026-06-27] 软件版本从AppConfig读取（不再硬编码），与TopBar版本号数据源一致
+    // 软件版本从AppConfig读取（不硬编码），与TopBar版本号数据源一致
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("软件版本"),
         AppConfig::instance().appVersion(), m_versionLabel));
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("操作系统"), QStringLiteral("读取中..."), m_osLabel));
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("设备编号"), QStringLiteral("读取中..."), m_deviceIdLabel));
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("运行时长"), QStringLiteral("读取中..."), m_uptimeLabel));
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("磁盘空间"), QStringLiteral("读取中..."), m_diskLabel));
-    // [2026-06-27] 新增CPU/内存占用实时显示
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("CPU占用"), QStringLiteral("读取中..."), m_cpuLabel));
     sysLayout->addLayout(createInfoRowEx(QStringLiteral("内存占用"), QStringLiteral("读取中..."), m_memoryLabel));
 
     layout->addWidget(sysInfoFrame);
+}
 
-    // [2026-06-27] 本机机组配置 — 下拉选择框，从DB加载所有active机组
+/** 构建本机机组配置区：下拉选择框，从DB加载所有active机组 */
+void SystemSettingsPage::buildMachineGroupSection(QVBoxLayout* layout) {
     auto* machineGroupFrame = new QFrame();
     machineGroupFrame->setStyleSheet("QFrame{background:#f8fbff;border:none;border-radius:12px;}");
     auto* machineGroupLayout = new QVBoxLayout(machineGroupFrame);
@@ -762,7 +724,7 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     mgInputRow->setSpacing(12);
 
     m_machineGroupCombo = new QComboBox();
-    m_machineGroupCombo->setMinimumHeight(48);
+    m_machineGroupCombo->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_machineGroupCombo->setStyleSheet(QString(
         "QComboBox{"
         "  background:white; border:2px solid #e0e0e0; border-radius:12px;"
@@ -780,7 +742,6 @@ QWidget* SystemSettingsPage::createBackupPanel() {
         "  selection-color:#fff; outline:none;"
         "}"
     ));
-    mgInputRow->addWidget(m_machineGroupCombo, 1);
 
     // 加载DB中所有活跃机组到下拉框
     {
@@ -804,12 +765,11 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     mgInputRow->addWidget(m_machineGroupCombo, 1);
 
     machineGroupLayout->addLayout(mgInputRow);
-
     layout->addWidget(machineGroupFrame);
+}
 
-    // [2026-06-26v14] 危险操作区已移除（恢复出厂设置/清除全部日志功能不再暴露在设置页面）
-
-    // [v4] 保存栏对齐Web端.save-bar
+/** 构建备份设置保存栏（对齐Web端.save-bar） */
+void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
     auto* saveBar = new QFrame();
     saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
     auto* saveBarLayout = new QHBoxLayout(saveBar);
@@ -821,29 +781,26 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     connect(saveBtn, &QPushButton::clicked, this, &SystemSettingsPage::onSaveBackup);
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
-
-    // [V2.03j] installFocusEvents已移除
-    return panel;
 }
 
-// [V2.03g] createTaskTypePanel已迁移到SystemMaintenancePage
+// createTaskTypePanel已迁移到SystemMaintenancePage
 
 // ==================== 槽函数 ====================
-// [V2.03g] createTaskTypePanel已迁移到SystemMaintenancePage
+// createTaskTypePanel已迁移到SystemMaintenancePage
 
 // ==================== 槽函数 ====================
 
 void SystemSettingsPage::refresh() {
-    // [2026-06-27] 软件版本从AppConfig读取，其余系统信息从系统实时读取
+    // 软件版本从AppConfig读取，其余系统信息从系统实时读取
     if (m_versionLabel) {
         m_versionLabel->setText(QStringLiteral("软件版本: %1").arg(AppConfig::instance().appVersion()));
     }
-    // [2026-06-27] 从系统读取真实OS/设备编号/运行时长/磁盘空间
+    // 从系统读取真实OS/设备编号/运行时长/磁盘空间
     refreshSystemInfo();
 }
 
 void SystemSettingsPage::onSaveAll() {
-    // [v19] 保存全部配置到本地INI文件
+    // 保存全部配置到本地INI文件
     if (saveConfigToIni()) {
         m_savedFlag = true;
         MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("全部设置已保存到本地配置文件"));
@@ -851,7 +808,7 @@ void SystemSettingsPage::onSaveAll() {
 }
 
 void SystemSettingsPage::onSaveNetwork() {
-    // [v19] 保存网络配置到本地INI文件
+    // 保存网络配置到本地INI文件
     auto& cfg = AppConfig::instance();
     cfg.setNetIp(m_ipEdit->text());
     cfg.setNetMask(m_maskEdit->text());
@@ -863,7 +820,7 @@ void SystemSettingsPage::onSaveNetwork() {
     cfg.save();
     m_savedFlag = true;
     snapshotSettings();
-    // [2026-06-27] 保存网络配置后自动应用到系统有线网卡（Windows+麒麟跨平台）
+    // 保存网络配置后自动应用到系统有线网卡（Windows+麒麟跨平台）
     applyNetworkConfig(m_ipEdit->text(), m_maskEdit->text(),
                        m_gatewayEdit->text(), m_dnsEdit->text());
     MessageDialog::showSuccess(this, QStringLiteral("成功"),
@@ -871,7 +828,7 @@ void SystemSettingsPage::onSaveNetwork() {
 }
 
 void SystemSettingsPage::onSaveAlert() {
-    // [v19] 保存告警配置到本地INI文件
+    // 保存告警配置到本地INI文件
     auto& cfg = AppConfig::instance();
     cfg.setAlertBuzzerVol(m_buzzerSlider->value());
     cfg.setAlertLedEnabled(m_ledCheck->isChecked());
@@ -887,10 +844,10 @@ void SystemSettingsPage::onSaveAlert() {
 }
 
 void SystemSettingsPage::onSaveBorrow() {
-    // [v19] 保存借还配置到本地INI文件
-    // [V2.03c] 已删除3项：manualUnlock/lockTime/faceSensitivity
+    // 保存借还配置到本地INI文件
+    // 已删除3项：manualUnlock/lockTime/faceSensitivity
     auto& cfg = AppConfig::instance();
-    // [2026-09-24fix] m_maxBorrowSpin创建已注释，空守卫防崩溃
+    // m_maxBorrowSpin创建已注释，空守卫防崩溃
     if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
@@ -903,7 +860,7 @@ void SystemSettingsPage::onSaveBorrow() {
 }
 
 void SystemSettingsPage::onSaveBackup() {
-    // [v19] 保存备份配置到本地INI文件
+    // 保存备份配置到本地INI文件
     auto& cfg = AppConfig::instance();
     cfg.setBackupAutoEnabled(m_autoBackupCheck->isChecked());
     cfg.setBackupPeriod(m_backupPeriod);
@@ -912,7 +869,7 @@ void SystemSettingsPage::onSaveBackup() {
     cfg.save();
     m_savedFlag = true;
     snapshotSettings();
-    // [2026-06-27] 保存备份设置后立即执行一次备份，并注册定时备份任务
+    // 保存备份设置后立即执行一次备份，并注册定时备份任务
     if (m_autoBackupCheck->isChecked()) {
         performDatabaseBackup();
     }
@@ -925,11 +882,11 @@ void SystemSettingsPage::onResetDefault() {
     showSecurePasswordDialog(QStringLiteral("安全验证 - 恢复默认"), QStringLiteral("factoryReset"));
 }
 
-// [2026-06-26v14] onClearLogs() 已移除（危险操作区不再暴露）
+// onClearLogs() 已移除（危险操作区不暴露）
 // 恢复默认仍可通过顶部"恢复默认"按钮触发 onResetDefault()
 
 void SystemSettingsPage::onStartUpgrade() {
-    // [2026-06-26] 软件升级模拟进度条，美观的设计
+    // 软件升级模拟进度条，美观的设计
     // 先确认升级
     if (!MessageDialog::showQuestion(this, QStringLiteral("软件升级"),
         QStringLiteral("将开始软件升级，升级过程中请勿断电！\n\n确定要开始升级吗？"))) return;
@@ -959,7 +916,7 @@ void SystemSettingsPage::onStartUpgrade() {
     progressBar->setMaximum(100);
     progressBar->setValue(0);
     progressBar->setTextVisible(true);
-    progressBar->setFixedHeight(32);
+    progressBar->setFixedHeight(StyleHelper::Token::ControlHeightCompact);
     progressBar->setStyleSheet(
         "QProgressBar{border:2px solid #e0e0e0;border-radius:16px;background:#f5f5f5;text-align:center;"
         "font-size:14px;font-weight:700;color:#333;}"
@@ -1060,7 +1017,7 @@ void SystemSettingsPage::onStartUpgrade() {
 void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QString& actionName) {
     m_pendingAction = actionName;
 
-    // [2026-06-26v2] NumKeypad提前创建（顶层Popup弹窗，不嵌入对话框）
+    // NumKeypad提前创建（顶层Popup弹窗，不嵌入对话框）
     if (!m_numKeypad) {
         m_numKeypad = new NumKeypad(this);
         m_numKeypad->setShuffle(true);
@@ -1074,7 +1031,7 @@ void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QS
     }
 
     if (!m_securePwdDialog) {
-        // [2026-06-26v9] 安全验证对话框 — 启用底部确认/取消按钮，颜值优化
+        // 安全验证对话框 — 启用底部确认/取消按钮，颜值优化
         m_securePwdDialog = new BaseDialog(this, 480);
         m_securePwdDialog->setDialogTitle(QStringLiteral("管理员验证"));
         m_securePwdDialog->setButtonAreaVisible(true);   // 显示底部按钮区
@@ -1148,7 +1105,7 @@ void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QS
 
             // 取消按钮
             auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
-            cancelBtn->setFixedHeight(44);
+            cancelBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
             cancelBtn->setMinimumWidth(100);
             cancelBtn->setCursor(Qt::PointingHandCursor);
             cancelBtn->setStyleSheet(
@@ -1169,7 +1126,7 @@ void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QS
 
             // 确认按钮（蓝色实底，对齐全局主操作）
             auto* confirmBtn = new QPushButton(QStringLiteral("确认"));
-            confirmBtn->setFixedHeight(44);
+            confirmBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
             confirmBtn->setMinimumWidth(100);
             confirmBtn->setCursor(Qt::PointingHandCursor);
             confirmBtn->setStyleSheet(
@@ -1202,14 +1159,14 @@ void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QS
 }
 
 void SystemSettingsPage::onSecurePwdConfirmed() {
-    // [2026-06-26] 从NumKeypad获取密码（直接从密码框读取）
+    // 从NumKeypad获取密码（直接从密码框读取）
     if (!m_securePwdEdit) return;
     QString pwd = m_securePwdEdit->text();
     if (pwd.isEmpty()) return;
     if (m_securePwdDialog) m_securePwdDialog->accept();
 
     SettingService svc;
-    // [2026-06-26v14] clearLogs分支已移除（危险操作区不再暴露）
+    // clearLogs分支已移除（危险操作区不暴露）
     if (m_pendingAction == "factoryReset") {
         if (svc.factoryReset(pwd)) {
             MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("已恢复默认设置"));
@@ -1220,7 +1177,7 @@ void SystemSettingsPage::onSecurePwdConfirmed() {
     m_pendingAction.clear();
 }
 
-// [V7.0][2026-06-26] 断电告警方式按钮组样式更新 — 44px高统一风格
+// 断电告警方式按钮组样式更新 — 44px高统一风格
 void SystemSettingsPage::updatePowerAlarmBtnStyles() {
     QPushButton* btns[3] = { m_powerAlarmBtn1, m_powerAlarmBtn2, m_powerAlarmBtn3 };
     for (int i = 0; i < 3; ++i) {
@@ -1246,7 +1203,7 @@ void SystemSettingsPage::updatePowerAlarmBtnStyles() {
     }
 }
 
-// [V7.0][2026-06-26] 网口速率按钮组样式更新 — 44px高统一风格
+// 网口速率按钮组样式更新 — 44px高统一风格
 void SystemSettingsPage::updateSpeedBtnStyles() {
     QPushButton* btns[2] = { m_speedBtn1, m_speedBtn2 };
     for (int i = 0; i < 2; ++i) {
@@ -1272,7 +1229,7 @@ void SystemSettingsPage::updateSpeedBtnStyles() {
     }
 }
 
-// [V7.0][2026-06-26] 组网模式按钮组样式更新 — 44px高统一风格
+// 组网模式按钮组样式更新 — 44px高统一风格
 void SystemSettingsPage::updateModeBtnStyles() {
     QPushButton* btns[2] = { m_modeBtn1, m_modeBtn2 };
     for (int i = 0; i < 2; ++i) {
@@ -1298,9 +1255,7 @@ void SystemSettingsPage::updateModeBtnStyles() {
     }
 }
 
-
-
-// [V7.0][2026-06-26] 备份周期按钮组样式更新 — 44px高统一风格
+// 备份周期按钮组样式更新 — 44px高统一风格
 void SystemSettingsPage::updateBackupPeriodBtnStyles() {
     QPushButton* btns[3] = { m_backupBtn1, m_backupBtn2, m_backupBtn3 };
     for (int i = 0; i < 3; ++i) {
@@ -1326,16 +1281,16 @@ void SystemSettingsPage::updateBackupPeriodBtnStyles() {
     }
 }
 
-// [v19] 进入页面时从INI文件加载配置，然后备份快照
+// 进入页面时从INI文件加载配置，然后备份快照
 void SystemSettingsPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     m_savedFlag = false;
-    loadConfigFromIni();     // [v19] 从本地INI文件加载配置到UI
+    loadConfigFromIni();  // 从本地INI文件加载配置到UI
     snapshotSettings();      // 再备份快照
 }
 
-// [2026-06-26v8] 离开页面时检测脏数据 → 弹窗询问是否保存
-// [2026-06-26] 替换QMessageBox为统一MessageDialog::showDirtyConfirm（风格统一+无取消按钮）
+// 离开页面时检测脏数据 → 弹窗询问是否保存
+// 替换QMessageBox为统一MessageDialog::showDirtyConfirm（风格统一+无取消按钮）
 void SystemSettingsPage::hideEvent(QHideEvent* event) {
     if (!m_savedFlag && isDirty()) {
         // 有未保存修改 → 弹窗询问（保存 / 不保存，无取消按钮）
@@ -1354,7 +1309,7 @@ void SystemSettingsPage::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
 }
 
-// [2026-06-26v8] 检测UI当前值是否与快照不同
+// 检测UI当前值是否与快照不同
 bool SystemSettingsPage::isDirty() {
     if (!m_ipEdit || m_ipEdit->text() != m_snapshot.ip) return true;
     if (!m_maskEdit || m_maskEdit->text() != m_snapshot.mask) return true;
@@ -1376,7 +1331,7 @@ bool SystemSettingsPage::isDirty() {
     if (!m_defaultPeriodSpin || m_defaultPeriodSpin->value() != m_snapshot.defaultPeriod) return true;
     if (!m_returnBufferSpin || m_returnBufferSpin->value() != m_snapshot.returnBuffer) return true;
     if (!m_brightnessSlider || m_brightnessSlider->value() != m_snapshot.brightness) return true;
-    // [V2.03c] 已删除3项：manualUnlock/lockTime/faceSensitivity
+    // 已删除3项：manualUnlock/lockTime/faceSensitivity
 
     if (!m_autoBackupCheck || m_autoBackupCheck->isChecked() != m_snapshot.autoBackup) return true;
     if (m_backupPeriod != m_snapshot.backupPeriod) return true;
@@ -1388,7 +1343,7 @@ bool SystemSettingsPage::isDirty() {
     return false;  // 无修改
 }
 
-// [v19] 从本地INI文件加载配置到UI控件
+// 从本地INI文件加载配置到UI控件
 void SystemSettingsPage::loadConfigFromIni() {
     auto& cfg = AppConfig::instance();
 
@@ -1411,12 +1366,12 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_autoConfirmCheck->setChecked(cfg.alertAutoConfirm());
 
     // 借还设置
-    // [2026-09-24fix] m_maxBorrowSpin创建已注释(功能删除)，必须空守卫防崩溃
+    // m_maxBorrowSpin创建已注释(功能删除)，必须空守卫防崩溃
     if (m_maxBorrowSpin) m_maxBorrowSpin->setValue(cfg.borrowMaxCount());
     m_defaultPeriodSpin->setValue(cfg.borrowDefaultPeriod());
     m_returnBufferSpin->setValue(cfg.borrowReturnBuffer());
     m_brightnessSlider->setValue(cfg.borrowBrightness());
-    // [V2.03c] 已删除3项加载：manualUnlock/lockTime/faceSensitivity
+    // 已删除3项加载：manualUnlock/lockTime/faceSensitivity
 
     // 备份管理
     m_autoBackupCheck->setChecked(cfg.backupAutoEnabled());
@@ -1424,7 +1379,7 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_cacheHoursSpin->setValue(cfg.backupCacheHours());
     m_backupPathEdit->setText(cfg.backupPath());
 
-    // 机组名称 [2026-06-27] 从下拉框中选择匹配项
+    // 机组名称 从下拉框中选择匹配项
     int groupId = cfg.localMachineGroupId();
     if (m_machineGroupCombo && groupId > 0) {
         for (int i = 0; i < m_machineGroupCombo->count(); i++) {
@@ -1436,7 +1391,7 @@ void SystemSettingsPage::loadConfigFromIni() {
     }
 }
 
-// [v19] 将当前UI值全部写入本地INI文件
+// 将当前UI值全部写入本地INI文件
 bool SystemSettingsPage::saveConfigToIni() {
     auto& cfg = AppConfig::instance();
 
@@ -1459,7 +1414,7 @@ bool SystemSettingsPage::saveConfigToIni() {
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
 
     // 借还设置
-    // [2026-09-24fix] m_maxBorrowSpin创建已注释，空守卫防崩溃
+    // m_maxBorrowSpin创建已注释，空守卫防崩溃
     if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
@@ -1476,7 +1431,7 @@ bool SystemSettingsPage::saveConfigToIni() {
     return true;
 }
 
-// [2026-06-26v7] 备份当前所有UI控件的值到快照
+// 备份当前所有UI控件的值到快照
 void SystemSettingsPage::snapshotSettings() {
     // 网络配置
     m_snapshot.ip = m_ipEdit ? m_ipEdit->text() : "";
@@ -1512,7 +1467,7 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.machineGroupName = m_machineGroupCombo ? m_machineGroupCombo->currentText() : QStringLiteral("");
 }
 
-// [2026-06-26v7] 还原所有UI控件到快照值
+// 还原所有UI控件到快照值
 void SystemSettingsPage::restoreSettings() {
     // 网络配置
     if (m_ipEdit) m_ipEdit->setText(m_snapshot.ip);
@@ -1544,7 +1499,7 @@ void SystemSettingsPage::restoreSettings() {
     if (m_cacheHoursSpin) m_cacheHoursSpin->setValue(m_snapshot.cacheHours);
     if (m_backupPathEdit) m_backupPathEdit->setText(m_snapshot.backupPath);
 
-    // 机组名称 [2026-06-27] 从下拉框还原
+    // 机组名称 从下拉框还原
     if (m_machineGroupCombo) {
         for (int i = 0; i < m_machineGroupCombo->count(); i++) {
             if (m_machineGroupCombo->itemText(i) == m_snapshot.machineGroupName) {
@@ -1555,8 +1510,8 @@ void SystemSettingsPage::restoreSettings() {
     }
 }
 
-// [2026-06-27] 下拉选择机组自动保存到AppConfig，实时生效
-// [2026-06-27] 校验：更换机组前，当前机组和目标机组下的工具都必须全部归还完毕
+// 下拉选择机组自动保存到AppConfig，实时生效
+// 校验：更换机组前，当前机组和目标机组下的工具都必须全部归还完毕
 // 否则不允许更换，防止跨机组借用数据混乱
 void SystemSettingsPage::onMachineGroupSelected(int index) {
     if (!m_machineGroupCombo || index < 0) return;
@@ -1571,7 +1526,7 @@ void SystemSettingsPage::onMachineGroupSelected(int index) {
         return;
     }
 
-    // [2026-06-27] 校验当前机组和目标机组下是否有未归还的借用记录
+    // 校验当前机组和目标机组下是否有未归还的借用记录
     db::RecordDAO recDao;
     int currentActiveCount = recDao.countActiveByMachineGroup(currentGroupId);
     int targetActiveCount = recDao.countActiveByMachineGroup(groupId);
@@ -1608,7 +1563,7 @@ void SystemSettingsPage::onMachineGroupSelected(int index) {
         QStringLiteral("本机机组已切换为「%1」，请确保工具柜中的工具与新机组匹配。").arg(groupName));
 }
 
-// [2026-06-27] 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）
+// 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）
 // Windows方案：PowerShell + WMI (WmiMonitorBrightnessMethods.WmiSetBrightness)
 // 麒麟方案A：/sys/class/backlight/<dev>/brightness 内核接口（硬件级，需root）
 // 麒麟方案B：xrandr --output <dev> --brightness <val> X11 Gamma调整（软件级，无需root）
@@ -1618,28 +1573,33 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
     // 输入校验：亮度值范围 0-100
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
+#ifdef Q_OS_WIN
+    applyBrightnessWindows(percent);
+#else
+    applyBrightnessLinux(percent);
+#endif
+}
 
-    // [2026-06-27] 日志路径跨平台：Windows用项目temp目录，麒麟用/tmp
+/** 亮度调整日志（Windows写项目temp目录，麒麟写/tmp） */
+void SystemSettingsPage::writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode) {
     QString logPath;
 #ifdef Q_OS_WIN
     logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/brightness.log");
 #else
     logPath = QStringLiteral("/tmp/smartcabinet_brightness.log");
 #endif
-
-    // 日志记录Lambda（统一封装，避免重复代码）
-    auto writeLog = [logPath, percent](const QString& method, const QString& result, int exitCode) {
-        QFile logFile(logPath);
-        if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-            QString ts = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-            logFile.write(QStringLiteral("[%1] method=%2 brightness=%3% exitCode=%4 result=%5\n")
-                          .arg(ts).arg(method).arg(percent).arg(exitCode).arg(result).toUtf8());
-            logFile.close();
-        }
-    };
+    QFile logFile(logPath);
+    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
+        QString ts = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        logFile.write(QStringLiteral("[%1] method=%2 brightness=%3% exitCode=%4 result=%5\n")
+                      .arg(ts).arg(method).arg(percent).arg(exitCode).arg(result).toUtf8());
+        logFile.close();
+    }
+}
 
 #ifdef Q_OS_WIN
-    // ═══════════ Windows平台：WMI 方式 ═══════════
+/** Windows亮度调整：PowerShell + WMI 异步执行不阻塞UI */
+void SystemSettingsPage::applyBrightnessWindows(int percent) {
     // PowerShell: (Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, <percent>)
     QString psScript = QStringLiteral(
         "try { "
@@ -1651,13 +1611,13 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 
     auto* proc = new QProcess(this);
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, percent, writeLog](int exitCode, QProcess::ExitStatus) {
+            this, [this, percent](int exitCode, QProcess::ExitStatus) {
         auto* p = qobject_cast<QProcess*>(sender());
         if (!p) return;
         QString output = p->readAllStandardOutput().trimmed();
         p->deleteLater();
 
-        writeLog(QStringLiteral("WMI"), output, exitCode);
+        writeBrightnessLog(percent, QStringLiteral("WMI"), output, exitCode);
         if (output == "OK") {
             qInfo() << "[Brightness] WMI applied successfully:" << percent << "%";
         } else {
@@ -1670,11 +1630,17 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
     proc->start("powershell.exe", args);
     if (!proc->waitForStarted(3000)) {
         qWarning() << "[Brightness] Failed to start powershell.exe";
-        writeLog(QStringLiteral("WMI"), QStringLiteral("START_FAILED"), -1);
+        writeBrightnessLog(percent, QStringLiteral("WMI"), QStringLiteral("START_FAILED"), -1);
         proc->deleteLater();
     }
+}
 
 #else
+/** 麒麟Linux亮度调整：三级降级链 backlight内核接口 → xrandr → brightnessctl */
+void SystemSettingsPage::applyBrightnessLinux(int percent) {
+    auto writeLog = [this, percent](const QString& method, const QString& result, int exitCode) {
+        writeBrightnessLog(percent, method, result, exitCode);
+    };
     // ═══════════ 麒麟Linux平台：三级降级方案 ═══════════
     // 方案A：/sys/class/backlight/ 内核接口（硬件级亮度，需root权限）
     // 1) 遍历 /sys/class/backlight/ 找到第一个设备目录
@@ -1745,7 +1711,7 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 
         if (exitCodeA == 0 && outputA.contains("BACKLIGHT_OK")) {
             qInfo() << "[Brightness] backlight kernel interface applied:" << percent << "%";
-            return;  // 方案A成功，不再降级
+            return;  // 方案A成功，不降级
         }
 
         qWarning() << "[Brightness] backlight failed, trying xrandr...";
@@ -1830,16 +1796,16 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
             procB->deleteLater();
         }
     }
-#endif
 }
+#endif
 
-// [2026-06-27] 跨平台设置自动锁屏时间
+// 跨平台设置自动锁屏时间
 // Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
 // 麒麟：xset s <秒数> 设置屏幕保护超时 + xset dpms <秒数> 设置DPMS显示器电源管理
 // 同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
-// [V2.03c] 已删除：applyAutoLockTime — 自动锁屏时间已从借还参数中移除
+// 已删除：applyAutoLockTime — 自动锁屏时间已从借还参数中移除
 
-// [2026-06-27] 从系统读取真实系统信息
+// 从系统读取真实系统信息
 // 操作系统：Windows用QSysInfo，麒麟读/etc/os-release
 // 设备编号：Windows用机器名，麒麟读/etc/machine-id
 // 运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime
@@ -1847,7 +1813,16 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 // CPU占用：Windows用wmic，麒麟读/proc/stat两次采样
 // 内存占用：Windows用wmic，麒麟读/proc/meminfo
 void SystemSettingsPage::refreshSystemInfo() {
-    // ── 操作系统 ──
+    refreshOsInfo();
+    refreshDeviceId();
+    refreshUptime();
+    refreshDiskSpace();
+    refreshCpuUsage();
+    refreshMemoryUsage();
+}
+
+/** 读取操作系统名称：Windows用QSysInfo，麒麟读/etc/os-release（降级/etc/kylin-build） */
+void SystemSettingsPage::refreshOsInfo() {
     QString osInfo;
 #ifdef Q_OS_WIN
     osInfo = QSysInfo::prettyProductName();  // 如 "Windows 10 (10.0)"
@@ -1876,8 +1851,10 @@ void SystemSettingsPage::refreshSystemInfo() {
     }
 #endif
     if (m_osLabel) m_osLabel->setText(osInfo);
+}
 
-    // ── 设备编号 ──
+/** 读取设备编号：Windows用机器名，麒麟读/etc/machine-id */
+void SystemSettingsPage::refreshDeviceId() {
     QString deviceId;
 #ifdef Q_OS_WIN
     // Windows用机器名
@@ -1894,10 +1871,12 @@ void SystemSettingsPage::refreshSystemInfo() {
     }
 #endif
     if (m_deviceIdLabel) m_deviceIdLabel->setText(deviceId);
+}
 
-    // ── 运行时长 ──
+/** 读取运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime */
+void SystemSettingsPage::refreshUptime() {
 #ifdef Q_OS_WIN
-    // [2026-06-27 修复] wmic os get LastBootUpTime 返回的是日期格式(如20260627100000.000000+480)
+    // wmic os get LastBootUpTime 返回的是日期格式(如20260627100000.000000+480)
     // 不是秒数，必须用PowerShell计算 (Get-Date) - LastBootUpTime 的差值
     auto* uptimeProc = new QProcess(this);
     connect(uptimeProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
@@ -1957,8 +1936,10 @@ void SystemSettingsPage::refreshSystemInfo() {
     if (uptime.isEmpty()) uptime = QStringLiteral("读取失败");
     if (m_uptimeLabel) m_uptimeLabel->setText(uptime);
 #endif
+}
 
-    // ── 磁盘空间 ──（QStorageInfo跨平台）
+/** 读取磁盘空间：QStorageInfo跨平台（根分区） */
+void SystemSettingsPage::refreshDiskSpace() {
     QString diskInfo;
     QStorageInfo storage = QStorageInfo::root();
     if (storage.isValid() && storage.isReady()) {
@@ -1976,8 +1957,10 @@ void SystemSettingsPage::refreshSystemInfo() {
         diskInfo = QStringLiteral("无法读取");
     }
     if (m_diskLabel) m_diskLabel->setText(diskInfo);
+}
 
-    // ── CPU占用率 ──
+/** 读取CPU占用率：Windows用wmic，麒麟读/proc/stat两次采样 */
+void SystemSettingsPage::refreshCpuUsage() {
 #ifdef Q_OS_WIN
     // Windows: wmic cpu get loadpercentage 直接返回占用百分比
     auto* cpuProc = new QProcess(this);
@@ -2043,8 +2026,10 @@ void SystemSettingsPage::refreshSystemInfo() {
         if (m_cpuLabel) m_cpuLabel->setText(QStringLiteral("%1%").arg(cpuPercent));
     });
 #endif
+}
 
-    // ── 内存占用率 ──
+/** 读取内存占用率：Windows用wmic，麒麟读/proc/meminfo */
+void SystemSettingsPage::refreshMemoryUsage() {
 #ifdef Q_OS_WIN
     // Windows: wmic OS get TotalVisibleMemorySize,FreePhysicalMemory
     // 返回KB单位，计算 (total-free)/total*100
@@ -2123,7 +2108,7 @@ void SystemSettingsPage::refreshSystemInfo() {
 #endif
 }
 
-// [2026-06-27] 执行数据库自动备份
+// 执行数据库自动备份
 // 备份策略：
 // 1. 保存备份设置时立即执行一次备份（验证备份路径可用）
 // 2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
@@ -2278,7 +2263,7 @@ void SystemSettingsPage::performDatabaseBackup() {
     }
 }
 
-// [2026-06-27] 获取第一块有线网卡名称
+// 获取第一块有线网卡名称
 // Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡
 // 麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡
 // 返回网卡名称用于后续网络配置命令定位
@@ -2345,7 +2330,7 @@ QString SystemSettingsPage::detectWiredInterfaceName() {
     return ifName;
 }
 
-// [2026-06-27] 跨平台配置有线网卡
+// 跨平台配置有线网卡
 // Windows: netsh interface ip set address/dns（需管理员权限）
 // 麒麟: ip addr add + ip route add + resolvconf（需root）
 // 异步执行，失败静默处理并记录日志

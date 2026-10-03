@@ -2,11 +2,11 @@
  * @file MachineGroup.h
  * @brief 工程机组实体模型 - 映射 machine_group 表
  * @author 袁燕  创建: 2026-06-24
- * @修改说明 为工具管理页面改造提供机组数据支持
  */
 #pragma once
 #include <QString>
 #include <QDateTime>
+#include "common/Constants.h"
 
 struct MachineGroup {
     int     groupId      = 0;
@@ -15,7 +15,7 @@ struct MachineGroup {
     QString leaderName;          // 负责人姓名
     QString leaderPhone;         // 负责人电话
     QString description;         // 机组描述
-    QString status       = "active";  // active|inactive
+    QString status       = SC::USER_ACTIVE;  // active|inactive
     QDateTime createdAt;
     QDateTime updatedAt;
 
