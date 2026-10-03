@@ -93,6 +93,7 @@ endif()
 set(COMMON_SOURCES
     src/common/AppConfig.cpp
     src/common/DatabaseManager.cpp
+    src/common/Logger.cpp
 )
 
 # Model层 (纯头文件, 无cpp)

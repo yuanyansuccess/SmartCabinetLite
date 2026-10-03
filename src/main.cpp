@@ -8,11 +8,16 @@
 #include <QStyleFactory>
 #include "common/AppConfig.h"
 #include "common/DatabaseManager.h"
+#include "common/Logger.h"
 #include "components/DeepFaceExtractor.h"
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
+
+    // 统一日志：安装后所有 qDebug/qInfo/qWarning/qCritical 均按级别落盘
+    // （级别/控制台/敏感日志由 SC_LOG_LEVEL、SC_LOG_CONSOLE、SC_LOG_SENSITIVE 控制）
+    Log::install();
     app.setApplicationName("QtSmartCabinet");
     app.setApplicationVersion("2.0.0");
     app.setOrganizationName("SmartCabinet");

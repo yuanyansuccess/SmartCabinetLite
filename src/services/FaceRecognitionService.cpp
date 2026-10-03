@@ -195,8 +195,11 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     } else {
         // 未通过双验证 → 一律判定为陌生人（宁误拒不误识）
         result.isStranger = true;
-        result.message = QStringLiteral("人脸验证失败，相似度: %.1f%% 距离: %.3f (未通过双验证)")
-                          .arg(best.similarity * 100).arg(best.euclideanDist);
+        // 注意：QString::arg 使用 %1/%2 占位符并单独指定小数位，
+        // 不支持 printf 风格的 %.1f（会导致 "Argument missing" 且显示错乱）
+        result.message = QStringLiteral("人脸验证失败，相似度: %1%% 距离: %2 (未通过双验证)")
+                          .arg(best.similarity * 100, 0, 'f', 1)
+                          .arg(best.euclideanDist, 0, 'f', 3);
         FaceRecogLogDAO().insertLog({ "rejected", best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
@@ -209,7 +212,9 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     result.workNo = best.workNo;
     result.department = best.department;
     result.similarity = best.similarity;
-    result.message = QStringLiteral("识别成功，相似度: %.1f%% 距离: %.3f").arg(best.similarity * 100).arg(best.euclideanDist);
+    result.message = QStringLiteral("识别成功，相似度: %1%% 距离: %2")
+                      .arg(best.similarity * 100, 0, 'f', 1)
+                      .arg(best.euclideanDist, 0, 'f', 3);
 
     // 检查用户状态
     UserDAO dao;
