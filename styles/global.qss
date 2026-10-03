@@ -86,7 +86,6 @@ QPushButton[role="primary"]:hover {
 QPushButton#primaryButton:pressed,
 QPushButton[role="primary"]:pressed {
     background-color: #3d8ae0;
-    transform: scale(0.96);
 }
 
 QPushButton#primaryButton:disabled,
