@@ -124,7 +124,9 @@ void CameraCapture::onCaptureTimer() {
 #ifdef _WIN32
     QImage frame = grabMFFrame();
     if (!frame.isNull()) {
-        QMutexLocker lock(&m_mutex);
+        // 信号必须在锁外发出：frame 已是值拷贝，此处加锁毫无意义，
+        // 而接收方若在槽里回调取帧接口（如 grabQtMultimediaFrame 内部加锁），
+        // QMutex 非递归会立即自死锁
         emit frameReady(frame);
     }
 #endif

@@ -28,10 +28,12 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QThread>
+#include <atomic>
 
 namespace {
 // 服务就绪记忆：就绪后不再每帧重复做/health探测（HTTP风暴），响应异常时自动清除以便自愈
-bool g_serverReady = false;
+// 该状态会被 HTTP 回调线程写入、UI 线程读取，必须用原子避免竞态
+std::atomic<bool> g_serverReady{false};
 }
 
 DeepFaceExtractor::DeepFaceExtractor(QObject* parent) : QObject(parent) {}
