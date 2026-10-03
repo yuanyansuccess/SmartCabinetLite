@@ -39,9 +39,10 @@ if (-not (Test-Path $mysql)) {
 }
 
 Write-Output "Listing existing databases (read-only)..."
-$args = @("-h", $HostAddr, "-P", $Port, "-u", "root", "-p$RootPass",
-          "-e", "SHOW DATABASES;")
-& $mysql $args 2>&1 | ForEach-Object { Write-Output "  $_" }
+# NOTE: do not use $args here - it is a PowerShell automatic variable.
+$showArgs = @("-h", $HostAddr, "-P", $Port, "-u", "root", "-p$RootPass",
+              "-e", "SHOW DATABASES;")
+& $mysql $showArgs 2>&1 | ForEach-Object { Write-Output "  $_" }
 
 Write-Output ""
 Write-Output "Creating isolated test database: $TestDb"
