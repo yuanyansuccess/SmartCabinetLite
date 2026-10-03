@@ -14,7 +14,11 @@ class BorrowService : public QObject {
     Q_OBJECT
 public:
     explicit BorrowService(QObject* parent = nullptr);
-    struct Result { bool success; QString message; int recordId; };
+    /**
+     * 借用结果。约定：失败时 recordId = 0（"未创建记录"，与其余 Service 的
+     * count=0 风格一致）；历史上一度用 -1，现已统一为 0。
+     */
+    struct Result { bool success = false; QString message; int recordId = 0; };
 
     /**
      * @brief 借用工具

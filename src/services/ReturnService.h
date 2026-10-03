@@ -14,10 +14,11 @@ class ReturnService : public QObject {
 public:
     explicit ReturnService(QObject* parent = nullptr);
 
-    struct Result { 
-        bool success; 
-        QString message; 
-        int count; 
+    /** 归还结果。失败时 success=false 且 count=0（不放行"部分成功即算成功"） */
+    struct Result {
+        bool success = false;
+        QString message;
+        int count = 0;
     };
 
     /**

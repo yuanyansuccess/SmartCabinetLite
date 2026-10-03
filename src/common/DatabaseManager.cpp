@@ -259,35 +259,35 @@ bool DatabaseManager::initSchemaIfNeeded() {
         hasExistingSchema = (check.next() && check.value(0).toInt() > 0);
     }
 
-  // MySQL中表已存在时跳过建表（AUTOINCREMENT是SQLite专用语法，MySQL用AUTO_INCREMENT）
-    // MySQL在解析SQL时就检查语法，即使表已存在CREATE TABLE IF NOT EXISTS也会因AUTOINCREMENT语法错误而失败
+  // MySQL中表已存在时跳过建表（AUTO_INCREMENT是SQLite专用语法，MySQL用AUTO_INCREMENT）
+    // MySQL在解析SQL时就检查语法，即使表已存在CREATE TABLE IF NOT EXISTS也会因AUTO_INCREMENT语法错误而失败
     // MySQL表由schema.sql预先创建，这里只需播种数据
     // 删除m_usingSqlite判断——纯MySQL模式
     bool skipCreateTables = hasExistingSchema;
 
     qInfo() << "[DB] First run: initializing schema...";
 
-  // MySQL中表已存在时跳过建表（AUTOINCREMENT语法不兼容MySQL）
+  // MySQL中表已存在时跳过建表（AUTO_INCREMENT语法不兼容MySQL）
     if (!skipCreateTables) {
     // ── 建表：sys_user ──
     bool ok = q.exec(
         "CREATE TABLE IF NOT EXISTS sys_user ("
-        "  user_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  username      TEXT    NOT NULL UNIQUE,"
+        "  user_id       INTEGER PRIMARY KEY AUTO_INCREMENT,"
+        "  username      VARCHAR(255)    NOT NULL UNIQUE,"
         "  password_hash TEXT    NOT NULL,"
         "  password_salt TEXT    NOT NULL,"
         "  real_name     TEXT    NOT NULL,"
-        "  work_no       TEXT    NOT NULL UNIQUE,"
+        "  work_no       VARCHAR(255)    NOT NULL UNIQUE,"
         "  dept_id       INTEGER DEFAULT 0,"
-        "  department    TEXT    DEFAULT '',"
-        "  role          TEXT    DEFAULT 'user',"
+        "  department    VARCHAR(255) DEFAULT '',"
+        "  role          VARCHAR(255) DEFAULT 'user',"
         "  face_feature  TEXT    DEFAULT NULL,"
-        "  phone         TEXT    DEFAULT '',"
-        "  email         TEXT    DEFAULT '',"
-        "  status        TEXT    DEFAULT 'active',"
+        "  phone         VARCHAR(255) DEFAULT '',"
+        "  email         VARCHAR(255) DEFAULT '',"
+        "  status        VARCHAR(255) DEFAULT 'active',"
         "  last_login_at TEXT    DEFAULT NULL,"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("sys_user", q.lastError().text()); qWarning() << "[DB] Create sys_user failed:" << q.lastError().text(); return false; }
@@ -295,12 +295,12 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 建表：sys_department（部门表，dao/UserDAO::findAll LEFT JOIN需要）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS sys_department ("
-        "  dept_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  dept_id       INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  dept_name     TEXT    NOT NULL,"
         "  parent_id     INTEGER DEFAULT 0,"
         "  sort_order    INTEGER DEFAULT 0,"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("sys_department", q.lastError().text()); qWarning() << "[DB] Create sys_department failed:" << q.lastError().text(); return false; }
@@ -308,13 +308,13 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // ── 建表：tool_category（工具分类） ──
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_category ("
-        "  category_id   INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  category_id   INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  category_name TEXT    NOT NULL,"
         "  parent_id     INTEGER DEFAULT 0,"
         "  sort_order    INTEGER DEFAULT 0,"
-        "  icon          TEXT    DEFAULT '',"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  icon          VARCHAR(255) DEFAULT '',"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("tool_category", q.lastError().text()); qWarning() << "[DB] Create tool_category failed:" << q.lastError().text(); return false; }
@@ -322,13 +322,13 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // ── 建表：tool_cabinet（工具柜） ──
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_cabinet ("
-        "  cabinet_id    INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  cabinet_id    INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  cabinet_name  TEXT    NOT NULL,"
-        "  location      TEXT    DEFAULT '',"
+        "  location      VARCHAR(255) DEFAULT '',"
         "  capacity      INTEGER DEFAULT 0,"
-        "  status        TEXT    DEFAULT 'active',"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  status        VARCHAR(255) DEFAULT 'active',"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("tool_cabinet", q.lastError().text()); qWarning() << "[DB] Create tool_cabinet failed:" << q.lastError().text(); return false; }
@@ -337,25 +337,25 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 新增 recognition_method/document_path 列
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_info ("
-        "  tool_id          INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  tool_id          INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  tool_name        TEXT    NOT NULL,"
-        "  tool_code        TEXT    NOT NULL UNIQUE,"
-        "  spec             TEXT    DEFAULT '',"
+        "  tool_code        VARCHAR(255)    NOT NULL UNIQUE,"
+        "  spec             VARCHAR(255) DEFAULT '',"
         "  category_id      INTEGER DEFAULT 0,"
         "  cabinet_id       INTEGER DEFAULT 0,"
         "  machine_group_id INTEGER DEFAULT NULL,"
-        "  layer            TEXT    DEFAULT '',"
-        "  position         TEXT    DEFAULT '',"
+        "  layer            VARCHAR(255) DEFAULT '',"
+        "  position         VARCHAR(255) DEFAULT '',"
         "  total_qty        INTEGER DEFAULT 0,"
         "  current_qty      INTEGER DEFAULT 0,"
-        "  vision_tag         TEXT    DEFAULT '',"
-        "  status           TEXT    DEFAULT 'in_stock',"
-        "  checkout_reason  TEXT    DEFAULT '',"
+        "  vision_tag         VARCHAR(255) DEFAULT '',"
+        "  status           VARCHAR(255) DEFAULT 'in_stock',"
+        "  checkout_reason  VARCHAR(255) DEFAULT '',"
         "  is_recommended   INTEGER DEFAULT 0,"
-        "  recognition_method TEXT  DEFAULT 'vision',"
-        "  document_path    TEXT    DEFAULT '',"
-        "  created_at       TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at       TEXT    DEFAULT (datetime('now','localtime'))"
+        "  recognition_method VARCHAR(255) DEFAULT 'vision',"
+        "  document_path    VARCHAR(255) DEFAULT '',"
+        "  created_at       TEXT,"
+        "  updated_at       TEXT"
         ")"
     );
     if (!ok) { logFail("tool_info", q.lastError().text()); qWarning() << "[DB] Create tool_info failed:" << q.lastError().text(); return false; }
@@ -363,15 +363,15 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 为已有SQLite数据库迁移：添加缺失列（IF NOT EXISTS）
     // SQLite不支持 ADD COLUMN IF NOT EXISTS，用try-catch忽略"duplicate column"错误
     const char* alterCols[] = {
-        "ALTER TABLE tool_info ADD COLUMN spec TEXT DEFAULT ''",
+        "ALTER TABLE tool_info ADD COLUMN spec VARCHAR(255) DEFAULT ''",
         "ALTER TABLE tool_info ADD COLUMN machine_group_id INTEGER DEFAULT NULL",
-        "ALTER TABLE tool_info ADD COLUMN layer TEXT DEFAULT ''",
+        "ALTER TABLE tool_info ADD COLUMN layer VARCHAR(255) DEFAULT ''",
         "ALTER TABLE tool_info ADD COLUMN current_qty INTEGER DEFAULT 0",
-        "ALTER TABLE tool_info ADD COLUMN vision_tag TEXT DEFAULT ''",
-        "ALTER TABLE tool_info ADD COLUMN checkout_reason TEXT DEFAULT ''",
+        "ALTER TABLE tool_info ADD COLUMN vision_tag VARCHAR(255) DEFAULT ''",
+        "ALTER TABLE tool_info ADD COLUMN checkout_reason VARCHAR(255) DEFAULT ''",
         "ALTER TABLE tool_info ADD COLUMN is_recommended INTEGER DEFAULT 0",
-        "ALTER TABLE tool_info ADD COLUMN recognition_method TEXT DEFAULT 'vision'",
-        "ALTER TABLE tool_info ADD COLUMN document_path TEXT DEFAULT ''",
+        "ALTER TABLE tool_info ADD COLUMN recognition_method VARCHAR(255) DEFAULT 'vision'",
+        "ALTER TABLE tool_info ADD COLUMN document_path VARCHAR(255) DEFAULT ''",
     };
     for (const char* alterSql : alterCols) {
         q.exec(alterSql);  // 忽略"duplicate column"错误
@@ -382,15 +382,15 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 建表：machine_group（工程机组） ──
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS machine_group ("
-        "  group_id      INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  group_name    TEXT    NOT NULL UNIQUE,"
+        "  group_id      INTEGER PRIMARY KEY AUTO_INCREMENT,"
+        "  group_name    VARCHAR(255)    NOT NULL UNIQUE,"
         "  dept_id       INTEGER DEFAULT NULL,"
-        "  leader_name   TEXT    DEFAULT '',"
-        "  leader_phone  TEXT    DEFAULT '',"
-        "  description   TEXT    DEFAULT '',"
-        "  status        TEXT    DEFAULT 'active',"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  leader_name   VARCHAR(255) DEFAULT '',"
+        "  leader_phone  VARCHAR(255) DEFAULT '',"
+        "  description   TEXT,"
+        "  status        VARCHAR(255) DEFAULT 'active',"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("machine_group", q.lastError().text()); qWarning() << "[DB] Create machine_group failed:" << q.lastError().text(); return false; }
@@ -410,21 +410,21 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 增加 mapping_id 列（位置维度借用记录）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_borrow_record ("
-        "  record_id            INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  record_id            INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  flow_no              TEXT    NOT NULL,"
         "  tool_id              INTEGER NOT NULL,"
         "  user_id              INTEGER NOT NULL,"
         "  borrow_qty           INTEGER DEFAULT 1,"
-        "  borrow_reason        TEXT    DEFAULT '',"
+        "  borrow_reason        VARCHAR(255) DEFAULT '',"
         "  borrow_time          TEXT    DEFAULT NULL,"
         "  expected_return_time TEXT    DEFAULT NULL,"
         "  actual_return_time   TEXT    DEFAULT NULL,"
-        "  status               TEXT    DEFAULT 'borrowing',"
+        "  status               VARCHAR(255) DEFAULT 'borrowing',"
         "  operator_id          INTEGER DEFAULT NULL,"
-        "  remark               TEXT    DEFAULT '',"
+        "  remark               VARCHAR(255) DEFAULT '',"
         "  mapping_id           INTEGER DEFAULT NULL,"  // 位置映射ID
-        "  created_at           TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at           TEXT    DEFAULT (datetime('now','localtime'))"
+        "  created_at           TEXT,"
+        "  updated_at           TEXT"
         ")"
     );
     if (!ok) { logFail("tool_borrow_record", q.lastError().text()); qWarning() << "[DB] Create tool_borrow_record failed:" << q.lastError().text(); return false; }
@@ -531,15 +531,15 @@ bool DatabaseManager::initSchemaIfNeeded() {
   // 建表：task_type（任务类型）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS task_type ("
-        "  type_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  type_code     TEXT    NOT NULL UNIQUE,"
+        "  type_id       INTEGER PRIMARY KEY AUTO_INCREMENT,"
+        "  type_code     VARCHAR(255)    NOT NULL UNIQUE,"
         "  type_name     TEXT    NOT NULL,"
-        "  description   TEXT    DEFAULT '',"
+        "  description   TEXT,"
         "  default_duration INTEGER DEFAULT 30,"
         "  sort_order    INTEGER DEFAULT 0,"
         "  is_active     INTEGER DEFAULT 1,"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
-        "  updated_at    TEXT    DEFAULT (datetime('now','localtime'))"
+        "  created_at    TEXT,"
+        "  updated_at    TEXT"
         ")"
     );
     if (!ok) { logFail("task_type", q.lastError().text()); qWarning() << "[DB] Create task_type failed:" << q.lastError().text(); return false; }
@@ -547,11 +547,11 @@ bool DatabaseManager::initSchemaIfNeeded() {
   // 建表：task_type_tool（任务类型-推荐工具关联表）
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS task_type_tool ("
-        "  id            INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  id            INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  type_id       INTEGER NOT NULL,"
         "  tool_id       INTEGER NOT NULL,"
         "  sort_order    INTEGER DEFAULT 0,"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
+        "  created_at    TEXT,"
         "  FOREIGN KEY (type_id) REFERENCES task_type(type_id),"
         "  FOREIGN KEY (tool_id) REFERENCES tool_info(tool_id),"
         "  UNIQUE(type_id, tool_id)"
@@ -568,13 +568,13 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // 注意：SQLite建表和MySQL建表都显式包含status字段，DEFAULT 'pending'
     ok = q.exec(
         "CREATE TABLE IF NOT EXISTS tool_position_mapping ("
-        "  mapping_id    INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  mapping_id    INTEGER PRIMARY KEY AUTO_INCREMENT,"
         "  tool_id       INTEGER NOT NULL,"
         "  cabinet_id    INTEGER NOT NULL,"
-        "  layer         TEXT    NOT NULL,"
-        "  position      TEXT    NOT NULL,"
-        "  status        TEXT    NOT NULL DEFAULT 'pending',"
-        "  created_at    TEXT    DEFAULT (datetime('now','localtime')),"
+        "  layer         VARCHAR(255) NOT NULL,"
+        "  position      VARCHAR(255) NOT NULL,"
+        "  status        VARCHAR(255) DEFAULT 'pending',"
+        "  created_at    TEXT,"
         "  FOREIGN KEY (tool_id) REFERENCES tool_info(tool_id),"
         "  FOREIGN KEY (cabinet_id) REFERENCES tool_cabinet(cabinet_id),"
         "  UNIQUE(cabinet_id, layer, position)"
@@ -584,11 +584,11 @@ bool DatabaseManager::initSchemaIfNeeded() {
     }  // 关闭 if (!skipCreateTables) 建表块
 
   // 为已有SQLite数据库迁移：添加缺失列（tool_info.cabinet_name兼容）
-    q.exec("ALTER TABLE tool_info ADD COLUMN cabinet_name TEXT DEFAULT ''");
-    q.exec("ALTER TABLE tool_info ADD COLUMN unit TEXT DEFAULT '件'");
+    q.exec("ALTER TABLE tool_info ADD COLUMN cabinet_name VARCHAR(255) DEFAULT ''");
+    q.exec("ALTER TABLE tool_info ADD COLUMN unit VARCHAR(255) DEFAULT '件'");
     // tool_cabinet增加cabinet_code和ip_address列（对齐ToolCabinet模型）
-    q.exec("ALTER TABLE tool_cabinet ADD COLUMN cabinet_code TEXT DEFAULT ''");
-    q.exec("ALTER TABLE tool_cabinet ADD COLUMN ip_address TEXT DEFAULT ''");
+    q.exec("ALTER TABLE tool_cabinet ADD COLUMN cabinet_code VARCHAR(255) DEFAULT ''");
+    q.exec("ALTER TABLE tool_cabinet ADD COLUMN ip_address VARCHAR(255) DEFAULT ''");
     // 映射表增加status字段
     // 入库只更新映射表status，不新建tool_info记录
     // pending=待入库（配置了对照关系但未实际放入工具）
@@ -609,7 +609,7 @@ bool DatabaseManager::initSchemaIfNeeded() {
     // MySQL兼容建表+旧数据迁移（在建表块外，不受skipCreateTables控制）
     // 根因：skipCreateTables=true时跳过建表，导致MySQL端无tool_position_mapping表
     // ODBC驱动报"Unable to execute statement"就是因为表不存在
-    // 用MySQL兼容语法（AUTO_INCREMENT而非AUTOINCREMENT，CURRENT_TIMESTAMP而非datetime()）
+    // 用MySQL兼容语法（AUTO_INCREMENT而非AUTO_INCREMENT，CURRENT_TIMESTAMP而非datetime()）
     q.exec("CREATE TABLE IF NOT EXISTS tool_position_mapping ("
            "  mapping_id    INT AUTO_INCREMENT PRIMARY KEY,"
            "  tool_id       INT NOT NULL,"
@@ -724,11 +724,11 @@ bool DatabaseManager::seedBusinessData() {
         chk.exec("SELECT COUNT(*) FROM tool_cabinet");
         if (!chk.next() || chk.value(0).toInt() == 0) {
             q.exec("INSERT INTO tool_cabinet(cabinet_id,cabinet_name,cabinet_code,location,ip_address,status,created_at,updated_at) "
-                   "VALUES(1,'A柜','CAB-A','维修车间东侧','192.168.1.101','active',datetime('now','localtime'),datetime('now','localtime'))");
+                   "VALUES(1,'A柜','CAB-A','维修车间东侧','192.168.1.101','active',NOW(),NOW())");
             q.exec("INSERT INTO tool_cabinet(cabinet_id,cabinet_name,cabinet_code,location,ip_address,status,created_at,updated_at) "
-                   "VALUES(2,'B柜','CAB-B','维修车间西侧','192.168.1.102','active',datetime('now','localtime'),datetime('now','localtime'))");
+                   "VALUES(2,'B柜','CAB-B','维修车间西侧','192.168.1.102','active',NOW(),NOW())");
             q.exec("INSERT INTO tool_cabinet(cabinet_id,cabinet_name,cabinet_code,location,ip_address,status,created_at,updated_at) "
-                   "VALUES(3,'C柜','CAB-C','备件仓库','192.168.1.103','active',datetime('now','localtime'),datetime('now','localtime'))");
+                   "VALUES(3,'C柜','CAB-C','备件仓库','192.168.1.103','active',NOW(),NOW())");
         }
     }
 
@@ -819,13 +819,13 @@ bool DatabaseManager::seedBusinessData() {
 
     // ── 告警类型字典表 动态告警类型+级别管理 ──
     q.exec("CREATE TABLE IF NOT EXISTS sys_alert_type ("
-           "  type_id     INTEGER PRIMARY KEY AUTOINCREMENT,"
-           "  type_code   TEXT    NOT NULL UNIQUE,"
+           "  type_id     INTEGER PRIMARY KEY AUTO_INCREMENT,"
+           "  type_code   VARCHAR(255)    NOT NULL UNIQUE,"
            "  type_name   TEXT    NOT NULL,"
-           "  alert_level TEXT    DEFAULT 'warn',"
+           "  alert_level VARCHAR(255) DEFAULT 'warn',"
            "  sort_order  INTEGER DEFAULT 0,"
            "  is_active   INTEGER DEFAULT 1,"
-           "  created_at  TEXT    DEFAULT (datetime('now','localtime'))"
+           "  created_at  TEXT"
            ")");
     // 告警类型对齐MySQL现有映射（type_id必须一致）
     // MySQL当前映射：1-overdue,2-mismatch,3-missing,4-offline,5-unauthorized,
@@ -865,31 +865,31 @@ bool DatabaseManager::seedBusinessData() {
     // ── 告警记录表 字段对齐MySQL：保留alert_type/alert_level兼容AlertDAO ──
     // 新增record_id列，关联tool_borrow_record用于借款人回退查询
     q.exec("CREATE TABLE IF NOT EXISTS sys_alert ("
-           "  alert_id    INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "  alert_id    INTEGER PRIMARY KEY AUTO_INCREMENT,"
            "  type_id     INTEGER NOT NULL DEFAULT 1,"
-           "  alert_type  TEXT    DEFAULT '',"
-           "  alert_level TEXT    DEFAULT 'warn',"
+           "  alert_type  VARCHAR(255) DEFAULT '',"
+           "  alert_level VARCHAR(255) DEFAULT 'warn',"
            "  tool_id     INTEGER DEFAULT NULL,"
-           "  tool_code   TEXT    DEFAULT '',"
-           "  content     TEXT    NOT NULL DEFAULT '',"
-           "  status      TEXT    DEFAULT 'unhandled',"
+           "  tool_code   VARCHAR(255) DEFAULT '',"
+           "  content     TEXT,"
+           "  status      VARCHAR(255) DEFAULT 'unhandled',"
            "  user_id     INTEGER DEFAULT NULL,"
            "  record_id   INTEGER DEFAULT 0,"
-           "  created_at  TEXT    DEFAULT (datetime('now','localtime')),"
+           "  created_at  TEXT,"
            "  handled_at  TEXT    DEFAULT NULL,"
            "  handler_id  INTEGER DEFAULT NULL,"
-           "  remark      TEXT    DEFAULT ''"
+           "  remark      VARCHAR(255) DEFAULT ''"
            ")");
     // 兼容旧表迁移：添加可能缺失的列（SQLite ALTER不支持NOT NULL，用DEFAULT代替）
     q.exec("ALTER TABLE sys_alert ADD COLUMN type_id INTEGER DEFAULT 1");
-    q.exec("ALTER TABLE sys_alert ADD COLUMN alert_type TEXT DEFAULT ''");
-    q.exec("ALTER TABLE sys_alert ADD COLUMN alert_level TEXT DEFAULT 'warn'");
+    q.exec("ALTER TABLE sys_alert ADD COLUMN alert_type VARCHAR(255) DEFAULT ''");
+    q.exec("ALTER TABLE sys_alert ADD COLUMN alert_level VARCHAR(255) DEFAULT 'warn'");
     q.exec("ALTER TABLE sys_alert ADD COLUMN tool_id INTEGER DEFAULT NULL");
-    q.exec("ALTER TABLE sys_alert ADD COLUMN tool_code TEXT DEFAULT ''");
+    q.exec("ALTER TABLE sys_alert ADD COLUMN tool_code VARCHAR(255) DEFAULT ''");
     q.exec("ALTER TABLE sys_alert ADD COLUMN user_id INTEGER DEFAULT NULL");
     q.exec("ALTER TABLE sys_alert ADD COLUMN handled_at TEXT DEFAULT NULL");
     q.exec("ALTER TABLE sys_alert ADD COLUMN handler_id INTEGER DEFAULT NULL");
-    q.exec("ALTER TABLE sys_alert ADD COLUMN remark TEXT DEFAULT ''");
+    q.exec("ALTER TABLE sys_alert ADD COLUMN remark VARCHAR(255) DEFAULT ''");
     q.exec("ALTER TABLE sys_alert ADD COLUMN record_id INTEGER DEFAULT 0");  // 关联借用记录
     // 检查sys_alert_type表是否存在type_code列，如缺失则重建
     {
@@ -899,13 +899,13 @@ bool DatabaseManager::seedBusinessData() {
             qWarning() << "[DB] sys_alert_type missing type_code column, recreating...";
             q.exec("DROP TABLE IF EXISTS sys_alert_type");
             q.exec("CREATE TABLE IF NOT EXISTS sys_alert_type ("
-                   "  type_id     INTEGER PRIMARY KEY AUTOINCREMENT,"
-                   "  type_code   TEXT    NOT NULL UNIQUE,"
+                   "  type_id     INTEGER PRIMARY KEY AUTO_INCREMENT,"
+                   "  type_code   VARCHAR(255)    NOT NULL UNIQUE,"
                    "  type_name   TEXT    NOT NULL,"
-                   "  alert_level TEXT    DEFAULT 'warn',"
+                   "  alert_level VARCHAR(255) DEFAULT 'warn',"
                    "  sort_order  INTEGER DEFAULT 0,"
                    "  is_active   INTEGER DEFAULT 1,"
-                   "  created_at  TEXT    DEFAULT (datetime('now','localtime'))"
+                   "  created_at  TEXT"
                    ")");
             int ti = 1;
             for (auto& t : types) {
@@ -977,15 +977,15 @@ bool DatabaseManager::seedBusinessData() {
 
     // ── 操作日志（15条） ──
     q.exec("CREATE TABLE IF NOT EXISTS sys_operation_log ("
-           "  log_id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "  log_id         INTEGER PRIMARY KEY AUTO_INCREMENT,"
            "  user_id        INTEGER DEFAULT NULL,"
-           "  username       TEXT    DEFAULT '',"
+           "  username       VARCHAR(255) DEFAULT '',"
            "  operation_type TEXT    NOT NULL,"
-           "  target_type    TEXT    DEFAULT '',"
-           "  target_id      TEXT    DEFAULT '',"
+           "  target_type    VARCHAR(255) DEFAULT '',"
+           "  target_id      VARCHAR(255) DEFAULT '',"
            "  content        TEXT,"
-           "  ip_address     TEXT    DEFAULT '',"
-           "  created_at     TEXT    DEFAULT (datetime('now','localtime'))"
+           "  ip_address     VARCHAR(255) DEFAULT '',"
+           "  created_at     TEXT"
            ")");
     // 致命注意：原代码无条件DELETE清空所有操作日志
     // 导致test1等真实出库/入库记录每次启动都被删除
@@ -1031,16 +1031,16 @@ bool DatabaseManager::seedBusinessData() {
     // elapsed_ms 单次识别耗时（毫秒，含特征提取+比对）
     // matched_user 命中用户工号（stranger/error 为空）
     q.exec("CREATE TABLE IF NOT EXISTS face_recog_log ("
-           "  log_id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "  log_id         INTEGER PRIMARY KEY AUTO_INCREMENT,"
            "  result         TEXT    NOT NULL,"
            "  best_sim       REAL    DEFAULT 0,"
            "  best_dist      REAL    DEFAULT 1,"
            "  threshold      REAL    DEFAULT 0,"
-           "  mode           TEXT    DEFAULT '',"
+           "  mode           VARCHAR(255) DEFAULT '',"
            "  candidate_cnt  INTEGER DEFAULT 0,"
            "  elapsed_ms     INTEGER DEFAULT 0,"
-           "  matched_user   TEXT    DEFAULT '',"
-           "  created_at     TEXT    DEFAULT (datetime('now','localtime'))"
+           "  matched_user   VARCHAR(255) DEFAULT '',"
+           "  created_at     TEXT"
            ")");
 
     // 出库操作历史记录（10条），content加工具编号，INSERT加target_id

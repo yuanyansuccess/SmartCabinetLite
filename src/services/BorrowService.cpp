@@ -23,7 +23,7 @@ BorrowService::BorrowService(QObject* parent) : QObject(parent) {}
 BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mappingId, int quantity,
                                                  const QString& reason, const QString& expectedReturnTime,
                                                  const QString& flowNo, int machineGroupId) {
-    Result r; r.success = false; r.recordId = -1;
+    Result r;  // 默认为 {success=false, recordId=0}，失败路径无需再赋 -1
 
     // 表单校验
     if (userId <= 0) { r.message = "用户ID无效"; return r; }
