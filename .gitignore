@@ -8,8 +8,11 @@ Makefile.*
 *.user*
 
 # 第三方依赖 / 冗余副本
-tools/
+# 人脸服务源码纳入版本控制（避免服务改动无历史、易丢失），
+# 仅忽略体积巨大的依赖与模型二进制
 node_modules/
+tools/face-recognition/node_modules/
+tools/face-recognition/models/
 # 根下嵌套同名目录（QtSmartCabinet.rar 解压出的完整冗余副本，含安装包）
 QtSmartCabinet/
 

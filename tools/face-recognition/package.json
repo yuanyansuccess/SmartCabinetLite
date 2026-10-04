@@ -1,0 +1,13 @@
+{
+  "name": "smartcabinet-face-recognition",
+  "version": "1.0.0",
+  "description": "深度学习人脸特征提取服务 - 使用face-api.js提取128维深度特征",
+  "author": "袁燕",
+  "license": "MIT",
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.13",
+    "jpeg-js": "^0.4.4"
+  }
+}
