@@ -61,6 +61,11 @@ UserManagementPage::~UserManagementPage() {
     delete ui;
 }
 
+
+// ==============================================================
+// 【① 界面构建与用户列表加载
+//   工具栏、部门筛选、用户表格与分页
+// ==============================================================
 void UserManagementPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_addBtn = ui->addBtn;
@@ -147,6 +152,11 @@ void UserManagementPage::refresh() {
     loadUsers();
 }
 
+
+// ==============================================================
+// 【② 查询与筛选（搜索/重置/部门多选）
+//   搜索条件与部门筛选交互
+// ==============================================================
 void UserManagementPage::onSearch() {
     m_currentPage = 1;  // 筛选查询必须重置到第1页
     loadUsers();
@@ -422,6 +432,11 @@ void UserManagementPage::loadUsers() {
     }
 }
 
+
+// ==============================================================
+// 【③ 分页
+//   上一页/下一页
+// ==============================================================
 void UserManagementPage::onPrevPage() {
     if (m_currentPage > 1) {
         m_currentPage--;
@@ -437,6 +452,11 @@ void UserManagementPage::onNextPage() {
     }
 }
 
+
+// ==============================================================
+// 【④ 用户增删改（新增/编辑/删除/提交）
+//   表单校验、口令设置、重复工号校验
+// ==============================================================
   // 统一圆角风格 — BaseDialog基类
 // 供 onAddUser / onEditUser 复用，避免 onEditUser 错误调用 onAddUser 导致弹出"新增用户"标题
 void UserManagementPage::createUserDialog() {
@@ -734,6 +754,11 @@ void UserManagementPage::onSubmitUser() {
 }
 
 /** 搜索框点击→弹出用户名软键盘(对齐登录页ModeEn模式) */
+
+// ==============================================================
+// 【⑤ 输入控件事件与部门筛选交互
+//   软键盘弹起、清空/确认部门
+// ==============================================================
 void UserManagementPage::onSearchFieldClicked() {
     // 先隐藏数字键盘防止穿透残留
     if (m_numKeypad) m_numKeypad->hide();
@@ -814,6 +839,11 @@ void UserManagementPage::onConfirmDepts() {
 }
 
 /** 禁用/启用用户 */
+
+// ==============================================================
+// 【⑥ 启用/停用切换
+//   状态互斥与二次确认
+// ==============================================================
 void UserManagementPage::onToggleUserStatus(int userId) {
   // 通过UserController替代直接调用db/UserDAO
     UserController ctrl;
@@ -901,6 +931,11 @@ struct FaceEnrollCtx {
 };
 
 /** 人脸录入 — 统一BaseDialog圆角风格 */
+
+// ==============================================================
+// 【⑦ 人脸录入（5方位引导采集）
+//   ★核心：录入对话框、方位检测、特征保存；改录入流程看本区
+// ==============================================================
 void UserManagementPage::onFaceEnroll(int userId) {
     UserController ctrl;
     User user = ctrl.getUserById(userId);
@@ -1419,6 +1454,11 @@ void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
 }
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */
+
+// ==============================================================
+// 【⑧ 已录入用户的人脸查看与清除
+//   查看/重新录入/清除人脸
+// ==============================================================
 void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName, const QString& workNo) {
     UserController ctrl;
     User user = ctrl.getUserById(userId);

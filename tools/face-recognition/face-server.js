@@ -76,15 +76,16 @@ async function extractFeature(imageBase64) {
     const tensor = tf.tensor3d(rgbData, [height, width, 3]);
     const t0 = Date.now();
     try {
-        // [V2.18 2026-10-04 袁燕] 性能优化：移除 withFaceLandmarks()
-        //   /extract 的唯一产出是 128 维 descriptor，而 68 点 landmark 模型
-        //   是三个模型中最重的之一。经查证 Qt 客户端全项目 0 处消费 landmarks
-        //   （录入测方位的需求由独立的 /posture 端点承担），此处属纯无用计算。
-        //   移除后单次提取耗时显著下降，直接改善"刷卡反应慢"。
+        // [V2.18 2026-10-04 袁燕] 注意：face-api.js 链式 API 存在强制依赖——
+        //   必须先调用 withFaceLandmarks()，withFaceDescriptor() 才存在
+        //   （descriptor 需基于 landmarks 对齐后计算）。曾尝试移除 landmarks
+        //   以省一次模型推理，结果报 "withFaceDescriptor is not a function"
+        //   导致提取 100% 失败，故保留该调用。
+        //   客户端虽不消费 landmarks 字段，但模型调用不可省。
         const result = await faceapi.detectSingleFace(
             tensor,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 })
-        ).withFaceDescriptor();
+        ).withFaceLandmarks().withFaceDescriptor();
 
         if (!result || !result.descriptor) {
             return { success: false, error: '未检测到人脸，请正对摄像头' };
@@ -112,10 +113,13 @@ async function extractFeature(imageBase64) {
                 console.log(`[face-server] faceSize=${Math.round(faceSize)}px 判定=正常 耗时=${Date.now() - t0}ms`);
             }
         }
+        // 保持原有响应结构（含 landmarks），确保与客户端行为完全一致
+        const landmarks = result.landmarks.positions.map(p => [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]);
         return {
             success: true,
             descriptor: Array.from(result.descriptor),
-            confidence: result.detection.score || 0.8
+            confidence: result.detection.score || 0.8,
+            landmarks: landmarks
         };
     } finally {
         tensor.dispose();
