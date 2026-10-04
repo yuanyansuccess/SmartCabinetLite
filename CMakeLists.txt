@@ -167,6 +167,7 @@ set(PAGE_SOURCES
     src/pages/LedgerStatsPage.cpp
     src/pages/AlertLogsPage.cpp
     src/pages/SystemSettingsPage.cpp
+    src/pages/SystemSettingsPagePanels.cpp
     src/pages/SystemMaintenancePage.cpp
 )
 

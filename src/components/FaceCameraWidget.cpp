@@ -287,6 +287,8 @@ void FaceCameraWidget::captureNow()
             // 保留失败原因：服务端已能识别"距离过远"并回传明确文案，
             // 这里转成距离状态，让页面层提示"请靠近"而不是笼统的"识别失败"
             m_lastExtractError = errMsg;
+            // 提取失败是登录体验的关键影响因素，必须可观测（否则只见"识别失败"无从排查）
+            qWarning() << "[FaceCamera] 特征提取失败:" << (errMsg.isEmpty() ? QStringLiteral("(无原因)") : errMsg);
             if (errMsg.contains(QStringLiteral("靠近"))) {
                 if (!m_faceTooFar) {
                     m_faceTooFar = true;
