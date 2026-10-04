@@ -388,10 +388,11 @@ void LoginPage::buildStatusRow(QVBoxLayout* layout) {
     statusRow->addWidget(m_statusDot);
 
     m_cameraStatusText = new QLabel(QStringLiteral("正在初始化人脸识别..."));
-    m_cameraStatusText->setMinimumWidth(280);  // 确保长文字一行显示全
+    m_cameraStatusText->setMinimumWidth(300);  // 确保文案一行显示全
     m_cameraStatusText->setWordWrap(true);
-    m_cameraStatusText->setStyleSheet(QString("font-size:14px; font-weight:600; color:%1; background:transparent;")
-        .arg("#555555"));
+    // 初始样式与 setScanStatus 的 level 0 保持一致（浅灰蓝）
+    m_cameraStatusText->setStyleSheet(
+        QStringLiteral("font-size:14px; color:#888888; font-weight:600; background:transparent;"));
     statusRow->addWidget(m_cameraStatusText);
     layout->addLayout(statusRow);
     layout->addSpacing(20);  // Web: .status-line margin-bottom:20px
@@ -845,7 +846,8 @@ void LoginPage::setScanStatus(const QString& text, int level) {
                                        : text;
     m_cameraStatusText->setText(t);
     static const QStringList kStyles = {
-        QStringLiteral("font-size:14px; color:#555555; font-weight:600; background:transparent;"),
+        // 0 常规：浅灰蓝（#888 视觉柔和，避免深色看起来像黑字）
+        QStringLiteral("font-size:14px; color:#888888; font-weight:600; background:transparent;"),
         QStringLiteral("font-size:15px; color:#fa8c16; font-weight:700; background:transparent;"),
         QStringLiteral("font-size:15px; color:#389e0d; font-weight:700; background:transparent;"),
         QStringLiteral("font-size:15px; color:#e53935; font-weight:700; background:transparent;"),

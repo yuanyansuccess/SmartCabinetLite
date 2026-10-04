@@ -153,6 +153,20 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     std::sort(candidates.begin(), candidates.end(),
               [](const Candidate& a, const Candidate& b) { return a.similarity > b.similarity; });
 
+    // ⚠ 无候选时必须先返回：candidates 为空时下面 candidates[0] 会越界访问
+    //   这种情况说明无人脸与库内任何特征达到 rejectThreshold，属"识别失败"
+    //   而非陌生人，不应让上层显示陌生人警报。
+    if (candidates.isEmpty()) {
+        // 质量不足：本次未产生有效候选，交给上层继续采样重试
+        result.success = false;
+        result.isStranger = false;
+        result.message = QStringLiteral("未匹配，请重试");
+        FaceRecogLogDAO().insertLog({ "no_candidate", globalBestSim, globalBestDist,
+                                      rejectThreshold, "none",
+                                      candidateCnt, int(recogTimer.elapsed()), "" });
+        return result;
+    }
+
     auto& best = candidates[0];
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
 
@@ -193,13 +207,24 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), best.workNo });
     } else {
-        // 未通过双验证 → 一律判定为陌生人（宁误拒不误识）
-        result.isStranger = true;
-        // 注意：QString::arg 使用 %1/%2 占位符并单独指定小数位，
-        // 不支持 printf 风格的 %.1f（会导致 "Argument missing" 且显示错乱）
-        result.message = QStringLiteral("人脸验证失败，相似度: %1%% 距离: %2 (未通过双验证)")
-                          .arg(best.similarity * 100, 0, 'f', 1)
-                          .arg(best.euclideanDist, 0, 'f', 3);
+        // 区分"陌生人"与"质量不足"：
+        //   欧氏距离是第二道防线，特征偏斜/姿态不佳时余弦够但距离略超，
+        //   这种属"差一点"，应让用户重试而不是直接判定陌生人。
+        //   只有余弦明显低于阈值（真不像）才认定陌生人。
+        const double strangerLine = rejectThreshold - 0.10;   // 明显不像陌生人
+        const bool likelyStranger = (best.similarity < strangerLine);
+
+        result.isStranger = likelyStranger;
+        if (likelyStranger) {
+            // 注意：QString::arg 使用 %1/%2 占位符并单独指定小数位，
+            // 不支持 printf 风格的 %.1f（会导致 "Argument missing" 且显示错乱）
+            result.message = QStringLiteral("人脸验证失败，相似度: %1%% 距离: %2 (未通过双验证)")
+                              .arg(best.similarity * 100, 0, 'f', 1)
+                              .arg(best.euclideanDist, 0, 'f', 3);
+        } else {
+            // 疑似同一人但本次质量不足：不算陌生人，交给上层继续采样
+            result.message = QStringLiteral("未匹配，请重试");
+        }
         FaceRecogLogDAO().insertLog({ "rejected", best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
