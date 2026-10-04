@@ -64,6 +64,12 @@ private slots:
      * @return true=已显示距离提示（调用方应跳过其原本的文案设置）
      */
     bool keepDistanceHint();
+    /**
+     * @brief 统一状态提示入口（所有状态文案经此设置，避免颜色/字号混杂与截断）
+     * @param text  提示文案（保持简短，控件宽度有限）
+     * @param level 0=常规灰 1=引导橙 2=成功绿 3=失败红
+     */
+    void setScanStatus(const QString& text, int level = 0);
     void onFaceCaptured(const QImage& image, double confidence);
     void onCameraError(const QString& msg);
     void onFaceStateChanged(int state);
@@ -200,6 +206,8 @@ private:
     // 状态
     FaceResult m_faceResult = FaceResult::Idle;  // 状态机当前状态
     bool m_isVerifying = false;
+    /// 距离提示当前是否已在显示（用于节流，避免每帧重设样式造成闪烁）
+    bool m_distanceHintShown = false;
     /**
      * 识别采样预算：单次登录最多比对的帧数与最长等待时间。
      * 远距离/角度不佳时特征相似度天然偏低，而"多帧取最优"可在

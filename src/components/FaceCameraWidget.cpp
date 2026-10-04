@@ -410,11 +410,20 @@ void FaceCameraWidget::onDetectTick()
         m_lastFaceRect = faceR;
 
         // 距离判定：人脸框过小说明特征像素不足，识别必然失败（不尝试放宽阈值）。
-        // 仅比较边长，无额外计算开销；状态翻转时才通知，避免每帧发信号。
-        const bool tooFar = qMin(faceR.width(), faceR.height()) < SC::FACE_MIN_SIZE;
-        if (tooFar != m_faceTooFar) {
-            m_faceTooFar = tooFar;
-            emit faceTooFarChanged(tooFar);
+        // 滞回 + 防抖：进入阈值 70 / 恢复阈值 85，中间为滞回区；
+        // 且需连续 2 帧结论一致才切换状态。否则人脸框在阈值附近抖动时，
+        // 状态会反复翻转，导致"请靠近"与"已检测到人脸"来回闪烁。
+        const int curSize = qMin(faceR.width(), faceR.height());
+        const int threshold = m_faceTooFar ? SC::FACE_RECOVER_SIZE : SC::FACE_MIN_SIZE;
+        bool farThisFrame = curSize < threshold;
+        if (farThisFrame != m_tooFarPending) {
+            m_tooFarPending = farThisFrame;
+            m_tooFarPendingCount = 1;
+        } else if (++m_tooFarPendingCount >= 2) {
+            if (farThisFrame != m_faceTooFar) {
+                m_faceTooFar = farThisFrame;
+                emit faceTooFarChanged(farThisFrame);
+            }
         }
 
         double areaRatio = (double)(faceR.width() * faceR.height()) /
@@ -432,6 +441,8 @@ void FaceCameraWidget::onDetectTick()
             m_faceTooFar = false;
             emit faceTooFarChanged(false);
         }
+        m_tooFarPending = false;      // 人脸丢失，防抖状态一并复位
+        m_tooFarPendingCount = 0;
         QPixmap blank(220, 220);
         blank.fill(Qt::transparent);
         m_faceOverlay->setPixmap(blank);

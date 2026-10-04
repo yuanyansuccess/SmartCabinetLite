@@ -144,6 +144,8 @@ private:
     bool m_cameraAvailable = false;
     bool m_faceDetected = false;
     bool m_faceTooFar = false;               // 人脸框过小（距离过远）
+    bool m_tooFarPending = false;           // 防抖：待确认的判定结论
+    int  m_tooFarPendingCount = 0;          // 防抖：连续命中次数
     QString m_lastExtractError;             // 最近一次特征提取失败原因（供页面层给出准确提示）
     bool m_capturing = false;
     int m_stableCount = 0;
