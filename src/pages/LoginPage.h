@@ -58,6 +58,12 @@ private slots:
     void onFaceLost();
     /// 距离过远（人脸框过小）提示，引导用户靠近摄像头
     void onFaceTooFarChanged(bool tooFar);
+    /**
+     * @brief 距离提示优先级最高：在识别流程各阶段调用，
+     *        只要距离仍偏远就持续显示"请靠近"，不被"正在验证身份"等文案覆盖
+     * @return true=已显示距离提示（调用方应跳过其原本的文案设置）
+     */
+    bool keepDistanceHint();
     void onFaceCaptured(const QImage& image, double confidence);
     void onCameraError(const QString& msg);
     void onFaceStateChanged(int state);

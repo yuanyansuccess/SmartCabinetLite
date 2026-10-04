@@ -241,6 +241,12 @@ QRect FaceCameraWidget::faceRect() const { return m_lastFaceRect; }
 
 bool FaceCameraWidget::isFaceTooFar() const { return m_faceTooFar; }
 
+void FaceCameraWidget::clearTooFarHint() {
+    if (!m_faceTooFar) return;
+    m_faceTooFar = false;
+    emit faceTooFarChanged(false);
+}
+
 void FaceCameraWidget::captureNow()
 {
     if (m_cameraAvailable && !m_lastFrame.isNull() && !m_lastFaceRect.isNull())

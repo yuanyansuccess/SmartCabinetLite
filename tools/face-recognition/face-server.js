@@ -28,7 +28,8 @@ const MODELS_PATH = path.join(__dirname, 'models');
 
 // [V2.17 2026-10-04 袁燕] 人脸框边长下限(px)：低于此值视为距离过远。
 //   与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。
-const FACE_MIN_SIZE = 80;
+//   实测校准：正常约 95~105px，明显偏远约 55~62px，故取 70。
+const FACE_MIN_SIZE = 70;
 
 let tf, jpeg, faceapi;
 let modelsLoaded = false;

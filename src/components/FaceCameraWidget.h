@@ -72,6 +72,8 @@ public:
 
     /// 人脸框过小（距离过远）时为 true——特征像素不足，识别易失败
     bool isFaceTooFar() const;
+    /// 清除距离过远状态（新一轮识别开始时调用，避免上一轮提示残留）
+    void clearTooFarHint();
     /// 获取当前摄像头帧（用于方位检测）
     QImage currentFrame() const { return m_lastFrame; }
     void reset();

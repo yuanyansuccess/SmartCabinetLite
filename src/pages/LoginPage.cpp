@@ -703,6 +703,7 @@ void LoginPage::startFaceRecognition() {
     m_isVerifying = false;
     m_verifyBudget = 0;        // 新一轮识别，重置采样预算
     m_verifyStartMs = 0;
+    if (m_faceCamera) m_faceCamera->clearTooFarHint();  // 清除上一轮距离提示
 
     // 重置所有面板可见性
     m_successBox->setVisible(false);
@@ -817,11 +818,21 @@ void LoginPage::onFaceLost() {
  * 此时引导用户靠近比继续比对更有意义。识别成功后不再覆盖结果提示。
  */
 void LoginPage::onFaceTooFarChanged(bool tooFar) {
-    if (!tooFar || m_faceResult != FaceResult::Scanning) return;
+    if (!tooFar) return;
+    keepDistanceHint();
+}
+
+/**
+ * @brief 距离提示持有点：识别过程中距离偏远时，提示不被流程文案覆盖
+ */
+bool LoginPage::keepDistanceHint() {
+    if (!m_faceCamera || !m_faceCamera->isFaceTooFar()) return false;
+    if (m_faceResult == FaceResult::Success) return false;
     m_cameraStatusText->setText(QStringLiteral("请靠近"));
     m_cameraStatusText->setStyleSheet(
         "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
     m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
+    return true;
 }
 
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
@@ -849,11 +860,7 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
 
         // 距离过远优先提示：此时特征必然不可用，直接引导靠近而不是让用户
         // 看到"识别失败"（用户会误以为自己没录入）
-        if (m_faceCamera && m_faceCamera->isFaceTooFar()) {
-            m_cameraStatusText->setText(QStringLiteral("请靠近"));
-            m_cameraStatusText->setStyleSheet(
-                "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
-            m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
+        if (keepDistanceHint()) {
             m_faceCamera->reset();
             m_faceResult = FaceResult::Scanning;
             m_verifyBudget = 0;        // 距离原因，重置预算避免浪费在无效帧上
@@ -861,8 +868,20 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
             return;
         }
 
-        // 已采集足够帧数但没有有效特征 → 直接切换密码登录
+        // 提取失败同样不应立即放弃：服务端偶发"未检测到人脸"占比很高
+        // （抓帧时机/画面稳定度），只要仍在采样预算与时限内就继续等待新帧。
+        // 判定标准不变——没有任何一帧比对成功仍然不会通过。
         if (m_captureCount >= 2) {
+            const qint64 spent = m_verifyStartMs == 0 ? 0
+                : QDateTime::currentMSecsSinceEpoch() - m_verifyStartMs;
+            if (m_verifyBudget < SC::FACE_MATCH_MAX_FRAMES &&
+                spent < SC::FACE_MATCH_MAX_WAIT_MS) {
+                if (!keepDistanceHint())
+                    m_cameraStatusText->setText(QStringLiteral("请保持不动，正在重试..."));
+                m_faceResult = FaceResult::Scanning;
+                m_faceCamera->reset();
+                return;
+            }
             stopDotBlink();
             setStatusDot("background:#ff4d4f;");
             setFaceResult(FaceResult::Fail);
@@ -924,7 +943,7 @@ void LoginPage::collectBestSample() {
     if (!m_pendingUser.isEmpty()) return;
     m_isVerifying = true;
     m_faceResult = FaceResult::Capturing;
-    m_cameraStatusText->setText(QStringLiteral("正在验证身份..."));
+    if (!keepDistanceHint()) m_cameraStatusText->setText(QStringLiteral("正在验证身份..."));
     m_captureProgress->setVisible(false);
 
     // 按质量排序：从最优帧开始逐帧尝试（失败会自动换下一帧，见 handleVerifyFailure）
@@ -1105,7 +1124,8 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
         const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_verifyStartMs;
         const int budgetLeft = SC::FACE_MATCH_MAX_FRAMES - m_verifyBudget;
         if (budgetLeft > 0 && elapsed < SC::FACE_MATCH_MAX_WAIT_MS) {
-            m_cameraStatusText->setText(QStringLiteral("请保持不动，正在重试..."));
+            if (!keepDistanceHint())
+                m_cameraStatusText->setText(QStringLiteral("请保持不动，正在重试..."));
             m_faceResult = FaceResult::Scanning;
             return;   // 等待 onFaceCaptured 送来下一帧
         }
