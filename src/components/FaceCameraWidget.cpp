@@ -10,6 +10,7 @@
 // 替代之前的随机特征向量生成，实现真正的刷脸登录功能
 #include "FaceCameraWidget.h"
 #include "utils/StyleHelper.h"
+#include "common/Constants.h"
 #include "CameraCapture.h"
 #include "DeepFaceExtractor.h"  // 深度学习人脸特征提取
 #include <QVBoxLayout>
@@ -238,6 +239,8 @@ void FaceCameraWidget::setCaptureDelay(int ms) { m_captureDelay = ms; }
 
 QRect FaceCameraWidget::faceRect() const { return m_lastFaceRect; }
 
+bool FaceCameraWidget::isFaceTooFar() const { return m_faceTooFar; }
+
 void FaceCameraWidget::captureNow()
 {
     if (m_cameraAvailable && !m_lastFrame.isNull() && !m_lastFaceRect.isNull())
@@ -387,6 +390,14 @@ void FaceCameraWidget::onDetectTick()
     {
         m_lastFaceRect = faceR;
 
+        // 距离判定：人脸框过小说明特征像素不足，识别必然失败（不尝试放宽阈值）。
+        // 仅比较边长，无额外计算开销；状态翻转时才通知，避免每帧发信号。
+        const bool tooFar = qMin(faceR.width(), faceR.height()) < SC::FACE_MIN_SIZE;
+        if (tooFar != m_faceTooFar) {
+            m_faceTooFar = tooFar;
+            emit faceTooFarChanged(tooFar);
+        }
+
         double areaRatio = (double)(faceR.width() * faceR.height()) /
                           (double)(m_lastFrame.width() * m_lastFrame.height());
         double confidence = qMin(m_policy.maxConfidence,
@@ -398,6 +409,10 @@ void FaceCameraWidget::onDetectTick()
     else
     {
         m_lastFaceRect = QRect();
+        if (m_faceTooFar) {           // 人脸丢失后复位距离提示
+            m_faceTooFar = false;
+            emit faceTooFarChanged(false);
+        }
         QPixmap blank(220, 220);
         blank.fill(Qt::transparent);
         m_faceOverlay->setPixmap(blank);

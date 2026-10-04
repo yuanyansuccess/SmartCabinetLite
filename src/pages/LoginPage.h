@@ -56,6 +56,8 @@ signals:
 private slots:
     void onFaceDetected();
     void onFaceLost();
+    /// 距离过远（人脸框过小）提示，引导用户靠近摄像头
+    void onFaceTooFarChanged(bool tooFar);
     void onFaceCaptured(const QImage& image, double confidence);
     void onCameraError(const QString& msg);
     void onFaceStateChanged(int state);

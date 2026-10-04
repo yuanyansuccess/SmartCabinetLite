@@ -1065,6 +1065,14 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
         ctx.camera->captureNow();
     };
 
+    // 距离过远提示：采集前引导靠近，避免因特征像素不足导致采集质量差
+    connect(ctx.camera, &FaceCameraWidget::faceTooFarChanged, dlg, [this, &ctx](bool tooFar) {
+        if (!tooFar || !ctx.isCapturing) return;
+        ctx.instructionLabel->setText(QStringLiteral("请靠近"));
+        ctx.instructionLabel->setStyleSheet(
+            "font-size:15px;font-weight:bold;color:#fa8c16;padding:4px 0;background:transparent;");
+    });
+
     // 方位检测回调 — 异步HTTP模式
     // 定时器触发异步POST /posture，HTTP响应回调中做方位匹配，不阻塞UI
     connect(ctx.postureTimer, &QTimer::timeout, dlg, [this, &ctx]() {

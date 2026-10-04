@@ -105,6 +105,11 @@ const int PAGE_SIZE_TOOLS     = 100;    // 工具列表大分页（借用页全�
 // 控件高度/圆角/字号统一由 StyleHelper::Token 提供，此处不再重复定义第二套来源
 const int FONT_SIZE_SMALL  = 14;
 
+// ── 人脸识别采集质量 ──
+// 采集分辨率 640x480 下的人脸框边长下限(px)：低于此值视为距离过远，
+// 特征像素不足会导致相似度下降而识别失败，此时应提示用户靠近而非放宽阈值。
+const int FACE_MIN_SIZE   = 80;
+
 // ── 统计卡片尺寸 ──
 const int STAT_CARD_HEIGHT      = 100;  // 卡片高度
 const int STAT_CARD_ICON_SIZE   = 56;   // 图标尺寸

@@ -69,6 +69,9 @@ public:
     QString getLastDescriptor() const;
     /// 返回当前人脸检测边界框（相对于220x220显示区域）
     QRect faceRect() const;
+
+    /// 人脸框过小（距离过远）时为 true——特征像素不足，识别易失败
+    bool isFaceTooFar() const;
     /// 获取当前摄像头帧（用于方位检测）
     QImage currentFrame() const { return m_lastFrame; }
     void reset();
@@ -90,6 +93,8 @@ signals:
     void captureReady(QImage image, double confidence);
     void stateChanged(int state);   // 0=off 1=scanning 2=detected 3=capturing 4=success 5=error
     void errorOccurred(QString message);
+    /// 距离状态变化（true=过远需靠近）。仅在状态翻转时发出，避免每帧通知
+    void faceTooFarChanged(bool tooFar);
     // 新增：人脸检测状态变化
     void faceDetectionChanged(bool detected, double confidence);
     void borderGlowChanged();
@@ -136,6 +141,7 @@ private:
     bool m_active = false;
     bool m_cameraAvailable = false;
     bool m_faceDetected = false;
+    bool m_faceTooFar = false;               // 人脸框过小（距离过远）
     bool m_capturing = false;
     int m_stableCount = 0;
     int m_borderGlow = 0;

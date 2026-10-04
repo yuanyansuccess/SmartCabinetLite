@@ -286,6 +286,8 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
         "background:#fafbfc;");
     connect(m_faceCamera, &FaceCameraWidget::faceDetected, this, &LoginPage::onFaceDetected);
     connect(m_faceCamera, &FaceCameraWidget::faceLost, this, &LoginPage::onFaceLost);
+    // 距离过远提示：人脸框过小则特征像素不足，识别必然失败
+    connect(m_faceCamera, &FaceCameraWidget::faceTooFarChanged, this, &LoginPage::onFaceTooFarChanged);
     connect(m_faceCamera, &FaceCameraWidget::captureReady, this, &LoginPage::onFaceCaptured);
     connect(m_faceCamera, &FaceCameraWidget::errorOccurred, this, &LoginPage::onCameraError);
     connect(m_faceCamera, &FaceCameraWidget::stateChanged, this, &LoginPage::onFaceStateChanged);
@@ -797,6 +799,19 @@ void LoginPage::onFaceLost() {
     if (m_faceResult == FaceResult::Scanning) {
         m_cameraStatusText->setText(QStringLiteral("正在检测人脸，请对准摄像头..."));
     }
+}
+
+/**
+ * @brief 距离过远提示
+ * @param tooFar true=人脸框过小
+ * 仅在扫描阶段改状态文案：距离远时特征像素不足，识别必然失败，
+ * 此时引导用户靠近比继续比对更有意义。识别成功后不再覆盖结果提示。
+ */
+void LoginPage::onFaceTooFarChanged(bool tooFar) {
+    if (!tooFar || m_faceResult != FaceResult::Scanning) return;
+    m_cameraStatusText->setText(QStringLiteral("请靠近"));
+    m_cameraStatusText->setStyleSheet(
+        "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
 }
 
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
