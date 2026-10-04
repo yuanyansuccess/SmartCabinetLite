@@ -108,11 +108,6 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     return r;
 }
 
-QJsonObject BorrowService::getUserRecords(int userId, int page, int pageSize) {
-    RecordDAO dao;
-    return dao.findAll(userId, 0, "", "", "", page, pageSize);
-}
-
 // 所有借用记录（不限userId）
 QJsonObject BorrowService::getAllRecords(int page, int pageSize) {
     RecordDAO dao;
@@ -138,11 +133,4 @@ QJsonObject BorrowService::getAllInStockTools(int page, int pageSize, int machin
     // 按工具种类聚合查询，同一工具一行+availableQty
     // 借用列表按工具种类显示，用户选数量后自动分配位置
     return dao.findAllInStockByTool("", "", page, pageSize, machineGroupId);
-}
-
-  // 新增searchTools方法，替代页面直接调用db/ToolDAO
-QJsonObject BorrowService::searchTools(const QString& keyword, int page, int pageSize, int machineGroupId) {
-    ToolDAO dao;
-    // 位置维度查询，与getAllInStockTools一致
-    return dao.findAllByPosition(keyword, "", "in_stock", 0, page, pageSize, machineGroupId);
 }

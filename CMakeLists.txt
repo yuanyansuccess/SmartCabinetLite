@@ -93,6 +93,9 @@ endif()
 set(COMMON_SOURCES
     src/common/AppConfig.cpp
     src/common/DatabaseManager.cpp
+    # DatabaseManager 按职责物理拆分（类声明仍在 DatabaseManager.h，仅实现分文件，接口零变化）
+    src/common/DatabaseManagerSchema.cpp
+    src/common/DatabaseManagerSeed.cpp
     src/common/Logger.cpp
 )
 
@@ -104,6 +107,13 @@ set(DB_SOURCES
     src/db/UserDAO.cpp
     src/db/FaceRecogLogDAO.cpp
     src/db/ToolDAO.cpp
+    # ToolDAO 按业务域物理拆分（类声明仍在 ToolDAO.h，仅实现分文件，接口零变化）
+    src/db/ToolDAOToolEntity.cpp
+    src/db/ToolDAOCategory.cpp
+    src/db/ToolDAOMachineGroup.cpp
+    src/db/ToolDAOPosition.cpp
+    src/db/ToolDAOMaintenance.cpp
+    src/db/ToolDAOMapping.cpp
     src/db/RecordDAO.cpp
     src/db/AlertDAO.cpp
     src/db/TaskTypeDAO.cpp
@@ -117,8 +127,6 @@ set(DAO_SOURCES)
 set(CONTROLLER_SOURCES
     src/controller/AlertController.cpp
     src/controller/AuthController.cpp
-    src/controller/BorrowController.cpp
-    src/controller/ReturnController.cpp
     src/controller/SettingController.cpp
     src/controller/ToolController.cpp
     src/controller/UserController.cpp
@@ -154,20 +162,34 @@ set(PAGE_UIS
 
 set(PAGE_SOURCES
     src/pages/LoginPage.cpp
+    src/pages/LoginPageUI.cpp
+    src/pages/LoginPageFace.cpp
     src/pages/DashboardPage.cpp
     src/pages/CabinetSessionDialog.cpp
     src/pages/UserManagementPage.cpp
+    src/pages/UserManagementPageUserDialog.cpp
+    src/pages/UserManagementPageFaceEnroll.cpp
     src/pages/BatchImportDialog.cpp
     src/pages/UserEntryDialog.cpp
     src/pages/ToolManagementPage.cpp
+    src/pages/ToolManagementPageDetail.cpp
+    src/pages/ToolManagementPageDocument.cpp
+    src/pages/ToolManagementPageToolForm.cpp
     src/pages/ToolBorrowPage.cpp
+    src/pages/ToolBorrowPageFlow.cpp
     src/pages/ToolReturnPage.cpp
     src/pages/ToolCheckinPage.cpp
+    src/pages/ToolCheckinPageDialog.cpp
     src/pages/ToolCheckoutPage.cpp
+    src/pages/ToolCheckoutPageDialog.cpp
     src/pages/LedgerStatsPage.cpp
     src/pages/AlertLogsPage.cpp
     src/pages/SystemSettingsPage.cpp
     src/pages/SystemSettingsPagePanels.cpp
+    src/pages/SystemSettingsPageNetwork.cpp
+    src/pages/SystemSettingsPageDisplay.cpp
+    src/pages/SystemSettingsPageSystemInfo.cpp
+    src/pages/SystemSettingsPageBackup.cpp
     src/pages/SystemMaintenancePage.cpp
 )
 
@@ -239,10 +261,7 @@ set(ALL_HEADERS
     src/model/BorrowRecord.h
     src/model/ReturnRecord.h
     src/model/AlertLog.h
-    src/model/OperationLog.h
     src/model/TaskType.h
-    src/model/Stranger.h
-    src/model/BorrowDetail.h
     src/model/MachineGroup.h
     # DB (V6.9统一namespace db，合并QJsonObject + 实体类API)
     src/db/BaseDAO.h
@@ -256,8 +275,6 @@ set(ALL_HEADERS
     # Controller (版本A)
     src/controller/AlertController.h
     src/controller/AuthController.h
-    src/controller/BorrowController.h
-    src/controller/ReturnController.h
     src/controller/SettingController.h
     src/controller/ToolController.h
     src/controller/UserController.h
@@ -351,8 +368,12 @@ if(WIN32)
     # windeployqt POST_BUILD
     find_program(WINDEPLOYQT windeployqt HINTS ${CMAKE_PREFIX_PATH}/bin)
     if(WINDEPLOYQT)
+        # --no-opengl-sw：不部署 SwiftShader 软件渲染库(19.7MB)，
+        #   柜机与调试机均有 GPU 或系统自带 OpenGL，该库用不上。
+        #   VC++ 运行时安装包(vc_redist)由 scripts/prune_runtime.ps1 在交付前删除，
+        #   msvcp140 等运行时 DLL 必须保留，柜机未必预装 VC 运行库。
         add_custom_command(TARGET QtSmartCabinet POST_BUILD
-            COMMAND ${WINDEPLOYQT} --no-translations $<TARGET_FILE:QtSmartCabinet>
+            COMMAND ${WINDEPLOYQT} --no-translations --no-opengl-sw $<TARGET_FILE:QtSmartCabinet>
             COMMENT "Deploying Qt runtime libraries..."
         )
     endif()

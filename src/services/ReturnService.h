@@ -30,13 +30,5 @@ public:
      */
     Result returnTools(const QList<int>& recordIds, int userId, const QJsonObject& returnInfo = QJsonObject());
 
-    /**
-     * @brief 获取用户借用记录
-     * @param userId 用户ID
-     * @param page 页码
-     * @param pageSize 每页数量
-     * @return 借用记录列表
-     */
-    QJsonObject getUserBorrowingRecords(int userId, int page = 1, int pageSize = 20);
     QJsonObject getAllBorrowingRecords(int page = 1, int pageSize = 20);  // 所有位置待归还
 };

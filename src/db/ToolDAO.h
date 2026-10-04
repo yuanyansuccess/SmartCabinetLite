@@ -121,7 +121,7 @@ public:
     // 位置对照
     QJsonArray  allToolsSimple();                           // 工具下拉列表 [{toolId,toolCode,toolName}]
     QJsonObject checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position);
-    bool        insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status = "pending");  // 值=SC::TOOL_PENDING
+    bool        insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status = SC::TOOL_PENDING);
     QJsonObject findPositionMappingDetail(int mappingId);   // 映射详情（含工具名）
     bool        isPositionMappingOccupied(int mappingId);   // 该位置是否已有工具在库/借用
     bool        deletePositionMapping(int mappingId);

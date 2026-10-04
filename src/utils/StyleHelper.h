@@ -161,6 +161,151 @@ public:
         ).arg(dangerColor(), dangerHover(), "#b71c1c");
     }
 
+    /// 正文/标签文本色（表格单元格、表单标签等 #333 系列）
+    static QString textBody()      { return "#333333"; }
+    /// 方位达标/通过徽标绿
+    static QString acceptColor()   { return "#52c41a"; }
+    /// 次要提示文本色（#999 系列）
+    static QString textMuted()     { return "#999999"; }
+    /// 字段值文本色（#555 系列）
+    static QString textField()     { return "#555555"; }
+    /// 禁用/极弱化文本色（#bbb 系列）
+    static QString textDisabled()  { return "#bbbbbb"; }
+    /// 强调橙（方位未达标提示等，区别于 warningColor）
+    static QString orangeAccent()  { return "#fa8c16"; }
+    /// 浅灰卡片底色
+    static QString cardLightBg()   { return "#f8f9fb"; }
+    /// 分割线色（比 borderColor 更浅，用于保存栏顶部分割线）
+    static QString dividerColor()  { return "#f0f0f0"; }
+
+    /// 通用文本样式（透明底）：收口页面内各类说明/字段值/提示文本
+    /// @param sizePx 字号，取 Token::Font* 系列值
+    /// @param color  文本色，取 textColor()/textBody()/textMuted()/textField()/primaryColor() 等
+    /// @param weight 字重（400=常规，600/700=加粗）
+    /// @param extra  追加的 QSS 片段（如 "padding:4px 0;"），无则留空
+    static QString textStyle(int sizePx, const QString& color, int weight = 400,
+                             const QString& extra = QString()) {
+        return QString("font-size:%1px;font-weight:%2;color:%3;%4background:transparent;")
+            .arg(sizePx).arg(weight).arg(color).arg(extra);
+    }
+
+    // ============ 语义化复合样式（收口全项目高频重复样式串）============
+    // 以下样式原在各页面重复出现 3~10 次，统一收口到此处：
+    // 改样式只需改一处，避免逐页散改导致风格不一致。
+
+    /// 表格/表单标签文本：15px 600 #333 透明底（原散落 10 处）
+    static QString labelText() {
+        return QString("font-size:%1px;font-weight:600;color:%2;background:transparent;")
+            .arg(Token::FontLabel).arg(textBody());
+    }
+
+    /// 弹窗大标题文本：22px 粗体 主文本色 透明底（原散落 5 处）
+    static QString dialogTitleText() {
+        return QString("font-size:%1px;font-weight:bold;color:%2;background:transparent;")
+            .arg(Token::FontDisplay).arg(textColor());
+    }
+
+    /// 人脸方位提示徽标：32px 900 白字 绿底 14px圆角（原散落 6 处）
+    static QString postureBadge() {
+        return QString("font-size:32px;font-weight:900;color:%1;background:%2;"
+                       "border-radius:%3px;padding:10px 20px;")
+            .arg(whiteColor(), acceptColor()).arg(Token::RadiusLarge);
+    }
+
+    /// 状态指示点：主色实心圆点（直径用 Token::StatusDotSize，原散落 4 处）
+    static QString statusDot() {
+        return QString("background:%1;border-radius:%2px;min-width:%3px;min-height:%3px;")
+            .arg(primaryColor())
+            .arg(Token::StatusDotSize / 2)
+            .arg(Token::StatusDotSize);
+    }
+
+    /// 按钮组-主按钮（紧凑版 40px高，用于设置项多选一，原散落 5 处）
+    static QString buttonGroupPrimary() {
+        return QString(
+            "QPushButton { background: %1; color: white; border: none; border-radius: %2px;"
+            "  padding: 8px 16px; font-size: %3px; font-weight: 600; min-height: %4px; }"
+            "QPushButton:hover { background: %5; }"
+            "QPushButton:pressed { background: %6; }"
+        ).arg(primaryColor()).arg(Token::Radius)
+         .arg(Token::FontBody).arg(Token::ControlHeightCompactInput)
+         .arg(primaryHover(), "#2e7bd6");
+    }
+
+    /// 按钮组-次按钮（紧凑版 白底灰边，hover 转主色，原散落 5 处）
+    static QString buttonGroupDefault() {
+        return QString(
+            "QPushButton { background: white; color: %1; border: 1px solid %2;"
+            "  border-radius: %3px; padding: 8px 16px; font-size: %4px;"
+            "  font-weight: 600; min-height: %5px; }"
+            "QPushButton:hover { border-color: %6; color: %6; background: #f0f7ff; }"
+            "QPushButton:pressed { background: #e6f0ff; }"
+        ).arg(textColor(), borderColor()).arg(Token::Radius)
+         .arg(Token::FontBody).arg(Token::ControlHeightCompactInput)
+         .arg(primaryColor());
+    }
+
+    /// 面板标题条（Tab头）：上两角圆角、灰底、44px高，原散落 4 处
+    static QString panelTitleBar() {
+        return QString("font-size:%1px;font-weight:600;padding:10px 24px;"
+                       "border-radius:%2px %2px 0 0;color:%3;background:%4;min-height:%5px;")
+            .arg(Token::FontLabel).arg(Token::Radius)
+            .arg(textSecondary(), bgColor()).arg(Token::ControlHeight);
+    }
+
+    /// 面板内小标题：14px 700 主文本色，原散落 4 处
+    static QString sectionTitle() {
+        return QString("font-size:%1px;font-weight:700;color:%2;background:transparent;")
+            .arg(Token::FontBody).arg(textColor());
+    }
+
+    /// 标题下分隔细线（1px 水平线），原散落 4 处
+    static QString separatorLine() {
+        return QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}")
+            .arg(borderColor());
+    }
+
+    /// 面板底部保存栏的顶部分割线，原散落 4 处
+    static QString saveBarSeparator() {
+        return QString("QFrame{border-top:1px solid %1;background:transparent;}")
+            .arg(dividerColor());
+    }
+
+    /// 白底卡片容器（统计卡/内容卡），原散落 3 处
+    static QString cardWhite() {
+        return QString("background:white;border-radius:%1px;border:none;")
+            .arg(Token::RadiusMedium);
+    }
+
+    /// 浅灰底卡片容器，原散落 3 处
+    static QString cardLight() {
+        return QString("QFrame{background:%1;border-radius:%2px;}")
+            .arg(cardLightBg()).arg(Token::RadiusMedium);
+    }
+
+    /// 弹窗统一背景，原散落 3 处
+    static QString dialogBackground() {
+        return QString("QDialog { background: %1; }").arg(bgColor());
+    }
+
+    /// 弹窗大标题（30px 700），原散落 3 处
+    static QString largeTitleText() {
+        return QString("font-size:30px;font-weight:700;color:%1;background:transparent;")
+            .arg(textColor());
+    }
+
+    /// 多选筛选弹窗：对话框边框 + 复选框项 + 按钮统一尺寸，原散落 3 处
+    static QString popupCheckList() {
+        return QString(
+            "QDialog{background:white;border:2px solid %1;border-radius:%2px;}"
+            "QCheckBox{font-size:%3px;padding:10px 20px;spacing:10px;}"
+            "QCheckBox::indicator{width:20px;height:20px;}"
+            "QPushButton{min-height:%4px;font-size:%3px;border-radius:%5px;}"
+        ).arg(borderColor()).arg(Token::Radius)
+         .arg(Token::FontLabel).arg(Token::ControlHeightCompactInput)
+         .arg(Token::RadiusSmall);
+    }
+
     // ============ 输入框样式 ============
     /// 统一触屏标准: 48px高 16px字体 10px圆角 1px边框
     static QString lineEdit() {

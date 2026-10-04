@@ -10,6 +10,7 @@
  *   彻底解决父布局空间不足导致的裁剪问题。
  */
 #include "NumKeypad.h"
+#include "utils/StyleHelper.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QMouseEvent>
@@ -385,7 +386,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
 
     p.setPen(QColor("#888888"));
     QFont titleFont;
-    titleFont.setPixelSize(13);
+    titleFont.setPixelSize(StyleHelper::Token::FontSmall);
     titleFont.setWeight(QFont::DemiBold);
     p.setFont(titleFont);
     QRectF titleRect(m_padLeft + 28, m_padTop, w - 80, m_toolbarH);
@@ -393,7 +394,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
 
     p.setPen(QColor("#bbbbbb"));
     QFont iconFont;
-    iconFont.setPixelSize(16);
+    iconFont.setPixelSize(StyleHelper::Token::FontInput);
     p.setFont(iconFont);
     p.drawText(QRectF(m_padLeft, m_padTop, 28, m_toolbarH), Qt::AlignCenter, QStringLiteral("⠿"));
 
@@ -401,7 +402,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
     QRectF closeBtn(closeX, m_padTop, 36, m_toolbarH);
     p.setPen((m_pressedRow == -3) ? QColor("#e74c3c") : QColor("#999999"));
     QFont closeFont;
-    closeFont.setPixelSize(18);
+    closeFont.setPixelSize(StyleHelper::Token::FontTitle);
     closeFont.setWeight(QFont::Bold);
     p.setFont(closeFont);
     p.drawText(closeBtn, Qt::AlignCenter, QStringLiteral("✕"));
@@ -415,7 +416,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
     if (m_showPassword) {
         p.setPen(QColor("#333333"));
         QFont dispFont;
-        dispFont.setPixelSize(20);
+        dispFont.setPixelSize(StyleHelper::Token::FontHeading);
         dispFont.setWeight(QFont::Bold);
         p.setFont(dispFont);
         QRectF textRect(m_padLeft, displayY, w - m_padLeft - 60, m_displayH);
@@ -431,7 +432,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
     }
     p.setPen(QColor("#999999"));
     QFont countFont;
-    countFont.setPixelSize(13);
+    countFont.setPixelSize(StyleHelper::Token::FontSmall);
     p.setFont(countFont);
     QRectF countRect(w - 60, displayY, 44, m_displayH);
     p.drawText(countRect, Qt::AlignVCenter | Qt::AlignRight, QString::number(text.length()));
@@ -465,7 +466,7 @@ void NumKeypad::paintEvent(QPaintEvent*)
         p.setPen(isFn ? QColor(COLOR_KEY_FN_TEXT) : QColor(COLOR_KEY_TEXT));
         QFont keyFont;
         keyFont.setFamily(QStringLiteral("Microsoft YaHei"));  // 统一中文系统字体
-        keyFont.setPixelSize(20);  // 统一20px，消除功能键/数字键视觉不和谐
+        keyFont.setPixelSize(StyleHelper::Token::FontHeading);  // 统一字号，消除功能键/数字键视觉不和谐
         keyFont.setWeight(QFont::DemiBold);
         p.setFont(keyFont);
         p.drawText(r, Qt::AlignCenter, kr.text);

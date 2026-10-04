@@ -68,12 +68,12 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
             // 丢失→保持borrowed（位置仍被占用，工具丢失不在库）
             bool stepOk = true;
             if (mappingId > 0) {
-                QString newStatus = (condition == "丢失") ? "borrowed" : "in_stock";
+                QString newStatus = (condition == "丢失") ? SC::TOOL_BORROWED : SC::TOOL_IN_STOCK;
                 stepOk = toolDao.updateMappingStatus(mappingId, newStatus);
             }
             // 损坏的工具更新tool_info状态为maintenance
             if (stepOk && condition == "损坏") {
-                stepOk = toolDao.updateStatus(toolId, "maintenance");
+                stepOk = toolDao.updateStatus(toolId, SC::TOOL_MAINTENANCE);
             }
             // 第二步写失败必须中断并回滚：否则出现"记录已还、位置仍占用"的脏数据
             if (!stepOk) {
@@ -111,11 +111,6 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
     }
 
     return r;
-}
-
-QJsonObject ReturnService::getUserBorrowingRecords(int userId, int page, int pageSize) {
-    RecordDAO dao;
-    return dao.findAll(userId, 0, SC::RECORD_BORROWING, "", "", page, pageSize);
 }
 
 // 所有位置的待归还记录（不限userId，管理员可查看全部）

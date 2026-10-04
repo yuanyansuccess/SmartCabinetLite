@@ -72,11 +72,11 @@ bool ToolService::checkinTool(const QJsonObject& data) {
     }
 
     // 入库后更新tool_info状态
-    // 如果工具原来是pending，入库后至少有1个in_stock位置，tool_info状态置为in_stock
-    // current_qty=映射表中in_stock位置数
+    // 工具入库前若为待入库状态，入库后至少有1个在库位置，tool_info状态置为在库
+    // current_qty=映射表中在库位置数
     if (existing["status"].toString() == SC::TOOL_PENDING) {
         QJsonObject updates;
-        updates["status"] = "in_stock";
+        updates["status"] = SC::TOOL_IN_STOCK;
         dao.update(selectedToolId, updates);
     }
     // 迁移COUNT查询到ToolDAO::countInStockPositions

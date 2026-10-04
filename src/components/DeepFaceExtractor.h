@@ -118,7 +118,4 @@ private:
     /// 方位检测超时（毫秒）— 真人脸推理需1~2s，预留3s保证不误判超时
     /// ⚠ 不可动：实测真人脸 /posture RTT≈590ms，调小会导致全部请求超时→退简易模式
     static constexpr int POSTURE_TIMEOUT_MS = 3000;
-
-    /// face-server.js服务端口
-    static constexpr int SERVER_PORT = 8089;
 };

@@ -26,9 +26,6 @@
 #include <QPushButton>
 #include <QFrame>
 #include <QEvent>
-#include <QMouseEvent>
-#include <QRegularExpression>
-#include <QScrollArea>
 #include <QFileDialog>  // 工具文档上传
 #include <QStandardPaths>  // 文档存储路径
 #include <QFileInfo>  // 文件信息
@@ -133,10 +130,7 @@ void SystemMaintenancePage::updateTabStyles() {
                         "border-bottom:3px solid %1;")
                 .arg(StyleHelper::primaryColor()));
         } else {
-            m_tabLabels[i]->setStyleSheet(
-                QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                        "color:%1;background:#f0f2f5;min-height:44px;")
-                .arg(StyleHelper::textSecondary()));
+            m_tabLabels[i]->setStyleSheet(StyleHelper::panelTitleBar());
         }
     }
 }
@@ -179,10 +173,7 @@ bool SystemMaintenancePage::eventFilter(QObject* watched, QEvent* event) {
     } else if (event->type() == QEvent::Leave) {
         for (int i = 0; i < m_tabLabels.size(); ++i) {
             if (watched == m_tabLabels[i] && i != m_activeTabIndex) {
-                m_tabLabels[i]->setStyleSheet(
-                    QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                            "color:%1;background:#f0f2f5;min-height:44px;")
-                    .arg(StyleHelper::textSecondary()));
+                m_tabLabels[i]->setStyleSheet(StyleHelper::panelTitleBar());
                 break;
             }
         }
@@ -395,7 +386,7 @@ void SystemMaintenancePage::ensureToolDialogCreated() {
         auto* row = new QHBoxLayout();
         auto* lb = new QLabel(label);
         lb->setFixedWidth(80);
-        lb->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+        lb->setStyleSheet(StyleHelper::labelText());
         row->addWidget(lb);
         row->addWidget(w, 1);
         cl->addLayout(row);
@@ -412,7 +403,7 @@ void SystemMaintenancePage::ensureToolDialogCreated() {
         auto* row = new QHBoxLayout();
         auto* lb = new QLabel(QStringLiteral("工具文档:"));
         lb->setFixedWidth(80);
-        lb->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+        lb->setStyleSheet(StyleHelper::labelText());
         row->addWidget(lb);
         row->addWidget(m_dlgDocumentEdit, 1);
         row->addWidget(m_dlgUploadBtn);
@@ -483,7 +474,7 @@ void SystemMaintenancePage::onDeleteTool(int toolId) {
                 QStringLiteral("工具「%1」正在库中，不能删除。\n请先出库后再删除。").arg(toolName));
             return;
         }
-        if (status == "borrowed") {
+        if (status == SC::TOOL_BORROWED) {
             MessageDialog::showError(this, QStringLiteral("无法删除"),
                 QStringLiteral("工具「%1」正在借用中，不能删除。\n请先归还后再删除。").arg(toolName));
             return;
@@ -718,7 +709,7 @@ void SystemMaintenancePage::onAddTaskTool() {
     auto* catRow = new QHBoxLayout();
     auto* catLabel = new QLabel(QStringLiteral("工具类型:"));
     catLabel->setFixedWidth(80);
-    catLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    catLabel->setStyleSheet(StyleHelper::labelText());
     auto* catCombo = new QComboBox();
     catCombo->setStyleSheet(StyleHelper::comboBox());
     catCombo->setMinimumHeight(StyleHelper::Token::ControlHeight);
@@ -730,7 +721,7 @@ void SystemMaintenancePage::onAddTaskTool() {
     auto* toolRow = new QHBoxLayout();
     auto* toolLabel = new QLabel(QStringLiteral("工具:"));
     toolLabel->setFixedWidth(80);
-    toolLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    toolLabel->setStyleSheet(StyleHelper::labelText());
     auto* toolCombo = new QComboBox();
     toolCombo->setStyleSheet(StyleHelper::comboBox());
     toolCombo->setMinimumHeight(StyleHelper::Token::ControlHeight);
@@ -742,7 +733,7 @@ void SystemMaintenancePage::onAddTaskTool() {
     auto* qtyRow = new QHBoxLayout();
     auto* qtyLabel = new QLabel(QStringLiteral("推荐数量:"));
     qtyLabel->setFixedWidth(80);
-    qtyLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    qtyLabel->setStyleSheet(StyleHelper::labelText());
     auto* qtySpin = new QSpinBox();
     qtySpin->setRange(1, 99);
     qtySpin->setValue(1);
@@ -835,10 +826,10 @@ void SystemMaintenancePage::onEditTaskTool(int row) {
     auto* infoRow = new QHBoxLayout();
     auto* infoLabel = new QLabel(QStringLiteral("当前工具:"));
     infoLabel->setFixedWidth(80);
-    infoLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    infoLabel->setStyleSheet(StyleHelper::labelText());
     auto* infoValue = new QLabel(QStringLiteral("%1 - %2").arg(
         m_taskToolTable->item(row, 0)->text(), m_taskToolTable->item(row, 1)->text()));
-    infoValue->setStyleSheet("font-size:15px;color:#555;background:transparent;");
+    infoValue->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textField()));
     infoRow->addWidget(infoLabel);
     infoRow->addWidget(infoValue, 1);
     cl->addLayout(infoRow);
@@ -847,7 +838,7 @@ void SystemMaintenancePage::onEditTaskTool(int row) {
     auto* qtyRow = new QHBoxLayout();
     auto* qtyLabel = new QLabel(QStringLiteral("推荐数量:"));
     qtyLabel->setFixedWidth(80);
-    qtyLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    qtyLabel->setStyleSheet(StyleHelper::labelText());
     auto* qtySpin = new QSpinBox();
     qtySpin->setRange(1, 99);
     qtySpin->setValue(currentQty);

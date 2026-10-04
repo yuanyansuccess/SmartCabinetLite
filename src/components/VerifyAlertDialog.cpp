@@ -40,7 +40,7 @@ VerifyAlertDialog::VerifyAlertDialog(const QString& windowTitle, const QString& 
     // 警告标题
     auto* titleLabel = new QLabel(title);
     titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size:22px;font-weight:bold;color:#fa8c16;background:transparent;");
+    titleLabel->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + "font-weight:bold;color:#fa8c16;background:transparent;");
     layout->addWidget(titleLabel);
 
     // 警告详情
@@ -56,7 +56,7 @@ VerifyAlertDialog::VerifyAlertDialog(const QString& windowTitle, const QString& 
     // 按钮区：左下角忽略 + 右下角取消 + 确认
     auto* btnRow = new QHBoxLayout();
     auto* ignoreBtn = new QPushButton(QStringLiteral("忽略"));
-    ignoreBtn->setStyleSheet("QPushButton{background:#e74c3c;color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:700;min-height:44px;}QPushButton:hover{background:#c0392b;}");
+    ignoreBtn->setStyleSheet("QPushButton{background:#e74c3c;color:#fff;border:none;border-radius:10px;padding:10px 24px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "font-weight:700;" + StyleHelper::minHeight(StyleHelper::Token::ControlHeight) + "}QPushButton:hover{background:#c0392b;}");
     ignoreBtn->setCursor(Qt::PointingHandCursor);
     connect(ignoreBtn, &QPushButton::clicked, this, [this]() {
         m_timer->stop();
@@ -90,7 +90,7 @@ void VerifyAlertDialog::buildCountdown(QHBoxLayout* topRow) {
     m_remainSeconds = bufferMinutes * 60;
 
     m_countdownLabel = new QLabel(QStringLiteral("⏱ %1:00").arg(bufferMinutes));
-    m_countdownLabel->setStyleSheet("font-size:18px;font-weight:bold;color:#e74c3c;background:#fdecea;border:1px solid #f5c6cb;border-radius:8px;padding:6px 12px;");
+    m_countdownLabel->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontTitle) + "font-weight:bold;color:#e74c3c;background:#fdecea;border:1px solid #f5c6cb;border-radius:8px;padding:6px 12px;");
     topRow->addWidget(m_countdownLabel);
 
     // 倒计时定时器：每秒更新，到0自动走忽略流程（done(2)）

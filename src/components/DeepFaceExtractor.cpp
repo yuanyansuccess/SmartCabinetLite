@@ -14,6 +14,7 @@
  *   3. QEventLoop同步等待HTTP响应 → 解析JSON → 128维特征字符串
  */
 #include "DeepFaceExtractor.h"
+#include "common/Constants.h"  // SC::FACE_SERVER_HOST / SC::FACE_SERVER_PORT 人脸服务地址统一来源
 #include <QBuffer>
 #include <QByteArray>
 #include <QProcess>
@@ -111,7 +112,8 @@ bool DeepFaceExtractor::isAvailable() {
 bool DeepFaceExtractor::checkServerHealth() {
     QNetworkAccessManager mgr;
     QNetworkRequest req;
-    req.setUrl(QUrl("http://127.0.0.1:8089/health"));
+    req.setUrl(QUrl(QString("http://%1:%2/health")
+        .arg(SC::FACE_SERVER_HOST).arg(SC::FACE_SERVER_PORT)));
     req.setTransferTimeout(800);
     QNetworkReply* reply = mgr.get(req);
 
@@ -313,7 +315,9 @@ bool DeepFaceExtractor::extract(const QImage& image,
 
     // 4. HTTP POST到face-server.js
     QString response = httpPostSync(
-        "http://127.0.0.1:8089/extract", body, TIMEOUT_MS);
+        QString("http://%1:%2/extract")
+            .arg(SC::FACE_SERVER_HOST).arg(SC::FACE_SERVER_PORT),
+        body, TIMEOUT_MS);
     if (response.isEmpty()) {
         outMessage = QStringLiteral("人脸识别服务请求超时");
         return false;
@@ -395,7 +399,9 @@ bool DeepFaceExtractor::detectPosture(const QImage& image,
 
     // 4. HTTP POST到face-server.js /posture接口
     QString response = httpPostSync(
-        "http://127.0.0.1:8089/posture", body, POSTURE_TIMEOUT_MS);
+        QString("http://%1:%2/posture")
+            .arg(SC::FACE_SERVER_HOST).arg(SC::FACE_SERVER_PORT),
+        body, POSTURE_TIMEOUT_MS);
     if (response.isEmpty()) {
         outMessage = QStringLiteral("方位检测请求超时");
         return false;

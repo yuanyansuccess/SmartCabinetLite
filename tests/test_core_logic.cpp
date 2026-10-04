@@ -13,6 +13,10 @@
 #include <QCheckBox>
 #include "utils/StyleHelper.h"
 #include "components/FormFactory.h"
+#include "common/AppConfig.h"
+#include "controller/SettingController.h"
+#include <QTemporaryDir>
+#include <QFile>
 
 class TestCoreLogic : public QObject {
     Q_OBJECT
@@ -36,6 +40,10 @@ private slots:
     void formFactory_formLabelStyle();
     void formFactory_fieldValueWraps();
     void formFactory_toggleStyle();
+
+    // ── 配置可注入（AppConfig 放开构造 + SettingController 注入）──
+    void appConfig_independentInstance();
+    void settingController_usesInjectedConfig();
 };
 
 // ═══════════ 位置格式化 ═══════════
@@ -124,6 +132,36 @@ void TestCoreLogic::formFactory_toggleStyle() {
     QVERIFY(box->isChecked());
     QVERIFY(box->styleSheet().contains("QCheckBox::indicator"));
     delete box;
+}
+
+void TestCoreLogic::appConfig_independentInstance() {
+    // 验证放开构造后：可用指定路径构造独立实例，不会读写生产 system.ini
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString testIni = dir.path() + "/test_config.ini";
+
+    AppConfig cfg(testIni);
+    QCOMPARE(cfg.iniFilePath(), testIni);   // 使用指定路径，而非程序目录下的 system.ini
+    QVERIFY(QFile::exists(testIni));        // 首次构造自动创建默认 INI
+
+    cfg.setValue("UnitTest/probe", "hello");
+    cfg.save();
+    AppConfig reread(testIni);
+    QCOMPARE(reread.value("UnitTest/probe", ""), QString("hello"));
+}
+
+void TestCoreLogic::settingController_usesInjectedConfig() {
+    // 验证注入生效：控制器读取的是注入实例，而非全局单例
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString testIni = dir.path() + "/ctrl_config.ini";
+
+    AppConfig cfg(testIni);
+    cfg.setValue("UnitTest/key", "injected");
+    cfg.save();
+
+    SettingController ctrl(nullptr, &cfg);
+    QCOMPARE(ctrl.setting("UnitTest/key", ""), QString("injected"));
 }
 
 QTEST_MAIN(TestCoreLogic)

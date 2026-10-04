@@ -600,7 +600,7 @@ QFrame* AlertLogsPage::createStatCard(const QString& label, const QString& value
     layout->addWidget(valueLabel);
 
     auto* labelLabel = new QLabel(label);
-    labelLabel->setStyleSheet("font-size:14px;color:#999;background:transparent;");
+    labelLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
     labelLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(labelLabel);
 

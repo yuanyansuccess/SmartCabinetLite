@@ -28,9 +28,19 @@ target_link_libraries(test_components PRIVATE
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test
 )
 
-# 核心纯逻辑测试（位置格式化/设计令牌/表单工厂），不连数据库
+# 核心纯逻辑测试（位置格式化/设计令牌/表单工厂/配置注入），不连数据库
+# 说明：AppConfig/SettingController 用例需要真实符号才能链接，故引入 COMMON_SOURCES
+# （AppConfig/DatabaseManager/Logger，DatabaseManager 仅被 SettingController 引用，测试内不会连库）
+# 与 SettingController.cpp。路径转换规则同 test_services。
+set(TEST_CORE_SRCS)
+foreach(_f IN LISTS COMMON_SOURCES)
+    list(APPEND TEST_CORE_SRCS "${CMAKE_SOURCE_DIR}/${_f}")
+endforeach()
+
 add_executable(test_core_logic
     test_core_logic.cpp
+    ${TEST_CORE_SRCS}
+    ${CMAKE_SOURCE_DIR}/src/controller/SettingController.cpp
 )
 
 target_include_directories(test_core_logic PRIVATE
@@ -38,7 +48,7 @@ target_include_directories(test_core_logic PRIVATE
 )
 
 target_link_libraries(test_core_logic PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test Qt6::Sql Qt6::Network
 )
 
 # ═══════════════════════════════════════════
@@ -69,24 +79,58 @@ target_link_libraries(test_services PRIVATE
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test Qt6::Sql Qt6::Network
 )
 
-# Qt SQL 驱动插件(qsqlodbcd.dll)是运行时按需加载的，而测试 exe 位于 tests/ 子目录，
-# Qt 默认不会在该目录找到 sqldrivers。这里把主程序已部署的插件目录复制过来，
-# 并用 QT_PLUGIN_PATH 固化，免去手工设置环境变量，保证 checkout 后即可运行。
-if(EXISTS "${CMAKE_BINARY_DIR}/Debug/sqldrivers")
-    add_custom_command(TARGET test_services POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${CMAKE_BINARY_DIR}/Debug/sqldrivers"
-                "$<TARGET_FILE_DIR:test_services>/sqldrivers"
-        COMMENT "Copying Qt SQL driver plugins next to test_services"
-    )
-endif()
+# Qt SQL 驱动插件(qsqlodbcd.dll)是运行时按需加载的，测试 exe 位于 tests/ 子目录，
+# Qt 默认不会在该目录找到 sqldrivers。插件已由主程序的 windeployqt 部署到
+# build/<配置>/sqldrivers，测试运行时通过 QT_PLUGIN_PATH 指向该目录即可，
+# 不再逐个复制（多项目并行复制到同一目录会产生竞争导致构建失败）。
+
+# ═══════════════════════════════════════════
+# DAO 层测试（BaseDAO 类型映射 + 位置维度/机组隔离铁律）
+# ═══════════════════════════════════════════
+# 纯逻辑用例走 SQLite 内存库（Qt 自带 QSQLITE），无需任何外部数据库；
+# 数据库用例复用与 test_services 相同的三重安全闸门（环境变量 + 库名白名单 + SKIP）。
+set(TEST_DAO_SRCS)
+foreach(_f IN LISTS COMMON_SOURCES DB_SOURCES)
+    list(APPEND TEST_DAO_SRCS "${CMAKE_SOURCE_DIR}/${_f}")
+endforeach()
+
+add_executable(test_dao
+    test_dao.cpp
+    ${TEST_DAO_SRCS}
+)
+
+target_include_directories(test_dao PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_dao PRIVATE
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test Qt6::Sql Qt6::Network
+)
 
 enable_testing()
+add_test(NAME test_components COMMAND test_components)
 add_test(NAME test_core_logic COMMAND test_core_logic)
 add_test(NAME test_services COMMAND test_services)
+add_test(NAME test_dao COMMAND test_dao)
 
-# ctest 运行时显式指定插件目录：Qt 需要在 QT_PLUGIN_PATH 下找到 sqldrivers，
-# 否则 QSqlDatabase 会认为 QODBC/QMYSQL 驱动不可用（表现为 "driver not available"）。
-set_tests_properties(test_services PROPERTIES
-    ENVIRONMENT "QT_PLUGIN_PATH=${CMAKE_BINARY_DIR}/Debug"
+# 统一为四个测试指定 Qt 运行时与插件目录：
+#   QT_PLUGIN_PATH —— 让 QSqlDatabase 能找到 sqldrivers 下的驱动插件
+#   PATH           —— 让测试 exe 能找到 Qt6*.dll（测试目录不部署 Qt 运行时）
+# 用 path_list_prepend 追加而非覆盖，保留调用者原有环境变量。
+set_tests_properties(test_components test_core_logic test_services test_dao PROPERTIES
+    ENVIRONMENT "QT_PLUGIN_PATH=${CMAKE_BINARY_DIR}/$<CONFIG>"
+    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_BINARY_DIR}/$<CONFIG>"
 )
+
+# 测试 exe 依赖 Qt Test 模块，主程序不链接该模块，因此主程序目录里没有 Qt6Test.dll。
+# 四个测试 exe 位于同一输出目录，只需部署一次即可共享。
+if(WIN32)
+    find_program(TEST_WINDEPLOYQT windeployqt HINTS ${CMAKE_PREFIX_PATH}/bin)
+    if(TEST_WINDEPLOYQT)
+        add_custom_command(TARGET test_components POST_BUILD
+            COMMAND ${TEST_WINDEPLOYQT} --no-translations --no-opengl-sw
+                    --dir "$<TARGET_FILE_DIR:test_components>" $<TARGET_FILE:test_components>
+            COMMENT "Deploying Qt runtime for tests"
+        )
+    endif()
+endif()

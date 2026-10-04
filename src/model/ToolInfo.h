@@ -5,6 +5,7 @@
 // 新增recognitionMethod/documentPath字段，支持识别方式选择和工具文档上传
 #include <QString>
 #include <QDateTime>
+#include "common/Constants.h"
 
 struct ToolInfo {
     int     toolId       = 0;
@@ -21,11 +22,11 @@ struct ToolInfo {
     int     currentQty   = 0;
     int     activeBorrows = 0;  // 活跃借用数（borrowing+overdue）
     QString visionTag;
-    QString status       = "in_stock";
+    QString status       = SC::TOOL_IN_STOCK;
     QString checkoutReason;
     int     isRecommended = 0;
     // 识别方式统一为视觉识别 + 工具文档本地路径
-    QString recognitionMethod = "vision";  // 默认视觉识别
+    QString recognitionMethod = SC::RECOGNITION_VISION;  // 默认视觉识别
     QString documentPath;                // 工具文档本地路径(doc/docx/pdf)
     QDateTime createdAt;
     QDateTime updatedAt;

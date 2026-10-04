@@ -21,8 +21,6 @@ public:
     QJsonObject getUserDashboardStats(int userId);       // 获取用户首页统计
     QJsonArray getUserBorrowRecords(int userId, int limit = 10);  // 获取用户借用记录（含归还提醒数据）
     QJsonObject getLedgerStats();
-    struct UpgradeResult { bool hasUpdate; QString newVersion; };
-    UpgradeResult checkUpgrade();
     bool factoryReset(const QString& adminPassword);
     bool clearAllLogs(const QString& adminPassword);
     /** 危险操作统一鉴权：验证真实管理员口令（查库哈希比对，拒绝停用管理员） */

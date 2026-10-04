@@ -34,7 +34,7 @@ void SingleSelectFilter::setupUI()
     m_filterBtn = new QPushButton(m_placeholder);
     m_filterBtn->setStyleSheet(
         "QPushButton{padding:0 16px;border:none;border-radius:10px;"
-        "font-size:16px;background:transparent;color:#333;text-align:left;min-width:110px;}"
+        + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "background:transparent;color:#333;text-align:left;min-width:110px;}"
         "QPushButton:hover{background:#f5f7fa;}"
     );
     m_filterBtn->setCursor(Qt::PointingHandCursor);
@@ -48,7 +48,7 @@ void SingleSelectFilter::setupUI()
     m_popup->setFixedWidth(240);
     m_popup->setStyleSheet(
         "QDialog{background:white;border:2px solid #e0e0e0;border-radius:10px;}"
-        "QCheckBox{font-size:14px;padding:8px 20px;spacing:10px;}"
+        "QCheckBox{" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "padding:8px 20px;spacing:10px;}"
         "QCheckBox::indicator{width:16px;height:16px;}"
     );
     m_popup->hide();

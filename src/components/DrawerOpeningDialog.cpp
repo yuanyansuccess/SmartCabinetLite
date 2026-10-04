@@ -29,7 +29,7 @@ DrawerOpeningDialog::DrawerOpeningDialog(const QString& windowTitle, const QStri
     // 标题
     auto* titleLabel = new QLabel(title);
     titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size:22px;font-weight:bold;color:#1a1a2e;background:transparent;");
+    titleLabel->setStyleSheet(StyleHelper::dialogTitleText());
     m_layout->addWidget(titleLabel);
 
     // 三点跳动动画

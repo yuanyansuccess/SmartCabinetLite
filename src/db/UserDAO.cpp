@@ -186,7 +186,7 @@ int UserDAO::insert(const QJsonObject& info) {
     query.bindValue(":ph", info["passwordHash"].toString());
     query.bindValue(":ps", info["passwordSalt"].toString());
     query.bindValue(":rn", info["realName"].toString());
-    query.bindValue(":role", info["role"].toString("user"));
+    query.bindValue(":role", info["role"].toString(SC::ROLE_USER));
     query.bindValue(":wn", info["workNo"].toString(""));
     query.bindValue(":dept", info["department"].toString(""));
     query.bindValue(":phone", info["phone"].toString(""));
@@ -221,14 +221,6 @@ bool UserDAO::softDelete(int userId) {
     QSqlQuery query(db);
     query.prepare("UPDATE sys_user SET status = 'deleted' WHERE user_id = :id");
     query.bindValue(":id", userId);
-    return safeExec(query);
-}
-
-bool UserDAO::updatePassword(int userId, const QString& hash, const QString& salt) {
-    QSqlDatabase db = getDb();
-    QSqlQuery query(db);
-    query.prepare("UPDATE sys_user SET password_hash = :h, password_salt = :s WHERE user_id = :id");
-    query.bindValue(":h", hash); query.bindValue(":s", salt); query.bindValue(":id", userId);
     return safeExec(query);
 }
 
@@ -447,6 +439,8 @@ bool UserDAO::updateFaceFeature(int userId, const QString& feature) {
 }
 
 bool UserDAO::updateUserPassword(int userId, const QString& hash, const QString& salt) {
+    // 位置占位符 ?：BaseDAO::execute 内部按 params 顺序做 bindValue(i)，
+    // 只支持位置占位符；命名占位符需走 query()+手动 bindValue 路径
     return execute("UPDATE sys_user SET password_hash=?, password_salt=? WHERE user_id=?",
                    {hash, salt, userId});
 }

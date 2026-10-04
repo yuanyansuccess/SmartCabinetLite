@@ -42,8 +42,6 @@
 #include <QTableWidget>  // 任务类型配置表格
 #include <QHeaderView>  // 表格列宽控制
 #include <QTableWidgetItem>  // 表格单元格
-#include <QProgressBar>  // 软件升级进度条
-#include <QTimer>  // 软件升级定时器
 #include <QProcess>  // 调用PowerShell设置显示器亮度
 #include <QFile>  // WMI结果日志记录
 #include <QDateTime>  // 亮度日志时间戳
@@ -64,12 +62,12 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
 
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("借还参数设置"));
-    title->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;background:transparent;").arg(StyleHelper::textColor()));
+    title->setStyleSheet(StyleHelper::sectionTitle());
     titleRow->addWidget(title);
     titleRow->addStretch();
     layout->addLayout(titleRow);
     auto* sep = new QFrame(); sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet(QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}").arg(StyleHelper::borderColor()));
+    sep->setStyleSheet(StyleHelper::separatorLine());
     layout->addWidget(sep);
 
     auto* form = new QFormLayout();
@@ -129,7 +127,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
 
     // 保存栏：右对齐+顶部分割线，48px按钮
     auto* saveBar = new QFrame();
-    saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
+    saveBar->setStyleSheet(StyleHelper::saveBarSeparator());
     auto* saveBarLayout = new QHBoxLayout(saveBar);
     saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
@@ -155,12 +153,12 @@ QWidget* SystemSettingsPage::createBackupPanel() {
 
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("数据备份与系统信息"));
-    title->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;background:transparent;").arg(StyleHelper::textColor()));
+    title->setStyleSheet(StyleHelper::sectionTitle());
     titleRow->addWidget(title);
     titleRow->addStretch();
     layout->addLayout(titleRow);
     auto* sep = new QFrame(); sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet(QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}").arg(StyleHelper::borderColor()));
+    sep->setStyleSheet(StyleHelper::separatorLine());
     layout->addWidget(sep);
 
     buildBackupForm(layout);
@@ -213,7 +211,7 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     updateBackupPeriodBtnStyles();
     form->addRow(FormFactory::formLabel(QStringLiteral("备份周期")), backupBtnGroup);
 
-    m_backupPathEdit = new QLineEdit("/mnt/backup");
+    m_backupPathEdit = new QLineEdit(SC::BACKUP_PATH);
     m_backupPathEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("备份存储路径")), m_backupPathEdit);
 
@@ -244,7 +242,7 @@ void SystemSettingsPage::buildSystemInfoSection(QVBoxLayout* layout) {
         auto* row = new QHBoxLayout();
         row->setContentsMargins(0, 6, 0, 6);  // 行间距避免压扁
         auto* keyLabel = new QLabel(key);
-        keyLabel->setStyleSheet("font-size:14px;color:#999;background:transparent;");
+        keyLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
         keyLabel->setFixedWidth(90);
         keyLabel->setMinimumHeight(22);  // 确保字体不被压扁
         valueMember = new QLabel(value);
@@ -337,7 +335,7 @@ void SystemSettingsPage::buildMachineGroupSection(QVBoxLayout* layout) {
 /** 构建备份设置保存栏（对齐Web端.save-bar） */
 void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
     auto* saveBar = new QFrame();
-    saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
+    saveBar->setStyleSheet(StyleHelper::saveBarSeparator());
     auto* saveBarLayout = new QHBoxLayout(saveBar);
     saveBarLayout->setContentsMargins(0, 8, 0, 0);
     saveBarLayout->addStretch();

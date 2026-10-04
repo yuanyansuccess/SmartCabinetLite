@@ -48,7 +48,7 @@ void ResultDialog::setHint(const QString& text) {
     auto* hintLabel = new QLabel(text);
     hintLabel->setWordWrap(true);
     hintLabel->setAlignment(Qt::AlignCenter);
-    hintLabel->setStyleSheet("font-size:14px;color:#555;background:transparent;");
+    hintLabel->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontBody) + "color:#555;background:transparent;");
     m_layout->addWidget(hintLabel);
 }
 

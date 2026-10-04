@@ -86,7 +86,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     QVector<double> inputVec = parseDescriptor(faceDescriptor);
     if (inputVec.size() < 64) {
         result.message = QStringLiteral("人脸特征数据异常(维度不足64)");
-        FaceRecogLogDAO().insertLog({ "error", 0, 1, threshold, mode, candidateCnt,
+        FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_ERROR, 0, 1, threshold, mode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
         return result;
     }
@@ -95,7 +95,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     QJsonArray enrolled = enrolledFaces;
     if (enrolled.isEmpty()) {
         result.message = QStringLiteral("系统中没有人脸数据，请先录入人脸");
-        FaceRecogLogDAO().insertLog({ "error", 0, 1, threshold, mode, candidateCnt,
+        FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_ERROR, 0, 1, threshold, mode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
         return result;
     }
@@ -144,7 +144,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     if (candidates.isEmpty()) {
         result.isStranger = true;
         result.message = QStringLiteral("检测到陌生人，未在系统中注册");
-        FaceRecogLogDAO().insertLog({ "stranger", globalBestSim, globalBestDist, threshold,
+        FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_STRANGER, globalBestSim, globalBestDist, threshold,
                                       "multi", candidateCnt, int(recogTimer.elapsed()), "" });
         return result;
     }
@@ -203,7 +203,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
 
     if (cosOk && distOk) {
         result.success = true;
-        FaceRecogLogDAO().insertLog({ "success", best.similarity, best.euclideanDist,
+        FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_SUCCESS, best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), best.workNo });
     } else {
@@ -225,7 +225,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
             // 疑似同一人但本次质量不足：不算陌生人，交给上层继续采样
             result.message = QStringLiteral("未匹配，请重试");
         }
-        FaceRecogLogDAO().insertLog({ "rejected", best.similarity, best.euclideanDist,
+        FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_REJECTED, best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
         return result;

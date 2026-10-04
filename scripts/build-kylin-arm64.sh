@@ -130,6 +130,11 @@ FACE_SRC="$PROJECT_DIR/tools/face-recognition"
 FACE_DST="$INSTALL_DIR/bin/tools/face-recognition"
 if [ -d "$FACE_SRC" ]; then
     mkdir -p "$FACE_DST"
+    # 打包前裁剪依赖：删除 sourcemap 等非运行期文件（约195MB），
+    # 并恢复 node_modules 内被 npm 覆盖的 tfjs-node 兼容层
+    if [ -f "$FACE_SRC/prune-node-modules.js" ]; then
+        node "$FACE_SRC/prune-node-modules.js"
+    fi
     cp -r "$FACE_SRC/." "$FACE_DST/"   # 幂等：重复打包不会嵌套出 tools/tools
     echo -e "${GREEN}已复制人脸识别服务目录 -> $FACE_DST${NC}"
 else

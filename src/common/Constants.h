@@ -72,6 +72,14 @@ const QString RECORD_BORROWING = "borrowing";    // 借用中
 const QString RECORD_RETURNED  = "returned";     // 已归还
 const QString RECORD_OVERDUE   = "overdue";      // 已逾期
 
+// ── 人脸识别结果（face_recog_log.result）──
+// 写入方：FaceRecognitionService（识别判定）、LoginPage::faceResultName（枚举转字符串）
+// 统计方：FaceRecogLogDAO::stats，三处必须同值
+const QString FACE_RESULT_SUCCESS  = "success";   // 识别成功
+const QString FACE_RESULT_STRANGER = "stranger";  // 陌生人
+const QString FACE_RESULT_REJECTED = "rejected";  // 相似度不足被拒
+const QString FACE_RESULT_ERROR    = "error";     // 识别过程异常
+
 // ── 告警处理状态 ──
 const QString ALERT_UNHANDLED = "unhandled";     // 待处理
 const QString ALERT_HANDLED   = "handled";       // 已处理
@@ -104,6 +112,11 @@ const int PAGE_SIZE_TOOLS     = 100;    // 工具列表大分页（借用页全�
 // ── 触屏优化尺寸 ──
 // 控件高度/圆角/字号统一由 StyleHelper::Token 提供，此处不再重复定义第二套来源
 const int FONT_SIZE_SMALL  = 14;
+
+// ── 人脸服务（face-server.js）监听地址 ──
+// HTTP 调用统一入口：/health、/extract、/posture 三处均用此地址，改端口只改这里
+const QString FACE_SERVER_HOST = "127.0.0.1";
+const int     FACE_SERVER_PORT = 8089;
 
 // ── 人脸识别采集质量 ──
 // 采集分辨率 640x480 下的人脸框边长下限(px)：低于此值视为距离过远，
@@ -177,6 +190,7 @@ const int UI_KEYBOARD_POPUP_DELAY_MS = 150;    // 软键盘弹出延迟
 const int UI_CAMERA_INIT_DELAY_MS    = 100;    // 摄像头初始化延迟
 const int UI_DASHBOARD_LOAD_DELAY_MS = 300;    // Dashboard数据加载延迟
 const int UI_CPU_STATS_DELAY_MS      = 500;    // CPU统计刷新延迟
+const int UI_LOGIN_FAIL_KEYBOARD_DELAY_MS = 500; // 登录失败后重弹密码键盘延迟
 const bool    BACKUP_AUTO_ENABLED = true;
 const int     BACKUP_PERIOD       = 0;   // 0=每日
 const int     BACKUP_CACHE_HOURS  = 4;

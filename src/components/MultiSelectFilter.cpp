@@ -45,12 +45,7 @@ void MultiSelectFilter::setupUI()
     m_popup->setWindowFlags(Qt::FramelessWindowHint | Qt::Popup);
     m_popup->setModal(false);
     m_popup->setFixedWidth(240);
-    m_popup->setStyleSheet(
-        "QDialog{background:white;border:2px solid #e0e0e0;border-radius:10px;}"
-        "QCheckBox{font-size:15px;padding:10px 20px;spacing:10px;}"
-        "QCheckBox::indicator{width:20px;height:20px;}"
-        "QPushButton{min-height:40px;font-size:15px;border-radius:8px;}"
-    );
+    m_popup->setStyleSheet(StyleHelper::popupCheckList());
     m_popup->hide();
 }
 

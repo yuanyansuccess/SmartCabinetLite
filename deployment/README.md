@@ -61,8 +61,36 @@ apt-get install -y libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 
 - `face-server.js`：Node.js 常驻服务
 - `node_modules/`：`@vladmandic/face-api`、`@tensorflow/tfjs` 等
 - `models/`：tiny_face_detector 等模型文件
+- `shims/tfjs-node-index.js`：`@tensorflow/tfjs-node` 的兼容层源码（必须随包交付）
 
 编译脚本会自动把它复制到部署包的 `bin/tools/face-recognition/`。**离线交付时这个目录必须一并带上**，否则刷脸登录、人脸录入不可用。
+
+### 依赖瘦身（打包时自动执行）
+
+`node_modules` 原始体积约 292MB，其中 sourcemap、演示页、构建缓存等非运行期文件占约 195MB。
+`tools/face-recognition/prune-node-modules.js` 负责两件事，编译脚本在复制前会自动调用：
+
+1. 删除运行期不加载的文件（`*.map`、`*.tsbuildinfo`、演示 `*.html`），体积降至约 98MB；
+2. 写入 `node_modules/@tensorflow/tfjs-node/index.js` 兼容层——原生 tfjs-node 的
+   `tfjs_binding.node` 在 Node.js v22 上加载失败，此文件用纯 JS 版 tfjs 顶替，
+   **重建依赖后若缺失，face-server.js 会启动失败**，因此由脚本自动补写。
+
+手工执行方式：
+
+```bash
+cd tools/face-recognition
+node prune-node-modules.js
+```
+
+Windows 交付目录另有 `scripts/prune_runtime.ps1`，用于删除运行期无用文件
+（软件渲染库 opengl32sw.dll、SQLite 驱动 qsqlite*.dll），执行方式：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\prune_runtime.ps1 -TargetDir build\Release
+```
+
+VC++ 运行时安装包（vc_redist.x64.exe）默认保留，仅在确认目标机已装运行库时加
+`-DropVcRedist` 删除；`msvcp140.dll` 等运行时 DLL 任何情况下都不能删。
 
 ---
 

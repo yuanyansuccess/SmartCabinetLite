@@ -7,6 +7,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDateTime>
+#include "common/Constants.h"  // 人脸识别结果常量 SC::FACE_RESULT_*
 
 namespace db {
 
@@ -44,13 +45,13 @@ FaceRecogStats FaceRecogLogDAO::getStats(int days) {
     }
     safeExec(q);
     while (q.next()) {
-        QString r = q.value(0).toString();
-        int c = q.value(1).toInt();
-        stats.total += c;
-        if (r == "success")       stats.success += c;
-        else if (r == "stranger") stats.stranger += c;
-        else if (r == "rejected") stats.rejected += c;
-        else if (r == "error")    stats.error += c;
+        QString resultName = q.value(0).toString();
+        int count = q.value(1).toInt();
+        stats.total += count;
+        if (resultName == SC::FACE_RESULT_SUCCESS)       stats.success += count;
+        else if (resultName == SC::FACE_RESULT_STRANGER) stats.stranger += count;
+        else if (resultName == SC::FACE_RESULT_REJECTED) stats.rejected += count;
+        else if (resultName == SC::FACE_RESULT_ERROR)    stats.error += count;
     }
 
     if (stats.total == 0) return stats;

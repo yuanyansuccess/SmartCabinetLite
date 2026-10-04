@@ -71,9 +71,8 @@ bool UserController::deleteUser(int userId) {
 }
 
 bool UserController::setUserStatus(int userId, const QString& status) {
+    // 启用/禁用切换对管理员账号同样生效；是否禁止禁用管理员属产品需求，见 docs/ARCHITECTURE.md 遗留待办
     User u = m_dao.findUserById(userId);
-    //if (u.role == SC::ROLE_ADMIN && status != "active") return false;
-    //TODO 20260625马慧芳说为啥 管理员可以不能禁用 ，这块需求可以和用户沟通下
     bool ok = m_dao.updateUserStatus(userId, status);
     if (ok) emit userStatusChanged(userId, u.status, status);
     return ok;

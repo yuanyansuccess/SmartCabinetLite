@@ -28,7 +28,7 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
 {
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setModal(true);
-    setStyleSheet("QDialog { background: " + StyleHelper::bgColor() + "; }");
+    setStyleSheet(StyleHelper::dialogBackground());
 
     // 模拟数据：8件工具，末一件开柜前已被该用户借走（用于演示"归还"场景）
     //m_tools = {
@@ -100,8 +100,7 @@ void CabinetSessionDialog::buildOpenPage()
     m_iconLabel->setStyleSheet("font-size: 46px; background: transparent;");
     m_iconLabel->installEventFilter(this);
     QLabel* titleLabel = new QLabel(QStringLiteral("智能柜已开启"));
-    titleLabel->setStyleSheet(QString("font-size: 30px; font-weight: 700; color: %1; background: transparent;")
-                                  .arg(StyleHelper::textColor()));
+    titleLabel->setStyleSheet(StyleHelper::largeTitleText());
     headRow->addStretch();
     headRow->addWidget(m_iconLabel);
     headRow->addWidget(titleLabel);

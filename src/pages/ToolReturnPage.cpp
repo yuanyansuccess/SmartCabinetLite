@@ -83,8 +83,8 @@ void ToolReturnPage::setupUI() {
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     m_table->setColumnWidth(0, 60);
-    for (int c = 1; c < 8; c++) {
-        m_table->horizontalHeader()->setSectionResizeMode(c, QHeaderView::Stretch);
+    for (int col = 1; col < 8; col++) {
+        m_table->horizontalHeader()->setSectionResizeMode(col, QHeaderView::Stretch);
     }
 
     // 表格行点击勾选逻辑
@@ -304,7 +304,7 @@ void ToolReturnPage::showReturnConfirmDialog() {
     auto* iconLabel = new QLabel(QStringLiteral("📋"));
     iconLabel->setStyleSheet("font-size:28px;background:transparent;");
     auto* titleLabel = new QLabel(QStringLiteral("待归还工具清单"));
-    titleLabel->setStyleSheet("font-size:22px;font-weight:bold;color:#1a1a2e;background:transparent;");
+    titleLabel->setStyleSheet(StyleHelper::dialogTitleText());
     titleBar->addWidget(iconLabel);
     titleBar->addWidget(titleLabel);
     titleBar->addStretch();
@@ -339,7 +339,7 @@ void ToolReturnPage::showReturnConfirmDialog() {
     infoRow->setSpacing(24);
     auto* userInfo = new QLabel(QStringLiteral("归还人：%1（%2）")
         .arg(m_user["realName"].toString(), m_user["workNo"].toString()));
-    userInfo->setStyleSheet("font-size:15px;color:#1a1a2e;font-weight:600;background:transparent;");
+    userInfo->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 600));
     auto* totalInfo = new QLabel(QStringLiteral("共归还 %1 件工具").arg(totalQty));
     totalInfo->setStyleSheet("font-size:15px;color:#43a047;font-weight:600;background:transparent;");
     infoRow->addWidget(userInfo);

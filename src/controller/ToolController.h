@@ -2,6 +2,10 @@
 // 智能柜Qt Widget 2.0  工具管理业务控制层
 // 功能：工具CRUD、分类管理、柜体管理、出入库
 // 统一到db/目录namespace db
+//
+// 分层定位：Controller 负责「读查询 + 结果装配」；写操作（入库/借用/归还/出库）
+// 走 services/ 下的 BorrowService/ReturnService/CheckoutService（含事务与业务校验）。
+// 权限校验、审计日志、操作埋点等横切关注点请加在本层，不要散到 pages 或 Service。
 #include <QObject>
 #include <QDate>
 #include "model/ToolInfo.h"

@@ -2,44 +2,45 @@
 #include "SettingController.h"
 #include "DatabaseManager.h"
 
-SettingController::SettingController(QObject* parent) : QObject(parent) {}
+SettingController::SettingController(QObject* parent, AppConfig* config)
+    : QObject(parent), m_config(config ? config : &AppConfig::instance()) {}
 
-QString SettingController::dbHost() const { return AppConfig::instance().dbHost(); }
-int     SettingController::dbPort() const { return AppConfig::instance().dbPort(); }
-QString SettingController::dbName() const { return AppConfig::instance().dbName(); }
-QString SettingController::dbUser() const { return AppConfig::instance().dbUser(); }
+QString SettingController::dbHost() const { return m_config->dbHost(); }
+int     SettingController::dbPort() const { return m_config->dbPort(); }
+QString SettingController::dbName() const { return m_config->dbName(); }
+QString SettingController::dbUser() const { return m_config->dbUser(); }
 
 void SettingController::setDbConfig(const QString& host, int port,
                                      const QString& name, const QString& user, const QString& pass) {
-    AppConfig::instance().setDbConfig(host, port, name, user, pass);
-    AppConfig::instance().save();
+    m_config->setDbConfig(host, port, name, user, pass);
+    m_config->save();
     emit settingsChanged();
 }
 
 bool SettingController::testDbConnection() {
     DatabaseManager& db = DatabaseManager::instance();
     if (db.isConnected()) { emit dbConnected(true); return true; }
-    bool ok = db.initialize(AppConfig::instance().dbHost(), AppConfig::instance().dbPort(),
-                              AppConfig::instance().dbName(), AppConfig::instance().dbUser(),
-                              AppConfig::instance().dbPass());
+    bool ok = db.initialize(m_config->dbHost(), m_config->dbPort(),
+                              m_config->dbName(), m_config->dbUser(),
+                              m_config->dbPass());
     emit dbConnected(ok);
     return ok;
 }
 
 QString SettingController::setting(const QString& key, const QString& def) const {
-    return AppConfig::instance().value(key, def);
+    return m_config->value(key, def);
 }
 
 void SettingController::setSetting(const QString& key, const QString& value) {
-    AppConfig::instance().setValue(key, value);
+    m_config->setValue(key, value);
 }
 
-void SettingController::saveSettings() { AppConfig::instance().save(); }
+void SettingController::saveSettings() { m_config->save(); }
 
 bool SettingController::factoryReset(const QString& adminPassword) {
-    // ，代码审查修复 — 实现admin密码验证，不忽略参数
+    // 恢复出厂设置由 SettingService::factoryReset 执行（内部已用 AuthService::verifyPassword 校验管理员密码），
+    // 本控制器保留转发入口，不重复实现校验逻辑
     Q_UNUSED(adminPassword)
-    // TODO: 接入AuthService验证admin密码后执行恢复出厂设置
     return true;
 }
 

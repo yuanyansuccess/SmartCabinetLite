@@ -5,7 +5,7 @@
  *
  * 完全重写以1:1匹配BS端SystemSettings.vue
  * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
- * 底部：保存全部设置/恢复默认/软件升级按钮
+ * 底部：保存全部设置/恢复默认按钮
  * 安全：危险操作使用SoftKeyboard安全键盘验证管理员密码
  */
 
@@ -98,6 +98,8 @@ void SystemSettingsPage::setupUI() {
     m_saveAllBtn->setCursor(Qt::PointingHandCursor);
     connect(m_saveAllBtn, &QPushButton::clicked, this, &SystemSettingsPage::onSaveAll);
 
+    titleBar->addWidget(m_restoreBtn);
+    titleBar->addWidget(m_saveAllBtn);
     m_upgradeBtn = new QPushButton(QStringLiteral("软件升级"));
     m_upgradeBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #d0d0d0;border-radius:10px;"
@@ -180,10 +182,7 @@ void SystemSettingsPage::updateTabStyles() {
                         "border-bottom:3px solid %1;")
                 .arg(StyleHelper::primaryColor()));
         } else {
-            m_tabLabels[i]->setStyleSheet(
-                QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                        "color:%1;background:#f0f2f5;min-height:44px;")
-                .arg(StyleHelper::textSecondary()));
+            m_tabLabels[i]->setStyleSheet(StyleHelper::panelTitleBar());
         }
     }
 }
@@ -221,11 +220,7 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
     } else if (event->type() == QEvent::Leave) {
         for (int i = 0; i < m_tabLabels.size(); ++i) {
             if (watched == m_tabLabels[i] && i != m_activeTabIndex) {
-                m_tabLabels[i]->setStyleSheet(
-                    QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
-                            "color:%1;background:#f0f2f5;min-height:44px;")
-                        .arg(StyleHelper::textSecondary())
-                );
+                m_tabLabels[i]->setStyleSheet(StyleHelper::panelTitleBar());
                 break;
             }
         }
@@ -235,135 +230,6 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
 
 // ==================== 网络配置面板 ====================
 // 小米工程师优化：标签36px高/form 8px间距/面板24,12边距，紧凑美观大气
-QWidget* SystemSettingsPage::createNetworkPanel() {
-    auto* panel = new QFrame();
-    panel->setObjectName("netPanel");
-    panel->setStyleSheet(QString("QFrame#netPanel{background:white;border-radius:12px;border:none;}"));
-    auto* layout = new QVBoxLayout(panel);
-    layout->setSpacing(6);  // 6更紧凑
-    layout->setContentsMargins(20, 10, 20, 10);  // 24,20,10
-
-    // 标题不占满宽度，左对齐+主色底边细线分隔
-    auto* titleRow = new QHBoxLayout();
-    auto* title = new QLabel(QStringLiteral("网络参数配置"));
-    // 标题样式调整：去掉padding-bottom，减小font-size
-    title->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;background:transparent;").arg(StyleHelper::textColor()));
-    titleRow->addWidget(title);
-    titleRow->addStretch();
-    layout->addLayout(titleRow);
-    // 细线分隔标题和内容区
-    auto* sep = new QFrame(); sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet(QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}").arg(StyleHelper::borderColor()));
-    layout->addWidget(sep);
-
-    auto* form = new QFormLayout();
-    form->setSpacing(8);  // 8紧凑
-    form->setContentsMargins(0, 0, 0, 0);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());  // 14
-    auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // 限宽100px，防止标签列过宽
-    };
-
-    // 使用Web端小尺寸settingLineEdit：14px/38px高
-    m_ipEdit = new QLineEdit(SC::NET_IP);
-    m_ipEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(FormFactory::formLabel(QStringLiteral("IP 地址")), m_ipEdit);
-
-    m_maskEdit = new QLineEdit(SC::NET_MASK);
-    m_maskEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(FormFactory::formLabel(QStringLiteral("子网掩码")), m_maskEdit);
-
-    m_gatewayEdit = new QLineEdit(SC::NET_GATEWAY);
-    m_gatewayEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(FormFactory::formLabel(QStringLiteral("默认网关")), m_gatewayEdit);
-
-    m_dnsEdit = new QLineEdit(SC::NET_DNS);
-    m_dnsEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(FormFactory::formLabel(QStringLiteral("DNS 服务器")), m_dnsEdit);
-
-    // 网口速率：按钮组替代QComboBox
-    // 统一按钮尺寸：44px高/Preferred策略不Expanding撑满
-    auto makeSpeedBtn = [&](const QString& text, int mode) -> QPushButton* {
-        auto* btn = new QPushButton(text);
-        btn->setCheckable(true);
-        btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
-        btn->setMinimumWidth(110);
-        btn->setMaximumWidth(220);
-        btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-        if (mode == 0) btn->setChecked(true);
-        connect(btn, &QPushButton::clicked, this, [this, mode]() {
-            m_speedMode = mode;
-            updateSpeedBtnStyles();
-        });
-        return btn;
-    };
-    m_speedBtn1 = makeSpeedBtn(QStringLiteral("1000M 自适应"), 0);
-    m_speedBtn2 = makeSpeedBtn(QStringLiteral("100M 全双工"), 1);
-    auto* speedBtnGroup = new QWidget();
-    speedBtnGroup->setStyleSheet("background:transparent;");
-    auto* speedBtnLayout = new QHBoxLayout(speedBtnGroup);
-    speedBtnLayout->setContentsMargins(0, 0, 0, 0);
-    speedBtnLayout->setSpacing(8);
-    speedBtnLayout->addWidget(m_speedBtn1);
-    speedBtnLayout->addWidget(m_speedBtn2);
-    updateSpeedBtnStyles();
-    form->addRow(FormFactory::formLabel(QStringLiteral("网口速率")), speedBtnGroup);
-
-    // 组网模式：按钮组替代QComboBox
-    // 统一按钮尺寸：44px高/Preferred策略
-    auto makeModeBtn = [&](const QString& text, int mode) -> QPushButton* {
-        auto* btn = new QPushButton(text);
-        btn->setCheckable(true);
-        btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(StyleHelper::Token::ControlHeightCompactInput);
-        btn->setMinimumWidth(110);
-        btn->setMaximumWidth(220);
-        btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-        if (mode == 0) btn->setChecked(true);
-        connect(btn, &QPushButton::clicked, this, [this, mode]() {
-            m_networkMode = mode;
-            updateModeBtnStyles();
-        });
-        return btn;
-    };
-    m_modeBtn1 = makeModeBtn(QStringLiteral("单机运行"), 0);
-    m_modeBtn2 = makeModeBtn(QStringLiteral("组网管理"), 1);
-    auto* modeBtnGroup = new QWidget();
-    modeBtnGroup->setStyleSheet("background:transparent;");
-    auto* modeBtnLayout = new QHBoxLayout(modeBtnGroup);
-    modeBtnLayout->setContentsMargins(0, 0, 0, 0);
-    modeBtnLayout->setSpacing(8);
-    modeBtnLayout->addWidget(m_modeBtn1);
-    modeBtnLayout->addWidget(m_modeBtn2);
-    updateModeBtnStyles();
-    form->addRow(FormFactory::formLabel(QStringLiteral("组网模式")), modeBtnGroup);
-
-    m_serverEdit = new QLineEdit();
-    m_serverEdit->setPlaceholderText(QStringLiteral("组网管理时配置"));
-    m_serverEdit->setStyleSheet(StyleHelper::settingLineEdit());
-    form->addRow(FormFactory::formLabel(QStringLiteral("服务器地址")), m_serverEdit);
-
-    layout->addLayout(form);
-
-    // 保存栏：右对齐+顶部分割线，48px按钮
-    auto* saveBar = new QFrame();
-    saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
-    auto* saveBarLayout = new QHBoxLayout(saveBar);
-    saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
-    saveBarLayout->addStretch();
-    auto* saveBtn = new QPushButton(QStringLiteral("保存网络设置"));
-    saveBtn->setStyleSheet(StyleHelper::settingSaveBtn());
-    saveBtn->setCursor(Qt::PointingHandCursor);
-    connect(saveBtn, &QPushButton::clicked, this, &SystemSettingsPage::onSaveNetwork);
-    saveBarLayout->addWidget(saveBtn);
-    layout->addWidget(saveBar);
-
-    // installFocusEvents已移除
-    return panel;
-}
 
 // ==================== 告警参数面板 ====================
 QWidget* SystemSettingsPage::createAlertPanel() {
@@ -376,12 +242,12 @@ QWidget* SystemSettingsPage::createAlertPanel() {
 
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("告警参数配置"));
-    title->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;background:transparent;").arg(StyleHelper::textColor()));
+    title->setStyleSheet(StyleHelper::sectionTitle());
     titleRow->addWidget(title);
     titleRow->addStretch();
     layout->addLayout(titleRow);
     auto* sep = new QFrame(); sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet(QString("QFrame{background:%1;max-height:1px;margin-bottom:6px;}").arg(StyleHelper::borderColor()));
+    sep->setStyleSheet(StyleHelper::separatorLine());
     layout->addWidget(sep);
 
     auto* form = new QFormLayout();
@@ -474,7 +340,7 @@ QWidget* SystemSettingsPage::createAlertPanel() {
 
     // 保存栏：右对齐+顶部分割线，48px按钮
     auto* saveBar = new QFrame();
-    saveBar->setStyleSheet("QFrame{border-top:1px solid #f0f0f0;background:transparent;}");
+    saveBar->setStyleSheet(StyleHelper::saveBarSeparator());
     auto* saveBarLayout = new QHBoxLayout(saveBar);
     saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
@@ -584,6 +450,8 @@ void SystemSettingsPage::onResetDefault() {
 
 // onClearLogs() 已移除（危险操作区不暴露）
 // 恢复默认仍可通过顶部"恢复默认"按钮触发 onResetDefault()
+
+
 
 void SystemSettingsPage::onStartUpgrade() {
     // 软件升级模拟进度条，美观的设计
@@ -885,20 +753,9 @@ void SystemSettingsPage::updatePowerAlarmBtnStyles() {
         bool sel = (i == m_powerAlarmMode);
         btns[i]->setChecked(sel);
         if (sel) {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: #4da3ff;"
-                "  color: white; border: none; border-radius: 10px;"
-                "  padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { background: #3d8ae0; }"
-                "QPushButton:pressed { background: #2e7bd6; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
         } else {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: white; color: #666666; border: 1px solid #e0e0e0;"
-                "  border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { border-color: #4da3ff; color: #4da3ff; background: #f0f7ff; }"
-                "QPushButton:pressed { background: #e6f0ff; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
         }
     }
 }
@@ -911,20 +768,9 @@ void SystemSettingsPage::updateSpeedBtnStyles() {
         bool sel = (i == m_speedMode);
         btns[i]->setChecked(sel);
         if (sel) {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: #4da3ff;"
-                "  color: white; border: none; border-radius: 10px;"
-                "  padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { background: #3d8ae0; }"
-                "QPushButton:pressed { background: #2e7bd6; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
         } else {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: white; color: #666666; border: 1px solid #e0e0e0;"
-                "  border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { border-color: #4da3ff; color: #4da3ff; background: #f0f7ff; }"
-                "QPushButton:pressed { background: #e6f0ff; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
         }
     }
 }
@@ -937,20 +783,9 @@ void SystemSettingsPage::updateModeBtnStyles() {
         bool sel = (i == m_networkMode);
         btns[i]->setChecked(sel);
         if (sel) {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: #4da3ff;"
-                "  color: white; border: none; border-radius: 10px;"
-                "  padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { background: #3d8ae0; }"
-                "QPushButton:pressed { background: #2e7bd6; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
         } else {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: white; color: #666666; border: 1px solid #e0e0e0;"
-                "  border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { border-color: #4da3ff; color: #4da3ff; background: #f0f7ff; }"
-                "QPushButton:pressed { background: #e6f0ff; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
         }
     }
 }
@@ -963,20 +798,9 @@ void SystemSettingsPage::updateBackupPeriodBtnStyles() {
         bool sel = (i == m_backupPeriod);
         btns[i]->setChecked(sel);
         if (sel) {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: #4da3ff;"
-                "  color: white; border: none; border-radius: 10px;"
-                "  padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { background: #3d8ae0; }"
-                "QPushButton:pressed { background: #2e7bd6; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
         } else {
-            btns[i]->setStyleSheet(
-                "QPushButton { background: white; color: #666666; border: 1px solid #e0e0e0;"
-                "  border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 600; min-height: 40px; }"
-                "QPushButton:hover { border-color: #4da3ff; color: #4da3ff; background: #f0f7ff; }"
-                "QPushButton:pressed { background: #e6f0ff; }"
-            );
+            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
         }
     }
 }
@@ -1161,7 +985,7 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.autoBackup = m_autoBackupCheck ? m_autoBackupCheck->isChecked() : true;
     m_snapshot.backupPeriod = m_backupPeriod;
     m_snapshot.cacheHours = m_cacheHoursSpin ? m_cacheHoursSpin->value() : 4;
-    m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : "/mnt/backup";
+    m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::BACKUP_PATH;
 
     // 机组名称
     m_snapshot.machineGroupName = m_machineGroupCombo ? m_machineGroupCombo->currentText() : QStringLiteral("");
@@ -1269,235 +1093,6 @@ void SystemSettingsPage::onMachineGroupSelected(int index) {
 // 麒麟方案B：xrandr --output <dev> --brightness <val> X11 Gamma调整（软件级，无需root）
 // 麒麟方案C：brightnessctl set <val>% 命令（需安装）
 // 异步执行不阻塞UI，失败静默处理并降级尝试下一方案
-void SystemSettingsPage::applyDisplayBrightness(int percent) {
-    // 输入校验：亮度值范围 0-100
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-#ifdef Q_OS_WIN
-    applyBrightnessWindows(percent);
-#else
-    applyBrightnessLinux(percent);
-#endif
-}
-
-/** 亮度调整日志（Windows写项目temp目录，麒麟写/tmp） */
-void SystemSettingsPage::writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode) {
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/brightness.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_brightness.log");
-#endif
-    QFile logFile(logPath);
-    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-        QString ts = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-        logFile.write(QStringLiteral("[%1] method=%2 brightness=%3% exitCode=%4 result=%5\n")
-                      .arg(ts).arg(method).arg(percent).arg(exitCode).arg(result).toUtf8());
-        logFile.close();
-    }
-}
-
-#ifdef Q_OS_WIN
-/** Windows亮度调整：PowerShell + WMI 异步执行不阻塞UI */
-void SystemSettingsPage::applyBrightnessWindows(int percent) {
-    // PowerShell: (Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, <percent>)
-    QString psScript = QStringLiteral(
-        "try { "
-        "  $monitors = Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods -ErrorAction Stop; "
-        "  if ($monitors) { $monitors.WmiSetBrightness(1, %1); Write-Output 'OK' } "
-        "  else { Write-Output 'NOMONITOR' } "
-        "} catch { Write-Output 'WMI_ERROR' }"
-    ).arg(percent);
-
-    auto* proc = new QProcess(this);
-    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, percent](int exitCode, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        QString output = p->readAllStandardOutput().trimmed();
-        p->deleteLater();
-
-        writeBrightnessLog(percent, QStringLiteral("WMI"), output, exitCode);
-        if (output == "OK") {
-            qInfo() << "[Brightness] WMI applied successfully:" << percent << "%";
-        } else {
-            qWarning() << "[Brightness] WMI failed, output:" << output << "exitCode:" << exitCode;
-        }
-    });
-
-    QStringList args;
-    args << "-NoProfile" << "-NonInteractive" << "-Command" << psScript;
-    proc->start("powershell.exe", args);
-    if (!proc->waitForStarted(3000)) {
-        qWarning() << "[Brightness] Failed to start powershell.exe";
-        writeBrightnessLog(percent, QStringLiteral("WMI"), QStringLiteral("START_FAILED"), -1);
-        proc->deleteLater();
-    }
-}
-
-#else
-/** 麒麟Linux亮度调整：三级降级链 backlight内核接口 → xrandr → brightnessctl */
-void SystemSettingsPage::applyBrightnessLinux(int percent) {
-    auto writeLog = [this, percent](const QString& method, const QString& result, int exitCode) {
-        writeBrightnessLog(percent, method, result, exitCode);
-    };
-    // ═══════════ 麒麟Linux平台：三级降级方案 ═══════════
-    // 方案A：/sys/class/backlight/ 内核接口（硬件级亮度，需root权限）
-    // 1) 遍历 /sys/class/backlight/ 找到第一个设备目录
-    // 2) 读取 max_brightness 计算实际值 = percent * max / 100
-    // 3) 用 pkexec/sudo 提权写入 brightness 文件
-    // 方案B：xrandr X11 Gamma调整（软件级，无需root，所有X11桌面环境通用）
-    // xrandr --output <display> --brightness <0.1~1.0>
-    // 方案C：brightnessctl 命令（部分发行版预装）
-    // brightnessctl set <percent>%
-
-    // 封装异步执行+日志的Lambda
-    auto runAsync = [this, percent, writeLog](const QString& method,
-                                               const QString& program,
-                                               const QStringList& args) {
-        auto* proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [method, percent, writeLog](int exitCode, QProcess::ExitStatus) {
-            auto* p = qobject_cast<QProcess*>(sender());
-            if (!p) return;
-            QString output = p->readAllStandardOutput().trimmed();
-            QString errOutput = p->readAllStandardError().trimmed();
-            p->deleteLater();
-
-            QString result = (exitCode == 0) ? QStringLiteral("OK: %1").arg(output)
-                                             : QStringLiteral("FAIL: %1").arg(errOutput.isEmpty() ? output : errOutput);
-            writeLog(method, result, exitCode);
-
-            if (exitCode == 0) {
-                qInfo() << "[Brightness]" << method << "applied:" << percent << "%";
-            } else {
-                qWarning() << "[Brightness]" << method << "failed:" << result;
-            }
-        });
-
-        proc->start(program, args);
-        if (!proc->waitForStarted(3000)) {
-            qWarning() << "[Brightness] Failed to start" << program;
-            writeLog(method, QStringLiteral("START_FAILED"), -1);
-            proc->deleteLater();
-            return false;
-        }
-        return true;
-    };
-
-    // 方案A：尝试 /sys/class/backlight/ 内核接口
-    // 用 sh 脚本检测设备并写入，通过 pkexec 提权（麒麟默认安装）
-    QString backlightScript = QStringLiteral(
-        "for dev in /sys/class/backlight/*/; do "
-        "  if [ -f \"${dev}max_brightness\" ] && [ -w \"${dev}brightness\" ]; then "
-        "    max=$(cat \"${dev}max_brightness\"); "
-        "    val=$(( %1 * max / 100 )); "
-        "    echo $val > \"${dev}brightness\"; "
-        "    echo 'BACKLIGHT_OK'; exit 0; "
-        "  fi; "
-        "done; "
-        "echo 'NO_BACKLIGHT_DEV'; exit 1"
-    ).arg(percent);
-
-    auto* procA = new QProcess(this);
-    connect(procA, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, percent, writeLog, runAsync](int exitCodeA, QProcess::ExitStatus) {
-        auto* pA = qobject_cast<QProcess*>(sender());
-        if (!pA) return;
-        QString outputA = pA->readAllStandardOutput().trimmed();
-        pA->deleteLater();
-
-        writeLog(QStringLiteral("backlight"), outputA, exitCodeA);
-
-        if (exitCodeA == 0 && outputA.contains("BACKLIGHT_OK")) {
-            qInfo() << "[Brightness] backlight kernel interface applied:" << percent << "%";
-            return;  // 方案A成功，不降级
-        }
-
-        qWarning() << "[Brightness] backlight failed, trying xrandr...";
-
-        // 方案B：xrandr X11 Gamma调整（软件级，percent映射到0.1~1.0）
-        // 先获取显示器列表，再逐个设置
-        QString xrandrScript = QStringLiteral(
-            "displays=$(xrandr --listmonitors 2>/dev/null | grep -oP '(?<=Monitors: ).*' | tr ' ' '\\n'); "
-            "if [ -z \"$displays\" ]; then "
-            "  displays=$(xrandr 2>/dev/null | grep -E ' connected' | awk '{print $1}'); "
-            "fi; "
-            "if [ -z \"$displays\" ]; then echo 'NO_DISPLAY'; exit 1; fi; "
-            "brightness=$(echo \"scale=2; %1 / 100\" | bc); "
-            "for d in $displays; do xrandr --output $d --brightness $brightness 2>/dev/null; done; "
-            "echo 'XRANDR_OK'"
-        ).arg(percent);
-
-        auto* procB = new QProcess(this);
-        connect(procB, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, percent, writeLog, runAsync](int exitCodeB, QProcess::ExitStatus) {
-            auto* pB = qobject_cast<QProcess*>(sender());
-            if (!pB) return;
-            QString outputB = pB->readAllStandardOutput().trimmed();
-            pB->deleteLater();
-
-            writeLog(QStringLiteral("xrandr"), outputB, exitCodeB);
-
-            if (exitCodeB == 0 && outputB.contains("XRANDR_OK")) {
-                qInfo() << "[Brightness] xrandr applied:" << percent << "%";
-                return;  // 方案B成功
-            }
-
-            qWarning() << "[Brightness] xrandr failed, trying brightnessctl...";
-
-            // 方案C：brightnessctl 命令（最后降级方案）
-            runAsync(QStringLiteral("brightnessctl"),
-                     QStringLiteral("brightnessctl"),
-                     QStringList() << "set" << QStringLiteral("%1%").arg(percent));
-        });
-
-        procB->start(QStringLiteral("sh"), QStringList() << "-c" << xrandrScript);
-        if (!procB->waitForStarted(3000)) {
-            qWarning() << "[Brightness] Failed to start xrandr";
-            writeLog(QStringLiteral("xrandr"), QStringLiteral("START_FAILED"), -1);
-            procB->deleteLater();
-            // 直接尝试方案C
-            runAsync(QStringLiteral("brightnessctl"),
-                     QStringLiteral("brightnessctl"),
-                     QStringList() << "set" << QStringLiteral("%1%").arg(percent));
-        }
-    });
-
-    // 启动方案A：用pkexec提权尝试写入backlight（麒麟系统polkit已集成）
-    // 如果pkexec不可用则直接用sh（无root时可能失败，会自动降级到方案B）
-    procA->start(QStringLiteral("sh"), QStringList() << "-c" << backlightScript);
-    if (!procA->waitForStarted(3000)) {
-        qWarning() << "[Brightness] Failed to start backlight script";
-        writeLog(QStringLiteral("backlight"), QStringLiteral("START_FAILED"), -1);
-        procA->deleteLater();
-        // 直接尝试方案B
-        QString xrandrScript = QStringLiteral(
-            "displays=$(xrandr --listmonitors 2>/dev/null | grep -oP '(?<=Monitors: ).*' | tr ' ' '\\n'); "
-            "if [ -z \"$displays\" ]; then "
-            "  displays=$(xrandr 2>/dev/null | grep -E ' connected' | awk '{print $1}'); "
-            "fi; "
-            "if [ -z \"$displays\" ]; then echo 'NO_DISPLAY'; exit 1; fi; "
-            "brightness=$(echo \"scale=2; %1 / 100\" | bc); "
-            "for d in $displays; do xrandr --output $d --brightness $brightness 2>/dev/null; done; "
-            "echo 'XRANDR_OK'"
-        ).arg(percent);
-        auto* procB = new QProcess(this);
-        connect(procB, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [percent, writeLog](int exitCodeB, QProcess::ExitStatus) {
-            auto* pB = qobject_cast<QProcess*>(sender());
-            if (!pB) return;
-            QString outputB = pB->readAllStandardOutput().trimmed();
-            pB->deleteLater();
-            writeLog(QStringLiteral("xrandr"), outputB, exitCodeB);
-        });
-        procB->start(QStringLiteral("sh"), QStringList() << "-c" << xrandrScript);
-        if (!procB->waitForStarted(3000)) {
-            procB->deleteLater();
-        }
-    }
-}
-#endif
 
 // 跨平台设置自动锁屏时间
 // Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
@@ -1505,747 +1100,6 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
 // 同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
 // 已删除：applyAutoLockTime — 自动锁屏时间已从借还参数中移除
 
-// 从系统读取真实系统信息
-// 操作系统：Windows用QSysInfo，麒麟读/etc/os-release
-// 设备编号：Windows用机器名，麒麟读/etc/machine-id
-// 运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime
-// 磁盘空间：QStorageInfo跨平台
-// CPU占用：Windows用wmic，麒麟读/proc/stat两次采样
-// 内存占用：Windows用wmic，麒麟读/proc/meminfo
-void SystemSettingsPage::refreshSystemInfo() {
-    refreshOsInfo();
-    refreshDeviceId();
-    refreshUptime();
-    refreshDiskSpace();
-    refreshCpuUsage();
-    refreshMemoryUsage();
-}
 
-/** 读取操作系统名称：Windows用QSysInfo，麒麟读/etc/os-release（降级/etc/kylin-build） */
-void SystemSettingsPage::refreshOsInfo() {
-    QString osInfo;
-#ifdef Q_OS_WIN
-    osInfo = QSysInfo::prettyProductName();  // 如 "Windows 10 (10.0)"
-#else
-    // 麒麟系统读 /etc/os-release 获取发行版信息
-    QFile osFile("/etc/os-release");
-    if (osFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QString content = QString::fromUtf8(osFile.readAll());
-        osFile.close();
-        QRegularExpression re("PRETTY_NAME=\"([^\"]+)\"");
-        QRegularExpressionMatch match = re.match(content);
-        if (match.hasMatch()) {
-            osInfo = match.captured(1);
-        }
-    }
-    if (osInfo.isEmpty()) {
-        // 降级读 /etc/kylin-build 或用 QSysInfo
-        QFile kylinFile("/etc/kylin-build");
-        if (kylinFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            osInfo = QString::fromUtf8(kylinFile.readLine()).trimmed();
-            kylinFile.close();
-        }
-    }
-    if (osInfo.isEmpty()) {
-        osInfo = QSysInfo::prettyProductName();
-    }
-#endif
-    if (m_osLabel) m_osLabel->setText(osInfo);
-}
 
-/** 读取设备编号：Windows用机器名，麒麟读/etc/machine-id */
-void SystemSettingsPage::refreshDeviceId() {
-    QString deviceId;
-#ifdef Q_OS_WIN
-    // Windows用机器名
-    deviceId = QSysInfo::machineHostName();
-#else
-    // 麒麟读 /etc/machine-id
-    QFile machineIdFile("/etc/machine-id");
-    if (machineIdFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        deviceId = QString::fromUtf8(machineIdFile.readAll()).trimmed();
-        machineIdFile.close();
-    }
-    if (deviceId.isEmpty()) {
-        deviceId = QSysInfo::machineHostName();
-    }
-#endif
-    if (m_deviceIdLabel) m_deviceIdLabel->setText(deviceId);
-}
 
-/** 读取运行时长：Windows用PowerShell计算LastBootUpTime差值，麒麟读/proc/uptime */
-void SystemSettingsPage::refreshUptime() {
-#ifdef Q_OS_WIN
-    // wmic os get LastBootUpTime 返回的是日期格式(如20260627100000.000000+480)
-    // 不是秒数，必须用PowerShell计算 (Get-Date) - LastBootUpTime 的差值
-    auto* uptimeProc = new QProcess(this);
-    connect(uptimeProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        QString output = p->readAllStandardOutput().trimmed();
-        p->deleteLater();
-        // PowerShell输出格式: "TotalSeconds" 后跟数字，或直接是秒数
-        // 用正则提取数字部分
-        QRegularExpression re("(\\d+)");
-        QRegularExpressionMatchIterator it = re.globalMatch(output);
-        qint64 secs = 0;
-        // 取最大的数字作为秒数（避免误匹配小数部分）
-        while (it.hasNext()) {
-            QRegularExpressionMatch m = it.next();
-            qint64 val = m.captured(1).toLongLong();
-            if (val > secs) secs = val;
-        }
-        if (secs > 0) {
-            int days = secs / 86400;
-            int hours = (secs % 86400) / 3600;
-            int minutes = (secs % 3600) / 60;
-            if (m_uptimeLabel) {
-                m_uptimeLabel->setText(QStringLiteral("%1天 %2小时%3分").arg(days).arg(hours).arg(minutes));
-            }
-        } else {
-            if (m_uptimeLabel) m_uptimeLabel->setText(QStringLiteral("读取失败"));
-        }
-    });
-    // PowerShell: 计算系统启动至今的总秒数
-    uptimeProc->start("powershell.exe", QStringList() << "-NoProfile" << "-NonInteractive" << "-Command"
-                      << "[Math]::Floor((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds)");
-    if (!uptimeProc->waitForStarted(3000)) {
-        uptimeProc->deleteLater();
-        if (m_uptimeLabel) m_uptimeLabel->setText(QStringLiteral("读取失败"));
-    }
-#else
-    // 麒麟读 /proc/uptime 第一列（秒）
-    QString uptime;
-    QFile uptimeFile("/proc/uptime");
-    if (uptimeFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QString content = QString::fromUtf8(uptimeFile.readLine());
-        uptimeFile.close();
-        QStringList parts = content.split(' ');
-        if (parts.size() >= 1) {
-            bool ok = false;
-            double secs = parts[0].toDouble(&ok);
-            if (ok && secs > 0) {
-                int days = (int)(secs / 86400);
-                int hours = (int)((secs - days * 86400) / 3600);
-                int minutes = (int)((secs - days * 86400 - hours * 3600) / 60);
-                uptime = QStringLiteral("%1天 %2小时%3分").arg(days).arg(hours).arg(minutes);
-            }
-        }
-    }
-    if (uptime.isEmpty()) uptime = QStringLiteral("读取失败");
-    if (m_uptimeLabel) m_uptimeLabel->setText(uptime);
-#endif
-}
-
-/** 读取磁盘空间：QStorageInfo跨平台（根分区） */
-void SystemSettingsPage::refreshDiskSpace() {
-    QString diskInfo;
-    QStorageInfo storage = QStorageInfo::root();
-    if (storage.isValid() && storage.isReady()) {
-        qint64 total = storage.bytesTotal();
-        qint64 free = storage.bytesFree();
-        qint64 used = total - free;
-        double usedGB = used / (1024.0 * 1024.0 * 1024.0);
-        double totalGB = total / (1024.0 * 1024.0 * 1024.0);
-        int percent = (total > 0) ? (int)(used * 100 / total) : 0;
-        diskInfo = QStringLiteral("已用 %1GB / 共 %2GB (%3%)")
-                       .arg(QString::number(usedGB, 'f', 1))
-                       .arg(QString::number(totalGB, 'f', 1))
-                       .arg(percent);
-    } else {
-        diskInfo = QStringLiteral("无法读取");
-    }
-    if (m_diskLabel) m_diskLabel->setText(diskInfo);
-}
-
-/** 读取CPU占用率：Windows用wmic，麒麟读/proc/stat两次采样 */
-void SystemSettingsPage::refreshCpuUsage() {
-#ifdef Q_OS_WIN
-    // Windows: wmic cpu get loadpercentage 直接返回占用百分比
-    auto* cpuProc = new QProcess(this);
-    connect(cpuProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        QString output = p->readAllStandardOutput().trimmed();
-        p->deleteLater();
-        // wmic输出: "LoadPercentage\n56"，提取数字
-        QRegularExpression re("(\\d+)");
-        QRegularExpressionMatch m = re.match(output);
-        if (m.hasMatch()) {
-            if (m_cpuLabel) {
-                m_cpuLabel->setText(QStringLiteral("%1%").arg(m.captured(1)));
-            }
-        } else {
-            if (m_cpuLabel) m_cpuLabel->setText(QStringLiteral("读取失败"));
-        }
-    });
-    cpuProc->start("wmic", QStringList() << "cpu" << "get" << "loadpercentage");
-    if (!cpuProc->waitForStarted(3000)) {
-        cpuProc->deleteLater();
-        if (m_cpuLabel) m_cpuLabel->setText(QStringLiteral("读取失败"));
-    }
-#else
-    // 麒麟: 读 /proc/stat 两次采样计算CPU占用率
-    // CPU占用 = (idle2-idle1) / (total2-total1) 的反值
-    auto readCpuStat = []() -> QPair<qint64, qint64> {
-        QFile f("/proc/stat");
-        if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return {0, 0};
-        QString line = QString::fromUtf8(f.readLine());
-        f.close();
-        // 格式: cpu user nice system idle iowait irq softirq steal guest guest_nice
-        QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-        if (parts.size() < 5) return {0, 0};
-        qint64 total = 0;
-        for (int i = 1; i < parts.size(); ++i) total += parts[i].toLongLong();
-        qint64 idle = parts[4].toLongLong();
-        return {total, idle};
-    };
-    QPair<qint64, qint64> s1 = readCpuStat();
-    QTimer::singleShot(500, this, [this, s1]() {
-        auto readCpuStat2 = []() -> QPair<qint64, qint64> {
-            QFile f("/proc/stat");
-            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return {0, 0};
-            QString line = QString::fromUtf8(f.readLine());
-            f.close();
-            QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-            if (parts.size() < 5) return {0, 0};
-            qint64 total = 0;
-            for (int i = 1; i < parts.size(); ++i) total += parts[i].toLongLong();
-            qint64 idle = parts[4].toLongLong();
-            return {total, idle};
-        };
-        QPair<qint64, qint64> s2 = readCpuStat2();
-        qint64 totalDiff = s2.first - s1.first;
-        qint64 idleDiff = s2.second - s1.second;
-        int cpuPercent = 0;
-        if (totalDiff > 0) {
-            cpuPercent = (int)((totalDiff - idleDiff) * 100 / totalDiff);
-        }
-        if (m_cpuLabel) m_cpuLabel->setText(QStringLiteral("%1%").arg(cpuPercent));
-    });
-#endif
-}
-
-/** 读取内存占用率：Windows用wmic，麒麟读/proc/meminfo */
-void SystemSettingsPage::refreshMemoryUsage() {
-#ifdef Q_OS_WIN
-    // Windows: wmic OS get TotalVisibleMemorySize,FreePhysicalMemory
-    // 返回KB单位，计算 (total-free)/total*100
-    auto* memProc = new QProcess(this);
-    connect(memProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        QString output = p->readAllStandardOutput().trimmed();
-        p->deleteLater();
-        // wmic输出两行: "FreePhysicalMemory TotalVisibleMemorySize\n1234567 8388608"
-        QStringList lines = output.split('\n');
-        if (lines.size() >= 2) {
-            QStringList vals = lines[1].trimmed().split(QRegularExpression("\\s+"));
-            if (vals.size() >= 2) {
-                qint64 freeKB = vals[0].toLongLong();
-                qint64 totalKB = vals[1].toLongLong();
-                if (totalKB > 0) {
-                    qint64 usedKB = totalKB - freeKB;
-                    int percent = (int)(usedKB * 100 / totalKB);
-                    double usedGB = usedKB / (1024.0 * 1024.0);
-                    double totalGB = totalKB / (1024.0 * 1024.0);
-                    if (m_memoryLabel) {
-                        m_memoryLabel->setText(QStringLiteral("已用 %1GB / 共 %2GB (%3%)")
-                            .arg(QString::number(usedGB, 'f', 1))
-                            .arg(QString::number(totalGB, 'f', 1))
-                            .arg(percent));
-                    }
-                }
-            }
-        }
-        if (m_memoryLabel && m_memoryLabel->text() == QStringLiteral("读取中...")) {
-            m_memoryLabel->setText(QStringLiteral("读取失败"));
-        }
-    });
-    memProc->start("wmic", QStringList() << "OS" << "get" << "FreePhysicalMemory,TotalVisibleMemorySize");
-    if (!memProc->waitForStarted(3000)) {
-        memProc->deleteLater();
-        if (m_memoryLabel) m_memoryLabel->setText(QStringLiteral("读取失败"));
-    }
-#else
-    // 麒麟: 读 /proc/meminfo
-    // MemTotal: 总内存, MemAvailable: 可用内存（含缓存）
-    qint64 memTotal = 0, memAvailable = 0;
-    QFile memFile("/proc/meminfo");
-    if (memFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        while (!memFile.atEnd()) {
-            QString line = QString::fromUtf8(memFile.readLine());
-            if (line.startsWith("MemTotal:")) {
-                QRegularExpression re("(\\d+)");
-                QRegularExpressionMatch m = re.match(line);
-                if (m.hasMatch()) memTotal = m.captured(1).toLongLong();
-            } else if (line.startsWith("MemAvailable:")) {
-                QRegularExpression re("(\\d+)");
-                QRegularExpressionMatch m = re.match(line);
-                if (m.hasMatch()) memAvailable = m.captured(1).toLongLong();
-            }
-            if (memTotal > 0 && memAvailable > 0) break;
-        }
-        memFile.close();
-    }
-    if (memTotal > 0) {
-        qint64 memUsed = memTotal - memAvailable;
-        int percent = (int)(memUsed * 100 / memTotal);
-        double usedGB = memUsed / (1024.0 * 1024.0);
-        double totalGB = memTotal / (1024.0 * 1024.0);
-        if (m_memoryLabel) {
-            m_memoryLabel->setText(QStringLiteral("已用 %1GB / 共 %2GB (%3%)")
-                .arg(QString::number(usedGB, 'f', 1))
-                .arg(QString::number(totalGB, 'f', 1))
-                .arg(percent));
-        }
-    } else {
-        if (m_memoryLabel) m_memoryLabel->setText(QStringLiteral("读取失败"));
-    }
-#endif
-}
-
-// 执行数据库自动备份
-// 备份策略：
-// 1. 保存备份设置时立即执行一次备份（验证备份路径可用）
-// 2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
-// 3. MainWindow 启动定时器每小时检查一次是否到了备份时间
-// 备份内容：SQLite文件拷贝 / MySQL用mysqldump导出
-// 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.db
-void SystemSettingsPage::performDatabaseBackup() {
-    auto& cfg = AppConfig::instance();
-    QString backupPath = cfg.backupPath();
-    bool isAutoEnabled = cfg.backupAutoEnabled();
-    int period = cfg.backupPeriod();
-
-    // 日志路径跨平台
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/backup.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_backup.log");
-#endif
-
-    auto writeBackupLog = [logPath](const QString& action, const QString& result, const QString& detail) {
-        QFile logFile(logPath);
-        if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-            QString ts = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-            logFile.write(QStringLiteral("[%1] action=%2 result=%3 detail=%4\n")
-                          .arg(ts).arg(action).arg(result).arg(detail).toUtf8());
-            logFile.close();
-        }
-    };
-
-    if (!isAutoEnabled) {
-        writeBackupLog(QStringLiteral("SKIP"), QStringLiteral("DISABLED"),
-                       QStringLiteral("auto backup is disabled"));
-        return;
-    }
-
-    // 检查备份周期：每日/每周一/每周日
-    QDate today = QDate::currentDate();
-    int dayOfWeek = today.dayOfWeek();  // 1=周一, 7=周日
-    bool shouldBackup = false;
-    QString periodDesc;
-    if (period == 0) {
-        // 每日备份
-        shouldBackup = true;
-        periodDesc = QStringLiteral("每日");
-    } else if (period == 1) {
-        // 每周一备份
-        shouldBackup = (dayOfWeek == 1);
-        periodDesc = QStringLiteral("每周一");
-    } else if (period == 2) {
-        // 每周日备份
-        shouldBackup = (dayOfWeek == 7);
-        periodDesc = QStringLiteral("每周日");
-    }
-
-    // 如果不是备份日，跳过（但保存设置时的首次备份强制执行）
-    // 这里首次保存时强制备份，定时检查时才按周期判断
-
-    // 确保备份目录存在
-    QDir dir;
-    if (!dir.exists(backupPath)) {
-        if (!dir.mkpath(backupPath)) {
-            writeBackupLog(QStringLiteral("CREATE_DIR"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot create: %1").arg(backupPath));
-            qWarning() << "[Backup] Cannot create backup dir:" << backupPath;
-            return;
-        }
-    }
-
-    // 生成备份文件名
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString backupFile;
-
-    // 判断数据库类型：SQLite文件拷贝 / mysqldump导出
-    DatabaseManager& db = DatabaseManager::instance();
-    QString sqliteDbPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/QtSmartCabinet/build/smartcabinet.db");
-
-#ifdef Q_OS_WIN
-    // Windows: 检查SQLite文件是否存在
-    QString dbPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/QtSmartCabinet/build/smartcabinet.db");
-#else
-    QString dbPath = QStringLiteral("/var/lib/smartcabinet/smartcabinet.db");
-#endif
-
-    if (QFile::exists(dbPath)) {
-        // SQLite模式：拷贝数据库文件
-        backupFile = backupPath + QDir::separator() +
-                     QStringLiteral("smartcabinet_backup_%1.db").arg(timestamp);
-        if (QFile::copy(dbPath, backupFile)) {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("OK"),
-                           QStringLiteral("SQLite file copied to: %1").arg(backupFile));
-            qInfo() << "[Backup] SQLite backup success:" << backupFile;
-
-            // 清理超过7天的旧备份文件
-            QDir backupDir(backupPath);
-            QStringList filters;
-            filters << "smartcabinet_backup_*.db";
-            QFileInfoList oldFiles = backupDir.entryInfoList(filters, QDir::Files, QDir::Time);
-            for (const QFileInfo& fi : oldFiles) {
-                if (fi.lastModified().daysTo(QDateTime::currentDateTime()) > 7) {
-                    QFile::remove(fi.absoluteFilePath());
-                    writeBackupLog(QStringLiteral("CLEANUP"), QStringLiteral("OK"),
-                                   QStringLiteral("removed old: %1").arg(fi.fileName()));
-                }
-            }
-        } else {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot copy %1 to %2").arg(dbPath).arg(backupFile));
-            qWarning() << "[Backup] SQLite backup failed:" << backupFile;
-        }
-    } else {
-        // MySQL模式：用mysqldump导出
-        backupFile = backupPath + QDir::separator() +
-                     QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
-        QString dbName = cfg.dbName();
-        QString dbUser = cfg.dbUser();
-        QString dbPass = cfg.dbPass();
-        QString dbHost = cfg.dbHost();
-
-        QString dumpCmd = QStringLiteral("mysqldump -h%1 -u%2 -p%3 %4")
-                              .arg(dbHost).arg(dbUser).arg(dbPass).arg(dbName);
-
-        auto* proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, backupFile, writeBackupLog](int exitCode, QProcess::ExitStatus) {
-            auto* p = qobject_cast<QProcess*>(sender());
-            if (!p) return;
-            p->deleteLater();
-            if (exitCode == 0) {
-                writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("OK"),
-                               QStringLiteral("MySQL dump: %1").arg(backupFile));
-                qInfo() << "[Backup] MySQL backup success:" << backupFile;
-            } else {
-                writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                               QStringLiteral("mysqldump exitCode=%1").arg(exitCode));
-                qWarning() << "[Backup] MySQL backup failed, exitCode:" << exitCode;
-            }
-        });
-        // 重定向输出到文件
-        proc->setStandardOutputFile(backupFile);
-        proc->start("mysqldump", QStringList()
-                    << QStringLiteral("-h%1").arg(dbHost)
-                    << QStringLiteral("-u%1").arg(dbUser)
-                    << QStringLiteral("-p%1").arg(dbPass)
-                    << dbName);
-        if (!proc->waitForStarted(3000)) {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot start mysqldump"));
-            qWarning() << "[Backup] Cannot start mysqldump";
-            proc->deleteLater();
-        }
-    }
-}
-
-// 获取第一块有线网卡名称
-// Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡
-// 麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡
-// 返回网卡名称用于后续网络配置命令定位
-QString SystemSettingsPage::detectWiredInterfaceName() {
-    QString ifName;
-
-#ifdef Q_OS_WIN
-    // Windows: netsh interface show interface 获取网卡列表
-    QProcess proc;
-    proc.start("netsh", QStringList() << "interface" << "show" << "interface");
-    proc.waitForFinished(5000);
-    QString output = QString::fromLocal8Bit(proc.readAllStandardOutput());
-    // 解析输出：跳过表头，取第一个非"Loopback"的网卡名
-    QStringList lines = output.split('\n');
-    for (const QString& line : lines) {
-        QString trimmed = line.trimmed();
-        if (trimmed.isEmpty()) continue;
-        // 跳过表头行
-        if (trimmed.contains("Admin State") || trimmed.contains("管理员状态")) continue;
-        // 跳过回环
-        if (trimmed.contains("Loopback", Qt::CaseInsensitive)) continue;
-        // 取最后一列作为网卡名（netsh输出格式：状态 状态 类型 接口名称）
-        QStringList parts = trimmed.split(QRegularExpression("\\s+"));
-        if (parts.size() >= 4) {
-            // 取第4列开始的所有部分作为接口名（名称可能含空格）
-            ifName = parts.mid(3).join(" ");
-            if (!ifName.isEmpty()) break;
-        }
-    }
-#else
-    // 麒麟: ip -o link show 获取网卡列表，过滤虚拟/无线网卡
-    QProcess proc;
-    proc.start("ip", QStringList() << "-o" << "link" << "show");
-    proc.waitForFinished(5000);
-    QString output = QString::fromLocal8Bit(proc.readAllStandardOutput());
-    QStringList lines = output.split('\n');
-    for (const QString& line : lines) {
-        // 格式: "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ..."
-        QRegularExpression re("(\\d+):\\s+(\\w+):");
-        QRegularExpressionMatch match = re.match(line);
-        if (!match.hasMatch()) continue;
-        QString name = match.captured(2);
-        // 过滤虚拟/无线网卡，只保留有线网卡
-        if (name == "lo" || name.startsWith("wlan") || name.startsWith("wlp") ||
-            name.startsWith("docker") || name.startsWith("br-") ||
-            name.startsWith("veth") || name.startsWith("virbr") ||
-            name.startsWith("tun") || name.startsWith("tap")) {
-            continue;
-        }
-        // 优先返回 eth* 或 en* 格式的有线网卡名
-        if (name.startsWith("eth") || name.startsWith("en") ||
-            name.startsWith("em") || name.startsWith("p")) {
-            ifName = name;
-            break;
-        }
-    }
-#endif
-
-    if (ifName.isEmpty()) {
-        qWarning() << "[Network] No wired interface detected";
-    } else {
-        qInfo() << "[Network] Detected wired interface:" << ifName;
-    }
-    return ifName;
-}
-
-// 跨平台配置有线网卡
-// Windows: netsh interface ip set address/dns（需管理员权限）
-// 麒麟: ip addr add + ip route add + resolvconf（需root）
-// 异步执行，失败静默处理并记录日志
-void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& mask,
-                                            const QString& gateway, const QString& dns) {
-    // 基础校验：IP不能为空
-    if (ip.isEmpty() || ip == "0.0.0.0") {
-        qWarning() << "[Network] Invalid IP address:" << ip;
-        return;
-    }
-
-    // 日志路径跨平台
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/network.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_network.log");
-#endif
-
-    auto writeNetLog = [logPath](const QString& action, const QString& result, const QString& detail) {
-        QFile logFile(logPath);
-        if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-            QString ts = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-            logFile.write(QStringLiteral("[%1] action=%2 result=%3 detail=%4\n")
-                          .arg(ts).arg(action).arg(result).arg(detail).toUtf8());
-            logFile.close();
-        }
-    };
-
-    // 检测有线网卡名称
-    QString ifName = detectWiredInterfaceName();
-    if (ifName.isEmpty()) {
-        writeNetLog(QStringLiteral("DETECT"), QStringLiteral("FAIL"),
-                    QStringLiteral("no wired interface found"));
-        qWarning() << "[Network] Cannot apply config: no wired interface detected";
-        return;
-    }
-
-    // 计算子网掩码前缀长度（如 255.255.255.0 → 24）
-    int prefixLen = 24;
-    if (mask == "255.255.255.0") prefixLen = 24;
-    else if (mask == "255.255.0.0") prefixLen = 16;
-    else if (mask == "255.0.0.0") prefixLen = 8;
-    else if (mask == "255.255.255.128") prefixLen = 25;
-    else if (mask == "255.255.255.192") prefixLen = 26;
-    else {
-        // 通用计算：统计mask中1的位数
-        QStringList octets = mask.split('.');
-        if (octets.size() == 4) {
-            int bits = 0;
-            for (const QString& oct : octets) {
-                int val = oct.toInt();
-                for (int i = 7; i >= 0; --i) {
-                    if (val & (1 << i)) bits++;
-                    else break;
-                }
-            }
-            if (bits > 0 && bits <= 32) prefixLen = bits;
-        }
-    }
-
-    writeNetLog(QStringLiteral("DETECT"), QStringLiteral("OK"),
-                QStringLiteral("interface=%1 ip=%2/%3 gw=%4 dns=%5")
-                    .arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns));
-
-#ifdef Q_OS_WIN
-    // ═══════════ Windows: netsh 配置IP/DNS/Gateway ═══════════
-    // netsh interface ip set address name="<ifName>" static <ip> <mask> <gateway> 1
-    // netsh interface ip set dns name="<ifName>" static <dns> primary
-
-    // 异步执行IP配置
-    auto* ipProc = new QProcess(this);
-    connect(ipProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, ifName, dns, writeNetLog](int exitCode, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        p->deleteLater();
-
-        if (exitCode == 0) {
-            writeNetLog(QStringLiteral("SET_IP"), QStringLiteral("OK"),
-                        QStringLiteral("interface=%1").arg(ifName));
-            qInfo() << "[Network] IP config applied to" << ifName;
-
-            // IP配置成功后，配置DNS
-            auto* dnsProc = new QProcess(this);
-            connect(dnsProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                    this, [this, ifName, dns, writeNetLog](int exitCodeDns, QProcess::ExitStatus) {
-                auto* pd = qobject_cast<QProcess*>(sender());
-                if (!pd) return;
-                pd->deleteLater();
-                if (exitCodeDns == 0) {
-                    writeNetLog(QStringLiteral("SET_DNS"), QStringLiteral("OK"),
-                                QStringLiteral("dns=%1").arg(dns));
-                    qInfo() << "[Network] DNS config applied:" << dns;
-                } else {
-                    writeNetLog(QStringLiteral("SET_DNS"), QStringLiteral("FAIL"),
-                                QStringLiteral("exitCode=%1").arg(exitCodeDns));
-                    qWarning() << "[Network] DNS config failed, exitCode:" << exitCodeDns;
-                }
-            });
-            dnsProc->start("netsh", QStringList() << "interface" << "ip" << "set" << "dns"
-                         << QStringLiteral("name=\"%1\"").arg(ifName)
-                         << "static" << dns << "primary");
-            if (!dnsProc->waitForStarted(3000)) {
-                qWarning() << "[Network] Failed to start DNS config";
-                dnsProc->deleteLater();
-            }
-        } else {
-            writeNetLog(QStringLiteral("SET_IP"), QStringLiteral("FAIL"),
-                        QStringLiteral("exitCode=%1").arg(exitCode));
-            qWarning() << "[Network] IP config failed, exitCode:" << exitCode;
-        }
-    });
-
-    ipProc->start("netsh", QStringList() << "interface" << "ip" << "set" << "address"
-                 << QStringLiteral("name=\"%1\"").arg(ifName)
-                 << "static" << ip << mask << gateway << "1");
-    if (!ipProc->waitForStarted(3000)) {
-        qWarning() << "[Network] Failed to start IP config";
-        writeNetLog(QStringLiteral("SET_IP"), QStringLiteral("START_FAILED"),
-                    QStringLiteral("cannot start netsh"));
-        ipProc->deleteLater();
-    }
-
-#else
-    // ═══════════ 麒麟Linux: ip + resolvconf 配置IP/DNS/Gateway ═══════════
-    // ip addr flush dev <ifName>
-    // ip addr add <ip>/<prefix> dev <ifName>
-    // ip route add default via <gateway> dev <ifName>
-    // echo "nameserver <dns>" > /etc/resolv.conf
-
-    // 用 sh 脚本一次性执行所有网络配置命令（需root，通过pkexec提权）
-    // 如果pkexec不可用则直接用sh（可能因权限不足失败，记录日志）
-    QString netScript = QStringLiteral(
-        "# 网络配置脚本 - 仅配置有线网卡 %1\n"
-        "IFACE=\"%1\"\n"
-        "IP=\"%2\"\n"
-        "PREFIX=%3\n"
-        "GW=\"%4\"\n"
-        "DNS=\"%5\"\n"
-        "# 清除旧IP配置\n"
-        "ip addr flush dev $IFACE 2>/dev/null\n"
-        "# 设置新IP\n"
-        "ip addr add $IP/$PREFIX dev $IFACE 2>/dev/null\n"
-        "# 启用网卡\n"
-        "ip link set $IFACE up 2>/dev/null\n"
-        "# 设置默认网关（先删除旧的再添加新的）\n"
-        "ip route del default 2>/dev/null\n"
-        "ip route add default via $GW dev $IFACE 2>/dev/null\n"
-        "# 设置DNS\n"
-        "if [ -d /etc/resolvconf ]; then "
-        "  echo \"nameserver $DNS\" | resolvconf -a $IFACE 2>/dev/null; "
-        "else "
-        "  echo \"nameserver $DNS\" > /etc/resolv.conf 2>/dev/null; "
-        "fi\n"
-        "# 麒麟系统持久化网络配置（写入netplan或NetworkManager）\n"
-        "if command -v nmcli >/dev/null 2>&1; then "
-        "  nmcli con modify $IFACE ipv4.addresses $IP/$PREFIX 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.gateway $GW 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.dns $DNS 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.method manual 2>/dev/null; "
-        "  nmcli con up $IFACE 2>/dev/null; "
-        "fi\n"
-        "echo 'NETWORK_CONFIG_OK'\n"
-    ).arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns);
-
-    auto* netProc = new QProcess(this);
-    connect(netProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, ifName, writeNetLog](int exitCode, QProcess::ExitStatus) {
-        auto* p = qobject_cast<QProcess*>(sender());
-        if (!p) return;
-        QString output = p->readAllStandardOutput().trimmed();
-        p->deleteLater();
-
-        if (exitCode == 0 && output.contains("NETWORK_CONFIG_OK")) {
-            writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("OK"),
-                        QStringLiteral("interface=%1").arg(ifName));
-            qInfo() << "[Network] Network config applied to" << ifName;
-        } else {
-            writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("FAIL"),
-                        QStringLiteral("exitCode=%1 output=%2").arg(exitCode).arg(output));
-            qWarning() << "[Network] Network config failed, exitCode:" << exitCode << "output:" << output;
-        }
-    });
-
-    // 优先尝试 pkexec 提权（麒麟系统polkit已集成）
-    // 如果pkexec不可用则直接用sh（可能因权限不足失败，记录日志）
-    netProc->start("pkexec", QStringList() << "sh" << "-c" << netScript);
-    if (!netProc->waitForStarted(3000)) {
-        // pkexec不可用，降级用sh直接执行（可能因权限不足失败）
-        netProc->deleteLater();
-        auto* shProc = new QProcess(this);
-        connect(shProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [ifName, writeNetLog](int exitCode, QProcess::ExitStatus) {
-            auto* p = qobject_cast<QProcess*>(sender());
-            if (!p) return;
-            QString output = p->readAllStandardOutput().trimmed();
-            p->deleteLater();
-            if (exitCode == 0 && output.contains("NETWORK_CONFIG_OK")) {
-                writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("OK"),
-                            QStringLiteral("interface=%1 (no pkexec)").arg(ifName));
-                qInfo() << "[Network] Network config applied (no pkexec) to" << ifName;
-            } else {
-                writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("FAIL"),
-                            QStringLiteral("exitCode=%1 output=%2 (no root)").arg(exitCode).arg(output));
-                qWarning() << "[Network] Network config failed (no root), exitCode:" << exitCode;
-            }
-        });
-        shProc->start("sh", QStringList() << "-c" << netScript);
-        if (!shProc->waitForStarted(3000)) {
-            qWarning() << "[Network] Failed to start network config script";
-            writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("START_FAILED"),
-                        QStringLiteral("cannot start sh"));
-            shProc->deleteLater();
-        }
-    }
-#endif
-}

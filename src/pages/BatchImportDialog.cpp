@@ -149,7 +149,7 @@ void BatchImportDialog::setupContent()
 
     // ── 步骤1：下载模板 ──
     auto* step1Label = new QLabel(QStringLiteral("步骤一：下载Excel模板"));
-    step1Label->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    step1Label->setStyleSheet(StyleHelper::labelText());
     cl->addWidget(step1Label);
 
     auto* step1Hint = new QLabel(QStringLiteral("请先下载模板，按格式填写人员信息后保存。\n支持 Excel / WPS 打开编辑，保存为 .xlsx 或 .csv 格式均可。"));
@@ -177,7 +177,7 @@ void BatchImportDialog::setupContent()
 
     // ── 步骤2：上传文件 ──
     auto* step2Label = new QLabel(QStringLiteral("步骤二：上传编辑后的文件"));
-    step2Label->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    step2Label->setStyleSheet(StyleHelper::labelText());
     cl->addWidget(step2Label);
 
     auto* fileRow = new QHBoxLayout();

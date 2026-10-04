@@ -521,60 +521,33 @@ void MainWindow::onBackupCheckTimeout() {
         }
     }
 
-#ifdef Q_OS_WIN
-    QString dbPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/QtSmartCabinet/build/smartcabinet.db");
-#else
-    QString dbPath = QStringLiteral("/var/lib/smartcabinet/smartcabinet.db");
-#endif
-
-    if (QFile::exists(dbPath)) {
-        // SQLite模式：拷贝数据库文件
-        QString backupFile = backupPath + QDir::separator() +
-                             QStringLiteral("smartcabinet_backup_%1.db").arg(timestamp);
-        if (QFile::copy(dbPath, backupFile)) {
+    // 本工程为纯 MySQL 架构（SQLite 已彻底移除，无回退），备份统一走 mysqldump 导出。
+    // 历史上此处还有一个"拷贝 SQLite 数据库文件"的分支，但其路径指向另一个工程
+    // （QtSmartCabinet/build/smartcabinet.db），在本工程永远不存在、该分支从未被执行，属死代码，已删除。
+    QString backupFile = backupPath + QDir::separator() +
+                         QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
+    auto* proc = new QProcess(this);
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, today, backupFile](int exitCode, QProcess::ExitStatus) {
+        auto* p = qobject_cast<QProcess*>(sender());
+        if (!p) return;
+        p->deleteLater();
+        if (exitCode == 0) {
             m_lastBackupDate = today;
-            qInfo() << "[BackupCheck] Auto backup success:" << backupFile;
-
-            // 清理超过7天的旧备份
-            QDir backupDir(backupPath);
-            QStringList filters;
-            filters << "smartcabinet_backup_*.db";
-            QFileInfoList oldFiles = backupDir.entryInfoList(filters, QDir::Files, QDir::Time);
-            for (const QFileInfo& fi : oldFiles) {
-                if (fi.lastModified().daysTo(QDateTime::currentDateTime()) > 7) {
-                    QFile::remove(fi.absoluteFilePath());
-                }
-            }
+            qInfo() << "[BackupCheck] MySQL auto backup success:" << backupFile;
         } else {
-            qWarning() << "[BackupCheck] Auto backup failed:" << backupFile;
+            qWarning() << "[BackupCheck] MySQL auto backup failed, exitCode:" << exitCode;
         }
-    } else {
-        // MySQL模式：用mysqldump导出
-        QString backupFile = backupPath + QDir::separator() +
-                             QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
-        auto* proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, today, backupFile](int exitCode, QProcess::ExitStatus) {
-            auto* p = qobject_cast<QProcess*>(sender());
-            if (!p) return;
-            p->deleteLater();
-            if (exitCode == 0) {
-                m_lastBackupDate = today;
-                qInfo() << "[BackupCheck] MySQL auto backup success:" << backupFile;
-            } else {
-                qWarning() << "[BackupCheck] MySQL auto backup failed, exitCode:" << exitCode;
-            }
-        });
-        proc->setStandardOutputFile(backupFile);
-        proc->start("mysqldump", QStringList()
-                    << QStringLiteral("-h%1").arg(cfg.dbHost())
-                    << QStringLiteral("-u%1").arg(cfg.dbUser())
-                    << QStringLiteral("-p%1").arg(cfg.dbPass())
-                    << cfg.dbName());
-        if (!proc->waitForStarted(3000)) {
-            qWarning() << "[BackupCheck] Cannot start mysqldump";
-            proc->deleteLater();
-        }
+    });
+    proc->setStandardOutputFile(backupFile);
+    proc->start("mysqldump", QStringList()
+                << QStringLiteral("-h%1").arg(cfg.dbHost())
+                << QStringLiteral("-u%1").arg(cfg.dbUser())
+                << QStringLiteral("-p%1").arg(cfg.dbPass())
+                << cfg.dbName());
+    if (!proc->waitForStarted(3000)) {
+        qWarning() << "[BackupCheck] Cannot start mysqldump";
+        proc->deleteLater();
     }
 }
 

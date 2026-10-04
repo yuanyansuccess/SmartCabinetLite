@@ -127,8 +127,7 @@ void FaceCameraWidget::setupUI()
 
     m_statusDot = new QLabel(statusRow);
     m_statusDot->setFixedSize(8, 8);
-    m_statusDot->setStyleSheet(
-        "background:#4da3ff; border-radius:4px; min-width:8px; min-height:8px;");
+    m_statusDot->setStyleSheet(StyleHelper::statusDot());
     statusLayout->addWidget(m_statusDot);
 
     mainLayout->addWidget(statusRow, 0, Qt::AlignCenter);
@@ -168,8 +167,7 @@ void FaceCameraWidget::startCamera()
                 "background:rgba(255,77,79,0.75); color:#ffffff; font-size:15px; "
                 "font-weight:600; border-radius:22px; padding:6px 16px;");
             m_statusHint->hide();
-            m_statusDot->setStyleSheet(
-                "background:#4da3ff; border-radius:4px; min-width:8px; min-height:8px;");
+            m_statusDot->setStyleSheet(StyleHelper::statusDot());
             m_detectTimer->start();
             m_active = true;
             emit stateChanged(1);
@@ -817,8 +815,7 @@ void FaceCameraWidget::handleFaceLost()
             "background:#0a1628; border:4px dashed #d0d0d0; border-radius:110px;");
   // 去掉重复提示，各页面有独立状态标签
         m_statusHint->hide();
-        m_statusDot->setStyleSheet(
-            "background:#4da3ff; border-radius:4px; min-width:8px; min-height:8px;");
+        m_statusDot->setStyleSheet(StyleHelper::statusDot());
 
         emit faceLost();
         emit stateChanged(1);

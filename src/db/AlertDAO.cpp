@@ -14,18 +14,23 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QCoreApplication>
+#include "common/Logger.h"  // 统一日志写入入口（Log::appendLog）
+#include "common/Constants.h"  // 告警状态常量 SC::ALERT_*
 
 namespace db {
 
-// 诊断日志写入文件（临时）
+// 告警排序片段：未处理优先，其次按级别严重度（crit>error>warn>其他），最后按时间倒序
+// findAll(QJsonObject API) 与 findAll(实体类API) 共用，避免两处重复维护同一排序规则
+namespace {
+const char* const ALERT_SORT_ORDER =
+    " ORDER BY CASE a.status WHEN 'unhandled' THEN 0 ELSE 1 END, "
+    "CASE at.alert_level WHEN 'crit' THEN 0 WHEN 'error' THEN 1 WHEN 'warn' THEN 2 ELSE 3 END, "
+    "a.created_at DESC";
+}
+
+// 诊断日志写入文件（统一走 Logger 入口）
 static void diagLog(const QString& msg) {
-    QString path = QCoreApplication::applicationDirPath() + "/alert_diag.log";
-    QFile f(path);
-    if (f.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream s(&f);
-        s << QDateTime::currentDateTime().toString("HH:mm:ss.zzz") << " " << msg << "\n";
-        f.close();
-    }
+    Log::appendLog(QCoreApplication::applicationDirPath() + "/alert_diag.log", msg);
 }
 
 // ═══════════════════════════════════════════════
@@ -85,7 +90,7 @@ int AlertDAO::insert(const QJsonObject& alert) {
     q.bindValue(":tld", toolIdVal);
     q.bindValue(":tc", alert["toolCode"].toString(""));
     q.bindValue(":ct", alert["content"].toString());
-    q.bindValue(":st", alert["status"].toString("unhandled"));
+    q.bindValue(":st", alert["status"].toString(SC::ALERT_UNHANDLED));
     q.bindValue(":uid", userIdVal);
     if (!safeExec(q)) { qWarning() << "[AlertDAO] insert:" << q.lastError().text(); return -1; }
     return q.lastInsertId().toInt();
@@ -146,10 +151,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
         "LEFT JOIN sys_user u ON a.user_id=u.user_id "
         "LEFT JOIN tool_info ti ON a.tool_id=ti.tool_id "
         "LEFT JOIN tool_cabinet tc ON ti.cabinet_id=tc.cabinet_id "
-        "WHERE " + where +
-        " ORDER BY CASE a.status WHEN 'unhandled' THEN 0 ELSE 1 END, "
-        "CASE at.alert_level WHEN 'crit' THEN 0 WHEN 'error' THEN 1 WHEN 'warn' THEN 2 ELSE 3 END, "
-        "a.created_at DESC LIMIT :lim OFFSET :off"
+        "WHERE " + where + ALERT_SORT_ORDER + " LIMIT :lim OFFSET :off"
     );
     for (auto it = binds.begin(); it != binds.end(); ++it) dq.bindValue(it.key(), it.value());
     dq.bindValue(":lim", pageSize); dq.bindValue(":off", (page-1)*pageSize);
@@ -235,7 +237,7 @@ int AlertDAO::insertAlert(const AlertLog& a) {
     int result = insertAndGetId(
         "INSERT INTO sys_alert (type_id, alert_type, alert_level, user_id, tool_id, tool_code, content, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        {a.typeId, alertTypeCode, alertLevelStr, userIdVal, toolIdVal, a.toolCode, a.message, "unhandled"});
+        {a.typeId, alertTypeCode, alertLevelStr, userIdVal, toolIdVal, a.toolCode, a.message, SC::ALERT_UNHANDLED});
 
     if (result <= 0) {
         // 增加诊断日志：INSERT失败时输出完整参数，便于定位
@@ -266,13 +268,11 @@ QList<AlertLog> AlertDAO::findAllAlerts(int page, int pageSize,
     // 类型筛选为按type_code匹配
     if (!type.isEmpty())    { sql += " AND at.type_code = ?";  params << type; }
     if (!level.isEmpty())   { sql += " AND at.alert_level = ?"; params << level; }
-    if (handled >= 0)       { sql += " AND a.status = ?";  params << (handled ? "handled" : "unhandled"); }
+    if (handled >= 0)       { sql += " AND a.status = ?";  params << (handled ? SC::ALERT_HANDLED : SC::ALERT_UNHANDLED); }
     if (startDate.isValid()){ sql += " AND a.created_at >= ?";  params << startDate.startOfDay(); }
     if (endDate.isValid())  { sql += " AND a.created_at <= ?";  params << endDate.endOfDay(); }
     // 排序：待处理优先，级别严重优先，时间倒序
-    sql += " ORDER BY CASE a.status WHEN 'unhandled' THEN 0 ELSE 1 END, "
-           "CASE at.alert_level WHEN 'crit' THEN 0 WHEN 'error' THEN 1 WHEN 'warn' THEN 2 ELSE 3 END, "
-           "a.created_at DESC";
+    sql += ALERT_SORT_ORDER;
 
     QList<AlertLog> list;
     QSqlQuery q = query(paginate(sql, page, pageSize), params);
@@ -288,7 +288,7 @@ int AlertDAO::countAlerts(const QString& type, const QString& level,
     QVariantList params;
     if (!type.isEmpty())    { sql += " AND at.type_code = ?";  params << type; }
     if (!level.isEmpty())   { sql += " AND at.alert_level = ?"; params << level; }
-    if (handled >= 0)       { sql += " AND a.status = ?";  params << (handled ? "handled" : "unhandled"); }
+    if (handled >= 0)       { sql += " AND a.status = ?";  params << (handled ? SC::ALERT_HANDLED : SC::ALERT_UNHANDLED); }
     if (startDate.isValid()){ sql += " AND a.created_at >= ?";  params << startDate.startOfDay(); }
     if (endDate.isValid())  { sql += " AND a.created_at <= ?";  params << endDate.endOfDay(); }
     return count(sql, params);

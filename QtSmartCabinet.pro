@@ -21,7 +21,9 @@ SOURCES += \
     src/components/FaceCameraWidget.cpp \
     src/components/SoftKeyboard.cpp \
     src/components/CameraCapture.cpp \
-    src/db/DatabaseManager.cpp \
+    src/common/DatabaseManager.cpp \
+    src/common/DatabaseManagerSchema.cpp \
+    src/common/DatabaseManagerSeed.cpp \
     src/db/UserDAO.cpp \
     src/db/ToolDAO.cpp \
     src/db/RecordDAO.cpp \

@@ -73,7 +73,7 @@ AlertController::DashboardStats AlertController::getDashboardStats() {
     db::RecordDAO recordDao;
     s.totalTools    = toolDao.countTools("", "", "", "");
     s.inStock       = toolDao.countTools("", "", "", SC::TOOL_IN_STOCK);
-    s.borrowed      = toolDao.countTools("", "", "", "borrowed");
+    s.borrowed      = toolDao.countTools("", "", "", SC::TOOL_BORROWED);
     s.alerts        = m_dao.unhandledCount();
     s.activeBorrows = recordDao.activeBorrowCount();
     s.overdueCount  = recordDao.overdueCount();

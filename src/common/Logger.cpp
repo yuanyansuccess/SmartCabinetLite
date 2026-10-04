@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QProcessEnvironment>
@@ -161,6 +162,24 @@ void setSensitiveEnabled(bool on) {
 }
 
 QString logDirectory() { return ensureDir(); }
+
+void appendLog(const QString& filePath, const QString& message) {
+    if (filePath.isEmpty()) return;
+
+    QMutexLocker lock(&g_mutex);
+
+    // 自动创建父目录：兼容 Windows(temp 子目录) 与 麒麟(/tmp) 各种部署路径
+    const QFileInfo fi(filePath);
+    QDir().mkpath(fi.absolutePath());
+
+    QFile f(filePath);
+    if (!f.open(QIODevice::Append | QIODevice::Text)) return;
+    QTextStream ts(&f);
+    ts.setEncoding(QStringConverter::Utf8);
+    ts << QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+       << QLatin1Char(' ') << message << '\n';
+    f.close();
+}
 
 bool isSensitiveMessage(const QString& msg) {
     for (const QString& kw : sensitiveKeywords()) {

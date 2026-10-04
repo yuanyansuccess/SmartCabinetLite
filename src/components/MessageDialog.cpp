@@ -69,14 +69,15 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
     default:      iconBg = "#999";     iconColor = "#fff"; break;
     }
     iconCircle->setStyleSheet(
-        QString("QLabel{background:%1;color:%2;border-radius:20px;font-size:22px;font-weight:bold;}")
+        QString("QLabel{background:%1;color:%2;border-radius:20px;"
+                + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + "font-weight:bold;}")
             .arg(iconBg, iconColor)
     );
 
     // 标题
     auto* titleLabel = new QLabel(title);
     titleLabel->setStyleSheet(
-        "QLabel{font-size:18px;font-weight:700;color:#1a1a2e;background:transparent;}"
+        "QLabel{" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + "font-weight:700;color:#1a1a2e;background:transparent;}"
     );
 
     headerLayout->addWidget(iconCircle);
@@ -94,7 +95,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
         auto* msgLabel = new QLabel(message);
         msgLabel->setWordWrap(true);
         msgLabel->setStyleSheet(
-            "QLabel{font-size:16px;color:#555;line-height:1.6;background:transparent;}"
+            "QLabel{" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "color:#555;line-height:1.6;background:transparent;}"
         );
         bodyLayout->addWidget(msgLabel);
     }
@@ -118,7 +119,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
         cancelBtn->setCursor(Qt::PointingHandCursor);
         cancelBtn->setStyleSheet(
             "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-            "font-size:16px;font-weight:500;}"
+            + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "font-weight:500;}"
             "QPushButton:hover{background:#f5f5f5;border-color:#bbb;}"
             "QPushButton:pressed{}"
         );
@@ -144,7 +145,7 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
     }
     okBtn->setStyleSheet(
         QString("QPushButton{background:%1;color:#fff;border:none;border-radius:12px;"
-                "font-size:16px;font-weight:600;}")
+                + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "font-weight:600;}")
             .arg(okBg)
         + QString("QPushButton:hover{background:%1;}")
             .arg(okHover)
@@ -272,11 +273,12 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
     iconCircle->setFixedSize(40, 40);
     iconCircle->setAlignment(Qt::AlignCenter);
     iconCircle->setStyleSheet(
-        "QLabel{background:#4da3ff;color:#fff;border-radius:20px;font-size:22px;font-weight:bold;}");
+        "QLabel{background:#4da3ff;color:#fff;border-radius:20px;"
+        + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + "font-weight:bold;}");
 
     auto* titleLabel = new QLabel(title);
     titleLabel->setStyleSheet(
-        "QLabel{font-size:18px;font-weight:700;color:#1a1a2e;background:transparent;}");
+        "QLabel{" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + "font-weight:700;color:#1a1a2e;background:transparent;}");
 
     headerLayout->addWidget(iconCircle);
     headerLayout->addWidget(titleLabel, 1);
@@ -292,7 +294,7 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
         auto* msgLabel = new QLabel(message);
         msgLabel->setWordWrap(true);
         msgLabel->setStyleSheet(
-            "QLabel{font-size:16px;color:#555;line-height:1.6;background:transparent;}");
+            "QLabel{" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "color:#555;line-height:1.6;background:transparent;}");
         bodyLayout->addWidget(msgLabel);
     }
     mainLayout->addWidget(bodyWidget);
@@ -313,7 +315,7 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
     discardBtn->setCursor(Qt::PointingHandCursor);
     discardBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:16px;font-weight:500;}"
+        + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "font-weight:500;}"
         "QPushButton:hover{background:#f5f5f5;border-color:#bbb;}"
         "QPushButton:pressed{}");
     btnLayout->addWidget(discardBtn);
@@ -325,7 +327,7 @@ int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const
     saveBtn->setCursor(Qt::PointingHandCursor);
     saveBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:16px;font-weight:600;}"
+        + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "font-weight:600;}"
         "QPushButton:hover{background:#3d8ae0;}"
         "QPushButton:pressed{}");
     saveBtn->setDefault(true);

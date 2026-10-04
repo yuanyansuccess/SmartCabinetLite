@@ -284,9 +284,7 @@ void DashboardPage::setupStatsCards(QHBoxLayout* row) {
 
 QWidget* DashboardPage::createRecentLogsPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet(QString(
-        "background:white; border-radius:12px; border:none;"
-    ));
+    panel->setStyleSheet(StyleHelper::cardWhite());
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -297,7 +295,7 @@ QWidget* DashboardPage::createRecentLogsPanel() {
     auto* headLayout = new QHBoxLayout(head);
     headLayout->setContentsMargins(0, 0, 0, 0);
     auto* title = new QLabel(QStringLiteral("最近操作记录"));
-    title->setStyleSheet("font-size:15px;font-weight:700;color:#1a1a2e;background:transparent;");
+    title->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 700));
     headLayout->addWidget(title);
     headLayout->addStretch();
     // 查看全部按钮样式优化
@@ -336,9 +334,7 @@ QWidget* DashboardPage::createRecentLogsPanel() {
 
 QWidget* DashboardPage::createQuickActionsPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet(QString(
-        "background:white; border-radius:12px; border:none;"
-    ));
+    panel->setStyleSheet(StyleHelper::cardWhite());
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -349,7 +345,7 @@ QWidget* DashboardPage::createQuickActionsPanel() {
     auto* headLayout = new QHBoxLayout(head);
     headLayout->setContentsMargins(0, 0, 0, 0);
     auto* title = new QLabel(QStringLiteral("快捷操作"));
-    title->setStyleSheet("font-size:15px;font-weight:700;color:#1a1a2e;background:transparent;");
+    title->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 700));
     headLayout->addWidget(title);
     layout->addWidget(head);
 
@@ -415,9 +411,7 @@ QWidget* DashboardPage::createQuickActionsPanel() {
 
 QWidget* DashboardPage::createAlertPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet(QString(
-        "background:white; border-radius:12px; border:none;"
-    ));
+    panel->setStyleSheet(StyleHelper::cardWhite());
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -428,7 +422,7 @@ QWidget* DashboardPage::createAlertPanel() {
     auto* headLayout = new QHBoxLayout(head);
     headLayout->setContentsMargins(0, 0, 0, 0);
     auto* title = new QLabel(QStringLiteral("实时告警"));
-    title->setStyleSheet("font-size:15px;font-weight:700;color:#1a1a2e;background:transparent;");
+    title->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 700));
     headLayout->addWidget(title);
     // 告警数量角标（动态更新，保存引用）
     m_alertBadge = new QLabel(QStringLiteral("0"));
@@ -897,7 +891,7 @@ QWidget* DashboardPage::createFunctionCards() {
 QWidget* DashboardPage::createUserRecentBorrowsPanel() {
     // 复刻Vue版 用户最近借用记录面板
     auto* panel = new QFrame();
-    panel->setStyleSheet("background:white; border-radius:12px; border:none;");
+    panel->setStyleSheet(StyleHelper::cardWhite());
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -945,7 +939,7 @@ QWidget* DashboardPage::createUserRecentBorrowsPanel() {
 QWidget* DashboardPage::createUserReturnRemindersPanel() {
     // 复刻Vue版 归还提醒面板
     auto* panel = new QFrame();
-    panel->setStyleSheet("background:white; border-radius:12px; border:none;");
+    panel->setStyleSheet(StyleHelper::cardWhite());
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);

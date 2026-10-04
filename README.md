@@ -100,7 +100,7 @@ SmartCabinetLite/
 │   ├── model/          # 领域模型 - 纯数据结构
 │   ├── common/         # 基础设施 - 连接管理/配置/常量(SC::)
 │   └── utils/          # 工具类 - StyleHelper(颜色+Token令牌)
-├── tests/              # 单元测试(test_components)
+├── tests/              # 单元测试(test_core_logic / test_components / test_services / test_dao)
 ├── tools/face-recognition/  # 人脸识别Node服务(face-server.js, 8089端口)
 ├── kylin/              # 麒麟适配脚本
 ├── docs/               # 业务逻辑与架构文档
@@ -158,6 +158,30 @@ SmartCabinetLite/
 - 参数化SQL查询防注入
 - 智能指针管理资源
 - 文件头统一注明作者袁燕
+- **状态值一律用 `SC::` 常量**，禁止裸字符串（`tools/arch_guard.py` 规则6自动守护）
+- **字号/触屏控件高度用 `StyleHelper::Token`**，Token 已有的取值禁止裸写数字（规则7）
+- 提交前必跑：`python tools/arch_guard.py` + 四套单测（见"开发自查清单"）
+
+### 代码地图：我要改 X → 动哪些文件
+> 大文件均已按职责物理拆分，改前先看这张表，避免在错误的文件里找。
+
+| 要改什么 | 动哪个文件 |
+|----------|------------|
+| 登录页 UI 骨架 / 人脸回调 / 账号密码 | `LoginPage.cpp` / `LoginPageUI.cpp` / `LoginPageFace.cpp` |
+| 系统设置：网络 / 亮度 / 系统信息 / 备份 / 面板骨架 | `SystemSettingsPageNetwork.cpp` / `...Display.cpp` / `...SystemInfo.cpp` / `...Backup.cpp` / `...Panels.cpp` |
+| 用户管理：增删改对话框 / 人脸录入 | `UserManagementPageUserDialog.cpp` / `...FaceEnroll.cpp` |
+| 工具管理：详情 / 文档 / 表单 | `ToolManagementPageDetail.cpp` / `...Document.cpp` / `...ToolForm.cpp` |
+| 借还：借用流程 / 入库对话框 / 出库对话框 | `ToolBorrowPageFlow.cpp` / `ToolCheckinPageDialog.cpp` / `ToolCheckoutPageDialog.cpp` |
+| 工具数据访问：核心CRUD / 实体操作 / 分类柜体 / 统计机组 / 位置映射 / 维护页 | `db/ToolDAO.cpp` / `ToolDAOToolEntity.cpp` / `ToolDAOCategory.cpp` / `ToolDAOMachineGroup.cpp` / `ToolDAOPosition.cpp` / `ToolDAOMaintenance.cpp` / `ToolDAOMapping.cpp` |
+| 状态值 / 阈值 / 默认值 | `common/Constants.h`（`SC::` 命名空间，**唯一定义点**） |
+| 颜色 / 字号 / 圆角令牌 | `utils/StyleHelper.h`（`StyleHelper::Token` 与颜色方法） |
+| 架构分层是否被破坏 | `tools/arch_guard.py`（7 条规则自动守护） |
+
+### 开发自查清单（每次改完必做）
+1. 编译：`MSBuild build/QtSmartCabinet.sln /t:Build /p:Configuration=Debug /p:Platform=x64` → 0 错误
+2. 四套单测全绿（无 MySQL 环境时 DB 用例自动 SKIP，属正常）
+3. `python tools/arch_guard.py` → 全部架构规则通过
+4. 改动涉及 UI 时启动主程序目视确认（触屏尺寸/字号/颜色不得变化）
 
 ---
 

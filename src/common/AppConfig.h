@@ -8,6 +8,13 @@
 
 class AppConfig {
 public:
+    /// 默认构造：读写程序目录下的 system.ini
+    /// 生产代码统一用 instance()；放开构造权限是为了让测试能构造独立实例。
+    AppConfig();
+    /// 指定INI路径构造：供测试使用独立配置，避免多实例争抢或污染生产 system.ini
+    explicit AppConfig(const QString& iniPath);
+    ~AppConfig();
+
     static AppConfig& instance();
 
     // ═══════════════════════════════════════════════
@@ -108,11 +115,11 @@ public:
     QString iniFilePath() const;  // 返回INI文件路径
 
 private:
-    AppConfig();
-    ~AppConfig();
     AppConfig(const AppConfig&) = delete;
     AppConfig& operator=(const AppConfig&) = delete;
 
+    /// 按指定路径初始化：不存在时创建默认INI，随后加载到内存
+    void initFromIniFile(const QString& path);
     // 首次运行时创建默认INI文件（与执行文件同级）
     void createDefaultIni(const QString& path);
 

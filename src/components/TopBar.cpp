@@ -7,6 +7,7 @@
 #include "TopBar.h"
 #include "common/AppConfig.h"  // 从AppConfig读取软件版本号
 #include "common/DatabaseManager.h"  // 网络状态检测用数据库连接
+#include "utils/StyleHelper.h"  // 字号/颜色统一走 StyleHelper::Token
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFont>
@@ -64,7 +65,7 @@ void TopBar::setupUI() {
         logoIcon->setPixmap(logoPix.scaled(44, 44, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
         logoIcon->setText(QStringLiteral("CF"));
-        logoIcon->setStyleSheet("font-size:18px; font-weight:bold; color:#1a1a2e; background:transparent;");
+        logoIcon->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " font-weight:bold; color:#1a1a2e; background:transparent;");
     }
     leftLayout->addWidget(logoIcon);
 
@@ -78,14 +79,14 @@ void TopBar::setupUI() {
     // 品牌标题
     QLabel* brandTitle = new QLabel(QStringLiteral("智能工具柜管理系统"));
     brandTitle->setStyleSheet(
-        "color:#1a1a2e; font-size:20px; font-weight:bold; "
+        "color:#1a1a2e; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight:bold; "
         "letter-spacing:2px; background:transparent;");
     leftLayout->addWidget(brandTitle);
 
     // 面包屑
     m_pageTitle = new QLabel();
     m_pageTitle->setStyleSheet(
-        "color:#99a0aa; font-size:14px; background:transparent; "
+        "color:#99a0aa; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " background:transparent; "
         "margin-left:4px;");
     leftLayout->addWidget(m_pageTitle);
 
@@ -119,7 +120,7 @@ void TopBar::setupUI() {
     // 电池电量指示器
     m_batteryLabel = new QLabel();
     m_batteryLabel->setStyleSheet(
-        "color:#8a8a8a; font-size:13px; background:transparent; font-weight:400;"
+        "color:#8a8a8a; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:400;"
         "padding:4px 10px; border-radius:14px;");
     m_batteryLabel->setAlignment(Qt::AlignCenter);
     rightLayout->addWidget(m_batteryLabel);
@@ -127,7 +128,7 @@ void TopBar::setupUI() {
     // 网络状态指示器
     m_networkLabel = new QLabel();
     m_networkLabel->setStyleSheet(
-        "color:#8a8a8a; font-size:13px; background:transparent; font-weight:400;"
+        "color:#8a8a8a; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:400;"
         "padding:4px 10px; border-radius:14px;");
     m_networkLabel->setAlignment(Qt::AlignCenter);
     rightLayout->addWidget(m_networkLabel);
@@ -135,7 +136,7 @@ void TopBar::setupUI() {
     // 实时时钟 — 淡灰色小字，弱化不抢眼，不带任何装饰背景
     m_clockLabel = new QLabel();
     m_clockLabel->setStyleSheet(
-        "color:#8a8a8a; font-size:13px; background:transparent; font-weight:400;");
+        "color:#8a8a8a; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:400;");
     m_clockLabel->setAlignment(Qt::AlignCenter);
     rightLayout->addWidget(m_clockLabel);
 
@@ -150,7 +151,7 @@ void TopBar::setupUI() {
     m_userAvatar->setStyleSheet(
         "background:qlineargradient(x1:0,y1:0,x2:1,y2:1,"
         "stop:0 #4da3ff,stop:1 #6c5ce7);"
-        "color:#ffffff; font-size:16px; font-weight:600; "
+        "color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " font-weight:600; "
         "border-radius:18px;");
     userLayout->addWidget(m_userAvatar);
 
@@ -163,11 +164,11 @@ void TopBar::setupUI() {
 
     m_userNameLabel = new QLabel(QStringLiteral("未登录"));
     m_userNameLabel->setStyleSheet(
-        "color:#1a1a2e; font-size:15px; font-weight:600; background:transparent;");
+        "color:#1a1a2e; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " font-weight:600; background:transparent;");
 
     m_userDeptLabel = new QLabel();
     m_userDeptLabel->setStyleSheet(
-        "color:#8a8a8a; font-size:12px; background:transparent;");
+        "color:#8a8a8a; " + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + " background:transparent;");
 
     userTextLayout->addWidget(m_userNameLabel);
     userTextLayout->addWidget(m_userDeptLabel);
@@ -182,7 +183,7 @@ void TopBar::setupUI() {
     logoutBtn->setFixedHeight(36);
     logoutBtn->setStyleSheet(
         "QPushButton { "
-        "  color:#666666; font-size:14px; font-weight:500; "
+        "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
         "  border:none; border-radius:18px; "
         "  background:transparent; padding:0 18px; "
         "}"
@@ -201,7 +202,7 @@ void TopBar::setupUI() {
     exitBtn->setFixedHeight(36);
     exitBtn->setStyleSheet(
         "QPushButton { "
-        "  color:#e74c3c; font-size:14px; font-weight:600; "
+        "  color:#e74c3c; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:600; "
         "  border:none; border-radius:18px; "
         "  background:transparent; padding:0 18px; "
         "}"
@@ -300,7 +301,7 @@ void TopBar::updateBatteryStatus() {
 
     m_batteryLabel->setText(QStringLiteral("%1 %2").arg(icon, percentStr));
     m_batteryLabel->setStyleSheet(QString(
-        "color:%1; font-size:13px; background:transparent; font-weight:500;"
+        "color:%1; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
         "padding:4px 10px; border-radius:14px;").arg(color));
 }
 
@@ -352,12 +353,12 @@ void TopBar::showNetworkState(bool online) {
     if (online) {
         m_networkLabel->setText(QStringLiteral("🟢 已联网"));
         m_networkLabel->setStyleSheet(
-            "color:#43a047; font-size:13px; background:transparent; font-weight:500;"
+            "color:#43a047; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
             "padding:4px 10px; border-radius:14px;");
     } else {
         m_networkLabel->setText(QStringLiteral("🔴 未联网"));
         m_networkLabel->setStyleSheet(
-            "color:#e74c3c; font-size:13px; background:transparent; font-weight:500;"
+            "color:#e74c3c; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
             "padding:4px 10px; border-radius:14px;");
     }
 }

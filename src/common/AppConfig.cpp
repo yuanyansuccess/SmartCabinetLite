@@ -12,18 +12,24 @@ AppConfig& AppConfig::instance() {
     return inst;
 }
 
+// 生产路径：ini 文件与执行文件同级，文件名 system.ini
 AppConfig::AppConfig()
+    : AppConfig(QCoreApplication::applicationDirPath() + "/system.ini")
+{
+}
+
+// 指定路径构造：测试可传入独立 ini，避免与生产 system.ini 互相干扰
+AppConfig::AppConfig(const QString& iniPath)
     : m_settings(nullptr)
     , m_host(SC::DB_HOST), m_port(SC::DB_PORT)
     , m_name(SC::DB_NAME), m_user(SC::DB_USER), m_pass(SC::DB_PASS)
     , m_localGroupId(0)
 {
-    // 使用显式INI文件路径，存放在程序目录下的config/子目录
-    // 要求：必须有和执行文件同级的ini文件
-    // 方案：ini文件直接放在程序根目录下（与exe同级），文件名system.ini
-    // 原先放在config/子目录调整为与exe同级，更符合用户习惯
-    QString appDir = QCoreApplication::applicationDirPath();
-    m_iniPath = appDir + "/system.ini";
+    initFromIniFile(iniPath);
+}
+
+void AppConfig::initFromIniFile(const QString& path) {
+    m_iniPath = path;
     // 首次运行时创建默认INI文件，写入软件版本等默认值
     if (!QFile::exists(m_iniPath)) {
         createDefaultIni(m_iniPath);

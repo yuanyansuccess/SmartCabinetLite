@@ -13,6 +13,14 @@
 
 namespace db {
 
+// 借用记录排序片段：进行中/逾期优先，其次按借用时间倒序
+// findByToolId 与 findByMappingId 共用，避免两处重复维护同一排序规则
+namespace {
+const char* const BORROW_RECORD_ORDER =
+    "ORDER BY CASE r.status WHEN 'borrowing' THEN 0 WHEN 'overdue' THEN 0 ELSE 1 END, "
+    "r.borrow_time DESC ";
+}
+
 // ═══════════════════════════════════════════════
 // 实体类转换 — 从dao/RecordDAO.cpp合并
 // ═══════════════════════════════════════════════
@@ -201,13 +209,11 @@ int RecordDAO::countActiveByMachineGroup(int machineGroupId) {
 //   要求详情页借用记录既体现借用中也体现已归还
 QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    q.prepare("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
-              "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
-              "FROM tool_borrow_record r "
-              "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-              "WHERE r.tool_id = :tid "
-              "ORDER BY CASE r.status WHEN 'borrowing' THEN 0 WHEN 'overdue' THEN 0 ELSE 1 END, "
-              "r.borrow_time DESC LIMIT :lim");
+    q.prepare(QString("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
+                      "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
+                      "FROM tool_borrow_record r "
+                      "LEFT JOIN sys_user u ON r.user_id = u.user_id "
+                      "WHERE r.tool_id = :tid ") + BORROW_RECORD_ORDER + "LIMIT :lim");
     q.bindValue(":tid", toolId);
     q.bindValue(":lim", limit);
     QJsonArray list;
@@ -232,13 +238,11 @@ QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
 // 返回：QJsonArray，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName
 QJsonArray RecordDAO::findByMappingId(int mappingId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    q.prepare("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
-              "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
-              "FROM tool_borrow_record r "
-              "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-              "WHERE r.mapping_id = :mid "
-              "ORDER BY CASE r.status WHEN 'borrowing' THEN 0 WHEN 'overdue' THEN 0 ELSE 1 END, "
-              "r.borrow_time DESC LIMIT :lim");
+    q.prepare(QString("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
+                      "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
+                      "FROM tool_borrow_record r "
+                      "LEFT JOIN sys_user u ON r.user_id = u.user_id "
+                      "WHERE r.mapping_id = :mid ") + BORROW_RECORD_ORDER + "LIMIT :lim");
     q.bindValue(":mid", mappingId);
     q.bindValue(":lim", limit);
     QJsonArray list;
@@ -650,10 +654,10 @@ QJsonArray RecordDAO::findRecentActivity(int limit) {
         QString status = q.value("status").toString();
         o["time"]   = q.value("borrow_time").toString();
         o["user"]   = q.value("user_name").toString();
-        o["type"]   = (status == "returned") ? QStringLiteral("归还") : QStringLiteral("借用");
+        o["type"]   = (status == SC::RECORD_RETURNED) ? QStringLiteral("归还") : QStringLiteral("借用");
         o["tool"]   = q.value("tool_name").toString();
         o["qty"]    = q.value("borrow_qty").toInt();
-        o["status"] = (status == "returned") ? QStringLiteral("已归还") : QStringLiteral("已借出");
+        o["status"] = (status == SC::RECORD_RETURNED) ? QStringLiteral("已归还") : QStringLiteral("已借出");
         arr.append(o);
     }
     return arr;

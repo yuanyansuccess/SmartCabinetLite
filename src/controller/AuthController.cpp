@@ -167,10 +167,10 @@ double AuthController::faceSimilarity(const QString& f1, const QString& f2) {
         if (decodedStr.isEmpty()) decodedStr = s;
 
         QStringList parts = decodedStr.split(',', Qt::SkipEmptyParts);
-        for (const QString& p : parts) {
-            bool ok;
-            double v = p.trimmed().toDouble(&ok);
-            if (ok) vec.append(v);
+        for (const QString& part : parts) {
+            bool ok = false;
+            double dimValue = part.trimmed().toDouble(&ok);
+            if (ok) vec.append(dimValue);
         }
         return vec;
     };

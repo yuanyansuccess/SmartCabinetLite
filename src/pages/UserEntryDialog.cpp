@@ -91,7 +91,7 @@ void UserEntryDialog::showBorrowDetail()
     QDialog dlg(this);
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setModal(true);
-    dlg.setStyleSheet("QDialog { background: " + StyleHelper::bgColor() + "; }");
+    dlg.setStyleSheet(StyleHelper::dialogBackground());
 
     auto* lay = new QVBoxLayout(&dlg);
     lay->setContentsMargins(40, 28, 40, 36);
@@ -100,8 +100,7 @@ void UserEntryDialog::showBorrowDetail()
     // 标题
     auto* title = new QLabel(QStringLiteral("借 用 明 细"));
     title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet(QString("font-size: 30px; font-weight: 700; color: %1; background: transparent;")
-                             .arg(StyleHelper::textColor()));
+    title->setStyleSheet(StyleHelper::largeTitleText());
     lay->addWidget(title);
 
     // 统计行
@@ -210,7 +209,7 @@ void UserEntryDialog::showAlertDialog()
     QDialog dlg(this);
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setModal(true);
-    dlg.setStyleSheet("QDialog { background: " + StyleHelper::bgColor() + "; }");
+    dlg.setStyleSheet(StyleHelper::dialogBackground());
 
     auto* lay = new QVBoxLayout(&dlg);
     lay->setContentsMargins(40, 28, 40, 36);
@@ -219,8 +218,7 @@ void UserEntryDialog::showAlertDialog()
     // 标题
     auto* title = new QLabel(QStringLiteral("告 警 日 志"));
     title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet(QString("font-size: 30px; font-weight: 700; color: %1; background: transparent;")
-                             .arg(StyleHelper::textColor()));
+    title->setStyleSheet(StyleHelper::largeTitleText());
     lay->addWidget(title);
 
     // 统计行

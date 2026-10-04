@@ -35,14 +35,6 @@ public:
                       const QString& expectedReturnTime, const QString& flowNo,
                       int machineGroupId = 0);
 
-    /**
-     * @brief 获取用户借用记录
-     * @param userId 用户ID
-     * @param page 页码
-     * @param pageSize 每页数量
-     * @return 借用记录列表
-     */
-    QJsonObject getUserRecords(int userId, int page = 1, int pageSize = 20);
     QJsonObject getAllRecords(int page = 1, int pageSize = 20);  // 所有借用记录
 
     /**
@@ -72,14 +64,4 @@ public:
      * @return 工具列表
      */
     QJsonObject getAllInStockTools(int page = 1, int pageSize = 100, int machineGroupId = 0);
-
-    /**
-     * @brief 搜索在库工具（支持关键词）
-     * @param keyword 搜索关键词
-     * @param page 页码
-     * @param pageSize 每页数量
-     * @return 工具列表
-     * 新增方法，替代页面直接调用db/ToolDAO
-     */
-    QJsonObject searchTools(const QString& keyword, int page = 1, int pageSize = 100, int machineGroupId = 0);
 };

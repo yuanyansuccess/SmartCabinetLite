@@ -91,11 +91,11 @@ void SoftKeyboard::setupUI() {
     tbLayout->setContentsMargins(16, 0, 12, 0);
 
     QLabel* dragIcon = new QLabel(QStringLiteral("⠿"));
-    dragIcon->setStyleSheet("font-size:16px; color:#bbbbbb; background:transparent;");
+    dragIcon->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color:#bbbbbb; background:transparent;");
     tbLayout->addWidget(dragIcon);
 
     QLabel* title = new QLabel(QStringLiteral("安全软键盘"));
-    title->setStyleSheet("font-size:13px; font-weight:600; color:#888888; background:transparent;");
+    title->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontSmall) + " font-weight:600; color:#888888; background:transparent;");
     tbLayout->addWidget(title);
     tbLayout->addStretch();
 
@@ -104,7 +104,7 @@ void SoftKeyboard::setupUI() {
     closeBtn->setFixedSize(34, 34);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
-        "QPushButton { border:none; border-radius:8px; font-size:18px; font-weight:700; "
+        "QPushButton { border:none; border-radius:8px; " + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " font-weight:700; "
         "color:#999999; background:transparent; }"
         "QPushButton:hover { background:#ffebee; color:#e74c3c; }"
         "QPushButton:pressed { transform:scale(0.9); }");
@@ -126,13 +126,13 @@ void SoftKeyboard::setupUI() {
 
     m_displayLabel = new QLabel();
     m_displayLabel->setStyleSheet(
-        "font-size:18px; font-weight:600; letter-spacing:2px; "
+        StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " font-weight:600; letter-spacing:2px; "
         "color:#333333; background:transparent;");
     dispLayout->addWidget(m_displayLabel, 1);
 
     m_displayCount = new QLabel();
     m_displayCount->setStyleSheet(
-        "font-size:13px; color:#999999; font-weight:500; background:transparent;");
+        StyleHelper::fontSize(StyleHelper::Token::FontSmall) + " color:#999999; font-weight:500; background:transparent;");
     m_displayCount->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     dispLayout->addWidget(m_displayCount);
     m_mainLayout->addWidget(m_displayArea);
@@ -232,7 +232,7 @@ void SoftKeyboard::rebuildKeys() {
             style = QString(
                 "QPushButton { "
                 "  min-height:56px; border:1px solid #d0d5dd; border-radius:12px; "
-                "  background:#e8ecf0; font-size:20px; font-weight:600; "
+                "  background:#e8ecf0; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight:600; "
                 "  font-family:\"Microsoft YaHei\"; "
                 "  color:#5a6270; "
                 "}"
@@ -243,7 +243,7 @@ void SoftKeyboard::rebuildKeys() {
             style = QString(
                 "QPushButton { "
                 "  min-height:56px; border:1px solid #c8cdd5; border-radius:12px; "
-                "  background:#ffffff; font-size:20px; font-weight:600; "
+                "  background:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight:600; "
                 "  font-family:\"Microsoft YaHei\"; "
                 "  color:#1a1a2e; "
                 "}"
@@ -306,7 +306,7 @@ void SoftKeyboard::updateDisplay() {
 
     m_displayLabel->setText(text.isEmpty() ? "" : text);
     m_displayLabel->setStyleSheet(
-        "font-size:18px; font-weight:600; letter-spacing:2px; "
+        StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " font-weight:600; letter-spacing:2px; "
         "color:#333333; background:transparent;");
     m_displayCount->setText(QString("%1").arg(text.length()));
 }
