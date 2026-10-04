@@ -789,6 +789,13 @@ void LoginPage::stopFaceRecognition() {
 
 void LoginPage::onFaceDetected() {
     m_faceResult = FaceResult::Scanning;
+    // 距离过远时保持"请靠近"提示，不被"已检测到人脸"覆盖
+    if (m_faceCamera && m_faceCamera->isFaceTooFar()) {
+        m_cameraStatusText->setText(QStringLiteral("请靠近"));
+        m_cameraStatusText->setStyleSheet(
+            "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
+        return;
+    }
     m_cameraStatusText->setText(QStringLiteral("已检测到人脸，请保持不动..."));
 }
 
@@ -812,6 +819,7 @@ void LoginPage::onFaceTooFarChanged(bool tooFar) {
     m_cameraStatusText->setText(QStringLiteral("请靠近"));
     m_cameraStatusText->setStyleSheet(
         "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
+    m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
 }
 
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
@@ -836,6 +844,19 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     QString descriptor = m_faceCamera->getLastDescriptor();
     if (descriptor.isEmpty()) {
         qWarning() << "[LoginPage] 人脸特征提取失败(描述符为空), confidence:" << confidence;
+
+        // 距离过远优先提示：此时特征必然不可用，直接引导靠近而不是让用户
+        // 看到"识别失败"（用户会误以为自己没录入）
+        if (m_faceCamera && m_faceCamera->isFaceTooFar()) {
+            m_cameraStatusText->setText(QStringLiteral("请靠近"));
+            m_cameraStatusText->setStyleSheet(
+                "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
+            m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
+            m_faceCamera->reset();
+            m_faceResult = FaceResult::Scanning;
+            return;
+        }
+
         // 已采集足够帧数但没有有效特征 → 直接切换密码登录
         if (m_captureCount >= 2) {
             stopDotBlink();
@@ -1017,6 +1038,17 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
         return;
     }
     stopDotBlink();
+    // 距离过远时不要判定为陌生人：特征质量不足会导致相似度偏低，
+    // 此时把人判成"陌生人"会让已录入用户困惑，应引导靠近后重试
+    if (m_faceCamera && m_faceCamera->isFaceTooFar()) {
+        m_cameraStatusText->setText(QStringLiteral("请靠近"));
+        m_cameraStatusText->setStyleSheet(
+            "font-size:16px; font-weight:700; color:#fa8c16; background:transparent;");
+        m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
+        m_faceResult = FaceResult::Scanning;
+        m_faceCamera->reset();
+        return;
+    }
     // 陌生人检测后停止摄像头采集
     stopFaceRecognition();
     setStatusDot("background:#faad14;");

@@ -265,6 +265,7 @@ void FaceCameraWidget::captureNow()
         bool ok = extractor.extract(m_lastFrame, feature, deepConfidence, errMsg);
 
         m_lastDescriptor.clear();
+        m_lastExtractError.clear();
         if (ok && !feature.isEmpty())
         {
             QStringList parts = feature.split(",", Qt::SkipEmptyParts);
@@ -273,6 +274,18 @@ void FaceCameraWidget::captureNow()
                 bool convOk = false;
                 double v = parts[i].trimmed().toDouble(&convOk);
                 if (convOk) m_lastDescriptor.append(v);
+            }
+        }
+        else
+        {
+            // 保留失败原因：服务端已能识别"距离过远"并回传明确文案，
+            // 这里转成距离状态，让页面层提示"请靠近"而不是笼统的"识别失败"
+            m_lastExtractError = errMsg;
+            if (errMsg.contains(QStringLiteral("靠近"))) {
+                if (!m_faceTooFar) {
+                    m_faceTooFar = true;
+                    emit faceTooFarChanged(true);
+                }
             }
         }
 

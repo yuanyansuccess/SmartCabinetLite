@@ -91,12 +91,18 @@ async function extractFeature(imageBase64) {
         if (box) {
             const faceSize = Math.min(box.width, box.height);
             if (faceSize < FACE_MIN_SIZE) {
+                // 记录尺寸便于现场校准阈值（不含身份信息，可安全落盘）
+                console.log(`[face-server] 人脸过小(${Math.round(faceSize)}px < ${FACE_MIN_SIZE}px)，提示靠近`);
                 return {
                     success: false,
                     error: '请靠近',
                     code: 'FACE_TOO_FAR',
                     faceSize: Math.round(faceSize)
                 };
+            }
+            // 正常距离时按需记录（SC_DEBUG_FACE=1 开启，避免高频刷盘）
+            if (process.env.SC_DEBUG_FACE === '1') {
+                console.log(`[face-server] faceSize=${Math.round(faceSize)}px 判定=正常`);
             }
         }
         // [V2.16 2026-07-06] 返回68关键点坐标，供Qt端方位判断

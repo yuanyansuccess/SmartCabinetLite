@@ -142,6 +142,7 @@ private:
     bool m_cameraAvailable = false;
     bool m_faceDetected = false;
     bool m_faceTooFar = false;               // 人脸框过小（距离过远）
+    QString m_lastExtractError;             // 最近一次特征提取失败原因（供页面层给出准确提示）
     bool m_capturing = false;
     int m_stableCount = 0;
     int m_borderGlow = 0;
