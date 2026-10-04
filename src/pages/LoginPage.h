@@ -194,6 +194,14 @@ private:
     // 状态
     FaceResult m_faceResult = FaceResult::Idle;  // 状态机当前状态
     bool m_isVerifying = false;
+    /**
+     * 识别采样预算：单次登录最多比对的帧数与最长等待时间。
+     * 远距离/角度不佳时特征相似度天然偏低，而"多帧取最优"可在
+     * 不降低任何阈值的前提下提升可用性（判定标准不变，安全性不受影响）。
+     */
+    int  m_verifyBudget = 0;        // 已比对帧数
+    qint64 m_verifyStartMs = 0;     // 首次比对起始时间
+
     QTimer* m_timeoutTimer;
     QTimer* m_autoJumpTimer;
 

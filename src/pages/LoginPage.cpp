@@ -701,6 +701,8 @@ void LoginPage::startFaceRecognition() {
     m_samples.clear();
     m_captureCount = 0;
     m_isVerifying = false;
+    m_verifyBudget = 0;        // 新一轮识别，重置采样预算
+    m_verifyStartMs = 0;
 
     // 重置所有面板可见性
     m_successBox->setVisible(false);
@@ -854,6 +856,8 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
             m_subtitleLabel->setText(QStringLiteral("距离过远，请靠近摄像头"));
             m_faceCamera->reset();
             m_faceResult = FaceResult::Scanning;
+            m_verifyBudget = 0;        // 距离原因，重置预算避免浪费在无效帧上
+            m_verifyStartMs = 0;
             return;
         }
 
@@ -923,10 +927,13 @@ void LoginPage::collectBestSample() {
     m_cameraStatusText->setText(QStringLiteral("正在验证身份..."));
     m_captureProgress->setVisible(false);
 
-    // 按质量排序选最佳
+    // 按质量排序：从最优帧开始逐帧尝试（失败会自动换下一帧，见 handleVerifyFailure）
     std::sort(m_samples.begin(), m_samples.end(),
               [](const FaceSample& a, const FaceSample& b) { return a.quality > b.quality; });
 
+    if (m_verifyBudget == 0) {
+        m_verifyStartMs = QDateTime::currentMSecsSinceEpoch();
+    }
     auto& best = m_samples.first();
     verifyFace(best.descriptor, best.image);
 }
@@ -954,6 +961,12 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
 void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     FaceRecognitionService svc;
     auto result = svc.matchFace(descriptor);  // 使用默认参数(0.94/0.95/0.35/0.15/0.80)
+
+    // 记录本次相似度：便于现场判断"差多少到阈值"（SC_LOG_SENSITIVE=1 可见）
+    ++m_verifyBudget;
+    qInfo() << "[LoginPage] 第" << m_verifyBudget << "帧比对 相似度="
+            << QString::number(result.similarity, 'f', 4)
+            << (result.success ? "通过" : "未通过");
 
     if (result.success) {
         QJsonObject resp;
@@ -1086,6 +1099,16 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
     m_isVerifying = false;
     // 防御：m_samples可能已被异步清空（用户切换登录模式）
     if (m_samples.isEmpty()) {
+        // 本轮候选帧用尽：若仍在采样预算内且未超时，继续等待新一帧，
+        // 而不是立刻让用户输密码（远距离时特征相似度天然偏低，
+        // 多给几次采样机会即可命中，且不降低任何阈值）
+        const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_verifyStartMs;
+        const int budgetLeft = SC::FACE_MATCH_MAX_FRAMES - m_verifyBudget;
+        if (budgetLeft > 0 && elapsed < SC::FACE_MATCH_MAX_WAIT_MS) {
+            m_cameraStatusText->setText(QStringLiteral("请保持不动，正在重试..."));
+            m_faceResult = FaceResult::Scanning;
+            return;   // 等待 onFaceCaptured 送来下一帧
+        }
         setFaceResult(FaceResult::Fail);
         return;
     }
@@ -1264,6 +1287,8 @@ void LoginPage::clearAllForms() {
     m_samples.clear();
     m_captureCount = 0;
     m_faceResult = FaceResult::Scanning;
+    m_verifyBudget = 0;        // 切换登录模式时重置采样预算
+    m_verifyStartMs = 0;
 }
 
 /** 切换到密码登录 */
@@ -1300,6 +1325,8 @@ void LoginPage::retryFace() {
     m_captureCount = 0;
     m_samples.clear();
     m_isVerifying = false;
+    m_verifyBudget = 0;        // 重新尝试时重置采样预算
+    m_verifyStartMs = 0;
     m_strangerBox->setVisible(false);
     startFaceRecognition();
 }

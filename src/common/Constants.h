@@ -110,6 +110,13 @@ const int FONT_SIZE_SMALL  = 14;
 // 特征像素不足会导致相似度下降而识别失败，此时应提示用户靠近而非放宽阈值。
 const int FACE_MIN_SIZE   = 80;
 
+// ── 人脸识别采样预算 ──
+// 单次登录最多比对的帧数与最长等待时间(毫秒)。
+// 远距离或角度不佳时特征相似度天然偏低，"多帧取最优"可在不降低任何阈值的
+// 前提下提升可用性——判定标准不变，陌生人仍无法通过，安全性不受影响。
+const int  FACE_MATCH_MAX_FRAMES = 8;
+const int  FACE_MATCH_MAX_WAIT_MS = 12000;
+
 // ── 统计卡片尺寸 ──
 const int STAT_CARD_HEIGHT      = 100;  // 卡片高度
 const int STAT_CARD_ICON_SIZE   = 56;   // 图标尺寸
