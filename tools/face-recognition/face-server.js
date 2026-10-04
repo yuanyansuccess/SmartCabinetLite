@@ -74,11 +74,17 @@ async function extractFeature(imageBase64) {
     }
 
     const tensor = tf.tensor3d(rgbData, [height, width, 3]);
+    const t0 = Date.now();
     try {
+        // [V2.18 2026-10-04 袁燕] 性能优化：移除 withFaceLandmarks()
+        //   /extract 的唯一产出是 128 维 descriptor，而 68 点 landmark 模型
+        //   是三个模型中最重的之一。经查证 Qt 客户端全项目 0 处消费 landmarks
+        //   （录入测方位的需求由独立的 /posture 端点承担），此处属纯无用计算。
+        //   移除后单次提取耗时显著下降，直接改善"刷卡反应慢"。
         const result = await faceapi.detectSingleFace(
             tensor,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 })
-        ).withFaceLandmarks().withFaceDescriptor();
+        ).withFaceDescriptor();
 
         if (!result || !result.descriptor) {
             return { success: false, error: '未检测到人脸，请正对摄像头' };
@@ -93,7 +99,7 @@ async function extractFeature(imageBase64) {
             const faceSize = Math.min(box.width, box.height);
             if (faceSize < FACE_MIN_SIZE) {
                 // 记录尺寸便于现场校准阈值（不含身份信息，可安全落盘）
-                console.log(`[face-server] 人脸过小(${Math.round(faceSize)}px < ${FACE_MIN_SIZE}px)，提示靠近`);
+                console.log(`[face-server] 人脸过小(${Math.round(faceSize)}px < ${FACE_MIN_SIZE}px)，提示靠近 耗时=${Date.now() - t0}ms`);
                 return {
                     success: false,
                     error: '请靠近',
@@ -103,16 +109,13 @@ async function extractFeature(imageBase64) {
             }
             // 正常距离时按需记录（SC_DEBUG_FACE=1 开启，避免高频刷盘）
             if (process.env.SC_DEBUG_FACE === '1') {
-                console.log(`[face-server] faceSize=${Math.round(faceSize)}px 判定=正常`);
+                console.log(`[face-server] faceSize=${Math.round(faceSize)}px 判定=正常 耗时=${Date.now() - t0}ms`);
             }
         }
-        // [V2.16 2026-07-06] 返回68关键点坐标，供Qt端方位判断
-        const landmarks = result.landmarks.positions.map(p => [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]);
         return {
             success: true,
             descriptor: Array.from(result.descriptor),
-            confidence: result.detection.score || 0.8,
-            landmarks: landmarks
+            confidence: result.detection.score || 0.8
         };
     } finally {
         tensor.dispose();
