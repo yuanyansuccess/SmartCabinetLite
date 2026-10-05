@@ -143,6 +143,9 @@ BatchImportDialog::BatchImportDialog(QWidget* parent)
     setMaximumHeight(560);
 }
 
+/**
+ * @brief 初始化内容
+ */
 void BatchImportDialog::setupContent()
 {
     auto* cl = contentLayout();
@@ -284,6 +287,11 @@ void BatchImportDialog::onDownloadTemplate()
     }
 }
 
+/**
+ * @brief 生成导入模板文件
+ * @param filePath 模板保存路径
+ * @return true=生成成功
+ */
 bool BatchImportDialog::generateTemplate(const QString& filePath)
 {
     QFile file(filePath);
@@ -347,6 +355,9 @@ QString BatchImportDialog::generateNextWorkNo() const
     return userDao.generateNextWorkNo();
 }
 
+/**
+ * @brief 处理文件
+ */
 void BatchImportDialog::onSelectFile()
 {
     QString filePath = QFileDialog::getOpenFileName(
@@ -368,6 +379,9 @@ void BatchImportDialog::onSelectFile()
     m_confirmBtn->setEnabled(true);
 }
 
+/**
+ * @brief 处理确认
+ */
 void BatchImportDialog::onConfirm()
 {
     if (m_filePath.isEmpty()) {
@@ -501,11 +515,18 @@ void BatchImportDialog::onConfirm()
     }
 }
 
+/**
+ * @brief 处理取消
+ */
 void BatchImportDialog::onCancel()
 {
     reject();
 }
 
+/**
+ * @brief 校验导入文件的表头字段是否完整
+ * @return 缺失的字段名列表；全部齐全时返回空列表
+ */
 bool BatchImportDialog::validateHeaders(const QStringList& headers)
 {
     if (headers.size() < TEMPLATE_HEADERS.size()) {
@@ -524,6 +545,9 @@ bool BatchImportDialog::validateHeaders(const QStringList& headers)
     return true;
 }
 
+/**
+ * @brief 校验行
+ */
 QString BatchImportDialog::validateRow(const ImportRow& row)
 {
     if (row.workNo.isEmpty()) {
@@ -553,6 +577,9 @@ QString BatchImportDialog::validateRow(const ImportRow& row)
     return QString();
 }
 
+/**
+ * @brief 解析表格
+ */
 ImportResult BatchImportDialog::parseExcel(const QString& filePath)
 {
     ImportResult result;

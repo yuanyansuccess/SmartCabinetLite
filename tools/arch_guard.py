@@ -12,8 +12,8 @@ COMPONENTS = os.path.join(ROOT, "components")
 SERVICES = os.path.join(ROOT, "services")
 violations = []
 # 规则2 例外：数据库备份属基础设施操作，需连接信息判断DB类型，由页面层调度
-# 备份逻辑已从 SystemSettingsPage.cpp 拆出，两个文件同属备份入口，一并放行
-PAGE_DB_MANAGER_ALLOW = {"SystemSettingsPage.cpp", "SystemSettingsPageBackup.cpp"}
+# 注：备份已统一走 mysqldump 外部命令，不再需要直呼 DatabaseManager
+PAGE_DB_MANAGER_ALLOW = {"SystemSettingsPage.cpp"}
 
 
 def scan(folder, exts=(".cpp", ".h")):

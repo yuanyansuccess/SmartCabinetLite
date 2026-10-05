@@ -1,6 +1,9 @@
+/**
+ * @file BorrowRecord.h
+ * @brief 借用记录实体，字段对齐 tool_borrow_record
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  借用记录实体
-  // 注意：映射表tool_borrow_record，字段对齐数据库schema
 #include <QString>
 #include <QDateTime>
 

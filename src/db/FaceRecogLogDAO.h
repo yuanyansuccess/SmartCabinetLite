@@ -2,7 +2,7 @@
  * @file FaceRecogLogDAO.h
  * @brief 人脸识别识别统计日志数据访问对象 — db/目录统一namespace db
  * @author 袁燕
- *          支撑专利交底书实测数据回填。数据库操作统一在db层（遵守袁总铁律）。
+ *          数据库操作统一在db层（遵守分层规范）。
  */
 #pragma once
 #include <QJsonObject>

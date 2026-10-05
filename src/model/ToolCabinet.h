@@ -1,6 +1,9 @@
+/**
+ * @file ToolCabinet.h
+ * @brief 柜体实体，字段对齐 tool_cabinet
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  工具柜实体
-// 映射表：tool_cabinet
 #include <QString>
 #include <QDateTime>
 

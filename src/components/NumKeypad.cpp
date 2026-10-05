@@ -137,6 +137,9 @@ void NumKeypad::show()
     m_panel->raise();
 }
 
+/**
+ * @brief 隐藏数字键盘面板
+ */
 void NumKeypad::hide()
 {
     // 恢复父控件归属，防止页面销毁时双重删除
@@ -182,6 +185,10 @@ void NumKeypad::attach(QLineEdit* target)
     m_target = target;
 }
 
+/**
+ * @brief 设置数字键是否打乱顺序
+ * @param on true=每次显示随机排列，便于触屏防误触
+ */
 void NumKeypad::setShuffle(bool enable)
 {
     if (m_shuffle == enable) return;
@@ -192,17 +199,28 @@ void NumKeypad::setShuffle(bool enable)
     update();
 }
 
+/**
+ * @brief 设置是否以密码模式显示输入内容
+ * @param on true=显示为掩码
+ */
 void NumKeypad::setShowPassword(bool show)
 {
     m_showPassword = show;
     update();
 }
 
+/**
+ * @brief 读取当前输入内容
+ * @return 输入文本
+ */
 QString NumKeypad::currentText() const
 {
     return m_target ? m_target->text() : QString();
 }
 
+/**
+ * @brief 清空当前输入内容
+ */
 void NumKeypad::clear()
 {
     if (m_target) m_target->clear();
@@ -259,6 +277,10 @@ void NumKeypad::recalcKeyRects()
     }
 }
 
+/**
+ * @brief 尺寸变化事件处理：按新尺寸重排按键
+ * @param event 尺寸变化事件
+ */
 void NumKeypad::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
@@ -283,12 +305,20 @@ void NumKeypad::mouseMoveEvent(QMouseEvent* event)
     if (oldRow != m_hoveredRow || oldCol != m_hoveredCol) update();
 }
 
+/**
+ * @brief 鼠标移出事件处理：隐藏按键高亮
+ * @param event 离开事件
+ */
 void NumKeypad::leaveEvent(QEvent*)
 {
     m_hoveredRow = -1; m_hoveredCol = -1;
     update();
 }
 
+/**
+ * @brief 按键按下事件处理：记录按下位置
+ * @param event 鼠标事件
+ */
 void NumKeypad::mousePressEvent(QMouseEvent* event)
 {
     QPointF pos = event->position();
@@ -310,6 +340,10 @@ void NumKeypad::mousePressEvent(QMouseEvent* event)
     }
 }
 
+/**
+ * @brief 按键释放事件处理：命中按键时输出对应字符
+ * @param event 鼠标事件
+ */
 void NumKeypad::mouseReleaseEvent(QMouseEvent* event)
 {
     QPointF pos = event->position();
@@ -357,6 +391,9 @@ void NumKeypad::appendChar(const QString& ch)
     update();
 }
 
+/**
+ * @brief 删除输入的最后一个字符
+ */
 void NumKeypad::doBackspace()
 {
     if (!m_target) return;

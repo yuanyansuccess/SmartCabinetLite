@@ -8,6 +8,10 @@
 
 namespace db {
 
+/**
+ * @brief 查询全部部门名称
+ * @return 部门名称列表
+ */
 QStringList DepartmentDAO::allNames() {
     QStringList names;
     QSqlQuery q = query("SELECT dept_name FROM sys_department WHERE status=1 ORDER BY sort_order");

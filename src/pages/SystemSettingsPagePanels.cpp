@@ -52,6 +52,9 @@
 #include <QFileInfoList>  // 备份文件清理
 
 
+/**
+ * @brief 创建借用面板
+ */
 QWidget* SystemSettingsPage::createBorrowPanel() {
     auto* panel = new QFrame();
     panel->setObjectName("borrowPanel");

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SettingService.h
  * @brief 系统设置服务
  * @author 袁燕

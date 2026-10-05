@@ -51,6 +51,9 @@
 #include <QRegularExpression>  // 解析os-release
 #include <QFileInfoList>  // 备份文件清理
 
+/**
+ * @brief 应用显示亮度
+ */
 void SystemSettingsPage::applyDisplayBrightness(int percent) {
     // 输入校验：亮度值范围 0-100
     if (percent < 0) percent = 0;
@@ -64,12 +67,8 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 
 /** 亮度调整日志（Windows写项目temp目录，麒麟写/tmp） */
 void SystemSettingsPage::writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode) {
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/brightness.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_brightness.log");
-#endif
+    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
+    QString logPath = Log::logDirectory() + "/brightness.log";
     // 统一走 Logger 入口：时间戳/建目录/UTF-8/异常处理由 Logger 负责
     Log::appendLog(logPath,
                    QStringLiteral("method=%1 brightness=%2% exitCode=%3 result=%4")

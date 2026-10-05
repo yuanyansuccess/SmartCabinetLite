@@ -39,6 +39,10 @@ std::atomic<bool> g_serverReady{false};
 
 DeepFaceExtractor::DeepFaceExtractor(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 定位 Node 可执行文件
+ * @return Node 路径；未找到时返回空字符串
+ */
 QString DeepFaceExtractor::findNodePath() {
     // 通过PATH查找node（跨平台：Windows用where，Linux/macOS用which）
     QProcess envCheck;
@@ -71,6 +75,10 @@ QString DeepFaceExtractor::findNodePath() {
     return QString();
 }
 
+/**
+ * @brief 定位人脸识别服务脚本目录
+ * @return 服务目录路径；未找到时返回空字符串
+ */
 QString DeepFaceExtractor::scriptDir() {
     QString appDir = QCoreApplication::applicationDirPath();
     QStringList candidates = {
@@ -87,6 +95,10 @@ QString DeepFaceExtractor::scriptDir() {
     return appDir + "/tools/face-recognition";
 }
 
+/**
+ * @brief 判断人脸识别服务是否可用
+ * @return true=健康检查通过
+ */
 bool DeepFaceExtractor::isAvailable() {
     QString nodePath = findNodePath();
     if (nodePath.isEmpty()) {
@@ -109,6 +121,10 @@ bool DeepFaceExtractor::isAvailable() {
     return true;
 }
 
+/**
+         * @brief 请求服务健康接口确认其可用
+         * @return true=服务已就绪
+         */
 bool DeepFaceExtractor::checkServerHealth() {
     QNetworkAccessManager mgr;
     QNetworkRequest req;
@@ -137,6 +153,10 @@ bool DeepFaceExtractor::checkServerHealth() {
 /// 本程序拉起的人脸服务子进程（由qApp托管，主程序退出时统一终止）
 static QProcess* g_faceServerProcess = nullptr;
 
+/**
+         * @brief 以子进程方式启动人脸识别服务
+         * @return true=进程已拉起
+         */
 bool DeepFaceExtractor::startServerProcess() {
     if (g_faceServerProcess && g_faceServerProcess->state() != QProcess::NotRunning) {
         return true;  // 已由本程序拉起且仍在运行
@@ -169,6 +189,11 @@ bool DeepFaceExtractor::startServerProcess() {
     return true;
 }
 
+/**
+         * @brief 异步轮询等待服务就绪
+         * @param timeoutMs 最长等待毫秒数
+         * @param callback 就绪或超时后的回调
+         */
 void DeepFaceExtractor::waitReadyAsync(int triedTimes) {
     if (checkServerHealth()) {
         qInfo() << "[DeepFaceExtractor] 人脸识别服务就绪，用时约"
@@ -182,6 +207,10 @@ void DeepFaceExtractor::waitReadyAsync(int triedTimes) {
     QTimer::singleShot(500, qApp, [triedTimes]() { waitReadyAsync(triedTimes + 1); });
 }
 
+/**
+         * @brief 预启动服务，不阻塞调用方
+         * @note 供程序启动阶段调用：主线程拉起进程，QTimer 轮询就绪状态
+         */
 void DeepFaceExtractor::prestartAsync() {
     if (!isAvailable()) {
         qWarning() << "[DeepFaceExtractor] 人脸识别环境不完整(缺少node/脚本/模型)，跳过预启动";
@@ -198,6 +227,9 @@ void DeepFaceExtractor::prestartAsync() {
     });
 }
 
+/**
+         * @brief 关闭由本程序拉起的人脸识别服务进程
+         */
 void DeepFaceExtractor::shutdownServer() {
     g_serverReady = false;
     if (!g_faceServerProcess) return;                 // 未拉起过（外部服务）→ 不干预
@@ -210,6 +242,11 @@ void DeepFaceExtractor::shutdownServer() {
     }
 }
 
+/**
+         * @brief 确保人脸识别服务处于运行状态
+         * @return true=服务可用
+         * @note 优先复用已就绪的服务；未就绪时按需重新拉起并等待
+         */
 bool DeepFaceExtractor::ensureServerRunning() {
     // 0. 已确认就绪（上次健康检查通过且服务未失联）→ 直接返回，避免高频/health探测
     if (g_serverReady) return true;
@@ -265,6 +302,14 @@ bool DeepFaceExtractor::ensureServerRunning() {
     return false;
 }
 
+/**
+         * @brief 向识别服务发起同步 HTTP 请求
+         * @param path 接口路径
+         * @param body 请求体 JSON
+         * @param timeoutMs 超时毫秒数
+         * @param outMessage 失败原因输出参数
+         * @return 响应 JSON；失败时返回空对象
+         */
 QString DeepFaceExtractor::httpPostSync(const QString& url, const QByteArray& body, int timeoutMs) {
     QNetworkAccessManager mgr;
     QUrl reqUrl(url);
@@ -291,6 +336,14 @@ QString DeepFaceExtractor::httpPostSync(const QString& url, const QByteArray& bo
     return result;
 }
 
+/**
+         * @brief 从图像提取人脸特征
+         * @param imageBase64 图像的 Base64 文本
+         * @param outFeature 特征串输出参数（128维，逗号分隔）
+         * @param outConfidence 置信度输出参数
+         * @param outMessage 失败原因输出参数
+         * @return true=提取成功
+         */
 bool DeepFaceExtractor::extract(const QImage& image,
                                  QString& outFeature,
                                  double& outConfidence,

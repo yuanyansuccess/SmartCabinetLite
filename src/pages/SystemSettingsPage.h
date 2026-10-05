@@ -54,7 +54,6 @@ private:
     void updatePowerAlarmBtnStyles();
     void updateSpeedBtnStyles();
     void updateModeBtnStyles();
-    // 已删除：updateFaceSensitivityBtnStyles
     void updateBackupPeriodBtnStyles();
 
     // 创建四个面板
@@ -74,7 +73,6 @@ private:
     void writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode);
     void applyBrightnessWindows(int percent);
     void applyBrightnessLinux(int percent);
-    // 已删除：applyAutoLockTime（自动锁屏时间已移除）
     // 从系统读取真实系统信息（OS/设备编号/运行时长/磁盘空间/CPU/内存）
     void refreshSystemInfo();
     /** 系统信息分项采集（refreshSystemInfo拆解，各方法独立写对应label） */
@@ -141,7 +139,6 @@ private:
     QSpinBox* m_maxBorrowSpin = nullptr;
     QSpinBox* m_defaultPeriodSpin = nullptr;
     QSpinBox* m_returnBufferSpin = nullptr;
-    // 已删除：m_manualUnlockCheck/m_lockTimeSpin/m_faceBtn1-3/m_faceSensitivity
     QSlider* m_brightnessSlider = nullptr;
     QLabel* m_brightnessValueLabel = nullptr;
 
@@ -197,7 +194,6 @@ private:
         bool ledAlert, visionAlert, autoConfirm;
         // 借还设置
         int maxBorrow, defaultPeriod, returnBuffer, brightness;
-        // 已删除：lockTime, faceSensitivity, manualUnlock
         // 备份管理
         bool autoBackup;
         int backupPeriod, cacheHours;

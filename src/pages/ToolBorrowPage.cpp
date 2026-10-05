@@ -49,11 +49,17 @@ ToolBorrowPage::~ToolBorrowPage() {
     delete ui;
 }
 
+/**
+ * @brief 设置用户
+ */
 void ToolBorrowPage::setUser(const QJsonObject& user) {
     m_user = user;
     refresh();
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void ToolBorrowPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_tabWidget = ui->tabWidget;
@@ -95,8 +101,8 @@ void ToolBorrowPage::setupUI() {
     m_allToolTable->horizontalHeader()->setStretchLastSection(false);
     m_allToolTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     m_allToolTable->setColumnWidth(0, 60);
-    for (int c = 1; c < 7; c++) {
-        m_allToolTable->horizontalHeader()->setSectionResizeMode(c, QHeaderView::Stretch);
+    for (int col = 1; col < 7; col++) {
+        m_allToolTable->horizontalHeader()->setSectionResizeMode(col, QHeaderView::Stretch);
     }
     m_allToolTable->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
     m_allToolTable->setColumnWidth(7, 130);
@@ -195,6 +201,9 @@ void ToolBorrowPage::setupUI() {
     popupLayout->addWidget(btnContainer);
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void ToolBorrowPage::refresh() {
     // 切换到本页面时默认显示"借用任务"选项卡
     if (m_tabWidget) m_tabWidget->setCurrentIndex(0);
@@ -248,6 +257,9 @@ void ToolBorrowPage::refresh() {
     loadBorrowRecords();
 }
 
+/**
+ * @brief 加载任务类型
+ */
 void ToolBorrowPage::loadTaskTypes() {
     BorrowService svc;
     QJsonArray types = svc.getTaskTypes();
@@ -310,6 +322,9 @@ void ToolBorrowPage::loadTaskTypes() {
     refreshAllToolTable();
 }
 
+/**
+ * @brief 按所选任务类型加载本机组推荐工具
+ */
 void ToolBorrowPage::loadRecommendedTools() {
     m_recommendedToolIds.clear();
 
@@ -363,6 +378,9 @@ void ToolBorrowPage::loadRecommendedTools() {
     refreshAllToolTable();
 }
 
+/**
+ * @brief 加载全部工具
+ */
 void ToolBorrowPage::loadAllTools() {
     refreshAllToolTable();
 }
@@ -484,8 +502,8 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         // 数量上限为availableQty（可用位置数）
         auto* qtyCombo = new QComboBox();
         int maxQty = qMax(1, availableQty);
-        for (int n = 1; n <= maxQty; ++n) {
-            qtyCombo->addItem(QStringLiteral("%1/%2").arg(n).arg(maxQty), n);
+        for (int qty = 1; qty <= maxQty; ++qty) {
+            qtyCombo->addItem(QStringLiteral("%1/%2").arg(qty).arg(maxQty), qty);
         }
         qtyCombo->setCurrentIndex(isSelected ? (savedQty - 1) : 0);
         qtyCombo->setStyleSheet(QString(
@@ -668,6 +686,9 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
     m_allToolTable->setUpdatesEnabled(true);
 }
 
+/**
+ * @brief 加载借用记录
+ */
 void ToolBorrowPage::loadBorrowRecords() {
     // 显示所有位置的借用记录（不限当前用户）
     BorrowService svc;
@@ -752,19 +773,32 @@ void ToolBorrowPage::onTaskTypeChanged() {
     loadRecommendedTools();
 }
 
+/**
+ * @brief 处理工具选中
+ */
 void ToolBorrowPage::onToolSelected(int row, int col) {
     // 由checkbox处理选择
 }
 
+/**
+ * @brief 处理搜索工具
+ */
 void ToolBorrowPage::onSearchTool() {
     // 搜索行已移除，此方法保留为空避免头文件引用错误
     refreshAllToolTable();
 }
 
+/**
+ * @brief 借用原因变更事件处理
+ * @param reason 新的借用原因
+ */
 void ToolBorrowPage::onReasonChanged(int index) {
     // 暂未使用
 }
 
+/**
+ * @brief 处理任务类型按钮点击事件
+ */
 void ToolBorrowPage::onTaskTypeBtnClicked() {
     if (m_taskTypePopup->isVisible()) {
         m_taskTypePopup->hide();
@@ -840,6 +874,9 @@ void ToolBorrowPage::onToolPrevPage() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolBorrowPage::onToolNextPage() {
     int totalPages = (m_toolTotalRecords + m_toolPageSize - 1) / m_toolPageSize;
     if (m_toolCurrentPage < totalPages) {
@@ -856,6 +893,9 @@ void ToolBorrowPage::onRecordPrevPage() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolBorrowPage::onRecordNextPage() {
     int totalPages = (m_recordTotalRecords + m_recordPageSize - 1) / m_recordPageSize;
     if (m_recordCurrentPage < totalPages) {

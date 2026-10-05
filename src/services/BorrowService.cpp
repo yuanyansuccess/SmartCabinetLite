@@ -20,6 +20,18 @@ using db::TaskTypeDAO;
 
 BorrowService::BorrowService(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 借用工具
+ * @param userId 借用人ID
+ * @param toolId 工具ID
+ * @param mappingId 借用位置映射ID
+ * @param quantity 借用数量，必须大于0
+ * @param reason 借用原因
+ * @param expectedReturnTime 预计归还时间文本
+ * @param flowNo 借用流水号
+ * @return success=是否成功，message=失败原因，recordId=新建记录ID（失败为0）
+ * @note 校验入参与机组归属后在同一事务内写入借用记录并回写位置状态，任一步失败整体回滚
+ */
 BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mappingId, int quantity,
                                                  const QString& reason, const QString& expectedReturnTime,
                                                  const QString& flowNo, int machineGroupId) {
@@ -114,12 +126,27 @@ QJsonObject BorrowService::getAllRecords(int page, int pageSize) {
     return dao.findAll(0, 0, "", "", "", page, pageSize);
 }
 
+/**
+ * @brief 查询全部启用的任务类型
+ * @return 任务类型数组
+ */
 QJsonArray BorrowService::getTaskTypes() { TaskTypeDAO dao; return dao.findAllActive(); }
 
+/**
+ * @brief 按任务类型查询推荐工具
+ * @param typeIds 任务类型ID列表
+ * @param machineGroupId 机组ID，用于限定只返回本机组工具
+ * @return 工具数组
+ */
 QJsonArray BorrowService::getRecommendedTools(const QList<int>& typeIds, int machineGroupId) {
     TaskTypeDAO dao; return dao.findRecommendedToolsByTypes(typeIds, machineGroupId);
 }
 
+/**
+ * @brief 生成借用流水号
+ * @param reason 借用原因，取其前两个字符作为前缀
+ * @return 流水号，格式为 JH-MMdd-前缀hhmm；前缀不足两位时用XX
+ */
 QString BorrowService::generateFlowNo(const QString& reason) {
     QDateTime now = QDateTime::currentDateTime();
     QString mmdd = now.toString("MMdd");
@@ -128,6 +155,13 @@ QString BorrowService::generateFlowNo(const QString& reason) {
     return "JH-" + mmdd + "-" + abbr.toUpper() + hhmm;
 }
 
+/**
+ * @brief 分页查询在库工具
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param machineGroupId 机组ID，用于限定只返回本机组工具
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject BorrowService::getAllInStockTools(int page, int pageSize, int machineGroupId) {
     ToolDAO dao;
     // 按工具种类聚合查询，同一工具一行+availableQty

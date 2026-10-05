@@ -1,9 +1,8 @@
-// 智能柜Qt Widget 2.0  TopBar实现
-// 1:1复刻Web前端TopBar.vue
-// 增强：底部分隔线+大号退出按钮+时间用户名清晰显示
-// 退出按钮为"退出系统"：发射exitSystemClicked信号退出整个应用（非注销）
-// 新增电池电量+网络状态指示器（小米极简美学，不抢眼但清晰）
-// 网络检测为数据库连接状态（网卡Up≠联网），电池增加麒麟支持
+/**
+ * @file TopBar.cpp
+ * @brief 顶部栏实现：品牌标识、系统标题、时钟、用户信息、退出按钮与网络/电量状态
+ * @author 袁燕
+ */
 #include "TopBar.h"
 #include "common/AppConfig.h"  // 从AppConfig读取软件版本号
 #include "common/DatabaseManager.h"  // 网络状态检测用数据库连接
@@ -41,6 +40,9 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     updateNetworkStatus();
 }
 
+/**
+ * @brief 构建顶部栏：品牌标识、系统标题、时钟、用户信息与退出按钮
+ */
 void TopBar::setupUI() {
     setFixedHeight(72);  // 72 增加触屏友好高度
     setStyleSheet(
@@ -218,6 +220,9 @@ void TopBar::setupUI() {
     layout->addWidget(m_rightArea);
 }
 
+/**
+ * @brief 设置用户名称
+ */
 void TopBar::setUserName(const QString& name) {
     m_userNameLabel->setText(name);
     if (!name.isEmpty()) {
@@ -227,10 +232,16 @@ void TopBar::setUserName(const QString& name) {
     }
 }
 
+/**
+ * @brief 设置部门
+ */
 void TopBar::setDepartment(const QString& dept) {
     m_userDeptLabel->setText(dept);
 }
 
+/**
+ * @brief 设置页面标题
+ */
 void TopBar::setPageTitle(const QString& title) {
     if (title.isEmpty()) {
         m_pageTitle->setText("");
@@ -239,6 +250,9 @@ void TopBar::setPageTitle(const QString& title) {
     }
 }
 
+/**
+ * @brief 刷新顶栏时钟与日期显示
+ */
 void TopBar::updateClock() {
     // 显示格式：2026-06-21 19:01:05
     m_clockLabel->setText(
@@ -348,6 +362,9 @@ void TopBar::updateNetworkStatus() {
     m_probeSocket->connectToHost("114.114.114.114", 53);  // 与原实现相同的探测目标
 }
 
+/**
+ * @brief 显示网络状态
+ */
 void TopBar::showNetworkState(bool online) {
     if (!m_networkLabel) return;
     if (online) {

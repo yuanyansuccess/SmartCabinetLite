@@ -6,6 +6,7 @@
 #include "ToolReturnPage.h"
 #include "ui_ToolReturnPage.h"
 #include "components/PaginationBar.h"
+#include "components/FlowDialogs.h"
 #include "utils/StyleHelper.h"
 #include "components/DrawerOpeningDialog.h"
 #include "components/VerifyAlertDialog.h"
@@ -42,11 +43,17 @@ ToolReturnPage::~ToolReturnPage() {
     delete ui;
 }
 
+/**
+ * @brief 设置用户
+ */
 void ToolReturnPage::setUser(const QJsonObject& user) {
     m_user = user;
     refresh();
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void ToolReturnPage::refresh() {
     if (!m_user.isEmpty()) {
         m_userNameLabel->setText(m_user["realName"].toString("--"));
@@ -65,6 +72,9 @@ void ToolReturnPage::refresh() {
     loadRecords();
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void ToolReturnPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_userNameLabel = ui->userNameLabel;
@@ -110,6 +120,9 @@ void ToolReturnPage::setupUI() {
     connect(m_selectAllBtn, &QPushButton::clicked, this, &ToolReturnPage::onReturnSelected);
 }
 
+/**
+ * @brief 加载记录
+ */
 void ToolReturnPage::loadRecords() {
     // 显示所有位置的待归还记录（不限当前用户）
     // 设计理念：管理员需要看到全部借用情况，不只看自己的
@@ -220,6 +233,9 @@ void ToolReturnPage::setPendingReturnRecordId(int recordId) {
     m_pendingReturnRecordId = recordId;
 }
 
+/**
+ * @brief 处理全部
+ */
 void ToolReturnPage::onSelectAll(bool checked) {
     m_checkedRecordIds.clear();
     if (checked) {
@@ -235,6 +251,9 @@ void ToolReturnPage::onSelectAll(bool checked) {
     updateReturnBtn();
 }
 
+/**
+ * @brief 处理归还选中
+ */
 void ToolReturnPage::onReturnSelected() {
     if (m_checkedRecordIds.isEmpty()) {
         MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("请先勾选需要归还的工具"));
@@ -244,6 +263,9 @@ void ToolReturnPage::onReturnSelected() {
     showReturnConfirmDialog();
 }
 
+/**
+ * @brief 处理归还全部
+ */
 void ToolReturnPage::onReturnAll() {
     for (int i = 0; i < m_records.size(); ++i) {
         QJsonObject r = m_records[i].toObject();
@@ -256,6 +278,9 @@ void ToolReturnPage::onReturnAll() {
     updateReturnBtn();
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolReturnPage::onPrevPage() {
     if (m_currentPage > 1) {
         m_currentPage--;
@@ -263,6 +288,9 @@ void ToolReturnPage::onPrevPage() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolReturnPage::onNextPage() {
     int totalPages = qMax(1, (m_totalRecords + m_pageSize - 1) / m_pageSize);
     if (m_currentPage < totalPages) {
@@ -271,6 +299,9 @@ void ToolReturnPage::onNextPage() {
     }
 }
 
+/**
+ * @brief 更新归还按钮
+ */
 void ToolReturnPage::updateReturnBtn() {
     m_selectAllBtn->setEnabled(!m_checkedRecordIds.isEmpty());
 }
@@ -289,50 +320,28 @@ void ToolReturnPage::showReturnConfirmDialog() {
     }
     if (selectedRecords.isEmpty()) return;
 
-    QDialog* dlg = new QDialog(this);
-    dlg->setWindowTitle(QStringLiteral("确认归还"));
-    dlg->setFixedSize(560, qMax(460, 320 + selectedRecords.size() * 40));
-    dlg->setStyleSheet(StyleHelper::dialogStyle());
-    dlg->setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    FlowDialogs::Setup setup;
+    setup.windowTitle = QStringLiteral("确认归还");
+    setup.width  = 560;
+    setup.height = qMax(460, 320 + selectedRecords.size() * 40);
+    setup.spacing = 14;
 
-    auto* mainLayout = new QVBoxLayout(dlg);
-    mainLayout->setContentsMargins(32, 28, 32, 24);
-    mainLayout->setSpacing(14);
-
-    // 标题栏
-    auto* titleBar = new QHBoxLayout();
-    auto* iconLabel = new QLabel(QStringLiteral("📋"));
-    iconLabel->setStyleSheet("font-size:28px;background:transparent;");
-    auto* titleLabel = new QLabel(QStringLiteral("待归还工具清单"));
-    titleLabel->setStyleSheet(StyleHelper::dialogTitleText());
-    titleBar->addWidget(iconLabel);
-    titleBar->addWidget(titleLabel);
-    titleBar->addStretch();
-    mainLayout->addLayout(titleBar);
+    QVBoxLayout* body = nullptr;
+    QDialog* dlg = FlowDialogs::createDialog(this, setup, &body);
+    FlowDialogs::addTitle(body, QStringLiteral("📋"), QStringLiteral("待归还工具清单"));
 
     // 归还详情表格：工具名/位置/数量
-    auto* table = new QTableWidget();
-    table->setColumnCount(3);
-    table->setHorizontalHeaderLabels({
+    QTableWidget* table = FlowDialogs::createListTable({
         QStringLiteral("工具名称"), QStringLiteral("存放位置"), QStringLiteral("归还数量")
     });
-    table->setRowCount(selectedRecords.size());
-    table->verticalHeader()->setVisible(false);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setStyleSheet(StyleHelper::listTableStyle());
-    for (int col = 0; col < 3; ++col) {
-        table->horizontalHeader()->setSectionResizeMode(col, QHeaderView::Stretch);
+    QList<QStringList> rows;
+    for (const QJsonObject& r : selectedRecords) {
+        rows.append({ r["toolName"].toString(),
+                      r["position"].toString(),
+                      QStringLiteral("%1 件").arg(r["borrowQty"].toInt()) });
     }
-    for (int i = 0; i < selectedRecords.size(); ++i) {
-        const QJsonObject& r = selectedRecords[i];
-        table->setItem(i, 0, new QTableWidgetItem(r["toolName"].toString()));
-        table->setItem(i, 1, new QTableWidgetItem(r["position"].toString().isEmpty() ? QStringLiteral("--") : r["position"].toString()));
-        table->setItem(i, 2, new QTableWidgetItem(QStringLiteral("%1 件").arg(r["borrowQty"].toInt())));
-        table->setRowHeight(i, 38);
-    }
-    table->setFixedHeight(qMax(160, selectedRecords.size() * 38 + 38));
-    mainLayout->addWidget(table);
+    FlowDialogs::fillTable(table, rows, QStringLiteral("--"));
+    body->addWidget(table);
 
     // 归还人信息
     auto* infoRow = new QHBoxLayout();
@@ -345,35 +354,12 @@ void ToolReturnPage::showReturnConfirmDialog() {
     infoRow->addWidget(userInfo);
     infoRow->addStretch();
     infoRow->addWidget(totalInfo);
-    mainLayout->addLayout(infoRow);
+    body->addLayout(infoRow);
 
-    mainLayout->addStretch();
+    body->addStretch();
+    FlowDialogs::addFooter(dlg, body, setup, QStringLiteral("下一步 →"),
+                           [this]() { showReturnDrawerOpeningDialog(); });
 
-    // 底部按钮栏
-    auto* btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(12);
-    btnLayout->addStretch();
-
-    auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
-    cancelBtn->setStyleSheet(StyleHelper::buttonDefault());
-    cancelBtn->setCursor(Qt::PointingHandCursor);
-    cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
-    cancelBtn->setMinimumWidth(110);
-    connect(cancelBtn, &QPushButton::clicked, dlg, &QDialog::reject);
-    btnLayout->addWidget(cancelBtn);
-
-    auto* nextBtn = new QPushButton(QStringLiteral("下一步 →"));
-    nextBtn->setStyleSheet(StyleHelper::buttonPrimary());
-    nextBtn->setCursor(Qt::PointingHandCursor);
-    nextBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
-    nextBtn->setMinimumWidth(140);
-    connect(nextBtn, &QPushButton::clicked, this, [this, dlg]() {
-        dlg->accept();
-        showReturnDrawerOpeningDialog();  // 进入步骤2：抽屉打开中
-    });
-    btnLayout->addWidget(nextBtn);
-
-    mainLayout->addLayout(btnLayout);
     dlg->exec();
     dlg->deleteLater();
 }
@@ -450,6 +436,9 @@ void ToolReturnPage::showReturnDrawerOpeningDialog() {
     }
 }
 
+/**
+ * @brief 显示归还异常对话框
+ */
 void ToolReturnPage::showReturnErrorDialog() {
     // 步骤3：工具核对异常 — 右上角倒计时+左下角忽略+告警入库+退出系统
     // 警告详情（假异常：取出第一个选中工具的位置）
@@ -497,6 +486,9 @@ void ToolReturnPage::showReturnErrorDialog() {
     }
 }
 
+/**
+ * @brief 执行归还：校验所选记录后提交归还
+ */
 void ToolReturnPage::executeReturn() {
     if (m_user.isEmpty() || m_checkedRecordIds.isEmpty()) return;
 

@@ -1,9 +1,9 @@
+/**
+ * @file TopBar.h
+ * @brief 顶部栏：品牌标识、系统标题、时钟、用户信息、退出按钮与网络/电量状态
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  顶栏组件
-// 功能：品牌logo+标题+实时时钟+用户信息+退出
-// 新增exitSystemClicked信号，退出按钮为退出整个系统（非注销）
-// 新增软件版本标签显示，版本号从AppConfig读取（非硬编码）
-// 新增电池电量+网络连接状态指示器，小米极简美学设计
 #include <QWidget>
 #include <QLabel>
 #include <QPushButton>
@@ -11,6 +11,8 @@
 
 class QTcpSocket;
 
+// 网络状态以数据库连接是否可用为准（网卡处于 Up 状态不代表外网可达）。
+// 退出按钮为退出整个程序，与登录页的"注销"语义不同。
 class TopBar : public QWidget {
     Q_OBJECT
 public:

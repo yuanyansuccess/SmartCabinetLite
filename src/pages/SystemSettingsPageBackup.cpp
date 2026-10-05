@@ -1,6 +1,6 @@
 /**
  * @file SystemSettingsPageBackup.cpp
- * @brief 系统设置-数据库自动备份（SQLite拷贝 / MySQL mysqldump）
+ * @brief 系统设置-数据库自动备份（mysqldump 导出）
  * @author 袁燕
  *
  * 本文件实现上述功能，成员函数声明见 SystemSettingsPage.h。
@@ -56,21 +56,16 @@
 // 1. 保存备份设置时立即执行一次备份（验证备份路径可用）
 // 2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
 // 3. MainWindow 启动定时器每小时检查一次是否到了备份时间
-// 备份内容：SQLite文件拷贝 / MySQL用mysqldump导出
-// 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.db
+// 备份内容：mysqldump 导出的全库 SQL 脚本
+// 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.sql
 void SystemSettingsPage::performDatabaseBackup() {
     auto& cfg = AppConfig::instance();
     QString backupPath = cfg.backupPath();
     bool isAutoEnabled = cfg.backupAutoEnabled();
     int period = cfg.backupPeriod();
 
-    // 日志路径跨平台
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/backup.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_backup.log");
-#endif
+    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
+    QString logPath = Log::logDirectory() + "/backup.log";
 
     auto writeBackupLog = [logPath](const QString& action, const QString& result, const QString& detail) {
         Log::appendLog(logPath, QStringLiteral("action=%1 result=%2 detail=%3")
@@ -120,44 +115,7 @@ void SystemSettingsPage::performDatabaseBackup() {
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString backupFile;
 
-    // 判断数据库类型：SQLite文件拷贝 / mysqldump导出
-    DatabaseManager& db = DatabaseManager::instance();
-
-#ifdef Q_OS_WIN
-    // Windows: 检查SQLite文件是否存在
-    QString dbPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/QtSmartCabinet/build/smartcabinet.db");
-#else
-    QString dbPath = QStringLiteral("/var/lib/smartcabinet/smartcabinet.db");
-#endif
-
-    if (QFile::exists(dbPath)) {
-        // SQLite模式：拷贝数据库文件
-        backupFile = backupPath + QDir::separator() +
-                     QStringLiteral("smartcabinet_backup_%1.db").arg(timestamp);
-        if (QFile::copy(dbPath, backupFile)) {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("OK"),
-                           QStringLiteral("SQLite file copied to: %1").arg(backupFile));
-            qInfo() << "[Backup] SQLite backup success:" << backupFile;
-
-            // 清理超过7天的旧备份文件
-            QDir backupDir(backupPath);
-            QStringList filters;
-            filters << "smartcabinet_backup_*.db";
-            QFileInfoList oldFiles = backupDir.entryInfoList(filters, QDir::Files, QDir::Time);
-            for (const QFileInfo& fi : oldFiles) {
-                if (fi.lastModified().daysTo(QDateTime::currentDateTime()) > 7) {
-                    QFile::remove(fi.absoluteFilePath());
-                    writeBackupLog(QStringLiteral("CLEANUP"), QStringLiteral("OK"),
-                                   QStringLiteral("removed old: %1").arg(fi.fileName()));
-                }
-            }
-        } else {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot copy %1 to %2").arg(dbPath).arg(backupFile));
-            qWarning() << "[Backup] SQLite backup failed:" << backupFile;
-        }
-    } else {
-        // MySQL模式：用mysqldump导出
+    // 本工程为纯 MySQL 架构，备份统一用 mysqldump 导出
         backupFile = backupPath + QDir::separator() +
                      QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
         QString dbName = cfg.dbName();
@@ -197,5 +155,4 @@ void SystemSettingsPage::performDatabaseBackup() {
             qWarning() << "[Backup] Cannot start mysqldump";
             proc->deleteLater();
         }
-    }
 }

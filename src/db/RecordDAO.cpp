@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file RecordDAO.cpp
  * @brief 借用记录数据访问对象实现 — 合并QJsonObject API + 实体类API + 操作日志查询
  * @author 袁燕
@@ -24,6 +24,11 @@ const char* const BORROW_RECORD_ORDER =
 // ═══════════════════════════════════════════════
 // 实体类转换 — 从dao/RecordDAO.cpp合并
 // ═══════════════════════════════════════════════
+/**
+ * @brief 查询结果行转换为借用记录实体
+ * @param q 已定位到有效行的查询结果
+ * @return 填充完成的借用记录实体
+ */
 BorrowRecord RecordDAO::borrowFromQuery(const QSqlQuery& q) {
     BorrowRecord r;
     r.borrowId        = q.value("record_id").toInt();
@@ -49,6 +54,11 @@ BorrowRecord RecordDAO::borrowFromQuery(const QSqlQuery& q) {
     return r;
 }
 
+/**
+ * @brief 查询结果行转换为归还记录实体
+ * @param q 已定位到有效行的查询结果
+ * @return 填充完成的归还记录实体
+ */
 ReturnRecord RecordDAO::returnFromQuery(const QSqlQuery& q) {
     ReturnRecord r;
     r.returnId    = q.value("record_id").toInt();
@@ -72,6 +82,11 @@ ReturnRecord RecordDAO::returnFromQuery(const QSqlQuery& q) {
 // ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）
 // ═══════════════════════════════════════════════
+/**
+ * @brief 新增借用记录
+ * @param record 记录字段集合，键名使用驼峰形式
+ * @return 新记录的ID；写入失败返回 -1
+ */
 int RecordDAO::insert(const QJsonObject& record) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     // 增加 mapping_id 字段，记录借用的位置
@@ -91,6 +106,11 @@ int RecordDAO::insert(const QJsonObject& record) {
     return q.lastInsertId().toInt();
 }
 
+/**
+ * @brief 按记录ID查询借用详情
+ * @param recordId 借用记录ID
+ * @return 含用户名与工具信息的详情对象；不存在时返回空对象
+ */
 QJsonObject RecordDAO::findById(int recordId) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT r.*, u.real_name AS user_name, ti.tool_name, ti.tool_code "
@@ -109,6 +129,17 @@ QJsonObject RecordDAO::findById(int recordId) {
     return r;
 }
 
+/**
+ * @brief 分页查询借用记录
+ * @param userId 用户ID，0表示不限用户
+ * @param toolId 工具ID，0表示不限工具
+ * @param status 记录状态，为空不过滤
+ * @param startDate 起始日期，为空表示不限
+ * @param endDate 截止日期，为空表示不限
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject RecordDAO::findAll(int userId, int toolId, const QString& status,
                                 const QString& startDate, const QString& endDate,
                                 int page, int pageSize) {
@@ -307,6 +338,15 @@ QJsonArray RecordDAO::findOperationLogs(const QString& toolCode, const QString& 
     return list;
 }
 
+/**
+ * @brief 完成一次归还
+ * @param recordId 借用记录ID
+ * @param returnTime 归还时间文本
+ * @param condition 归还时工具状况，如完好、丢失、损坏
+ * @param operatorId 操作人ID
+ * @param remark 备注
+ * @return true=记录已置为已归还；false=记录不存在或已被归还
+ */
 bool RecordDAO::completeReturn(int recordId, const QString& returnTime,
                                 const QString& condition, int operatorId, const QString& remark) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
@@ -322,6 +362,11 @@ bool RecordDAO::completeReturn(int recordId, const QString& returnTime,
 // ═══════════════════════════════════════════════
 // 实体类API（Controller层使用）— 从dao/RecordDAO.cpp合并
 // ═══════════════════════════════════════════════
+/**
+ * @brief 新增借用记录实体
+ * @param r 待写入的借用记录
+ * @return 新记录的ID；写入失败返回 0
+ */
 int RecordDAO::insertBorrow(const BorrowRecord& r) {
     return insertAndGetId("INSERT INTO tool_borrow_record (flow_no,user_id,tool_id,borrow_qty,"
                           "borrow_time,expected_return_time,status,borrow_reason,remark) "
@@ -331,12 +376,31 @@ int RecordDAO::insertBorrow(const BorrowRecord& r) {
                            r.borrowReason, r.remark});
 }
 
+/**
+ * @brief 按借用记录ID完成归还并回写备注
+ * @param borrowId 借用记录ID
+ * @param returnTime 实际归还时间
+ * @param condition 工具状况
+ * @param remark 备注
+ * @return true=更新成功
+ */
 bool RecordDAO::completeBorrowReturn(int borrowId, const QDateTime& returnTime,
                                      const QString& condition, const QString& remark) {
     return execute("UPDATE tool_borrow_record SET actual_return_time=?,status='returned',remark=? WHERE record_id=?",
                    {returnTime, remark, borrowId});
 }
 
+/**
+ * @brief 分页查询借用记录实体
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param keyword 关键字，匹配流水号/工具名等，为空不过滤
+ * @param status 记录状态，为空不过滤
+ * @param userId 用户ID，0表示不限
+ * @param startDate 起始日期，为空表示不限
+ * @param endDate 截止日期，为空表示不限
+ * @return 借用记录实体列表
+ */
 QList<BorrowRecord> RecordDAO::findBorrows(int page, int pageSize,
                                             const QString& keyword, const QString& status,
                                             int userId, const QDate& startDate, const QDate& endDate) {
@@ -363,6 +427,10 @@ QList<BorrowRecord> RecordDAO::findBorrows(int page, int pageSize,
     return list;
 }
 
+/**
+ * @brief 统计符合条件的借用记录数
+ * @return 记录数量；筛选条件与 findBorrows 保持一致
+ */
 int RecordDAO::borrowCount(const QString& keyword, const QString& status, int userId,
                             const QDate& startDate, const QDate& endDate) {
     // keyword筛选条件必须与findBorrows完全一致（含flow_no），否则COUNT与数据不匹配
@@ -382,6 +450,11 @@ int RecordDAO::borrowCount(const QString& keyword, const QString& status, int us
     return count(sql, params);
 }
 
+/**
+ * @brief 按ID查询借用记录实体
+ * @param borrowId 借用记录ID
+ * @return 借用记录实体；不存在时返回默认构造的空实体
+ */
 BorrowRecord RecordDAO::findBorrowById(int borrowId) {
     QSqlQuery q = query("SELECT br.*, u.username, u.real_name, ti.tool_code, ti.tool_name "
                          "FROM tool_borrow_record br "
@@ -392,6 +465,12 @@ BorrowRecord RecordDAO::findBorrowById(int borrowId) {
     return BorrowRecord();
 }
 
+/**
+ * @brief 查询指定用户的借用记录
+ * @param userId 用户ID
+ * @param limit 最多返回条数
+ * @return 借用记录实体列表，按借用时间倒序
+ */
 QList<BorrowRecord> RecordDAO::findBorrowsByUser(int userId, int limit) {
     QList<BorrowRecord> list;
     QSqlQuery q = query("SELECT br.*, u.username, u.real_name, ti.tool_code, ti.tool_name, ti.spec "
@@ -404,12 +483,27 @@ QList<BorrowRecord> RecordDAO::findBorrowsByUser(int userId, int limit) {
     return list;
 }
 
+/**
+ * @brief 判断指定用户是否存在未还清的记录
+ * @param userId 用户ID
+ * @return true=存在借用中或已逾期记录
+ */
 bool RecordDAO::hasOverdue(int userId) {
-    // CURRENT_TIMESTAMP兼容MySQL和SQLite
+    // 用数据库当前时间比较，避免应用层与数据库时间不一致
     return scalar("SELECT COUNT(*) FROM tool_borrow_record WHERE user_id=? AND status IN ('borrowing','overdue') "
                    "AND expected_return_time < CURRENT_TIMESTAMP", {userId}).toInt() > 0;
 }
 
+/**
+ * @brief 分页查询归还记录
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param keyword 关键字，为空不过滤
+ * @param userId 用户ID，0表示不限
+ * @param startDate 起始日期，为空表示不限
+ * @param endDate 截止日期，为空表示不限
+ * @return 归还记录实体列表
+ */
 QList<ReturnRecord> RecordDAO::findReturns(int page, int pageSize,
                                             const QString& keyword, int userId,
                                             const QDate& startDate, const QDate& endDate) {
@@ -441,8 +535,12 @@ int RecordDAO::activeBorrowCount() {
     return scalar("SELECT COUNT(DISTINCT tool_id) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')").toInt();
 }
 
+/**
+ * @brief 统计当前逾期记录数
+ * @return 状态为已逾期的记录数
+ */
 int RecordDAO::overdueCount() {
-    // CURRENT_TIMESTAMP兼容MySQL和SQLite
+    // 用数据库当前时间比较，避免应用层与数据库时间不一致
     return scalar("SELECT COUNT(*) FROM tool_borrow_record WHERE status='overdue' "
                    "AND expected_return_time < CURRENT_TIMESTAMP").toInt();
 }
@@ -602,6 +700,11 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
     return result;
 }
 
+/**
+ * @brief 统计指定用户的借用情况
+ * @param userId 用户ID
+ * @return 含今日借用数、当前在借数、逾期数等指标的对象
+ */
 QJsonObject RecordDAO::getUserStats(int userId) {
     QJsonObject stats;
     stats["todayBorrow"] = 0;
@@ -635,6 +738,11 @@ QJsonObject RecordDAO::getUserStats(int userId) {
     return stats;
 }
 
+/**
+ * @brief 查询系统最近的操作活动
+ * @param limit 最多返回条数
+ * @return 活动条目数组，按时间倒序
+ */
 QJsonArray RecordDAO::findRecentActivity(int limit) {
     QJsonArray arr;
     QSqlDatabase db = getDb();
@@ -663,6 +771,12 @@ QJsonArray RecordDAO::findRecentActivity(int limit) {
     return arr;
 }
 
+/**
+ * @brief 查询指定用户最近的操作记录
+ * @param userId 用户ID
+ * @param limit 最多返回条数
+ * @return 记录数组，按时间倒序
+ */
 QJsonArray RecordDAO::findByUserId(int userId, int limit) {
     QJsonArray arr;
     QSqlDatabase db = getDb();

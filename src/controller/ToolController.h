@@ -1,11 +1,9 @@
+/**
+ * @file ToolController.h
+ * @brief 工具控制层：工具/分类/柜体/机组列表查询与详情装配
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  工具管理业务控制层
-// 功能：工具CRUD、分类管理、柜体管理、出入库
-// 统一到db/目录namespace db
-//
-// 分层定位：Controller 负责「读查询 + 结果装配」；写操作（入库/借用/归还/出库）
-// 走 services/ 下的 BorrowService/ReturnService/CheckoutService（含事务与业务校验）。
-// 权限校验、审计日志、操作埋点等横切关注点请加在本层，不要散到 pages 或 Service。
 #include <QObject>
 #include <QDate>
 #include "model/ToolInfo.h"
@@ -15,6 +13,8 @@
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
 
+// 分层定位：Controller 负责读查询与结果装配；工具的入库/借用/归还/出库等写操作
+// 走 services/ 下的 BorrowService / ReturnService / CheckoutService（含事务与业务校验）。
 class ToolController : public QObject {
     Q_OBJECT
 public:

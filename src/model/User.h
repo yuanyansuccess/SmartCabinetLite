@@ -1,6 +1,9 @@
+/**
+ * @file User.h
+ * @brief 用户实体，字段对齐 sys_user，含角色、状态与人脸特征
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  用户实体
-// 映射表：sys_user
 #include <QString>
 #include <QDateTime>
 #include "common/Constants.h"

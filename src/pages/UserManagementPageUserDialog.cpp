@@ -231,6 +231,9 @@ void UserManagementPage::createUserDialog() {
     bl->addWidget(m_dlgSaveBtn);
 }
 
+/**
+ * @brief 处理用户
+ */
 void UserManagementPage::onAddUser() {
     m_editUserId = 0;
     createUserDialog();  // 独立初始化，不弹窗
@@ -242,6 +245,9 @@ void UserManagementPage::onAddUser() {
     m_userDialog->exec();
 }
 
+/**
+ * @brief 处理编辑框用户
+ */
 void UserManagementPage::onEditUser(int userId) {
     m_editUserId = userId;
   // 通过UserController替代直接调用db/UserDAO
@@ -270,6 +276,9 @@ void UserManagementPage::onEditUser(int userId) {
     m_userDialog->exec();
 }
 
+/**
+ * @brief 处理用户
+ */
 void UserManagementPage::onDeleteUser(int userId) {
     if (!MessageDialog::showQuestion(this, QStringLiteral("确认删除"),
         QStringLiteral("确定要删除该用户吗？"))) return;
@@ -282,6 +291,9 @@ void UserManagementPage::onDeleteUser(int userId) {
     }
 }
 
+/**
+ * @brief 处理用户
+ */
 void UserManagementPage::onSubmitUser() {
     QString realName = m_dlgRealName->text().trimmed();
     QString workNo = m_dlgWorkNo->text().trimmed();

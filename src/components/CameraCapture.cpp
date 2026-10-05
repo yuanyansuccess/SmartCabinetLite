@@ -1,11 +1,9 @@
 /**
  * @file CameraCapture.cpp
- * @brief 摄像头采集实现 - Windows MF / Linux Qt Multimedia
- * @author 袁燕  修改: 2026-06-20 添加Linux/麒麟Qt Multimedia支持
+ * @brief 摄像头采集实现：Windows 走 Media Foundation，麒麟 Linux 走 Qt Multimedia
+ * @author 袁燕
  *
- * Windows: 使用Media Foundation原生API
- * Linux/麒麟: 使用Qt Multimedia (QCamera)
- * 接口统一：start/stop/getFrame，输出QImage供FaceCameraWidget消费
+ * 两个平台对外接口一致，由运行时平台分支选择具体采集后端。
  */
 #include "CameraCapture.h"
 #include <QDebug>
@@ -55,6 +53,11 @@ bool CameraCapture::hasCamera() {
 #endif
 }
 
+/**
+ * @brief 枚举本机可用摄像头
+ * @return 摄像头名称列表
+ * @note 返回第一个可用采集后端与全部设备名，供设置页选择
+ */
 QStringList CameraCapture::availableCameras() {
     QStringList result;
 #ifdef _WIN32
@@ -85,6 +88,9 @@ QStringList CameraCapture::availableCameras() {
     return result;
 }
 
+/**
+ * @brief 启动摄像头采集
+ */
 bool CameraCapture::start(int width, int height, int fps) {
     if (m_running) return true;
 
@@ -107,6 +113,9 @@ bool CameraCapture::start(int width, int height, int fps) {
 #endif
 }
 
+/**
+ * @brief 停止摄像头采集
+ */
 void CameraCapture::stop() {
     if (!m_running) return;
     m_timer->stop();
@@ -116,6 +125,10 @@ void CameraCapture::stop() {
 #endif
 }
 
+/**
+ * @brief 判断采集是否正在运行
+ * @return true=正在采集
+ */
 bool CameraCapture::isRunning() const { return m_running; }
 
 // ==================== 内部实现 ====================
@@ -134,6 +147,10 @@ void CameraCapture::onCaptureTimer() {
 
 #ifdef _WIN32
 
+/**
+ * @brief 初始化 Media Foundation 采集后端（Windows）
+ * @return true=初始化成功
+ */
 bool CameraCapture::initMF() {
     static bool s_initialized = false;
     if (!s_initialized) {
@@ -147,6 +164,13 @@ bool CameraCapture::initMF() {
     return true;
 }
 
+/**
+ * @brief 启动 Media Foundation 摄像头采集
+ * @param deviceIndex 摄像头序号
+ * @param width 采集宽度
+ * @param height 采集高度
+ * @return true=启动成功
+ */
 bool CameraCapture::startMFCapture(int width, int height, int fps) {
     m_capWidth = width;
     m_capHeight = height;
@@ -245,11 +269,18 @@ bool CameraCapture::startMFCapture(int width, int height, int fps) {
     return true;
 }
 
+/**
+ * @brief 停止 Media Foundation 摄像头采集
+ */
 void CameraCapture::stopMFCapture() {
     if (m_sourceReader) { m_sourceReader->Release(); m_sourceReader = nullptr; }
     if (m_mediaSource) { m_mediaSource->Shutdown(); m_mediaSource->Release(); m_mediaSource = nullptr; }
 }
 
+/**
+ * @brief 从 Media Foundation 后端取一帧图像
+ * @return 图像数据；无帧时返回空
+ */
 QImage CameraCapture::grabMFFrame() {
     if (!m_sourceReader) return QImage();
 
@@ -380,6 +411,11 @@ bool CameraCapture::hasCamera() {
     return !cameras.isEmpty();
 }
 
+/**
+ * @brief 枚举本机可用摄像头
+ * @return 摄像头名称列表
+ * @note 返回第一个可用采集后端与全部设备名，供设置页选择
+ */
 QStringList CameraCapture::availableCameras() {
     QStringList result;
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
@@ -389,6 +425,9 @@ QStringList CameraCapture::availableCameras() {
     return result;
 }
 
+/**
+ * @brief 启动摄像头采集
+ */
 bool CameraCapture::start(int width, int height, int fps) {
     if (m_running) return true;
     
@@ -400,6 +439,9 @@ bool CameraCapture::start(int width, int height, int fps) {
     return startQtMultimediaCapture(width, height, fps);
 }
 
+/**
+ * @brief 停止摄像头采集
+ */
 void CameraCapture::stop() {
     if (!m_running) return;
     stopQtMultimediaCapture();
@@ -407,6 +449,13 @@ void CameraCapture::stop() {
     m_timer->stop();
 }
 
+/**
+ * @brief 启动 QtMultimedia 摄像头采集
+ * @param deviceIndex 摄像头序号
+ * @param width 采集宽度
+ * @param height 采集高度
+ * @return true=启动成功
+ */
 bool CameraCapture::startQtMultimediaCapture(int width, int height, int fps) {
     // 获取默认摄像头
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
@@ -442,6 +491,9 @@ bool CameraCapture::startQtMultimediaCapture(int width, int height, int fps) {
     return true;
 }
 
+/**
+ * @brief 停止 QtMultimedia 摄像头采集
+ */
 void CameraCapture::stopQtMultimediaCapture() {
     if (m_camera) {
         m_camera->stop();
@@ -455,6 +507,10 @@ void CameraCapture::stopQtMultimediaCapture() {
     m_frameReady = false;
 }
 
+/**
+ * @brief 从 QtMultimedia 后端取一帧图像
+ * @return 图像数据；无帧时返回空
+ */
 QImage CameraCapture::grabQtMultimediaFrame() {
     QMutexLocker lock(&m_mutex);
     if (m_frameReady && !m_currentFrame.isNull()) {
@@ -464,6 +520,9 @@ QImage CameraCapture::grabQtMultimediaFrame() {
     return QImage();
 }
 
+/**
+ * @brief 处理定时器
+ */
 void CameraCapture::onCaptureTimer() {
 #ifdef _WIN32
     if (m_running) {

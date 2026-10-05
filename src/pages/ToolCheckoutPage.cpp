@@ -48,6 +48,9 @@ ToolCheckoutPage::~ToolCheckoutPage() {
     delete ui;
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void ToolCheckoutPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_tabWidget = ui->tabWidget;
@@ -140,10 +143,17 @@ void ToolCheckoutPage::refresh() {
     loadTools();
 }
 
+/**
+ * @brief 统计当前已选待出库工具数量
+ * @return 选中数量
+ */
 int ToolCheckoutPage::selectedCount() const {
     return m_selectedSet.size();
 }
 
+/**
+ * @brief 加载工具
+ */
 void ToolCheckoutPage::loadTools() {
     // 性能优化：禁用重绘+信号阻塞，避免重建过程中频繁刷新
 
@@ -281,6 +291,9 @@ void ToolCheckoutPage::loadTools() {
     m_table->setUpdatesEnabled(true);
 }
 
+/**
+ * @brief 处理出库
+ */
 void ToolCheckoutPage::onBatchCheckout() {
     if (selectedCount() == 0) {
         MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请至少选择一件工具"));
@@ -337,6 +350,9 @@ QList<CheckoutItem> ToolCheckoutPage::collectSelectedItems() const {
 }
 
 
+/**
+ * @brief 处理重置
+ */
 void ToolCheckoutPage::onReset() {
     m_selectedSet.clear();
     m_currentPage = 1;  // 重置到第1页
@@ -352,6 +368,9 @@ void ToolCheckoutPage::onCheck(int row, bool checked) {
     // 不调用loadTools()，选择逻辑由checkbox toggled回调处理
 }
 
+/**
+ * @brief 处理全部
+ */
 void ToolCheckoutPage::onToggleAll(bool checked) {
     // #19优化：全选/取消后仍需loadTools更新UI，但已有setUpdatesEnabled优化
     if (checked) {
@@ -490,6 +509,9 @@ void ToolCheckoutPage::onRecordPrevPage() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolCheckoutPage::onRecordNextPage() {
     int totalPages = (m_recordTotalRecords + m_recordPageSize - 1) / m_recordPageSize;
     if (m_recordCurrentPage < totalPages) {

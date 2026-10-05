@@ -63,6 +63,9 @@ SystemSettingsPage::SystemSettingsPage(QWidget* parent) : QWidget(parent) {
     connect(m_softKeyboard, &SoftKeyboard::cancelled, this, [](){});
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void SystemSettingsPage::setupUI() {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(24, 24, 24, 24);  // 24对齐其他页面
@@ -172,6 +175,9 @@ void SystemSettingsPage::setupUI() {
     updateTabStyles();
 }
 
+/**
+ * @brief 按当前选中项刷新各选项卡的样式
+ */
 void SystemSettingsPage::updateTabStyles() {
     // Tab样式对齐借用页QTabWidget：灰底白选中+主色下划线，去渐变胶囊
     for (int i = 0; i < m_tabLabels.size(); ++i) {
@@ -197,6 +203,12 @@ void SystemSettingsPage::switchTab(int index) {
     }
 }
 
+/**
+         * 事件过滤器：拦截控件与窗口事件并转交专用处理
+         * @param obj 事件来源控件
+         * @param event 事件对象
+         * @return true=事件已被处理
+         */
 bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
     // 简化：Tab点击切换QStackedWidget + Hover效果，去掉滚动和焦点高亮
     if (event->type() == QEvent::MouseButtonPress) {
@@ -365,6 +377,9 @@ void SystemSettingsPage::refresh() {
     refreshSystemInfo();
 }
 
+/**
+ * @brief 处理全部
+ */
 void SystemSettingsPage::onSaveAll() {
     // 保存全部配置到本地INI文件
     if (saveConfigToIni()) {
@@ -373,6 +388,9 @@ void SystemSettingsPage::onSaveAll() {
     }
 }
 
+/**
+ * @brief 处理网络
+ */
 void SystemSettingsPage::onSaveNetwork() {
     // 保存网络配置到本地INI文件
     auto& cfg = AppConfig::instance();
@@ -393,6 +411,9 @@ void SystemSettingsPage::onSaveNetwork() {
         QStringLiteral("网络设置已保存并应用到系统有线网卡"));
 }
 
+/**
+ * @brief 处理告警
+ */
 void SystemSettingsPage::onSaveAlert() {
     // 保存告警配置到本地INI文件
     auto& cfg = AppConfig::instance();
@@ -409,9 +430,11 @@ void SystemSettingsPage::onSaveAlert() {
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("告警设置已保存到本地配置文件"));
 }
 
+/**
+ * @brief 处理借用
+ */
 void SystemSettingsPage::onSaveBorrow() {
     // 保存借还配置到本地INI文件
-    // 已删除3项：manualUnlock/lockTime/faceSensitivity
     auto& cfg = AppConfig::instance();
     // m_maxBorrowSpin创建已注释，空守卫防崩溃
     if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
@@ -425,6 +448,9 @@ void SystemSettingsPage::onSaveBorrow() {
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("借还设置已保存到本地配置文件"));
 }
 
+/**
+ * @brief 处理备份
+ */
 void SystemSettingsPage::onSaveBackup() {
     // 保存备份配置到本地INI文件
     auto& cfg = AppConfig::instance();
@@ -442,6 +468,9 @@ void SystemSettingsPage::onSaveBackup() {
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("备份设置已保存到本地配置文件"));
 }
 
+/**
+ * @brief 处理默认
+ */
 void SystemSettingsPage::onResetDefault() {
     if (!MessageDialog::showQuestion(this, QStringLiteral("确认恢复默认"),
         QStringLiteral("确定要恢复所有设置为出厂默认值吗？此操作不可撤销！"))) return;
@@ -726,6 +755,9 @@ void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QS
     m_securePwdDialog->exec();
 }
 
+/**
+ * @brief 处理口令
+ */
 void SystemSettingsPage::onSecurePwdConfirmed() {
     // 从NumKeypad获取密码（直接从密码框读取）
     if (!m_securePwdEdit) return;
@@ -855,7 +887,6 @@ bool SystemSettingsPage::isDirty() {
     if (!m_defaultPeriodSpin || m_defaultPeriodSpin->value() != m_snapshot.defaultPeriod) return true;
     if (!m_returnBufferSpin || m_returnBufferSpin->value() != m_snapshot.returnBuffer) return true;
     if (!m_brightnessSlider || m_brightnessSlider->value() != m_snapshot.brightness) return true;
-    // 已删除3项：manualUnlock/lockTime/faceSensitivity
 
     if (!m_autoBackupCheck || m_autoBackupCheck->isChecked() != m_snapshot.autoBackup) return true;
     if (m_backupPeriod != m_snapshot.backupPeriod) return true;
@@ -895,7 +926,6 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_defaultPeriodSpin->setValue(cfg.borrowDefaultPeriod());
     m_returnBufferSpin->setValue(cfg.borrowReturnBuffer());
     m_brightnessSlider->setValue(cfg.borrowBrightness());
-    // 已删除3项加载：manualUnlock/lockTime/faceSensitivity
 
     // 备份管理
     m_autoBackupCheck->setChecked(cfg.backupAutoEnabled());
@@ -1098,7 +1128,6 @@ void SystemSettingsPage::onMachineGroupSelected(int index) {
 // Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
 // 麒麟：xset s <秒数> 设置屏幕保护超时 + xset dpms <秒数> 设置DPMS显示器电源管理
 // 同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
-// 已删除：applyAutoLockTime — 自动锁屏时间已从借还参数中移除
 
 
 

@@ -1,8 +1,9 @@
+/**
+ * @file SoftKeyboard.h
+ * @brief 触屏软键盘：字母/数字/符号输入，将输入结果回填到指定输入框
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  字母/符号软键盘组件
-// 功能：触屏字母/符号输入
-// 彻底重写键盘布局：去掉视觉有歧义的_和⎵等按钮
-// 重新设计为5行清晰布局，每行按钮尺寸统一、颜色醒目、触屏友好
 #include <QWidget>
 #include <QLineEdit>
 #include <QVBoxLayout>

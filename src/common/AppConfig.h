@@ -1,7 +1,9 @@
+/**
+ * @file AppConfig.h
+ * @brief 本地 INI 配置读写：数据库连接参数、机组、网络与借还参数的唯一来源
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  应用配置管理（单例，基于本地INI文件）
-// 功能：管理数据库连接、系统参数、读写本地ini配置文件
-// QSettings显式INI文件路径，30个系统配置项统一走INI读写
 #include <QString>
 #include <QSettings>
 #include <QMutex>

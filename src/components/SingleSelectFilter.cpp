@@ -18,6 +18,9 @@ SingleSelectFilter::SingleSelectFilter(const QString& placeholder, QWidget* pare
     setupUI();
 }
 
+/**
+ * @brief 构建单选筛选控件
+ */
 void SingleSelectFilter::setupUI()
 {
     auto* layout = new QHBoxLayout(this);
@@ -61,6 +64,10 @@ SingleSelectFilter::~SingleSelectFilter() {
     }
 }
 
+/**
+         * @brief 设置可选项
+         * @param options 选项名称列表
+         */
 void SingleSelectFilter::setOptions(const QStringList& options) {
     m_options = options;
     m_selectedIndex = 0;  // 默认选中第一项
@@ -68,6 +75,10 @@ void SingleSelectFilter::setOptions(const QStringList& options) {
     rebuildPopup();
 }
 
+/**
+         * @brief 读取当前选中项文本
+         * @return 选中项名称；未选中时返回占位文字
+         */
 QString SingleSelectFilter::selectedText() const {
     if (m_selectedIndex >= 0 && m_selectedIndex < m_options.size()) {
         return m_options[m_selectedIndex];
@@ -75,10 +86,18 @@ QString SingleSelectFilter::selectedText() const {
     return QString();
 }
 
+/**
+         * @brief 读取当前选中项序号
+         * @return 选中序号；未选中时返回 -1
+         */
 int SingleSelectFilter::selectedIndex() const {
     return m_selectedIndex;
 }
 
+/**
+         * @brief 设置未选中时显示的占位文字
+         * @param text 占位文字
+         */
 void SingleSelectFilter::setPlaceholderText(const QString& text) {
     m_placeholder = text;
     // 仅在选中第一项"全部"时显示占位文本
@@ -87,11 +106,17 @@ void SingleSelectFilter::setPlaceholderText(const QString& text) {
     }
 }
 
+/**
+ * @brief 重置筛选条件为初始状态
+ */
 void SingleSelectFilter::reset() {
     m_selectedIndex = 0;
     m_filterBtn->setText(m_placeholder);
 }
 
+/**
+ * @brief 选择文本
+ */
 void SingleSelectFilter::selectText(const QString& text) {
     for (int i = 0; i < m_options.size(); ++i) {
         if (m_options[i] == text) {
@@ -105,6 +130,9 @@ void SingleSelectFilter::selectText(const QString& text) {
     m_filterBtn->setText(m_placeholder);
 }
 
+/**
+ * @brief 选择索引
+ */
 void SingleSelectFilter::selectIndex(int index) {
     if (index >= 0 && index < m_options.size()) {
         m_selectedIndex = index;
@@ -112,6 +140,9 @@ void SingleSelectFilter::selectIndex(int index) {
     }
 }
 
+/**
+ * @brief 处理筛选按钮点击事件
+ */
 void SingleSelectFilter::onFilterBtnClicked() {
     if (m_popup->isVisible()) {
         m_popup->hide();
@@ -128,6 +159,9 @@ void SingleSelectFilter::onFilterBtnClicked() {
     }
 }
 
+/**
+         * @brief 重建下拉面板内容（选项变化后调用）
+         */
 void SingleSelectFilter::rebuildPopup() {
     // 清除旧布局
     QLayout* oldLayout = m_popup->layout();
@@ -213,6 +247,9 @@ void SingleSelectFilter::rebuildPopup() {
     }
 }
 
+/**
+ * @brief 更新按钮文本
+ */
 void SingleSelectFilter::updateButtonText() {
     if (m_selectedIndex <= 0 || m_selectedIndex >= m_options.size()) {
         // 选中第一项"全部"或无效索引，显示占位文本

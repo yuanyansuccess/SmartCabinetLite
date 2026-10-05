@@ -3,7 +3,6 @@
  * @brief 告警数据访问对象实现 — 合并QJsonObject API + 实体类API
  * @author 袁燕
  * 合并dao/AlertDAO.cpp的实体类API到此文件，统一namespace db管理
- * 重构：改用sys_alert_type字典表，type_id引用替代硬编码alert_type/alert_level
  */
 #include "AlertDAO.h"
 #include "DatabaseManager.h"
@@ -36,6 +35,11 @@ static void diagLog(const QString& msg) {
 // ═══════════════════════════════════════════════
 // 实体类转换 JOIN sys_alert_type获取typeName/level
 // ═══════════════════════════════════════════════
+/**
+ * @brief 查询结果行转换为告警实体
+ * @param q 已定位到有效行的查询结果
+ * @return 填充完成的告警实体
+ */
 AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
     AlertLog alert;
     alert.alertId     = q.value("alert_id").toInt();
@@ -63,8 +67,13 @@ AlertLog AlertDAO::fromQuery(const QSqlQuery& q) {
 // ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）type_id
 // ═══════════════════════════════════════════════
+/**
+ * @brief 新增告警记录
+ * @param alert 告警字段集合，键名使用驼峰形式
+ * @return 新记录的ID；写入失败返回 -1
+ */
 int AlertDAO::insert(const QJsonObject& alert) {
-    // 补上alert_type/alert_level列，外键字段为0时设NULL
+    // 外键字段为0时写NULL，避免触发外键约束
     int typeId = alert["typeId"].toInt(0);
     QVariant userIdVal = alert["userId"].toInt(0) > 0 ? QVariant(alert["userId"].toInt()) : QVariant();
     QVariant toolIdVal = alert["toolId"].toInt(0) > 0 ? QVariant(alert["toolId"].toInt()) : QVariant();
@@ -96,6 +105,11 @@ int AlertDAO::insert(const QJsonObject& alert) {
     return q.lastInsertId().toInt();
 }
 
+/**
+ * @brief 按告警ID查询详情
+ * @param alertId 告警ID
+ * @return 含类型名称与级别的详情对象；不存在时返回空对象
+ */
 QJsonObject AlertDAO::findById(int alertId) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT a.*, at.type_code, at.type_name, at.alert_level, "
@@ -119,6 +133,17 @@ QJsonObject AlertDAO::findById(int alertId) {
     return o;
 }
 
+/**
+ * @brief 分页查询告警列表
+ * @param alertType 告警类型编码，为空不过滤
+ * @param alertLevel 告警级别，为空不过滤
+ * @param status 处理状态，为空不过滤
+ * @param startDate 起始日期，为空表示不限
+ * @param endDate 截止日期，为空表示不限
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLevel,
                                const QString& status, const QString& startDate,
                                const QString& endDate, int page, int pageSize) {
@@ -184,6 +209,13 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
     return result;
 }
 
+/**
+ * @brief 确认告警：状态置为已处理并记录处理人与处理时间
+ * @param alertId 告警ID
+ * @param handlerId 处理人ID
+ * @param remark 处理备注
+ * @return true=更新成功
+ */
 bool AlertDAO::acknowledge(int alertId, int handlerId, const QString& remark) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     // SQLite不支持NOW()，datetime('now')
@@ -192,10 +224,21 @@ bool AlertDAO::acknowledge(int alertId, int handlerId, const QString& remark) {
     return safeExec(q);
 }
 
+/**
+ * @brief 解决告警：语义同 acknowledge
+ * @param alertId 告警ID
+ * @param handlerId 处理人ID
+ * @param remark 处理备注
+ * @return true=更新成功
+ */
 bool AlertDAO::resolve(int alertId, int handlerId, const QString& remark) {
     return acknowledge(alertId, handlerId, remark);
 }
 
+/**
+ * @brief 统计未处理告警数量
+ * @return 状态为待处理的告警条数
+ */
 int AlertDAO::getUnresolvedCount() {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT COUNT(*) FROM sys_alert WHERE status='unhandled'");
@@ -206,9 +249,12 @@ int AlertDAO::getUnresolvedCount() {
 // ═══════════════════════════════════════════════
 // 实体类API（Controller层使用）JOIN sys_alert_type
 // ═══════════════════════════════════════════════
+/**
+ * @brief 新增告警记录实体
+ * @param a 待写入的告警实体，typeId 为0时按字典表补齐类型与级别
+ * @return 新记录的ID；写入失败返回 0
+ */
 int AlertDAO::insertAlert(const AlertLog& a) {
-    // 第四次修复告警写入：
-    // 根因：INSERT不填alert_type/alert_level列→新告警这两个字段为空→
     // 每次启动hasLegacyData检测alert_type=''→DELETE FROM sys_alert→清空用户产生的告警→"永远是20条"
     // 注意：INSERT补上alert_type和alert_level列，从sys_alert_type表查对应值
     // 外键约束：user_id/tool_id为0时设NULL
@@ -252,6 +298,17 @@ int AlertDAO::insertAlert(const AlertLog& a) {
     return result;
 }
 
+/**
+ * @brief 分页查询告警实体列表
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param type 告警类型编码，为空不过滤
+ * @param level 告警级别，为空不过滤
+ * @param handled 处理状态：-1 不限，0 待处理，1 已处理
+ * @param startDate 起始日期，为空表示不限
+ * @param endDate 截止日期，为空表示不限
+ * @return 告警实体列表
+ */
 QList<AlertLog> AlertDAO::findAllAlerts(int page, int pageSize,
                                          const QString& type, const QString& level,
                                          int handled, const QDate& startDate, const QDate& endDate) {
@@ -280,6 +337,10 @@ QList<AlertLog> AlertDAO::findAllAlerts(int page, int pageSize,
     return list;
 }
 
+/**
+ * @brief 统计符合条件的告警数量
+ * @return 告警条数；筛选条件与 findAllAlerts 保持一致
+ */
 int AlertDAO::countAlerts(const QString& type, const QString& level,
                            int handled, const QDate& startDate, const QDate& endDate) {
     QString sql = "SELECT a.* FROM sys_alert a "
@@ -294,9 +355,16 @@ int AlertDAO::countAlerts(const QString& type, const QString& level,
     return count(sql, params);
 }
 
+/**
+ * @brief 将告警标记为已处理
+ * @param alertId 告警ID
+ * @param handledBy 处理人标识；因外键约束限制，此处不写入处理人ID
+ * @return true=更新成功
+ */
 bool AlertDAO::markHandled(int alertId, const QString& handledBy) {
-    // MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
-    // 传字符串"admin"在MySQL中因外键失败，NULL
+    // handler_id 置 NULL：外键约束 sys_alert.handler_id 引用 sys_user.user_id，
+    // 写入不存在的ID会失败，故与其他标记方法保持一致
+
     QSqlDatabase db = getDb();
     if (!db.isOpen()) return false;
     QSqlQuery q(db);
@@ -305,6 +373,11 @@ bool AlertDAO::markHandled(int alertId, const QString& handledBy) {
     return safeExec(q);
 }
 
+/**
+ * @brief 将全部未处理告警标记为已处理
+ * @param handledBy 处理人标识；因外键约束限制，此处不写入处理人ID
+ * @return true=更新成功
+ */
 bool AlertDAO::markAllHandled(const QString& handledBy) {
     // 同markHandled，handler_id=NULL避免外键约束失败
     QSqlDatabase db = getDb();
@@ -315,9 +388,7 @@ bool AlertDAO::markAllHandled(const QString& handledBy) {
 }
 
 // 忽略告警：status设为ignored，DB保留记录供审计，列表查询时排除
-// 注意：SQLite不支持NOW()，datetime('now')
-// getDb()+QSqlQuery直连路径，与acknowledge/insert等成功方法一致，
-// 避免BaseDAO::execute→executeNonQuery链路中的潜在连接状态问题
+// 采用 getDb()+QSqlQuery 直连路径，与其他写入方法保持一致
 bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
     // 增加完整诊断日志，定位忽略失败根因
     QSqlDatabase db = getDb();
@@ -332,9 +403,7 @@ bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
     }
     QSqlQuery q(db);
     // MySQL外键约束fk_alert_handler: handler_id引用sys_user.user_id
-    // handler_id=0在sys_user中不存在→外键约束失败。
-    // handler_id=NULL（外键允许NULL），与markHandled的行为一致（markHandled传字符串
-    // "admin"在MySQL中也会因外键失败，但那个方法可能连的SQLite所以没暴露）。
+    // handler_id 置 NULL：外键约束不允许写入 sys_user 中不存在的处理人ID
     QString sql = "UPDATE sys_alert SET status='ignored', handled_at=CURRENT_TIMESTAMP, handler_id=NULL WHERE alert_id=?";
     q.prepare(sql);
     q.addBindValue(alertId);
@@ -347,13 +416,20 @@ bool AlertDAO::markIgnored(int alertId, const QString& handlerBy) {
     return true;
 }
 
+/**
+ * @brief 统计未处理告警数量
+ * @return 状态为待处理的告警条数
+ */
 int AlertDAO::unhandledCount() {
     return scalar("SELECT COUNT(*) FROM sys_alert WHERE status='unhandled'").toInt();
 }
 
+/**
+ * @brief 统计今日新增告警数
+ * @return 今日创建的告警条数
+ */
 int AlertDAO::todayTotal() {
-    // SQLite不支持CURDATE()，date('now')
-    return scalar("SELECT COUNT(*) FROM sys_alert WHERE DATE(created_at)=date('now')").toInt();
+    return scalar("SELECT COUNT(*) FROM sys_alert WHERE DATE(created_at)=CURDATE()").toInt();
 }
 
 // 获取所有启用的告警类型列表，按sort_order排序
@@ -376,6 +452,11 @@ QJsonArray AlertDAO::getAlertTypes() {
     return arr;
 }
 
+/**
+ * @brief 查询最近的未处理告警
+ * @param limit 最多返回条数
+ * @return 告警数组，按创建时间倒序
+ */
 QJsonArray AlertDAO::findRecentUnhandled(int limit) {
     QJsonArray arr;
     QSqlDatabase db = getDb();
@@ -402,6 +483,11 @@ QJsonArray AlertDAO::findRecentUnhandled(int limit) {
     return arr;
 }
 
+/**
+ * @brief 按告警ID查询详情（含工具与用户关联信息）
+ * @param alertId 告警ID
+ * @return 详情对象；不存在时返回空对象
+ */
 QJsonObject AlertDAO::findDetailById(int alertId) {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
@@ -443,6 +529,13 @@ QJsonObject AlertDAO::findDetailById(int alertId) {
     return detail;
 }
 
+/**
+ * @brief 统计告警数量
+ * @param types 逗号分隔的类型编码列表，为空表示不限
+ * @param level 告警级别，为空表示不限
+ * @param keyword 关键字，为空表示不限
+ * @return 含各级别计数的统计对象
+ */
 QJsonObject AlertDAO::getStats(const QString& types, const QString& level, const QString& keyword) {
     QSqlDatabase db = getDb();
     QString where = "WHERE 1=1 ";

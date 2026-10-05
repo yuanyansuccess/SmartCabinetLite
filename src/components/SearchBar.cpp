@@ -4,6 +4,7 @@
  * @author 袁燕
  */
 #include "SearchBar.h"
+#include "utils/StyleHelper.h"  // 字号统一走 StyleHelper::Token
 
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -13,6 +14,9 @@ SearchBar::SearchBar(QWidget* parent) : QFrame(parent) {
     setupUI();
 }
 
+/**
+ * @brief 构建搜索栏
+ */
 void SearchBar::setupUI() {
     setStyleSheet(
         "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
@@ -24,7 +28,7 @@ void SearchBar::setupUI() {
 
     m_edit = new QLineEdit(this);
     m_edit->setStyleSheet(
-        "QLineEdit{border:none;padding:0 16px;font-size:16px;background:transparent;color:#333;min-height:42px;}"
+        "QLineEdit{border:none;padding:0 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "background:transparent;color:#333;min-height:42px;}"
     );
     layout->addWidget(m_edit);
 
@@ -33,15 +37,19 @@ void SearchBar::setupUI() {
     m_kbdBtn->setCursor(Qt::PointingHandCursor);
     m_kbdBtn->setStyleSheet(
         "QPushButton{border:none;border-radius:0 10px 10px 0;"
-        "background:#f0f2f5;font-size:22px;color:#888;}"
+        "background:#f0f2f5;" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + "color:#888;}"
         "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}"
     );
     connect(m_kbdBtn, &QPushButton::clicked, this, &SearchBar::keyboardRequested);
     layout->addWidget(m_kbdBtn);
 }
 
+/**
+ * @brief 设置输入框左右内边距，为前置图标留出空间
+         * @param padding 内边距像素
+         */
 void SearchBar::setEditPadding(int leftRightPx) {
     m_edit->setStyleSheet(QString(
-        "QLineEdit{border:none;padding:0 %1px;font-size:16px;background:transparent;color:#333;min-height:42px;}"
+        "QLineEdit{border:none;padding:0 %1px;" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "background:transparent;color:#333;min-height:42px;}"
     ).arg(leftRightPx));
 }

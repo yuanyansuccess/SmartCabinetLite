@@ -1,13 +1,8 @@
-// 智能柜Qt Widget 2.0  FaceCameraWidget实现  
-// 纯C++人脸检测+特征提取
-// 重写说明：
-// 1. 肤色人脸检测（YCrCb色彩空间+形态学开运算+连通域分析）
-// 2. 128维纹理特征提取（64x64灰度→8x8网格→均值+方差）
-// 3. 人脸框绘制（绿色矩形+蓝色特征点仿真）
-// 4. 状态提示叠加层（复刻Web端已检测到人脸/请对准摄像头等）
-// 5. 状态指示灯（蓝色扫描/绿色成功/红色错误）
-// 6. 摄像头圆框边框动画（灰色虚线→绿色实线→蓝色脉冲）
-// 替代之前的随机特征向量生成，实现真正的刷脸登录功能
+/**
+ * @file FaceCameraWidget.cpp
+ * @brief 摄像头预览控件实现：视频取帧、本地人脸框检测绘制与距离过远提示
+ * @author 袁燕
+ */
 #include "FaceCameraWidget.h"
 #include "utils/StyleHelper.h"
 #include "common/Constants.h"
@@ -61,6 +56,9 @@ FaceCameraWidget::~FaceCameraWidget() { stopCamera(); }
 // UI构建
 // ════════════════════════════════════════
 
+/**
+ * @brief 构建摄像头预览控件
+ */
 void FaceCameraWidget::setupUI()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -98,7 +96,7 @@ void FaceCameraWidget::setupUI()
     m_statusHint->setWordWrap(false);       // 强制不换行
     m_statusHint->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_statusHint->setStyleSheet(
-        "background:rgba(255,77,79,0.75); color:#ffffff; font-size:15px; "
+        "background:rgba(255,77,79,0.75); color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " "
         "font-weight:600; border-radius:22px; padding:6px 16px;");
     m_statusHint->setText(QString::fromUtf8("\xF0\x9F\x91\xA4" "请将正脸对准摄像头"));
     // 位置：录像框(220x220在20,8)下方，居中 (260宽居中于20+220范围内)
@@ -110,7 +108,7 @@ void FaceCameraWidget::setupUI()
     m_displayLabel->move(20, 8);
     m_displayLabel->setAlignment(Qt::AlignCenter);
     m_displayLabel->setStyleSheet(
-        "background:#1a1a2e; color:#8899aa; font-size:16px; "
+        "background:#1a1a2e; color:#8899aa; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " "
         "border:4px dashed #d0d0d0; border-radius:110px;");
     m_displayLabel->setText(QString::fromUtf8("\xe6\x91\x84\xe5\x83\x8f\xe5\xa4\xb4"));
     m_displayLabel->show();
@@ -137,11 +135,19 @@ void FaceCameraWidget::setupUI()
 // 摄像头控制
 // ════════════════════════════════════════
 
+/**
+ * @brief 替换人脸检测参数
+         * @param policy 检测参数集合
+         * @note 集中存放阈值类魔数，便于按场景调整而不改动检测逻辑
+         */
 void FaceCameraWidget::setDetectPolicy(const DetectPolicy& policy)
 {
     m_policy = policy;
 }
 
+/**
+ * @brief 启动摄像头
+ */
 void FaceCameraWidget::startCamera()
 {
     m_lastFrame = QImage();
@@ -164,7 +170,7 @@ void FaceCameraWidget::startCamera()
             m_faceOverlay->show();
             m_statusHint->setText(QString::fromUtf8("\xF0\x9F\x91\xA4" "请将正脸对准摄像头"));
             m_statusHint->setStyleSheet(
-                "background:rgba(255,77,79,0.75); color:#ffffff; font-size:15px; "
+                "background:rgba(255,77,79,0.75); color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " "
                 "font-weight:600; border-radius:22px; padding:6px 16px;");
             m_statusHint->hide();
             m_statusDot->setStyleSheet(StyleHelper::statusDot());
@@ -182,7 +188,7 @@ void FaceCameraWidget::startCamera()
     m_statusHint->hide();
     m_displayLabel->setText(QString::fromUtf8("\xF0\x9F\x93\xB7 摄像头运行中..."));
     m_displayLabel->setStyleSheet(
-        "background:#0a1628; color:#aaccee; font-size:16px; "
+        "background:#0a1628; color:#aaccee; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " "
         "border:4px solid #52c41a; border-radius:110px;");
     m_displayLabel->show();
     m_detectTimer->start();
@@ -190,6 +196,9 @@ void FaceCameraWidget::startCamera()
     emit stateChanged(1);
 }
 
+/**
+ * @brief 停止摄像头
+ */
 void FaceCameraWidget::stopCamera()
 {
     m_glowAnim->stop();
@@ -201,7 +210,7 @@ void FaceCameraWidget::stopCamera()
     m_statusHint->hide();
     m_displayLabel->setText(QString::fromUtf8("\xe6\x91\x84\xe5\x83\x8f\xe5\xa4\xb4"));
     m_displayLabel->setStyleSheet(
-        "background:#1a1a2e; color:#8899aa; font-size:16px; "
+        "background:#1a1a2e; color:#8899aa; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " "
         "border:4px dashed #d0d0d0; border-radius:110px;");
     m_displayLabel->show();
     m_statusDot->setStyleSheet(
@@ -214,8 +223,17 @@ void FaceCameraWidget::stopCamera()
     emit stateChanged(0);
 }
 
+/**
+ * @brief 判断人脸检测是否正在运行
+         * @return true=检测中
+         */
 bool FaceCameraWidget::isActive() const { return m_active; }
 
+/**
+ * @brief 采集当前帧的人脸特征
+         * @param base64 输出参数，图像的 Base64 文本
+         * @return true=采集成功
+         */
 QString FaceCameraWidget::captureFaceFeature()
 {
     if (!m_lastFaceRect.isNull() && !m_lastFrame.isNull())
@@ -223,28 +241,67 @@ QString FaceCameraWidget::captureFaceFeature()
     return QString();
 }
 
+/**
+ * @brief 判断摄像头
+ */
 bool FaceCameraWidget::hasCamera() const { return CameraCapture::hasCamera(); }
 
 // ════════════════════════════════════════
 // 版本B兼容API
 // ════════════════════════════════════════
 
+/**
+ * @brief 设置是否自动采集
+         * @param on true=满足条件后自动采集
+         */
 void FaceCameraWidget::setAutoCapture(bool enable) { m_autoCapture = enable; }
+/**
+ * @brief 设置参与比对的最低置信度
+         * @param value 置信度下限，低于该值的帧直接丢弃
+         */
 void FaceCameraWidget::setMinConfidence(double val) { m_minConfidence = val; }
+/**
+         * @brief 设置自动采集所需的连续稳定帧数
+         * @param frames 需要的连续帧数
+         */
 void FaceCameraWidget::setStableFrames(int frames) { m_stableFrames = frames; }
+/**
+         * @brief 设置人脸检测的时间间隔
+         * @param ms 检测间隔毫秒数
+         */
 void FaceCameraWidget::setDetectInterval(int ms) { m_detectIntervalMs = ms; }
+/**
+         * @brief 设置采集成功后的延迟关闭时间
+         * @param ms 延迟毫秒数，用于给用户留出取消窗口
+         */
 void FaceCameraWidget::setCaptureDelay(int ms) { m_captureDelay = ms; }
 
+/**
+         * @brief 读取当前帧中的人脸框
+         * @return 人脸框矩形；未检出人脸时返回空矩形
+         */
 QRect FaceCameraWidget::faceRect() const { return m_lastFaceRect; }
 
+/**
+         * @brief 判断人脸是否距离过远
+         * @return true=人脸框过小，特征质量不足
+         * @note 距离过远时特征质量下降易致识别失败，应提示用户靠近而非放宽阈值
+         */
 bool FaceCameraWidget::isFaceTooFar() const { return m_faceTooFar; }
 
+/**
+         * @brief 清除距离过远提示状态
+         */
 void FaceCameraWidget::clearTooFarHint() {
     if (!m_faceTooFar) return;
     m_faceTooFar = false;
     emit faceTooFarChanged(false);
 }
 
+/**
+         * @brief 立即触发一次采集
+         * @return true=已触发
+         */
 void FaceCameraWidget::captureNow()
 {
     if (m_cameraAvailable && !m_lastFrame.isNull() && !m_lastFaceRect.isNull())
@@ -276,8 +333,8 @@ void FaceCameraWidget::captureNow()
             for (int i = 0; i < parts.size(); ++i)
             {
                 bool convOk = false;
-                double v = parts[i].trimmed().toDouble(&convOk);
-                if (convOk) m_lastDescriptor.append(v);
+                double dimValue = parts[i].trimmed().toDouble(&convOk);
+                if (convOk) m_lastDescriptor.append(dimValue);
             }
         }
         else
@@ -336,6 +393,10 @@ void FaceCameraWidget::captureNow()
     }
 }
 
+/**
+         * @brief 读取最近一次采集到的特征向量
+         * @return 特征向量；尚未采集时返回空向量
+         */
 QString FaceCameraWidget::getLastDescriptor() const
 {
     if (m_lastDescriptor.isEmpty()) return QString();
@@ -345,6 +406,9 @@ QString FaceCameraWidget::getLastDescriptor() const
     return parts.join(",");
 }
 
+/**
+ * @brief 重置人脸检测状态
+ */
 void FaceCameraWidget::reset()
 {
     m_lastDescriptor.clear();
@@ -364,6 +428,9 @@ void FaceCameraWidget::reset()
 // 新帧回调
 // ════════════════════════════════════════
 
+/**
+ * @brief 处理边框
+ */
 void FaceCameraWidget::onNewFrame(const QImage& frame)
 {
     if (frame.isNull() || !m_active) return;
@@ -395,6 +462,9 @@ void FaceCameraWidget::onNewFrame(const QImage& frame)
 // 人脸检测定时器
 // ════════════════════════════════════════
 
+/**
+         * @brief 人脸检测定时器槽：按间隔取帧并执行检测
+         */
 void FaceCameraWidget::onDetectTick()
 {
     if (!m_active || m_lastFrame.isNull()) return;
@@ -520,6 +590,10 @@ static void morphOpenInPlace(unsigned char* mask, int w, int h, int ksize)
     }
 }
 
+/**
+         * @brief 在当前帧中检测人脸
+         * @note 本地检测不联网：基于肤色分割与连通域分析，服务不可用时仍能画出人脸框
+         */
 QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
 {
     // 降采样到160x120加速检测
@@ -596,10 +670,10 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
                 // 4邻域
                 static const int dx[4] = {0, 1, 0, -1};
                 static const int dy[4] = {-1, 0, 1, 0};
-                for (int d = 0; d < 4; ++d)
+                for (int dirIndex = 0; dirIndex < 4; ++dirIndex)
                 {
-                    int nx = cx + dx[d];
-                    int ny = cy + dy[d];
+                    int nx = cx + dx[dirIndex];
+                    int ny = cy + dy[dirIndex];
                     int nIdx = ny * tw + nx;
                     if (nx >= 0 && nx < tw && ny >= 0 && ny < th &&
                         !visited[nIdx] && skinMask[nIdx] > 0)
@@ -648,6 +722,10 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
 // 特征提取：纹理哈希 128维
 // ════════════════════════════════════════
 
+/**
+         * @brief 从人脸区域提取特征向量
+         * @return 128维特征；提取失败时返回空向量
+         */
 QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceRect)
 {
     Q_UNUSED(faceRect);  // 深度学习模式不使用faceRect，face-api.js自己检测
@@ -690,6 +768,10 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     return QString();
 }
 
+/**
+         * @brief 对特征向量做L2归一化，消除光照与表情带来的幅度差异
+         * @param v 待归一化向量（原地修改）
+         */
 void FaceCameraWidget::normalizeL2(QVector<double>& v)
 {
     double sum = 0.0;
@@ -707,6 +789,9 @@ void FaceCameraWidget::normalizeL2(QVector<double>& v)
 // 叠加层绘制：人脸框 + 特征点
 // ════════════════════════════════════════
 
+/**
+         * @brief 更新预览画面上的状态叠加层
+         */
 void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
 {
     if (faceRect.isNull() || m_lastFrame.isNull()) return;
@@ -782,6 +867,9 @@ void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
 // 人脸检测状态处理
 // ════════════════════════════════════════
 
+/**
+         * @brief 检出人脸时的处理：绘制人脸框并判断是否自动采集
+         */
 void FaceCameraWidget::handleFaceDetected(double confidence)
 {
     Q_UNUSED(confidence);
@@ -805,6 +893,9 @@ void FaceCameraWidget::handleFaceDetected(double confidence)
     tryAutoCapture();
 }
 
+/**
+         * @brief 丢失人脸时的处理：清除人脸框与距离提示
+         */
 void FaceCameraWidget::handleFaceLost()
 {
     if (m_faceDetected)
@@ -822,6 +913,10 @@ void FaceCameraWidget::handleFaceLost()
     }
 }
 
+/**
+         * @brief 在满足置信度与稳定帧条件时自动触发采集
+         * @return true=已触发采集
+         */
 void FaceCameraWidget::tryAutoCapture()
 {
     if (!m_autoCapture || m_capturing || !m_faceDetected) return;

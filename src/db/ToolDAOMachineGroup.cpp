@@ -16,6 +16,10 @@
 
 namespace db {
 
+/**
+ * @brief 统计工具总数与各状态数量
+ * @return 含 total、inStock、borrowed、checkedOut 等指标的对象
+ */
 QJsonObject ToolDAO::getToolStats() {
     QJsonObject stats;
     // 统计按映射表status计算

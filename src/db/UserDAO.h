@@ -29,7 +29,6 @@ public:
     int          insert(const QJsonObject& userInfo);
     bool         update(int userId, const QJsonObject& updates);
     bool         softDelete(int userId);
-    /// 旧接口 updatePassword 已删除（零调用死代码），改用 updateUserPassword
     bool         updateFace(int userId, const QString& faceFeature, const QString& faceImagePath = "");
     bool         deleteFace(int userId);
     QJsonArray   getAllFaceFeatures();

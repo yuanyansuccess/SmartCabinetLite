@@ -12,12 +12,19 @@
 #include <QDebug>
 #include "common/Constants.h"
 
-// 修复LNK2005：db/层已包裹namespace db
 using db::RecordDAO;
 using db::ToolDAO;
 
 ReturnService::ReturnService(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 归还一批工具
+ * @param recordIds 待归还的借用记录ID列表
+ * @param userId 操作人ID
+ * @param returnInfo 归还信息，含归还时间与工具状况
+ * @return success=是否成功，count=成功归还条数，message=失败原因
+ * @note 按工具状况回写位置与工具状态，整批在同一事务内完成，失败整体回滚
+ */
 ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, int userId, const QJsonObject& returnInfo) {
     Result r; r.success = false; r.count = 0;
     if (recordIds.isEmpty()) { r.message = "未选择归还项目"; return r; }

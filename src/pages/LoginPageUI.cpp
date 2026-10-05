@@ -42,6 +42,9 @@
 
 // ==============================================================
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void LoginPage::setupUI() {
 
     auto* outer = new QVBoxLayout(this);
@@ -164,6 +167,9 @@ void LoginPage::setupUI() {
 
 
 
+/**
+ * @brief 初始化左侧面板
+ */
 void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
     // Logo区 - 显示公司logo图片 (复刻Vue版 .logo-wrap)
@@ -304,6 +310,9 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
 
 
+/**
+ * @brief 初始化右侧面板
+ */
 void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
     buildWelcomeHeader(layout);
@@ -1226,6 +1235,9 @@ void LoginPage::buildCopyright(QVBoxLayout* layout) {
 
 // ==============================================================
 
+/**
+ * @brief 设置状态状态点
+ */
 void LoginPage::setStatusDot(const QString& colorStyle) {
 
     if (m_statusDot) {

@@ -1,5 +1,8 @@
-// 智能柜Qt Widget 2.0  程序入口
-// 融合版：版本B页面(功能完整) + 版本A组件(TopBar/软键盘/摄像头)
+/**
+ * @file main.cpp
+ * @brief 程序入口：装配配置、数据库、日志与人脸识别服务，创建主窗口并进入事件循环
+ * @author 袁燕
+ */
 #include <QApplication>
 #include <QFont>
 #include <QFontDatabase>
@@ -35,7 +38,7 @@ int main(int argc, char* argv[]) {
     app.setStyle(QStyleFactory::create("Fusion"));
 
     // ── 初始化数据库连接 ──
-    // 策略：优先本地SQLite存储，远程MySQL为可选同步
+    // 纯 MySQL 架构：连接参数取自本地配置，连接失败即无法继续启动
     AppConfig& cfg = AppConfig::instance();
     DatabaseManager& db = DatabaseManager::instance();
     if (!db.initialize(cfg.dbHost(), cfg.dbPort(), cfg.dbName(), cfg.dbUser(), cfg.dbPass())) {

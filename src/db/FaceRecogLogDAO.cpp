@@ -11,6 +11,9 @@
 
 namespace db {
 
+/**
+ * @brief 新增日志
+ */
 bool FaceRecogLogDAO::insertLog(const FaceRecogLog& log) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -30,6 +33,9 @@ bool FaceRecogLogDAO::insertLog(const FaceRecogLog& log) {
     return safeExec(query);
 }
 
+/**
+ * @brief 读取统计
+ */
 FaceRecogStats FaceRecogLogDAO::getStats(int days) {
     FaceRecogStats stats;
     QString where = days > 0
@@ -89,6 +95,9 @@ FaceRecogStats FaceRecogLogDAO::getStats(int days) {
     return stats;
 }
 
+/**
+ * @brief 清除全部
+ */
 bool FaceRecogLogDAO::clearAll() {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);

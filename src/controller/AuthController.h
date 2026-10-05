@@ -1,7 +1,9 @@
+/**
+ * @file AuthController.h
+ * @brief 认证控制层：口令加盐哈希、密码校验与人脸特征向量比对
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  认证业务控制层
-// 功能：登录验证、密码哈希、Token管理、人脸识别匹配
-// 统一到db/目录namespace db
 #include <QObject>
 #include <QString>
 #include <QDateTime>

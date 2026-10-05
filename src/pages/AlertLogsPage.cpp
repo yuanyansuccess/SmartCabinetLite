@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file AlertLogsPage.cpp
  * @brief 告警日志页面实现 - UI与逻辑分离：静态布局在AlertLogsPage.ui，本文件只含动态构建与业务逻辑
  * @author 袁燕
@@ -10,6 +10,9 @@
 #include "utils/StyleHelper.h"
 #include "controller/AlertController.h"
 #include "services/SettingService.h"  // 分页列表数据源
+/**
+ * @brief 读取全部告警
+ */
 #include "services/AlertService.h"    // 告警统计/类型/详情       // 使用SettingService::getAllAlerts()替换getMockAlerts()
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"  // 多选筛选组件
@@ -38,6 +41,9 @@ AlertLogsPage::~AlertLogsPage() {
     delete ui;
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void AlertLogsPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_alarmIndicator = ui->alarmIndicator;
@@ -97,17 +103,26 @@ void AlertLogsPage::setupUI() {
     ui->cardsGrid->addWidget(m_resolvedCard, 0, 4);
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void AlertLogsPage::refresh() {
     // 首次进入时从数据库加载告警类型列表
     if (m_typeMap.isEmpty()) loadAlertTypes();
     loadAlerts();
 }
 
+/**
+ * @brief 处理搜索
+ */
 void AlertLogsPage::onSearch() {
     m_currentPage = 1;  // 搜索重置到第1页
     loadAlerts();
 }
 
+/**
+ * @brief 处理重置
+ */
 void AlertLogsPage::onReset() {
     m_typeFilter->selectAll();  // 重置为全选
     m_levelFilter->reset();     // SingleSelectFilter::reset()
@@ -116,6 +131,9 @@ void AlertLogsPage::onReset() {
     loadAlerts();
 }
 
+/**
+ * @brief 加载告警
+ */
 void AlertLogsPage::loadAlerts() {
     // 从数据库sys_alert表JOIN加载真实告警数据，替换硬编码getMockAlerts()
     // 类型筛选为type_code匹配（从数据库缓存m_typeMap获取）
@@ -319,7 +337,6 @@ void AlertLogsPage::loadAlertTypes() {
     qInfo() << "[AlertLogsPage] loadAlertTypes: got" << types.size() << "types from DB";
     if (types.isEmpty()) {
         qWarning() << "[AlertLogsPage] 告警类型列表为空，数据库可能未初始化，尝试强制刷新";
-        // 可能是首次运行表还未创建，再试一次（seedBusinessData会创建表）
         return;
     }
     m_typeMap.clear();
@@ -339,6 +356,9 @@ void AlertLogsPage::loadAlertTypes() {
     qInfo() << "[AlertLogsPage] loadAlertTypes done: typeNames=" << typeNames;
 }
 
+/**
+ * @brief 处理确认
+ */
 void AlertLogsPage::onAcknowledge(int alertId) {
   // 通过AlertController替代直接调用db/AlertDAO
     AlertController ctrl;
@@ -349,6 +369,9 @@ void AlertLogsPage::onAcknowledge(int alertId) {
     }
 }
 
+/**
+ * @brief 处理解决
+ */
 void AlertLogsPage::onResolve(int alertId) {
   // 通过AlertController替代直接调用db/AlertDAO
     AlertController ctrl;
@@ -387,6 +410,9 @@ void AlertLogsPage::onIgnore(int alertId) {
     }
 }
 
+/**
+ * @brief 处理详情
+ */
 void AlertLogsPage::onDetail(int alertId) {
     AlertService svc;
     QJsonObject detail = svc.getAlertDetail(alertId);

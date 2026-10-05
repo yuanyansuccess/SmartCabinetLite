@@ -55,6 +55,9 @@ ToolCheckinPage::~ToolCheckinPage() {
     delete ui;
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void ToolCheckinPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_tabWidget = ui->tabWidget;
@@ -153,6 +156,9 @@ void ToolCheckinPage::loadCabinetOptions() {
     }
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void ToolCheckinPage::refresh() {
     // 刷新时重新加载下拉选项（可能新增了类别/柜体）
     loadCategoryOptions();
@@ -164,6 +170,9 @@ void ToolCheckinPage::refresh() {
     onReset();
 }
 
+/**
+ * @brief 读取本机组信息并回填到界面
+ */
 void ToolCheckinPage::loadLocalMachineGroup() {
     int groupId = AppConfig::instance().localMachineGroupId();
     if (groupId <= 0) {
@@ -200,6 +209,9 @@ void ToolCheckinPage::loadLocalMachineGroup() {
     ).arg(StyleHelper::primaryColor()));
 }
 
+/**
+ * @brief 处理重置
+ */
 void ToolCheckinPage::onReset() {
     m_toolNameEdit->clear();
     m_toolCodeEdit->clear();
@@ -222,6 +234,9 @@ void ToolCheckinPage::onReset() {
     m_errorLabel->setVisible(false);
 }
 
+/**
+ * @brief 校验表单
+ */
 bool ToolCheckinPage::validateForm(QString& errorMsg) {
     // 入库校验：必须选择工具、选择数量且有空闲位置
     if (m_selectedToolId <= 0) {
@@ -251,6 +266,9 @@ bool ToolCheckinPage::validateForm(QString& errorMsg) {
     return true;
 }
 
+/**
+ * @brief 提交入库：校验表单后执行入库
+ */
 void ToolCheckinPage::onSubmit() {
     QString errorMsg;
     if (!validateForm(errorMsg)) {

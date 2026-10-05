@@ -38,6 +38,9 @@
 // 【③ 人脸识别链路（采集 → 比对 → 成功/陌生人/失败）
 //   ★核心：识别采样、相似度比对、结果分派都在本区；改识别规则先看这里
 // ==============================================================
+/**
+ * @brief 启动人脸识别
+ */
 void LoginPage::startFaceRecognition() {
     m_faceResult = FaceResult::Scanning;  // 重置状态，防止上次fail状态残留
     m_samples.clear();
@@ -120,6 +123,9 @@ void LoginPage::startFaceRecognition() {
     }, Qt::SingleShotConnection);
 }
 
+/**
+ * @brief 停止人脸识别
+ */
 void LoginPage::stopFaceRecognition() {
     m_timeoutTimer->stop();
     m_autoJumpTimer->stop();
@@ -133,6 +139,9 @@ void LoginPage::stopFaceRecognition() {
     m_faceRecognitionActive = false;
 }
 
+/**
+ * @brief 处理人脸
+ */
 void LoginPage::onFaceDetected() {
     m_faceResult = FaceResult::Scanning;
     // 距离过远时保持"请靠近"提示，不被"已检测到人脸"覆盖
@@ -150,6 +159,9 @@ void LoginPage::onFaceDetected() {
     }
 }
 
+/**
+ * @brief 处理人脸
+ */
 void LoginPage::onFaceLost() {
     // 人离开摄像头画面 → 清除注销抑制（含截止时间），恢复正常自动刷脸登录
     m_logoutSuppressed = false;
@@ -196,6 +208,9 @@ void LoginPage::setScanStatus(const QString& text, int level) {
     m_cameraStatusText->setStyleSheet(kStyles.value(qBound(0, level, 3)));
 }
 
+/**
+ * @brief 更新"请靠近"距离提示：人脸过远时提示，过近后自动消除
+ */
 bool LoginPage::keepDistanceHint() {
     if (!m_faceCamera || !m_faceCamera->isFaceTooFar()) return false;
     if (m_faceResult == FaceResult::Success) return false;
@@ -207,6 +222,9 @@ bool LoginPage::keepDistanceHint() {
     return true;
 }
 
+/**
+ * @brief 处理人脸
+ */
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     // 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
     // 根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
@@ -318,6 +336,9 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     }
 }
 
+/**
+ * @brief 收集最佳样本
+ */
 void LoginPage::collectBestSample() {
     // 竞态防护：已登录成功不采集
     if (m_samples.isEmpty() || m_isVerifying || m_faceResult == FaceResult::Success) return;
@@ -530,6 +551,9 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
     m_altLoginHint->setText(QStringLiteral("🔑 使用账号密码登录"));
 }
 
+/**
+ * @brief 处理异常
+ */
 void LoginPage::onCameraError(const QString& msg) {
     m_hasCamera = false;
     stopDotBlink();
@@ -543,6 +567,9 @@ void LoginPage::onCameraError(const QString& msg) {
     m_altLoginHint->setVisible(false);
 }
 
+/**
+ * @brief 处理状态
+ */
 void LoginPage::onFaceStateChanged(int state) {}
 
 // ============ 密码登录 (复刻Vue版 + NumKeypad数字键盘) ============

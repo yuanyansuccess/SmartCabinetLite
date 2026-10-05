@@ -16,6 +16,12 @@
 
 namespace db {
 
+/**
+ * @brief 查询某工具可用的在库位置
+ * @param toolId 工具ID
+ * @param limit 最多返回条数
+ * @return 位置数组；无可用位置时返回空数组
+ */
 QJsonArray ToolDAO::findInStockPositions(int toolId, int limit)
 {
     QSqlDatabase db = getDb();

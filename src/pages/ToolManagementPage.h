@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ToolManagementPage.h
  * @brief 工具管理页面 - 参考工程机组管理风格重做
  * @author 袁燕
@@ -113,7 +113,7 @@ private:
     QLineEdit* m_dlgCode = nullptr;
     QComboBox* m_dlgCategory = nullptr;
     QLineEdit* m_dlgPosition = nullptr;
-    QLineEdit* m_dlgUnit = nullptr;  // 已删除 m_dlgQuantity（数量恒为1）
+    QLineEdit* m_dlgUnit = nullptr;  // 数量恒为 1：一个位置只放一个工具
     QLineEdit* m_dlgSpec = nullptr;
     QPushButton* m_dlgSaveBtn = nullptr;
     int m_editToolId = 0;

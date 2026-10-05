@@ -1,15 +1,15 @@
+/**
+ * @file UserController.h
+ * @brief 用户管理控制层：用户增删改、启用禁用与密码维护
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  用户管理业务控制层
-// 功能：用户CRUD、状态管理、人脸录入/删除、密码管理
-// 统一到db/目录，使用namespace db::UserDAO
-//
-// 分层定位：Controller 负责「读查询 + 密码/状态等管理动作」；
-// 人脸特征比对与登录鉴权走 services/FaceRecognitionService 与 AuthService。
-// 权限校验、审计日志、操作埋点等横切关注点请加在本层，不要散到 pages 或 Service。
 #include <QObject>
 #include "model/User.h"
 #include "db/UserDAO.h"
 
+// 分层定位：Controller 负责用户读查询与密码/状态等管理动作；
+// 人脸特征比对与登录鉴权走 services/FaceRecognitionService 与 AuthService。
 class UserController : public QObject {
     Q_OBJECT
 public:

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file RecordDAO.h
  * @brief 借用记录数据访问对象 — QJsonObject API + 实体类API + 操作日志查询
  * @author 袁燕

@@ -1,13 +1,14 @@
+/**
+ * @file SettingController.h
+ * @brief 系统设置控制层：配置读写转发与数据库连通性探测
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  系统设置业务控制层
-// 功能：数据库配置、系统参数的管理
-//
-// 分层定位：Controller 负责「配置读写转发 + 数据库连通性探测」；
-// 恢复出厂设置等业务动作走 services/SettingService（含管理员密码校验）。
-// 权限校验、审计日志、操作埋点等横切关注点请加在本层，不要散到 pages 或 Service。
 #include <QObject>
 #include "common/AppConfig.h"
 
+// 分层定位：Controller 负责配置读写转发与数据库连通性探测；
+// 恢复出厂设置等业务动作走 services/SettingService（内含管理员口令校验）。
 class SettingController : public QObject {
     Q_OBJECT
 public:

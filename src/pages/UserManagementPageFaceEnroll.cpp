@@ -111,6 +111,9 @@ struct FaceEnrollCtx {
     std::function<void()> doCapture;
 };
 
+/**
+ * @brief 处理人脸
+ */
 void UserManagementPage::onFaceEnroll(int userId) {
     UserController ctrl;
     User user = ctrl.getUserById(userId);
@@ -339,8 +342,8 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
                 int retryLeft = retryTimer->property("retryLeft").toInt();
                 QImage frame = ctx.camera->currentFrame();
                 DeepFaceExtractor ext;
-                double y, p; QString e;
-                if (!frame.isNull() && ext.detectPosture(frame, y, p, e)) {
+                double yaw, pitch; QString errorText;
+                if (!frame.isNull() && ext.detectPosture(frame, yaw, pitch, errorText)) {
                     ctx.simpleMode = false;
                     const auto& t = POSTURE_TARGETS[0];
                     ctx.directionLabel->setText(QStringLiteral("【 %1 】").arg(t.name));
@@ -617,6 +620,9 @@ void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
 // 【⑧ 已录入用户的人脸查看与清除
 //   查看/重新录入/清除人脸
 // ==============================================================
+/**
+ * @brief 处理人脸
+ */
 void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName, const QString& workNo) {
     UserController ctrl;
     User user = ctrl.getUserById(userId);

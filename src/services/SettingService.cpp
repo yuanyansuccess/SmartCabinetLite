@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SettingService.cpp
  * @brief 系统设置服务实现 — 仪表盘统计、告警日志、用户概览、告警统计
  * @author 袁燕
@@ -23,6 +23,10 @@ using db::DepartmentDAO;
 
 SettingService::SettingService(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 汇总系统概览页统计数据
+ * @return 含工具总数、在借数、逾期数、告警数与近期借用记录的对象
+ */
 QJsonObject SettingService::getDashboardStats() {
     QJsonObject s;
     // 按工具件数统计（total_qty/in_stock_qty/borrowed_qty），不按种类数
@@ -46,21 +50,46 @@ QJsonObject SettingService::getDashboardStats() {
     return s;
 }
 
+/**
+ * @brief 汇总普通用户首页统计数据
+ * @param userId 用户ID
+ * @return 含该用户借用与归还相关统计的对象
+ */
 QJsonObject SettingService::getUserDashboardStats(int userId) {
     RecordDAO dao;
     return dao.getUserStats(userId);
 }
 
+/**
+ * @brief 查询最近的操作日志
+ * @param limit 最多返回条数
+ * @return 日志数组，按时间倒序
+ */
 QJsonArray SettingService::getRecentLogs(int limit) {
     RecordDAO dao;
     return dao.findRecentActivity(limit);
 }
 
+/**
+ * @brief 查询指定用户的借用记录
+ * @param userId 用户ID
+ * @param limit 最多返回条数
+ * @return 借用记录数组，按时间倒序
+ */
 QJsonArray SettingService::getUserBorrowRecords(int userId, int limit) {
     RecordDAO dao;
     return dao.findByUserId(userId, limit);
 }
 
+/**
+ * @brief 分页查询告警列表
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param type 告警类型，为空不过滤
+ * @param level 告警级别，为空不过滤
+ * @param keyword 关键字，为空不过滤
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& type,
                                            const QString& level, const QString& keyword) {
     // AlertLogsPage数据源：JOIN sys_alert + sys_alert_type + tool_info + tool_cabinet + sys_user
@@ -201,6 +230,10 @@ QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& 
     return result;
 }
 
+/**
+ * @brief 汇总台账统计数据
+ * @return 含借用总次数、归还总次数、逾期数与活跃用户数的对象
+ */
 QJsonObject SettingService::getLedgerStats() {
     // 字段名对齐LedgerStatsPage期望：
     // totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
@@ -307,10 +340,20 @@ QJsonObject SettingService::getLedgerStats() {
     return s;
 }
 
+/**
+ * @brief 恢复出厂设置入口
+ * @param adminPassword 管理员口令
+ * @return true=管理员身份校验通过
+ */
 bool SettingService::factoryReset(const QString& adminPassword) {
     return verifyAdminPassword(adminPassword);
 }
 
+/**
+ * @brief 校验危险操作的管理员身份
+ * @param adminPassword 管理员口令
+ * @return true=存在启用状态的管理员且口令匹配
+ */
 bool SettingService::verifyAdminPassword(const QString& adminPassword) {
     // 危险操作鉴权：必须验证真实管理员身份（密码与库中哈希比对）
     // 禁止任何硬编码口令后门，也禁止跳过状态校验
@@ -330,6 +373,11 @@ bool SettingService::verifyAdminPassword(const QString& adminPassword) {
     return false;
 }
 
+/**
+ * @brief 清空全部操作日志
+ * @param adminPassword 管理员口令
+ * @return true=校验通过且日志已清空
+ */
 bool SettingService::clearAllLogs(const QString& adminPassword) {
     if (!factoryReset(adminPassword)) {
         qWarning() << "[SettingService] clearAllLogs: 管理员验证失败";
@@ -341,6 +389,10 @@ bool SettingService::clearAllLogs(const QString& adminPassword) {
     return db.executeNonQuery("DELETE FROM sys_operation_log");
 }
 
+/**
+ * @brief 查询全部部门
+ * @return 部门名称数组
+ */
 QJsonArray SettingService::getDepartments() {
     QJsonArray arr;
     // 使用DepartmentDAO替代裸SQL

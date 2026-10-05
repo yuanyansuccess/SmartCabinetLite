@@ -78,6 +78,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow() {}
 
+/**
+ * @brief 构建主窗口：侧边栏、页面堆栈与顶栏
+ */
 void MainWindow::setupUI() {
     QWidget* central = new QWidget(this);
     setCentralWidget(central);
@@ -176,6 +179,9 @@ void MainWindow::setupUI() {
     m_backupCheckTimer->start();
 }
 
+/**
+ * @brief 初始化顶部栏
+ */
 void MainWindow::setupTopBar() {
     m_topBar = new TopBar();
     m_topBar->setFixedHeight(68);
@@ -183,6 +189,9 @@ void MainWindow::setupTopBar() {
     m_topBar->setVersionText(AppConfig::instance().appVersion());
 }
 
+/**
+ * @brief 创建侧边栏
+ */
 QWidget* MainWindow::createSidebar() {
     QWidget* sb = new QWidget();
     sb->setStyleSheet("background:#1a1a2e;");
@@ -253,6 +262,9 @@ QWidget* MainWindow::createSidebar() {
     return sb;
 }
 
+/**
+ * @brief 显示页面
+ */
 void MainWindow::showPage(const QString& name) {
   // 普通用户仅允许访问 系统概览/工具机组查询，
     // 防止其他入口（如告警跳转）绕过侧边栏限制
@@ -341,6 +353,10 @@ void MainWindow::showPage(const QString& name) {
     QMetaObject::invokeMethod(this, [this, name, refreshPage]() { refreshPage(name); }, Qt::QueuedConnection);
 }
 
+/**
+         * @brief 高亮侧边栏中当前所在的页面
+         * @param pageKey 页面标识
+         */
 void MainWindow::updateSidebarActive(const QString& name) {
     for (auto* btn : m_navButtons) {
         // 防御：跳过空指针（防异常构建状态下脏指针导致崩溃）
@@ -352,6 +368,10 @@ void MainWindow::updateSidebarActive(const QString& name) {
     }
 }
 
+/**
+         * @brief 按登录角色刷新侧边栏可见项
+         * @param role 角色标识
+         */
 void MainWindow::updateSidebarVisibility() {
     bool loggedIn = !m_user.isEmpty();
     m_sidebar->setVisible(loggedIn);
@@ -372,6 +392,9 @@ void MainWindow::updateSidebarVisibility() {
     }
 }
 
+/**
+ * @brief 设置当前用户
+ */
 void MainWindow::setCurrentUser(const QJsonObject& user) {
     m_user = user;
     // 用户信息仅在TopBar显示，侧边栏不重复展示
@@ -381,6 +404,10 @@ void MainWindow::setCurrentUser(const QJsonObject& user) {
     updateSidebarVisibility();
 }
 
+/**
+         * @brief 登录成功处理：按角色进入对应首页
+         * @param user 登录用户信息
+         */
 void MainWindow::onLoginSuccess(const QJsonObject& user) {
     // 登录成功后确保摄像头已关闭（兜底保险）
     m_loginPage->stopFaceRecognitionPublic();
@@ -431,6 +458,9 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     emit userLoggedIn(user);
 }
 
+/**
+         * @brief 注销处理：回到登录页并停止人脸识别
+         */
 void MainWindow::onLogout() {
     m_user = QJsonObject();
     // 侧边栏已移除用户区域，仅重置TopBar
@@ -522,8 +552,6 @@ void MainWindow::onBackupCheckTimeout() {
     }
 
     // 本工程为纯 MySQL 架构（SQLite 已彻底移除，无回退），备份统一走 mysqldump 导出。
-    // 历史上此处还有一个"拷贝 SQLite 数据库文件"的分支，但其路径指向另一个工程
-    // （QtSmartCabinet/build/smartcabinet.db），在本工程永远不存在、该分支从未被执行，属死代码，已删除。
     QString backupFile = backupPath + QDir::separator() +
                          QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
     auto* proc = new QProcess(this);

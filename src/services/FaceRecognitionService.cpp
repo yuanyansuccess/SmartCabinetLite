@@ -19,17 +19,26 @@ using db::FaceRecogLog;
 
 FaceRecognitionService::FaceRecognitionService(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 解析人脸特征串
+ * @param str 逗号分隔的特征值文本
+ * @return 特征向量；解析失败时返回空向量
+ */
 QVector<double> FaceRecognitionService::parseDescriptor(const QString& str) {
     QVector<double> result;
     QStringList parts = str.split(",", Qt::SkipEmptyParts);
     for (const auto& p : parts) {
         bool ok = false;
-        double v = p.trimmed().toDouble(&ok);
-        if (ok) result.append(v);
+        double dimValue = p.trimmed().toDouble(&ok);
+        if (ok) result.append(dimValue);
     }
     return result;
 }
 
+/**
+ * @brief 对特征向量做L2归一化
+ * @param v 待归一化的向量（原地修改）
+ */
 void FaceRecognitionService::normalizeL2(QVector<double>& v) {
     double sum = 0;
     for (double x : v) sum += x * x;
@@ -39,6 +48,12 @@ void FaceRecognitionService::normalizeL2(QVector<double>& v) {
     }
 }
 
+/**
+ * @brief 计算两个特征向量的余弦相似度
+ * @param a 特征向量A
+ * @param b 特征向量B
+ * @return 相似度，范围0~1；维度不一致或为空时返回0
+ */
 double FaceRecognitionService::cosineSimilarity(const QVector<double>& a, const QVector<double>& b) {
     if (a.size() != b.size() || a.isEmpty()) return 0;
     QVector<double> an = a, bn = b;
@@ -53,6 +68,12 @@ double FaceRecognitionService::cosineSimilarity(const QVector<double>& a, const 
     return dot;
 }
 
+/**
+ * @brief 计算两个特征向量的欧氏距离
+ * @param a 特征向量A
+ * @param b 特征向量B
+ * @return 距离值，越小越相似；维度不一致时返回极大值
+ */
 double FaceRecognitionService::euclideanDistance(const QVector<double>& a, const QVector<double>& b) {
     if (a.size() != b.size()) return 1e10;
     QVector<double> an = a, bn = b;
@@ -60,12 +81,20 @@ double FaceRecognitionService::euclideanDistance(const QVector<double>& a, const
     normalizeL2(bn);
     double sum = 0;
     for (int i = 0; i < an.size(); ++i) {
-        double d = an[i] - bn[i];
-        sum += d * d;
+        double diff = an[i] - bn[i];
+        sum += diff * diff;
     }
     return qSqrt(sum);
 }
 
+/**
+ * @brief 将采集特征与已录入人脸逐一比对
+ * @param faceDescriptor 采集到的特征串
+ * @param threshold 判定为同一人的相似度下限
+ * @param highConfidence 高置信度帧的相似度下限，用于优先采用最佳帧
+ * @return 匹配结果，含是否匹配、最佳相似度、命中用户与候选明细
+ * @note 入库人脸特征已归一化，比对前同样归一化；低于阈值一律判为陌生人
+ */
 FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     const QString& faceDescriptor, double threshold, double highConfidence,
     double rejectThreshold, double marginThreshold, double maxEuclideanDist) {
@@ -175,7 +204,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 注意：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
-    const double singleFaceThreshold = 0.97;  // 单人脸最低门槛（袁总确认95%以上才通过）
+    const double singleFaceThreshold = 0.97;  // 单人脸相似度门槛，低于此值判为非本人
     bool cosOk = false;
 
     if (candidates.size() == 1) {
@@ -259,22 +288,42 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     return result;
 }
 
+/**
+ * @brief 为用户录入人脸特征
+ * @param userId 用户ID
+ * @param faceDescriptor 128维特征串
+ * @return true=录入成功
+ */
 bool FaceRecognitionService::enrollFace(int userId, const QString& faceDescriptor) {
     UserDAO dao;
     return dao.updateFace(userId, faceDescriptor);
 }
 
+/**
+ * @brief 删除用户人脸特征
+ * @param userId 用户ID
+ * @return true=删除成功
+ */
 bool FaceRecognitionService::deleteFace(int userId) {
     UserDAO dao;
     return dao.deleteFace(userId);
 }
 
+/**
+ * @brief 判断用户是否已录入人脸
+ * @param userId 用户ID
+ * @return true=已录入
+ */
 bool FaceRecognitionService::hasFaceEnrolled(int userId) {
     UserDAO dao;
     QJsonObject u = dao.findById(userId);
     return !u["faceFeature"].toString().isEmpty();
 }
 
+/**
+ * @brief 查询全部已录入人脸的用户
+ * @return 元素含 userId、realName、faceFeature 的数组
+ */
 QJsonArray FaceRecognitionService::getAllEnrolledFaces() {
     UserDAO dao;
     return dao.getAllFaceFeatures();

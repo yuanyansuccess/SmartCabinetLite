@@ -16,6 +16,10 @@
 
 namespace db {
 
+/**
+ * @brief 查询全部工具分类
+ * @return 分类实体列表
+ */
 QList<ToolCategory> ToolDAO::allCategories() {
     QList<ToolCategory> list;
     QSqlQuery q = query("SELECT * FROM tool_category ORDER BY sort_order");
@@ -31,6 +35,10 @@ QList<ToolCategory> ToolDAO::allCategories() {
     return list;
 }
 
+/**
+ * @brief 查询全部分类名称
+ * @return 分类名称列表
+ */
 QStringList ToolDAO::allCategoryNames() {
     QStringList names;
     QSqlQuery q = query("SELECT category_name FROM tool_category ORDER BY sort_order");
@@ -38,6 +46,10 @@ QStringList ToolDAO::allCategoryNames() {
     return names;
 }
 
+/**
+ * @brief 查询全部柜体
+ * @return 柜体实体列表
+ */
 QList<ToolCabinet> ToolDAO::allCabinets() {
     QList<ToolCabinet> list;
     QSqlQuery q = query("SELECT * FROM tool_cabinet ORDER BY cabinet_id");
@@ -54,6 +66,10 @@ QList<ToolCabinet> ToolDAO::allCabinets() {
     return list;
 }
 
+/**
+ * @brief 查询全部柜体名称
+ * @return 柜体名称列表
+ */
 QStringList ToolDAO::allCabinetNames() {
     QStringList names;
     QSqlQuery q = query("SELECT cabinet_name FROM tool_cabinet");

@@ -109,6 +109,9 @@ LoginPage::~LoginPage() {
 // 【④ 账号密码登录
 //   工号/密码输入、数字键盘、登录校验
 // ==============================================================
+/**
+ * @brief 账号输入框获得焦点事件处理：弹出软键盘
+ */
 void LoginPage::onUsernameFieldClicked() {
     m_activeField = "username";
     // 工号改纯数字：统一使用数字键盘（不随机打乱、明文显示）
@@ -120,6 +123,9 @@ void LoginPage::onUsernameFieldClicked() {
     }
 }
 
+/**
+ * @brief 处理口令输入框点击事件
+ */
 void LoginPage::onPasswordFieldClicked() {
     m_activeField = "password";
     // NumKeypad作为顶层Popup弹窗显示，不受布局约束
@@ -131,6 +137,9 @@ void LoginPage::onPasswordFieldClicked() {
     }
 }
 
+/**
+ * @brief 处理口令
+ */
 void LoginPage::onPasswordLogin() {
     QString username = m_usernameEdit->text().trimmed();
     QString password = m_passwordEdit->text();
@@ -269,6 +278,9 @@ void LoginPage::switchToPasswordLogin() {
     // cameraWrap保持可见(fail圆圈已由setFaceResult管理)，不额外隐藏
 }
 
+/**
+ * @brief 处理人脸
+ */
 void LoginPage::onTryFaceAgain() {
     if (m_faceResult == FaceResult::Fail || m_faceResult == FaceResult::NoCamera) {
         // 当前在密码模式，切换回人脸识别
@@ -321,6 +333,10 @@ void LoginPage::showEvent(QShowEvent* event) {
     }
 }
 
+/**
+ * @brief 窗口尺寸变化事件处理：按新尺寸重排摄像头预览
+ * @param event 尺寸变化事件
+ */
 void LoginPage::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     if (m_exitBtn) {
@@ -329,6 +345,9 @@ void LoginPage::resizeEvent(QResizeEvent* event) {
     }
 }
 
+/**
+ * @brief 处理系统
+ */
 void LoginPage::onExitSystem() {
     auto* dlg = new QDialog(this);
     dlg->setWindowTitle(QStringLiteral("退出确认"));
@@ -406,6 +425,11 @@ void LoginPage::stopDotBlink() {
 /** [保留] MOC生成代码引用的空方法 */
 void LoginPage::retryFaceTimeout() {}
 
+/**
+ * @brief 将人脸识别状态转换为可读名称
+ * @param result 识别状态
+ * @return 状态名称，仅用于日志展示
+ */
 QString LoginPage::faceResultName(FaceResult result) {
     switch (result) {
     case FaceResult::Idle:      return QStringLiteral("idle");
@@ -421,6 +445,9 @@ QString LoginPage::faceResultName(FaceResult result) {
     return QStringLiteral("unknown");
 }
 
+/**
+ * @brief 设置人脸结果
+ */
 void LoginPage::setFaceResult(FaceResult state) {
     m_faceResult = state;
     if (state == FaceResult::Fail) {
@@ -446,6 +473,12 @@ void LoginPage::setFaceResult(FaceResult state) {
     }
 }
 
+/**
+         * 事件过滤器：拦截控件与窗口事件并转交专用处理
+         * @param obj 事件来源控件
+         * @param event 事件对象
+         * @return true=事件已被处理，不再继续传递
+         */
 bool LoginPage::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
         if (obj == m_usernameEdit) {

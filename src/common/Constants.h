@@ -1,6 +1,9 @@
+/**
+ * @file Constants.h
+ * @brief 全局常量定义（SC:: 命名空间）：应用信息、状态值、分页、触屏尺寸与人脸阈值
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0
-// 全局常量定义
 #include <QString>
 #include <QStringList>
 
@@ -15,7 +18,7 @@ const QString DB_HOST     = "127.0.0.1";
 const int     DB_PORT     = 3306;
 const QString DB_NAME     = "smart_cabinet";
 const QString DB_USER     = "root";
-const QString DB_PASS     = "root";  // 注意：空密码导致MySQL连接失败回退SQLite
+const QString DB_PASS     = "root";  // 默认口令占位；实际以 system.ini [Database]pass 为准（可用 SC_DB_PASS 环境变量覆盖）
 
 // ── 用户角色 ──
 const QString ROLE_ADMIN  = "admin";

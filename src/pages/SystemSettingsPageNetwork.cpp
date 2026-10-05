@@ -51,6 +51,9 @@
 #include <QRegularExpression>  // 解析os-release
 #include <QFileInfoList>  // 备份文件清理
 
+/**
+ * @brief 创建网络面板
+ */
 QWidget* SystemSettingsPage::createNetworkPanel() {
     auto* panel = new QFrame();
     panel->setObjectName("netPanel");
@@ -260,13 +263,9 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
         return;
     }
 
-    // 日志路径跨平台
-    QString logPath;
-#ifdef Q_OS_WIN
-    logPath = QStringLiteral("d:/CFDZ/smartCabinet/trunk/code/temp/network.log");
-#else
-    logPath = QStringLiteral("/tmp/smartcabinet_network.log");
-#endif
+    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
+    // 旧实现硬编码开发机路径 d:/CFDZ/...，部署到客户机器后目录不存在导致写日志失败
+    QString logPath = Log::logDirectory() + "/network.log";
 
     auto writeNetLog = [logPath](const QString& action, const QString& result, const QString& detail) {
         Log::appendLog(logPath, QStringLiteral("action=%1 result=%2 detail=%3")

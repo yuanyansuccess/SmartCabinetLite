@@ -16,6 +16,10 @@
 
 namespace db {
 
+/**
+ * @brief 查询工具简要列表
+ * @return 元素含 toolId、toolCode、toolName 的数组，供下拉框使用
+ */
 QJsonArray ToolDAO::allToolsSimple()
 {
     QSqlDatabase db = getDb();
@@ -33,6 +37,13 @@ QJsonArray ToolDAO::allToolsSimple()
     return arr;
 }
 
+/**
+ * @brief 查询指定柜体层位是否已存在对照关系
+ * @param cabinetId 柜体ID
+ * @param layer 层号
+ * @param position 位号
+ * @return 含 mappingId 与 status 的对象；该位置未配置时返回空对象
+ */
 QJsonObject ToolDAO::checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position)
 {
     QSqlDatabase db = getDb();
@@ -52,6 +63,15 @@ QJsonObject ToolDAO::checkPositionMappingExists(int cabinetId, const QString& la
     return obj;
 }
 
+/**
+ * @brief 新增位置对照关系
+ * @param toolId 工具ID
+ * @param cabinetId 柜体ID
+ * @param layer 层号
+ * @param position 位号
+ * @param status 初始状态，默认待入库
+ * @return true=新增成功
+ */
 bool ToolDAO::insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status)
 {
     QSqlDatabase db = getDb();
@@ -65,6 +85,11 @@ bool ToolDAO::insertPositionMapping(int toolId, int cabinetId, const QString& la
     return safeExec(q);
 }
 
+/**
+ * @brief 查询位置对照关系详情
+ * @param mappingId 位置映射ID
+ * @return 含工具与柜体信息的详情对象；不存在时返回空对象
+ */
 QJsonObject ToolDAO::findPositionMappingDetail(int mappingId)
 {
     QSqlDatabase db = getDb();
@@ -85,6 +110,11 @@ QJsonObject ToolDAO::findPositionMappingDetail(int mappingId)
     return obj;
 }
 
+/**
+ * @brief 判断位置是否已被占用
+ * @param mappingId 位置映射ID
+ * @return true=该位置已有工具存放
+ */
 bool ToolDAO::isPositionMappingOccupied(int mappingId)
 {
     QSqlDatabase db = getDb();
@@ -95,6 +125,11 @@ bool ToolDAO::isPositionMappingOccupied(int mappingId)
     return q.next();
 }
 
+/**
+ * @brief 删除位置对照关系
+ * @param mappingId 位置映射ID
+ * @return true=删除成功
+ */
 bool ToolDAO::deletePositionMapping(int mappingId)
 {
     QSqlDatabase db = getDb();
@@ -104,6 +139,10 @@ bool ToolDAO::deletePositionMapping(int mappingId)
     return safeExec(q);
 }
 
+/**
+ * @brief 查询全部位置对照关系
+ * @return 元素含 mappingId、toolName、toolCode、cabinetName、layer、position、positionStatus 的数组
+ */
 QJsonArray ToolDAO::findAllPositionMappings()
 {
     QSqlDatabase db = getDb();

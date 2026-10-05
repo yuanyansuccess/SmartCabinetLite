@@ -17,6 +17,11 @@
 
 namespace db {
 
+/**
+ * @brief 查询结果行转换为工具实体
+ * @param q 已定位到有效行的查询结果
+ * @return 填充完成的工具实体
+ */
 ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     ToolInfo t;
     t.toolId         = q.value("tool_id").toInt();
@@ -61,6 +66,10 @@ ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
 // ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）
 // ═══════════════════════════════════════════════
+/**
+ * @brief 分页查询工具列表，支持关键字、分类、状态、柜体与机组过滤
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject ToolDAO::findAll(const QString& keyword, const QString& category,
                             const QString& status, int cabinetId, int page, int pageSize,
                             int machineGroupId) {
@@ -342,10 +351,13 @@ QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString&
     return result;
 }
 
+/**
+ * @brief 按工具ID查询工具详情
+ * @param toolId 工具ID
+ * @return 含分类名、机组名、识别方式与文档路径的详情对象；不存在时返回空对象
+ */
 QJsonObject ToolDAO::findById(int toolId) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // 增加machine_group JOIN，返回机组名称
-    // 增加recognition_method/document_path列
     q.prepare("SELECT ti.tool_id, ti.tool_name, ti.spec, ti.tool_code, tc.category_name AS category, "
               "ti.cabinet_id, ti.machine_group_id, mg.group_name AS machine_group_name, "
               "ti.layer, ti.position, ti.total_qty, ti.current_qty, "
@@ -368,6 +380,11 @@ QJsonObject ToolDAO::findById(int toolId) {
     return t;
 }
 
+/**
+ * @brief 按工具编号查询工具基本信息
+ * @param code 工具编号
+ * @return 含工具ID、名称、编号、当前数量与状态的对象；不存在时返回空对象
+ */
 QJsonObject ToolDAO::findByCode(const QString& code) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT tool_id, tool_name, tool_code, current_qty, status FROM tool_info WHERE tool_code=:c");
@@ -385,10 +402,13 @@ QJsonObject ToolDAO::findByCode(const QString& code) {
 // 【③ 工具写入（JSON 接口）
 //   新增/更新/软删/库存与状态变更
 // ==============================================================
+/**
+ * @brief 新增工具记录
+ * @param info 工具字段集合，键名使用驼峰形式；缺省值取 SC:: 常量
+ * @return 新记录的工具ID；写入失败返回 -1
+ */
 int ToolDAO::insert(const QJsonObject& info) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    // 增加machine_group_id列，入库时关联机组
-    // 增加recognition_method/document_path列
     q.prepare("INSERT INTO tool_info (tool_name, spec, tool_code, category_id, cabinet_id, "
               "machine_group_id, layer, position, total_qty, current_qty, vision_tag, status, "
               "recognition_method, document_path) "
@@ -406,6 +426,12 @@ int ToolDAO::insert(const QJsonObject& info) {
     return q.lastInsertId().toInt();
 }
 
+/**
+ * @brief 按传入字段增量更新工具信息
+ * @param toolId 工具ID
+ * @param ups 待更新字段，同时接受驼峰与下划线两种键名
+ * @return true=至少更新了一个字段；false=入参为空或无可更新字段
+ */
 bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     if(ups.isEmpty()) return false;
     QSqlDatabase db=getDb(); QSqlQuery q(db);
@@ -420,8 +446,7 @@ bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     keyMap["documentPath"]="document_path";  // 文档路径映射
     keyMap["supplier"]="supplier";  // 供应商映射
     keyMap["unit"]="unit";  // 单位映射
-    // 注意：dbCols缺少supplier/unit列，导致入库时无法更新供应商字段
-    // 举一反三：ToolService::checkinTool用dao.update更新pending→in_stock时需要更新supplier
+    // 注意：dbCols 需覆盖供应商与单位，否则入库时更新不到这两个字段
     QStringList dbCols={"tool_name","spec","tool_code","category_id","cabinet_id","machine_group_id","layer","position","total_qty","current_qty","vision_tag","status","supplier","unit","recognition_method","document_path"};
     for(const auto& col:dbCols){
         QString val;
@@ -442,6 +467,11 @@ bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     return safeExec(q);
 }
 
+/**
+ * @brief 停用工具：状态置为维护中，保留记录不物理删除
+ * @param toolId 工具ID
+ * @return true=状态已更新
+ */
 bool ToolDAO::softDelete(int toolId) {
     QSqlDatabase db=getDb(); QSqlQuery q(db);
     q.prepare("UPDATE tool_info SET status='maintenance' WHERE tool_id=:id");
@@ -449,14 +479,19 @@ bool ToolDAO::softDelete(int toolId) {
     return safeExec(q);
 }
 
+/**
+ * @brief 调整工具在库数量，并按调整结果同步工具状态
+ * @param toolId 工具ID
+ * @param delta 增减数量（负数为减少），调整后数量不允许为负
+ * @return true=数量已变更；false=库存不足或写入失败
+ */
 bool ToolDAO::updateStock(int toolId, int delta) {
     QSqlDatabase db=getDb(); QSqlQuery q(db);
     q.prepare("UPDATE tool_info SET current_qty=current_qty+:d WHERE tool_id=:id AND current_qty+:d2>=0");
     q.bindValue(":d",delta); q.bindValue(":d2",delta); q.bindValue(":id",toolId);
     if(!safeExec(q)){return false;}
     bool affected = q.numRowsAffected()>0;
-    // 同步status字段：current_qty<=0设为borrowed，>0设为in_stock
-    // 修复出库后数量为0的工具仍出现在待出库列表的Bug
+    // 数量归零即视为借出，否则回到在库，保证状态与数量一致
     if (affected) {
         QSqlQuery q2(db);
         q2.prepare("UPDATE tool_info SET status=CASE WHEN current_qty<=0 THEN 'borrowed' ELSE 'in_stock' END WHERE tool_id=:id");
@@ -466,6 +501,12 @@ bool ToolDAO::updateStock(int toolId, int delta) {
     return affected;
 }
 
+/**
+ * @brief 更新工具状态
+ * @param toolId 工具ID
+ * @param s 目标状态，取 SC::TOOL_* 常量
+ * @return true=状态已更新
+ */
 bool ToolDAO::updateStatus(int toolId, const QString& s) {
     QSqlDatabase db=getDb(); QSqlQuery q(db);
     q.prepare("UPDATE tool_info SET status=:s WHERE tool_id=:id");

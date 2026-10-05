@@ -16,6 +16,12 @@ using db::ToolDAO;
 
 ToolService::ToolService() {}
 
+/**
+ * @brief 工具入库
+ * @param data 入库数据，含工具ID、柜体与层位信息
+ * @return true=入库成功
+ * @note 只更新位置映射表状态并同步工具在库数量，不新建工具记录
+ */
 bool ToolService::checkinTool(const QJsonObject& data) {
     // 入库逻辑只更新映射表status，不新建tool_info记录
     // 核心设计：一个工具可以在多个位置入库，tool_info只存工具基础信息

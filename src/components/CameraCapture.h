@@ -1,10 +1,9 @@
 /**
  * @file CameraCapture.h
- * @brief 摄像头采集抽象层 - Windows用MF，Linux用QtMultimedia
- * @author 袁燕  修改: 2026-06-20 添加Linux/麒麟Qt Multimedia支持
+ * @brief 摄像头采集抽象层：Windows 走 Media Foundation，麒麟 Linux 走 Qt Multimedia
+ * @author 袁燕
  *
- * 设计原则：零外部依赖，Windows用原生Media Foundation，Linux用Qt Multimedia
- * 接口简洁：start/stop/getFrame，输出QImage供FaceCameraWidget消费
+ * 对外只暴露 start / stop / getFrame，输出 QImage 供 FaceCameraWidget 消费。
  */
 #pragma once
 #include <QObject>

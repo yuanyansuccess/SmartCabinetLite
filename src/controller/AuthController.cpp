@@ -1,6 +1,8 @@
-// 智能柜Qt Widget 2.0  AuthController实现
-// 登录流程：用户名密码→SHA256验证→生成Token
-// 人脸登录：特征提取→余弦相似度→阈值判断
+/**
+ * @file AuthController.cpp
+ * @brief 认证控制层实现：口令加盐哈希、密码校验与人脸特征向量比对
+ * @author 袁燕
+ */
 #include "AuthController.h"
 #include <QCryptographicHash>
 #include <QRandomGenerator>
@@ -14,6 +16,10 @@ AuthController::AuthController(QObject* parent) : QObject(parent) {}
 // ═══════════════════════════════════════
 // 密码学工具
 // ═══════════════════════════════════════
+/**
+ * @brief 生成随机盐值
+ * @return 盐值串
+ */
 QString AuthController::generateSalt() {
     QByteArray salt;
     for (int i = 0; i < 16; ++i)
@@ -21,11 +27,24 @@ QString AuthController::generateSalt() {
     return salt.toHex();
 }
 
+/**
+ * @brief 计算口令哈希
+ * @param password 口令明文
+ * @param salt 盐值
+ * @return 十六进制哈希串
+ */
 QString AuthController::hashPassword(const QString& password, const QString& salt) {
     QByteArray data = (salt + password).toUtf8();
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex();
 }
 
+/**
+ * @brief 校验口令
+ * @param password 口令明文
+ * @param storedHash 库中存储的哈希
+ * @param storedSalt 库中存储的盐值
+ * @return true=校验通过
+ */
 bool AuthController::verifyPassword(const QString& password, const QString& storedHash, const QString& storedSalt) {
     QString computed = hashPassword(password, storedSalt);
     // 恒定时间比较
@@ -36,6 +55,11 @@ bool AuthController::verifyPassword(const QString& password, const QString& stor
     return result == 0;
 }
 
+/**
+ * @brief 生成会话令牌
+ * @param userId 用户ID
+ * @return 令牌串
+ */
 QString AuthController::generateToken(int userId) {
     return QUuid::createUuid().toString(QUuid::WithoutBraces)
            + QCryptographicHash::hash(QByteArray::number(QRandomGenerator::global()->generate()),
@@ -45,6 +69,12 @@ QString AuthController::generateToken(int userId) {
 // ═══════════════════════════════════════
 // 登录流程
 // ═══════════════════════════════════════
+/**
+ * @brief 账号口令登录
+ * @param username 登录账号
+ * @param password 口令明文
+ * @return 登录结果，含是否成功、失败原因、用户信息与令牌
+ */
 AuthController::LoginResult AuthController::login(const QString& username, const QString& password) {
     LoginResult result;
     if (username.isEmpty() || password.isEmpty()) {
@@ -85,6 +115,11 @@ AuthController::LoginResult AuthController::login(const QString& username, const
 // ═══════════════════════════════════════
 // 人脸识别登录
 // ═══════════════════════════════════════
+/**
+ * @brief 人脸特征登录
+ * @param faceFeature 采集到的特征串
+ * @return 登录结果，含是否成功、失败原因、用户信息与令牌
+ */
 AuthController::LoginResult AuthController::loginByFace(const QString& faceFeature) {
     LoginResult result;
     if (faceFeature.isEmpty()) {
@@ -148,6 +183,10 @@ AuthController::LoginResult AuthController::loginByFace(const QString& faceFeatu
     return result;
 }
 
+/**
+ * @brief 注销当前用户
+ * @param userId 用户ID
+ */
 void AuthController::logout(int userId) {
     Q_UNUSED(userId)
     m_currentUser = User();
@@ -157,6 +196,12 @@ void AuthController::logout(int userId) {
 // ═══════════════════════════════════════
 // 人脸相似度计算
 // ═══════════════════════════════════════
+/**
+ * @brief 计算两段人脸特征的相似度
+ * @param f1 特征串1
+ * @param f2 特征串2
+ * @return 相似度，范围0~1
+ */
 double AuthController::faceSimilarity(const QString& f1, const QString& f2) {
     // 将Base64/逗号分隔的特征转为double数组
     auto parseFeature = [](const QString& s) -> QVector<double> {
@@ -192,6 +237,10 @@ double AuthController::faceSimilarity(const QString& f1, const QString& f2) {
     return dot / (qSqrt(norm1) * qSqrt(norm2));
 }
 
+/**
+ * @brief 读取当前登录用户
+ * @return 当前用户实体；未登录时返回空实体
+ */
 User AuthController::currentUser() const {
     return m_currentUser;
 }

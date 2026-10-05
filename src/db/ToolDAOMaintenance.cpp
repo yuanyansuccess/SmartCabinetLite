@@ -16,6 +16,10 @@
 
 namespace db {
 
+/**
+ * @brief 查询全部启用的任务类型
+ * @return 元素含 typeId、typeName 的数组
+ */
 QJsonArray ToolDAO::allTaskTypes()
 {
     QSqlDatabase db = getDb();
@@ -32,6 +36,11 @@ QJsonArray ToolDAO::allTaskTypes()
     return arr;
 }
 
+/**
+ * @brief 查询某任务类型关联的工具
+ * @param typeId 任务类型ID
+ * @return 工具数组
+ */
 QJsonArray ToolDAO::findTaskTypeTools(int typeId)
 {
     QSqlDatabase db = getDb();
@@ -54,6 +63,13 @@ QJsonArray ToolDAO::findTaskTypeTools(int typeId)
     return arr;
 }
 
+/**
+ * @brief 更新任务类型下工具的数量
+ * @param typeId 任务类型ID
+ * @param toolId 工具ID
+ * @param qty 新的数量
+ * @return true=更新成功
+ */
 bool ToolDAO::updateTaskTypeToolQty(int typeId, int toolId, int qty)
 {
     QSqlDatabase db = getDb();
@@ -65,6 +81,12 @@ bool ToolDAO::updateTaskTypeToolQty(int typeId, int toolId, int qty)
     return safeExec(q);
 }
 
+/**
+ * @brief 判断任务类型下是否已关联该工具
+ * @param typeId 任务类型ID
+ * @param toolId 工具ID
+ * @return true=已关联
+ */
 bool ToolDAO::checkTaskTypeToolExists(int typeId, int toolId)
 {
     QSqlDatabase db = getDb();
@@ -76,6 +98,13 @@ bool ToolDAO::checkTaskTypeToolExists(int typeId, int toolId)
     return q.next();
 }
 
+/**
+ * @brief 为任务类型新增关联工具
+ * @param typeId 任务类型ID
+ * @param toolId 工具ID
+ * @param qty 关联数量
+ * @return true=新增成功
+ */
 bool ToolDAO::addTaskTypeTool(int typeId, int toolId, int qty)
 {
     QSqlDatabase db = getDb();
@@ -87,6 +116,12 @@ bool ToolDAO::addTaskTypeTool(int typeId, int toolId, int qty)
     return safeExec(q);
 }
 
+/**
+ * @brief 删除任务类型与工具的关联
+ * @param typeId 任务类型ID
+ * @param toolId 工具ID
+ * @return true=删除成功
+ */
 bool ToolDAO::deleteTaskTypeTool(int typeId, int toolId)
 {
     QSqlDatabase db = getDb();
@@ -101,6 +136,10 @@ bool ToolDAO::deleteTaskTypeTool(int typeId, int toolId)
 // 系统维护页：工具维护
 // ═══════════════════════════════════════════════
 
+/**
+ * @brief 查询维护页需要的全部工具
+ * @return 工具数组，含状态与所在位置信息
+ */
 QJsonArray ToolDAO::allToolsForMaintenance()
 {
     QSqlDatabase db = getDb();
@@ -124,6 +163,11 @@ QJsonArray ToolDAO::allToolsForMaintenance()
     return arr;
 }
 
+/**
+ * @brief 查询维护页编辑所需的工具完整信息
+ * @param toolId 工具ID
+ * @return 工具信息对象；不存在时返回空对象
+ */
 QJsonObject ToolDAO::findToolForEdit(int toolId)
 {
     QSqlDatabase db = getDb();
@@ -146,6 +190,11 @@ QJsonObject ToolDAO::findToolForEdit(int toolId)
     return obj;
 }
 
+/**
+ * @brief 按完整字段新增工具
+ * @param tool 工具字段集合
+ * @return true=新增成功
+ */
 bool ToolDAO::insertToolFull(const QJsonObject& tool)
 {
     QSqlDatabase db = getDb();
@@ -165,6 +214,12 @@ bool ToolDAO::insertToolFull(const QJsonObject& tool)
     return safeExec(q);
 }
 
+/**
+ * @brief 按完整字段更新工具
+ * @param toolId 工具ID
+ * @param updates 待更新字段集合
+ * @return true=更新成功
+ */
 bool ToolDAO::updateToolFull(int toolId, const QJsonObject& updates)
 {
     QSqlDatabase db = getDb();
@@ -183,6 +238,11 @@ bool ToolDAO::updateToolFull(int toolId, const QJsonObject& updates)
     return safeExec(q);
 }
 
+/**
+ * @brief 删除工具及其位置对照关系
+ * @param toolId 工具ID
+ * @return true=删除成功
+ */
 bool ToolDAO::deleteToolFully(int toolId)
 {
     QSqlDatabase db = getDb();

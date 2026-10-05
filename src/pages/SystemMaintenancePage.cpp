@@ -120,6 +120,9 @@ SystemMaintenancePage::~SystemMaintenancePage() {
     delete ui;
 }
 
+/**
+ * @brief 按当前选中项刷新各选项卡的样式
+ */
 void SystemMaintenancePage::updateTabStyles() {
     // Tab样式对齐系统设置：灰底白选中+主色下划线
     for (int i = 0; i < m_tabLabels.size(); ++i) {
@@ -135,6 +138,10 @@ void SystemMaintenancePage::updateTabStyles() {
     }
 }
 
+/**
+ * @brief 切换到指定选项卡
+ * @param index 目标选项卡索引
+ */
 void SystemMaintenancePage::switchTab(int index) {
     if (index < 0 || index >= m_tabLabels.size()) return;
     m_activeTabIndex = index;
@@ -151,6 +158,12 @@ void SystemMaintenancePage::switchTab(int index) {
     }
 }
 
+/**
+         * 事件过滤器：拦截控件与窗口事件并转交专用处理
+         * @param obj 事件来源控件
+         * @param event 事件对象
+         * @return true=事件已被处理
+         */
 bool SystemMaintenancePage::eventFilter(QObject* watched, QEvent* event) {
     // Tab点击切换 + Hover效果
     if (event->type() == QEvent::MouseButtonPress) {
@@ -181,6 +194,9 @@ bool SystemMaintenancePage::eventFilter(QObject* watched, QEvent* event) {
     return QWidget::eventFilter(watched, event);
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void SystemMaintenancePage::refresh() {
     // 菜单切换到系统维护时重置页面状态
     // 1. 切回第一个Tab（任务配置） 2. 重新加载所有数据
@@ -207,6 +223,9 @@ void SystemMaintenancePage::loadTaskTypes() {
     }
 }
 
+/**
+ * @brief 加载任务工具
+ */
 void SystemMaintenancePage::loadTaskTools(int typeId) {
     if (!m_taskToolTable || typeId <= 0) return;
     m_taskToolTable->setRowCount(0);
@@ -257,6 +276,9 @@ void SystemMaintenancePage::loadTaskTools(int typeId) {
     }
 }
 
+/**
+ * @brief 保存任务工具配置
+ */
 void SystemMaintenancePage::saveTaskToolConfig() {
     int typeId = m_taskTypeCombo ? m_taskTypeCombo->currentData().toInt() : 0;
     if (typeId <= 0) {
@@ -333,6 +355,9 @@ void SystemMaintenancePage::loadAllTools() {
     }
 }
 
+/**
+ * @brief 处理工具
+ */
 void SystemMaintenancePage::onAddTool() {
     m_editToolId = 0;
     // 复用对话框创建逻辑
@@ -426,6 +451,9 @@ void SystemMaintenancePage::ensureToolDialogCreated() {
     btnLayout->addWidget(saveBtn);
 }
 
+/**
+ * @brief 处理编辑框工具
+ */
 void SystemMaintenancePage::onEditTool(int toolId) {
     m_editToolId = toolId;
     if (!m_toolDialog) ensureToolDialogCreated();
@@ -460,6 +488,9 @@ void SystemMaintenancePage::onEditTool(int toolId) {
     m_toolDialog->exec();
 }
 
+/**
+ * @brief 处理工具
+ */
 void SystemMaintenancePage::onDeleteTool(int toolId) {
     // 按工具状态判断是否可删除
     // 在库(in_stock)/已借出(borrowed) → 不能删除（工具还有物理实体在系统中）
@@ -493,6 +524,9 @@ void SystemMaintenancePage::onDeleteTool(int toolId) {
     }
 }
 
+/**
+ * @brief 处理工具
+ */
 void SystemMaintenancePage::onSubmitTool() {
     QString name = m_dlgName->text().trimmed();
     if (name.isEmpty()) {
@@ -563,6 +597,9 @@ void SystemMaintenancePage::loadAvailablePositions() {
     m_posPositionCombo->blockSignals(false);
 }
 
+/**
+ * @brief 加载尚未配置位置对照的工具列表
+ */
 void SystemMaintenancePage::loadUnboundTools() {
     if (!m_posToolCombo) return;
     m_posToolCombo->blockSignals(true);
@@ -577,6 +614,9 @@ void SystemMaintenancePage::loadUnboundTools() {
     m_posToolCombo->blockSignals(false);
 }
 
+/**
+ * @brief 处理位置
+ */
 void SystemMaintenancePage::onBindPosition() {
     if (!m_posCabinetCombo || !m_posLayerCombo || !m_posPositionCombo || !m_posToolCombo) return;
 
@@ -615,6 +655,9 @@ void SystemMaintenancePage::onBindPosition() {
     }
 }
 
+/**
+ * @brief 处理位置
+ */
 void SystemMaintenancePage::onClearPosition(int mappingId) {
     // 按映射记录ID删除（一工具可有多条映射）
     db::ToolDAO toolDao;
@@ -653,6 +696,9 @@ void SystemMaintenancePage::onClearPosition(int mappingId) {
     }
 }
 
+/**
+ * @brief 加载位置对照关系列表
+ */
 void SystemMaintenancePage::loadPositionMappings() {
     if (!m_mappingTable) return;
     m_mappingTable->setRowCount(0);
@@ -808,6 +854,9 @@ void SystemMaintenancePage::onAddTaskTool() {
     dlg.exec();
 }
 
+/**
+ * @brief 处理编辑框任务工具
+ */
 void SystemMaintenancePage::onEditTaskTool(int row) {
     int typeId = m_taskTypeCombo ? m_taskTypeCombo->currentData().toInt() : 0;
     if (typeId <= 0) return;
@@ -876,6 +925,9 @@ void SystemMaintenancePage::onEditTaskTool(int row) {
     dlg.exec();
 }
 
+/**
+ * @brief 处理工具
+ */
 void SystemMaintenancePage::onDeleteTaskTool(int row) {
     int typeId = m_taskTypeCombo ? m_taskTypeCombo->currentData().toInt() : 0;
     if (typeId <= 0) return;

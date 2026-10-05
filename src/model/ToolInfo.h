@@ -1,8 +1,9 @@
+/**
+ * @file ToolInfo.h
+ * @brief 工具实体，字段对齐 tool_info，含位置映射与识别方式等扩展信息
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  工具信息实体
-// 映射表：tool_info
-// 新增machineGroupId/machineGroupName字段，支持工程机组关联
-// 新增recognitionMethod/documentPath字段，支持识别方式选择和工具文档上传
 #include <QString>
 #include <QDateTime>
 #include "common/Constants.h"

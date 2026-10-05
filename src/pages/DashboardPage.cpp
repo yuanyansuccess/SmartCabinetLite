@@ -45,6 +45,9 @@ DashboardPage::DashboardPage(QWidget* parent) : QWidget(parent),
 
 DashboardPage::~DashboardPage() = default;
 
+/**
+ * @brief 设置用户
+ */
 void DashboardPage::setUser(const QJsonObject& user) {
     // 先设置m_user再构建UI——setupUI()需要m_user["role"]判断视图类型
     // 构造函数中m_user为空，setupUI()误判所有用户为普通用户
@@ -77,6 +80,9 @@ void DashboardPage::setUser(const QJsonObject& user) {
     refresh();
 }
 
+/**
+ * @brief 设置加载状态
+ */
 void DashboardPage::setLoading(bool loading) {
     m_loading = loading;
   // 加载状态切换
@@ -113,6 +119,9 @@ void DashboardPage::setLoading(bool loading) {
     }
 }
 
+/**
+ * @brief 构建页面基础框架与公共样式
+ */
 void DashboardPage::setupBaseUI() {
     // 仅创建主布局框架 + 加载控件，不判断角色
     // 角色相关的视图创建移入setupUI()，由setUser()在用户对象就绪后调用
@@ -129,6 +138,9 @@ void DashboardPage::setupBaseUI() {
     mainLayout->addStretch();
 }
 
+/**
+ * @brief 构建页面界面
+ */
 void DashboardPage::setupUI() {
     // 角色视图必须使用m_roleContent容器包装
     // 这样setUser()切换用户时可以整体清除旧视图
@@ -195,6 +207,9 @@ void DashboardPage::setupUI() {
     mainLayout->addWidget(m_roleContent, 1);
 }
 
+/**
+ * @brief 创建统计卡片
+ */
 QWidget* DashboardPage::createStatCard(const QString& title, const QString& icon, 
                                         QLabel*& valueLabel, const QString& colorClass) {
     // 去除卡片边框(数字显示不全)，增大最小高度确保36px数字完整可见
@@ -271,6 +286,9 @@ QWidget* DashboardPage::createStatCard(const QString& title, const QString& icon
     return card;
 }
 
+/**
+ * @brief 初始化统计统计卡片
+ */
 void DashboardPage::setupStatsCards(QHBoxLayout* row) {
     // BS端统计卡片：工具项总数/在库工具项/已借出/已出库/异常告警
     // 标题为"工具总数/在库工具/已借出"，统计按件数不按种类
@@ -282,6 +300,9 @@ void DashboardPage::setupStatsCards(QHBoxLayout* row) {
     row->addWidget(createStatCard(QStringLiteral("异常告警"), QStringLiteral("⚠️"), m_alertsLabel, "red"));
 }
 
+/**
+ * @brief 创建最近日志面板
+ */
 QWidget* DashboardPage::createRecentLogsPanel() {
     auto* panel = new QFrame();
     panel->setStyleSheet(StyleHelper::cardWhite());
@@ -332,6 +353,9 @@ QWidget* DashboardPage::createRecentLogsPanel() {
     return panel;
 }
 
+/**
+ * @brief 创建快捷操作面板
+ */
 QWidget* DashboardPage::createQuickActionsPanel() {
     auto* panel = new QFrame();
     panel->setStyleSheet(StyleHelper::cardWhite());
@@ -409,6 +433,9 @@ QWidget* DashboardPage::createQuickActionsPanel() {
     return panel;
 }
 
+/**
+ * @brief 创建告警面板
+ */
 QWidget* DashboardPage::createAlertPanel() {
     auto* panel = new QFrame();
     panel->setStyleSheet(StyleHelper::cardWhite());
@@ -452,6 +479,9 @@ QWidget* DashboardPage::createAlertPanel() {
     return panel;
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void DashboardPage::refresh() {
   // 显示加载状态
     setLoading(true);
@@ -503,6 +533,9 @@ void DashboardPage::refresh() {
     });
 }
 
+/**
+ * @brief 更新统计
+ */
 void DashboardPage::updateStats(const QJsonObject& stats) {
     // 非admin用户路径下统计卡片未创建，添加全套null guard
     // refresh()通过QTimer回调，调用时用户身份可能已变化
@@ -544,6 +577,9 @@ void DashboardPage::updateStats(const QJsonObject& stats) {
     }
 }
 
+/**
+ * @brief 设置统计值
+ */
 void DashboardPage::setStatValue(QLabel* label, int targetValue) {
   // 数字滚动动画
     // 注意：每次动画从1开始滚动到目标值，而非从当前显示值开始
@@ -608,17 +644,26 @@ LoadingWidget::LoadingWidget(QWidget* parent) : QWidget(parent), m_dotCount(0) {
     });
 }
 
+/**
+ * @brief 启动动画
+ */
 void LoadingWidget::startAnimation() {
     m_dotCount = 0;
     m_timer->start();
     update();
 }
 
+/**
+ * @brief 停止动画
+ */
 void LoadingWidget::stopAnimation() {
     m_timer->stop();
     update();
 }
 
+/**
+ * @brief 绘制事件
+ */
 void LoadingWidget::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     QPainter painter(this);
@@ -653,6 +698,9 @@ void LoadingWidget::paintEvent(QPaintEvent* event) {
     }
 }
 
+/**
+ * @brief 更新最近日志
+ */
 void DashboardPage::updateRecentLogs(const QJsonArray& logs) {
     // 非admin用户路径下m_logTable未创建，必须null guard
     // 即使构造函数初始化为nullptr，refresh()中QTimer回调时用户可能已切换
@@ -684,6 +732,9 @@ void DashboardPage::updateRecentLogs(const QJsonArray& logs) {
     }
 }
 
+/**
+ * @brief 更新告警
+ */
 void DashboardPage::updateAlerts(const QJsonArray& alerts) {
     // 从数据库加载真实告警数据，替换硬编码占位
     if (!m_alertList) return;
@@ -822,6 +873,9 @@ QWidget* DashboardPage::createWelcomeBanner() {
     return banner;
 }
 
+/**
+ * @brief 创建功能统计卡片
+ */
 QWidget* DashboardPage::createFunctionCards() {
     // 复刻Vue版 .func-grid — grid-template-columns: repeat(3, 1fr); gap:14px;
     auto* grid = new QWidget();
@@ -888,6 +942,10 @@ QWidget* DashboardPage::createFunctionCards() {
     return grid;
 }
 
+/**
+ * @brief 构建普通用户最近借用面板
+ * @return 面板控件
+ */
 QWidget* DashboardPage::createUserRecentBorrowsPanel() {
     // 复刻Vue版 用户最近借用记录面板
     auto* panel = new QFrame();
@@ -936,6 +994,10 @@ QWidget* DashboardPage::createUserRecentBorrowsPanel() {
     return panel;
 }
 
+/**
+ * @brief 构建普通用户归还提醒面板
+ * @return 面板控件
+ */
 QWidget* DashboardPage::createUserReturnRemindersPanel() {
     // 复刻Vue版 归还提醒面板
     auto* panel = new QFrame();
@@ -977,6 +1039,9 @@ QWidget* DashboardPage::createUserReturnRemindersPanel() {
     return panel;
 }
 
+/**
+ * @brief 更新用户统计
+ */
 void DashboardPage::updateUserStats(const QJsonObject& stats) {
     // 更新用户欢迎横幅中的统计数据（今日借用/待归还/本月借用）
     // 用户视图统计数据也加入数字滚动动画
@@ -1002,6 +1067,9 @@ void DashboardPage::updateUserStats(const QJsonObject& stats) {
     }
 }
 
+/**
+ * @brief 刷新普通用户最近借用列表
+ */
 void DashboardPage::updateUserRecentBorrows(const QJsonArray& records) {
     m_userRecentTable->setRowCount(records.size());
     // 行高48px触屏标准
@@ -1027,6 +1095,9 @@ void DashboardPage::updateUserRecentBorrows(const QJsonArray& records) {
     }
 }
 
+/**
+ * @brief 刷新普通用户归还提醒列表
+ */
 void DashboardPage::updateUserReturnReminders(const QJsonArray& reminders) {
     // admin路径下m_userReturnTable未创建，必须null guard
     if (!m_userReturnTable) return;
@@ -1047,4 +1118,7 @@ void DashboardPage::updateUserReturnReminders(const QJsonArray& reminders) {
     }
 }
 
+/**
+ * @brief 处理台账
+ */
 void DashboardPage::onQuickLedger() { emit navigateRequested("ledger"); }

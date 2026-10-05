@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file ToolManagementPage.cpp
  * @brief 工具管理页面实现 - 参考工程机组管理风格重做
  * @author 袁燕
@@ -91,6 +91,9 @@ static QFrame* createStatCard(const QString& title, const QString& icon, const Q
     return card;
 }
 
+/**
+ * @brief 初始化统计统计卡片
+ */
 void ToolManagementPage::setupStatsCards() {
     // 统计卡片行 
     // 统计按"种类+位置"唯一标识排列
@@ -105,6 +108,9 @@ void ToolManagementPage::setupStatsCards() {
     m_statsCardMaintenance = createStatCard(QStringLiteral("维护中"),   QStringLiteral("🔧"), "#999999", m_labelMaintenance);
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void ToolManagementPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_searchEdit = ui->searchBar->lineEdit();
@@ -157,6 +163,9 @@ void ToolManagementPage::setupUI() {
     loadMachineGroups();
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void ToolManagementPage::refresh() {
     // 切换到本页面时重置为默认筛选条件和第1页
     m_searchEdit->clear();
@@ -167,11 +176,17 @@ void ToolManagementPage::refresh() {
     loadTools();
 }
 
+/**
+ * @brief 处理搜索
+ */
 void ToolManagementPage::onSearch() {
     m_currentPage = 1;  // 筛选查询必须重置到第1页
     loadTools();
 }
 
+/**
+ * @brief 处理重置
+ */
 void ToolManagementPage::onReset() {
     m_searchEdit->clear();
     m_categoryFilter->selectAll();
@@ -180,6 +195,9 @@ void ToolManagementPage::onReset() {
     loadTools();
 }
 
+/**
+ * @brief 加载工具分类到分类下拉框
+ */
 void ToolManagementPage::loadCategories() {
     // 从DB动态获取类别列表
     ToolController ctrl;
@@ -219,6 +237,9 @@ void ToolManagementPage::loadStats() {
     m_labelMaintenance->setText(QString::number(stats["maintenanceCount"].toInt()));
 }
 
+/**
+ * @brief 加载工具
+ */
 void ToolManagementPage::loadTools() {
     QString kw = m_searchEdit->text().trimmed();
     QStringList cats = m_categoryFilter->selectedOptions();
@@ -295,7 +316,7 @@ void ToolManagementPage::loadTools() {
         ).arg(statusColor));
         m_table->setCellWidget(i, 6, statusLabel);
 
-        // 已删除"借用中"列（一个位置=一个工具，状态列已说明）
+
 
         // 借用人 显示最近借用人 列索引7
         QString borrowerName = t.latestOpUser;
@@ -356,10 +377,16 @@ void ToolManagementPage::loadTools() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolManagementPage::onPrevPage() {
     if (m_currentPage > 1) { m_currentPage--; loadTools(); }
 }
 
+/**
+ * @brief 处理页面
+ */
 void ToolManagementPage::onNextPage() {
     int totalPages = (m_totalRecords + m_pageSize - 1) / m_pageSize;
     if (m_currentPage < totalPages) { m_currentPage++; loadTools(); }
@@ -368,6 +395,9 @@ void ToolManagementPage::onNextPage() {
 
 
 
+/**
+ * @brief 处理搜索键盘点击事件
+ */
 void ToolManagementPage::onSearchKeyboardClicked() {
     if (!m_softKeyboard) {
         m_softKeyboard = new SoftKeyboard(this);

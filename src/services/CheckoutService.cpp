@@ -9,6 +9,14 @@
 #include "db/RecordDAO.h"
 #include "common/Constants.h"
 
+/**
+ * @brief 执行出库
+ * @param userId 操作人ID
+ * @param items 出库明细列表，每项含位置映射ID与工具ID
+ * @return success=是否全部成功，succeeded=成功条数，failed=失败条数，
+ *         failedNames=失败项名称列表，message=结果说明
+ * @note 逐项处理并在同一事务内提交，任一项失败时该项不计成功
+ */
 CheckoutService::CheckoutResult CheckoutService::executeCheckout(
     int userId, const QList<CheckoutItem>& items) {
     CheckoutResult out;

@@ -1,9 +1,9 @@
+/**
+ * @file FaceCameraWidget.h
+ * @brief 摄像头预览控件：视频取帧、本地人脸框检测绘制与距离过远提示
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  人脸摄像头组件
-// 功能：摄像头预览 + 人脸检测 + 特征提取
-// 重写：纯C++肤色人脸检测 + 纹理特征提取(128维)
-// 替代之前的随机特征向量，实现真正的刷脸登录
-// Web端1:1复刻：人脸框/特征点/状态提示/指示灯/边框动画
 #include <QWidget>
 #include <QTimer>
 #include <QImage>
@@ -18,6 +18,9 @@ class CameraCapture;
 class QLabel;
 class QPropertyAnimation;
 
+// 人脸框检测在本地完成（不联网）：基于 YCrCb 肤色分割 + 形态学开运算 + 连通域分析，
+// 因此人脸识别服务不可用时，预览中的绿框与置信度仍会正常显示。
+// 真正用于身份判定的是 DeepFaceExtractor 提取的 128 维特征，由 Node 服务完成比对。
 class FaceCameraWidget : public QWidget {
     Q_OBJECT
     Q_PROPERTY(int borderGlow READ borderGlow WRITE setBorderGlow)

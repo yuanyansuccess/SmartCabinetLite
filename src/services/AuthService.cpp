@@ -20,6 +20,13 @@ using db::UserDAO;
 
 AuthService::AuthService(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 账号口令登录
+ * @param username 登录账号
+ * @param password 口令明文
+ * @return success=是否登录成功，message=失败原因，user=用户信息
+ * @note 口令以加盐哈希比对，库中不存明文
+ */
 AuthService::LoginResult AuthService::login(const QString& username, const QString& password) {
     LoginResult r; r.success = false;
     if (username.isEmpty() || password.isEmpty()) { r.message = "用户名和密码不能为空"; return r; }
@@ -36,8 +43,15 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
     return r;
 }
 
+/**
+ * @brief 人脸特征登录
+ * @param faceFeature 采集到的128维特征串
+ * @return success=是否匹配到已录入人脸，message=失败原因，user=用户信息
+ * @note 按余弦相似度择优匹配，相似度低于阈值视为陌生人
+ */
 AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
-    // 修复致命Bug：之前用storedFeature==faceFeature严格字符串相等比对
+    // 人脸特征按余弦相似度比对：同一人在不同次采集下特征值并不完全相同，
+    // 因此不能用字符串相等判断
     // 两个人脸捕获的特征向量不可能完全相等，必须用余弦相似度等数值比对
     // 委托给FaceRecognitionService::matchFace做专业比对（余弦相似度+欧氏距离双验证）
     LoginResult r; r.success = false;
@@ -67,26 +81,54 @@ AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
     return r;
 }
 
+/**
+ * @brief 判断用户是否为管理员
+ * @param user 用户信息对象
+ * @return true=管理员
+ */
 bool AuthService::isAdmin(const QJsonObject& user) const { 
     return user["role"].toString() == SC::ROLE_ADMIN; 
 }
 
+/**
+ * @brief 判断用户是否为启用状态
+ * @param user 用户信息对象
+ * @return true=已启用
+ */
 bool AuthService::isActive(const QJsonObject& user) const { 
     return user["status"].toString() == SC::USER_ACTIVE; 
 }
 
+/**
+ * @brief 计算口令哈希
+ * @param password 口令明文
+ * @param salt 口令盐值
+ * @return 十六进制哈希串
+ */
 QString AuthService::hashPassword(const QString& password, const QString& salt) {
     return QString(QCryptographicHash::hash((salt + password).toUtf8(), QCryptographicHash::Sha256).toHex());
 }
 
+/**
+ * @brief 生成随机盐值
+ * @return 16字节随机盐的十六进制串
+ */
 QString AuthService::generateSalt() {
     QByteArray b(16, 0);
     for (int i = 0; i < 16; ++i) b[i] = static_cast<char>(QRandomGenerator::global()->bounded(256));
     return QString(b.toHex());
 }
 
+/**
+ * @brief 校验口令
+ * @param pw 口令明文
+ * @param salt 盐值
+ * @param hash 库中存储的哈希
+ * @return true=校验通过
+ * @note 采用恒定时间比较，避免时序侧信道泄露信息
+ */
 bool AuthService::verifyPassword(const QString& pw, const QString& salt, const QString& hash) {
-    // ，代码审查修复 — 使用恒定时间比较，防止时序侧信道攻击
+    // 恒定时间比较，避免时序侧信道泄露信息
     QString computed = hashPassword(pw, salt);
     if (computed.size() != hash.size()) return false;
     int result = 0;

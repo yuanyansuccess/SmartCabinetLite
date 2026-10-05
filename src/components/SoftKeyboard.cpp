@@ -1,9 +1,8 @@
-// 智能柜Qt Widget 2.0  字母/符号软键盘实现
-// 1:1复刻Web端SoftKeyboard.vue
-// 清理冗余：移除所有数字/密码模式逻辑(NumKeypad独立接管)
-// 彻底重写rebuildKeys()：5行清晰布局，去掉_/⎵等歧义按钮
-// 新布局：行0数字 / 行1 Q-P / 行2 A-L / 行3 Shift Z-M 退格 / 行4 符号+空格
-// 每个按钮统一56px高度触屏优化，字体24px醒目清晰，无"线条状"按钮
+/**
+ * @file SoftKeyboard.cpp
+ * @brief 触屏软键盘实现：字母/数字/符号输入，将输入结果回填到指定输入框
+ * @author 袁燕
+ */
 #include "SoftKeyboard.h"
 #include "utils/StyleHelper.h"
 #include <QHBoxLayout>
@@ -36,6 +35,10 @@ SoftKeyboard::~SoftKeyboard() {
     }
 }
 
+/**
+ * @brief 确保软键盘面板已创建并按目标输入框刷新布局
+ * @return 软键盘面板控件
+ */
 void SoftKeyboard::ensurePanel() {
     if (m_panel) return;
     // 独立顶层窗口(无父widget)，彻底杜绝鼠标事件穿透
@@ -74,6 +77,9 @@ void SoftKeyboard::ensurePanel() {
     }
 }
 
+/**
+ * @brief 构建软键盘界面：字母区、数字区与功能键
+ */
 void SoftKeyboard::setupUI() {
     m_mainLayout = new QVBoxLayout(m_panel);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -324,6 +330,9 @@ void SoftKeyboard::attach(QLineEdit* target) {
     }
 }
 
+/**
+ * @brief 显示软键盘面板
+ */
 void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
     ensurePanel();
     m_panel->setAttribute(Qt::WA_TranslucentBackground, false);
@@ -360,6 +369,9 @@ void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
     m_panel->raise();
 }
 
+/**
+ * @brief 显示软键盘面板
+ */
 void SoftKeyboard::show() {
     if (!m_target) return;
     ensurePanel();
@@ -406,6 +418,9 @@ void SoftKeyboard::show() {
     m_panel->raise();
 }
 
+/**
+ * @brief 隐藏软键盘面板
+ */
 void SoftKeyboard::hide() {
     // 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
     // close()后置nullptr，确保下次show()时ensurePanel()会重建
@@ -413,6 +428,9 @@ void SoftKeyboard::hide() {
     if (m_panel)   { m_panel->hide();   m_panel->close();   m_panel = nullptr; }
 }
 
+/**
+ * @brief 设置模式
+ */
 void SoftKeyboard::setMode(KeyMode mode) {
     m_keyMode = mode;
     if (m_panel) {
@@ -422,6 +440,9 @@ void SoftKeyboard::setMode(KeyMode mode) {
     }
 }
 
+/**
+ * @brief 设置确认文本
+ */
 void SoftKeyboard::setConfirmText(const QString& text) {
     m_confirmText = text;
     if (m_confirmBtn) {
@@ -431,10 +452,18 @@ void SoftKeyboard::setConfirmText(const QString& text) {
     }
 }
 
+/**
+         * @brief 设置确认键是否显示
+         * @param visible true=显示确认键
+         */
 void SoftKeyboard::setConfirmVisible(bool visible) {
     if (m_footerArea) m_footerArea->setVisible(visible);
 }
 
+/**
+         * @brief 读取当前输入内容
+         * @return 输入文本
+         */
 QString SoftKeyboard::currentText() const {
     return m_target ? m_target->text() : QString();
 }

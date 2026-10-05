@@ -1,7 +1,8 @@
-// 智能柜Qt Widget 2.0  AlertController实现
-// 统一到db/目录namespace db，方法名更新
-// createAlert支持typeId参数
-// 裸SQL迁移到AlertDAO
+/**
+ * @file AlertController.cpp
+ * @brief 告警控制层实现：告警列表查询、处理操作与告警统计装配
+ * @author 袁燕
+ */
 #include "AlertController.h"
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
@@ -10,6 +11,15 @@
 
 AlertController::AlertController(QObject* parent) : QObject(parent) {}
 
+/**
+ * @brief 分页查询告警列表
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param type 告警类型编码，为空不过滤
+ * @param level 告警级别，为空不过滤
+ * @param handled 处理状态：-1 不限，0 待处理，1 已处理
+ * @return 含 list 数组与 total 总数的分页结果
+ */
 AlertController::PageResult AlertController::getAlertList(int page, int pageSize,
     const QString& type, const QString& level, int handled,
     const QDate& startDate, const QDate& endDate) {
@@ -51,10 +61,21 @@ int AlertController::createAlert(int typeId, const QString& message,
     return id;
 }
 
+/**
+ * @brief 将告警标记为已处理
+ * @param alertId 告警ID
+ * @param handledBy 处理人标识
+ * @return true=更新成功
+ */
 bool AlertController::markHandled(int alertId, const QString& handledBy) {
     return m_dao.markHandled(alertId, handledBy);
 }
 
+/**
+ * @brief 将全部未处理告警标记为已处理
+ * @param handledBy 处理人标识
+ * @return true=更新成功
+ */
 bool AlertController::markAllHandled(const QString& handledBy) {
     return m_dao.markAllHandled(handledBy);
 }
@@ -64,9 +85,21 @@ bool AlertController::markIgnored(int alertId, const QString& handlerBy) {
     return m_dao.markIgnored(alertId, handlerBy);
 }
 
+/**
+ * @brief 统计未处理告警数量
+ * @return 未处理告警条数
+ */
 int AlertController::unhandledCount() { return m_dao.unhandledCount(); }
+/**
+ * @brief 统计今日新增告警数量
+ * @return 今日创建的告警条数
+ */
 int AlertController::todayTotal() { return m_dao.todayTotal(); }
 
+/**
+ * @brief 汇总概览页告警统计数据
+ * @return 含未处理数、今日新增数等指标的结构
+ */
 AlertController::DashboardStats AlertController::getDashboardStats() {
     DashboardStats s;
     db::ToolDAO toolDao;

@@ -1,6 +1,9 @@
+/**
+ * @file DatabaseManager.h
+ * @brief MySQL 连接单例：建连、建表建视图、播种基础数据，并提供查询与事务接口
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  数据库连接管理（单例）
-// 功能：管理MySQL连接、执行查询、事务控制
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -44,15 +47,12 @@ private:
 
     bool ensureConnected();
     bool tryMysql();  // 直连MySQL（127.0.0.1:3306/smart_cabinet）
-    // 删除trySqlite——纯MySQL模式，不支持SQLite回退
-    bool initSchemaIfNeeded();  // 自动建表+播种默认管理员
-    bool createViewsIfNeeded();  // 每次启动确保视图存在（修复已有数据库视图缺失）
-    bool seedBusinessData();    // 播种完整业务数据（工具/记录/告警/日志）
+    // 部署策略为恢复标准生产库备份（db_backup/*.sql，含表/视图/真实账号），
+    // 软件不再自动建表/建视图/播种演示数据，避免双数据源漂移与演示数据污染生产库。
 
     QSqlDatabase m_db;
     QString m_host, m_dbName, m_user, m_pass;
     int m_port = 3306;
     mutable QMutex m_mutex;
     QString m_connectionName;
-    // 删除m_usingSqlite——纯MySQL模式
 };

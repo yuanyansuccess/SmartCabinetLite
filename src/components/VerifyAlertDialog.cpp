@@ -84,6 +84,11 @@ VerifyAlertDialog::VerifyAlertDialog(const QString& windowTitle, const QString& 
     layout->addLayout(btnRow);
 }
 
+/**
+ * @brief 构建核验倒计时区域
+ * @param seconds 倒计时总秒数
+ * @return 倒计时区域控件
+ */
 void VerifyAlertDialog::buildCountdown(QHBoxLayout* topRow) {
     int bufferMinutes = m_bufferMinutes;
     if (bufferMinutes <= 0) bufferMinutes = 30;  // 兜底默认30分钟

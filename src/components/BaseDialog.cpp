@@ -5,6 +5,7 @@
  * @date 2026-06-26
  */
 #include "BaseDialog.h"
+#include "utils/StyleHelper.h"  // 字号统一走 StyleHelper::Token
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -23,6 +24,9 @@ BaseDialog::BaseDialog(QWidget* parent, int cardWidth)
     buildBaseUI(cardWidth);
 }
 
+/**
+ * @brief 构建对话框基础结构：标题栏、内容区与按钮区
+ */
 void BaseDialog::buildBaseUI(int cardWidth)
 {
     // ── 卡片容器（圆角白色背景 + 阴影效果） ──
@@ -52,7 +56,7 @@ void BaseDialog::buildBaseUI(int cardWidth)
     m_titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_titleLabel->setStyleSheet(
         "QLabel{"
-        "  font-size:18px;font-weight:700;color:#1a1a2e;"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + "font-weight:700;color:#1a1a2e;"
         "  background:transparent;"
         "  padding-left:24px;"
         "  border-bottom:1px solid #eef0f3;"
@@ -85,6 +89,9 @@ void BaseDialog::buildBaseUI(int cardWidth)
     outer->addWidget(m_card);
 }
 
+/**
+ * @brief 设置对话框标题
+ */
 void BaseDialog::setDialogTitle(const QString& title)
 {
     if (title.isEmpty()) {
@@ -97,11 +104,18 @@ void BaseDialog::setDialogTitle(const QString& title)
     m_titleLabel->setFixedHeight(52);
 }
 
+/**
+ * @brief 显示或隐藏底部按钮区
+ * @param visible true=显示
+ */
 void BaseDialog::setButtonAreaVisible(bool visible)
 {
     m_buttonArea->setVisible(visible);
 }
 
+/**
+ * @brief 显示事件
+ */
 void BaseDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
@@ -136,6 +150,10 @@ void BaseDialog::showEvent(QShowEvent* event)
     move(x, y);
 }
 
+/**
+ * @brief 处理键盘按键：回车触发默认按钮，ESC 关闭对话框
+ * @param event 按键事件
+ */
 void BaseDialog::keyPressEvent(QKeyEvent* event)
 {
     if (event->key() == Qt::Key_Escape) {

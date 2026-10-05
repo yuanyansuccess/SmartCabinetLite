@@ -1,6 +1,9 @@
+/**
+ * @file TaskType.h
+ * @brief 任务类型实体，字段对齐 task_type
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  任务类型实体
-  // 注意：映射表task_type，字段对齐数据库schema
 #include <QString>
 #include <QDateTime>
 

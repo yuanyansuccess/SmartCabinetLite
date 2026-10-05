@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file AlertLogsPage.h
  * @brief 告警日志页面 — 告警列表、筛选、确认处理、统计卡片、分页、导出
  * @author 袁燕

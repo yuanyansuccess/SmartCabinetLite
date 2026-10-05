@@ -17,6 +17,9 @@ MultiSelectFilter::MultiSelectFilter(const QString& placeholder, QWidget* parent
     setupUI();
 }
 
+/**
+ * @brief 构建多选筛选控件
+ */
 void MultiSelectFilter::setupUI()
 {
     auto* layout = new QHBoxLayout(this);
@@ -33,7 +36,7 @@ void MultiSelectFilter::setupUI()
     m_filterBtn = new QPushButton(m_placeholder);
     m_filterBtn->setStyleSheet(
         "QPushButton{padding:0 16px;border:none;border-radius:10px;"
-        "font-size:16px;background:transparent;color:#333;text-align:left;min-width:130px;}"
+        + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "background:transparent;color:#333;text-align:left;min-width:130px;}"
         "QPushButton:hover{background:#f5f7fa;}"
     );
     m_filterBtn->setCursor(Qt::PointingHandCursor);
@@ -56,6 +59,10 @@ MultiSelectFilter::~MultiSelectFilter() {
     }
 }
 
+/**
+         * @brief 设置可选项
+         * @param options 选项名称列表
+         */
 void MultiSelectFilter::setOptions(const QStringList& options) {
     m_checkBoxes.clear();
 
@@ -127,14 +134,14 @@ void MultiSelectFilter::setOptions(const QStringList& options) {
 
     auto* clearBtn = new QPushButton(QStringLiteral("清空"));
     clearBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#666;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;}"
+        "QPushButton{background:#fff;color:#666;border:none;border-radius:8px;padding:8px 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "font-weight:600;}"
         "QPushButton:hover{background:#f0f2f5;}"
     );
     connect(clearBtn, &QPushButton::clicked, this, &MultiSelectFilter::onClear);
 
     auto* confirmBtn = new QPushButton(QStringLiteral("确定"));
     confirmBtn->setStyleSheet(
-        "QPushButton{background:transparent;color:#4da3ff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;}"
+        "QPushButton{background:transparent;color:#4da3ff;border:none;border-radius:8px;padding:8px 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "font-weight:600;}"
         "QPushButton:hover{background:#f0f2f5;}"
     );
     connect(confirmBtn, &QPushButton::clicked, this, &MultiSelectFilter::onConfirm);
@@ -147,6 +154,10 @@ void MultiSelectFilter::setOptions(const QStringList& options) {
     m_filterBtn->setText(m_placeholder);
 }
 
+/**
+         * @brief 读取当前已选项
+         * @return 已选项名称列表
+         */
 QStringList MultiSelectFilter::selectedOptions() const {
     QStringList result;
     for (const auto& pair : m_checkBoxes) {
@@ -157,6 +168,10 @@ QStringList MultiSelectFilter::selectedOptions() const {
     return result;
 }
 
+/**
+         * @brief 设置未选中时显示的占位文字
+         * @param text 占位文字
+         */
 void MultiSelectFilter::setPlaceholderText(const QString& text) {
     m_placeholder = text;
     // 仅在无选中内容时更新按钮文字
@@ -166,6 +181,9 @@ void MultiSelectFilter::setPlaceholderText(const QString& text) {
     }
 }
 
+/**
+ * @brief 清空已选内容
+ */
 void MultiSelectFilter::clear() {
     for (auto& pair : m_checkBoxes) {
         if (pair.second) {
@@ -176,6 +194,9 @@ void MultiSelectFilter::clear() {
     m_filterBtn->setText(m_placeholder);
 }
 
+/**
+ * @brief 选择全部
+ */
 void MultiSelectFilter::selectAll() {
     for (auto& pair : m_checkBoxes) {
         if (pair.second) {
@@ -190,6 +211,9 @@ void MultiSelectFilter::selectAll() {
     m_filterBtn->setText(m_placeholder);  // 全选时显示占位文字
 }
 
+/**
+ * @brief 处理筛选按钮点击事件
+ */
 void MultiSelectFilter::onFilterBtnClicked() {
     if (m_popup->isVisible()) {
         m_popup->hide();
@@ -202,6 +226,9 @@ void MultiSelectFilter::onFilterBtnClicked() {
     }
 }
 
+/**
+         * @brief 清空所有已选项
+         */
 void MultiSelectFilter::onClear() {
     for (auto& pair : m_checkBoxes) {
         if (pair.second) {
@@ -210,6 +237,9 @@ void MultiSelectFilter::onClear() {
     }
 }
 
+/**
+ * @brief 处理确认
+ */
 void MultiSelectFilter::onConfirm() {
     QStringList selected;
     for (const auto& pair : m_checkBoxes) {
@@ -224,6 +254,9 @@ void MultiSelectFilter::onConfirm() {
     emit selectionChanged(selected);
 }
 
+/**
+ * @brief 更新按钮文本
+ */
 void MultiSelectFilter::updateButtonText() {
     if (m_selectedCache.isEmpty()) {
         m_filterBtn->setText(m_placeholder);

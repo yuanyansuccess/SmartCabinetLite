@@ -36,6 +36,9 @@ LedgerStatsPage::~LedgerStatsPage() {
     delete ui;
 }
 
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void LedgerStatsPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_exportLedgerBtn = ui->exportLedgerBtn;
@@ -79,10 +82,19 @@ void LedgerStatsPage::setupUI() {
     ui->filterSlotLayout->addWidget(m_periodFilter);
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void LedgerStatsPage::refresh() { loadStats(); }
 
+/**
+ * @brief 处理筛选
+ */
 void LedgerStatsPage::onFilterChanged() { loadStats(); }
 
+/**
+ * @brief 加载统计
+ */
 void LedgerStatsPage::loadStats() {
     SettingService svc;
     QJsonObject stats = svc.getLedgerStats();

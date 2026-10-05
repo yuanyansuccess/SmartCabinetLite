@@ -1,16 +1,16 @@
+/**
+ * @file AlertController.h
+ * @brief 告警控制层：告警列表查询、处理操作与告警统计装配
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  告警业务控制层
-// 功能：告警查询、处理、统计
-// 统一到db/目录namespace db
-//
-// 分层定位：Controller 负责「读查询 + 统计装配」；告警的产生与状态变更
-// 由 services/AlertService 与各业务 Service 触发。
-// 权限校验、审计日志、操作埋点等横切关注点请加在本层，不要散到 pages 或 Service。
 #include <QObject>
 #include <QDate>
 #include "model/AlertLog.h"
 #include "db/AlertDAO.h"
 
+// 分层定位：Controller 负责告警的读查询与统计装配；告警的产生与状态变更
+// 由 services/AlertService 及各业务 Service 触发。
 class AlertController : public QObject {
     Q_OBJECT
 public:

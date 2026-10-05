@@ -53,7 +53,7 @@ UserEntryDialog::UserEntryDialog(const QJsonObject& user, QWidget* parent)
         showAlertDialog();
     });
 
-    // 醒目提示：存在未处理告警时显示（袁总要求：按钮下方醒目颜色提示）
+    // 醒目提示：存在未处理告警时，在按钮下方以醒目颜色显示
     m_alertHintLabel = ui->alertHintLabel;
     m_alertHintLabel->setVisible(unhandledAlertCount() > 0);
 }
@@ -63,6 +63,10 @@ UserEntryDialog::~UserEntryDialog()
     delete ui;
 }
 
+/**
+ * @brief 打开功能选择对话框并等待用户选择
+ * @return 用户选择的功能项；取消时返回无效值
+ */
 UserEntryDialog::Choice UserEntryDialog::execChoice()
 {
     m_choice = Choice::Logout;  // 默认：直接关闭视为退出登录

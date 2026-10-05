@@ -16,6 +16,11 @@ namespace db {
 // ═══════════════════════════════════════════════
 // 实体类转换 — 从dao/TaskTypeDAO.cpp合并
 // ═══════════════════════════════════════════════
+/**
+ * @brief 查询结果行转换为任务类型实体
+ * @param q 已定位到有效行的查询结果
+ * @return 任务类型实体
+ */
 TaskType TaskTypeDAO::fromQuery(const QSqlQuery& q) {
     TaskType t;
     t.taskTypeId      = q.value("type_id").toInt();
@@ -32,6 +37,10 @@ TaskType TaskTypeDAO::fromQuery(const QSqlQuery& q) {
 // ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）
 // ═══════════════════════════════════════════════
+/**
+ * @brief 查询全部启用的任务类型
+ * @return 任务类型数组
+ */
 QJsonArray TaskTypeDAO::findAllActive() {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
     q.prepare("SELECT type_id, type_code, type_name, description FROM task_type WHERE is_active=1 ORDER BY sort_order");
@@ -48,6 +57,12 @@ QJsonArray TaskTypeDAO::findAllActive() {
     return arr;
 }
 
+/**
+ * @brief 按任务类型查询推荐工具
+ * @param typeIds 任务类型ID列表
+ * @param machineGroupId 机组ID，用于限定只返回本机组工具
+ * @return 工具数组
+ */
 QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, int machineGroupId) {
     if (typeIds.isEmpty()) return QJsonArray();
     QSqlDatabase db = getDb();
@@ -100,6 +115,9 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
 // ═══════════════════════════════════════════════
 // 实体类API（Controller层使用）— 从dao/TaskTypeDAO.cpp合并
 // ═══════════════════════════════════════════════
+/**
+ * @brief 查询全部
+ */
 QList<TaskType> TaskTypeDAO::findAll() {
     QList<TaskType> list;
     QSqlQuery q = query("SELECT * FROM task_type WHERE is_active=1 ORDER BY sort_order");

@@ -1,6 +1,9 @@
+/**
+ * @file SidebarMenu.h
+ * @brief 侧边栏导航菜单：按登录角色生成入口项，发出页面切换信号
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  侧边栏导航组件
-// 功能：垂直菜单栏(250px深色#1a1a2e)，1:1复刻Web
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>

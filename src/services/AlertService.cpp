@@ -8,6 +8,13 @@
 #include "db/AlertDAO.h"
 #include "common/Constants.h"
 
+/**
+ * @brief 记录一条识别核验告警
+ * @param userId 用户ID
+ * @param toolId 工具ID
+ * @param toolCode 工具编号
+ * @param message 告警内容
+ */
 void AlertService::recordVerifyAlert(int userId, int toolId, const QString& toolCode, const QString& message) {
     db::AlertDAO alertDao;
     AlertLog alert;
@@ -20,6 +27,10 @@ void AlertService::recordVerifyAlert(int userId, int toolId, const QString& tool
     alertDao.insertAlert(alert);
 }
 
+/**
+ * @brief 统计未处理告警数量
+ * @return 未处理告警条数
+ */
 int AlertService::unhandledCount() {
     db::AlertDAO dao;
     return dao.unhandledCount();
@@ -32,17 +43,33 @@ QJsonArray AlertService::getRecentAlerts(int limit) {
     return dao.findRecentUnhandled(limit);
 }
 
+/**
+ * @brief 查询告警详情
+ * @param alertId 告警ID
+ * @return 详情对象；不存在时返回空对象
+ */
 QJsonObject AlertService::getAlertDetail(int alertId) {
     db::AlertDAO dao;
     return dao.findDetailById(alertId);
 }
 
+/**
+ * @brief 统计告警数量
+ * @param type 告警类型，为空不过滤
+ * @param level 告警级别，为空不过滤
+ * @param keyword 关键字，为空不过滤
+ * @return 统计对象
+ */
 QJsonObject AlertService::getAlertStats(const QString& type, const QString& level,
                                         const QString& keyword) {
     db::AlertDAO dao;
     return dao.getStats(type, level, keyword);
 }
 
+/**
+ * @brief 查询告警类型字典
+ * @return 元素含 typeId、typeCode、typeName、alertLevel 的数组
+ */
 QJsonArray AlertService::getAlertTypes() {
     db::AlertDAO dao;
     return dao.getAlertTypes();

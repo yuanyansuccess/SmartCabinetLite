@@ -39,7 +39,7 @@ DrawerOpeningDialog::DrawerOpeningDialog(const QString& windowTitle, const QStri
     auto* descLabel = new QLabel(descHtml);
     descLabel->setAlignment(Qt::AlignCenter);
     descLabel->setTextFormat(Qt::RichText);
-    descLabel->setStyleSheet("font-size:15px;color:#555;line-height:1.6;background:transparent;");
+    descLabel->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "color:#555;line-height:1.6;background:transparent;");
     descLabel->setWordWrap(true);
     m_layout->addWidget(descLabel);
 
@@ -73,6 +73,10 @@ DrawerOpeningDialog::DrawerOpeningDialog(const QString& windowTitle, const QStri
     m_layout->addLayout(btnRow);
 }
 
+/**
+ * @brief 构建开柜等待动画：旋转指示器与提示文字
+ * @return 动画区域控件
+ */
 void DrawerOpeningDialog::buildSpinner() {
     auto* spinnerContainer = new QWidget();
     spinnerContainer->setFixedHeight(m_spinnerHeight);

@@ -1,6 +1,10 @@
-// 智能柜Qt Widget 2.0  SidebarMenu实现
-// 1:1复刻Web前端SideBar.vue：250px深色#1a1a2e
+/**
+ * @file SidebarMenu.cpp
+ * @brief 侧边栏导航菜单实现：按登录角色生成入口项，发出页面切换信号
+ * @author 袁燕
+ */
 #include "SidebarMenu.h"
+#include "utils/StyleHelper.h"  // 字号统一走 StyleHelper::Token
 #include <QFont>
 #include <QSpacerItem>
 #include <QFrame>
@@ -11,13 +15,16 @@ SidebarMenu::SidebarMenu(QWidget* parent) : QWidget(parent) {
     setupUI();
 }
 
+/**
+ * @brief 构建侧边栏菜单
+ */
 void SidebarMenu::setupUI() {
     setObjectName("sidebarMenu");
     setFixedWidth(250);
     setStyleSheet(
         "#sidebarMenu { background:#1a1a2e; }"
         "#sidebarMenu QPushButton { text-align:left; padding:15px 20px; border:none; "
-        "color:#a0a0b8; font-size:16px; border-radius:0; min-height:48px; "
+        "color:#a0a0b8; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " border-radius:0; min-height:48px; "
         "border-left:3px solid transparent; }"
         "#sidebarMenu QPushButton:hover { background:#1e2a4a; color:#d0d0e0; }"
         "#sidebarMenu QPushButton:checked { background:rgba(77,163,255,0.12); color:#ffffff; "
@@ -44,11 +51,11 @@ void SidebarMenu::setupUI() {
         logoIcon->setPixmap(logoPix.scaled(28, 28, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
         logoIcon->setText(QStringLiteral("CF"));
-        logoIcon->setStyleSheet("font-size:14px; font-weight:bold; color:#ffffff; background:transparent;");
+        logoIcon->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:bold; color:#ffffff; background:transparent;");
     }
     logoLayout->addWidget(logoIcon);
     QLabel* logoText = new QLabel(QStringLiteral("智能工具柜"), logoArea);
-    logoText->setStyleSheet("color:#ffffff; font-size:20px; font-weight:bold; background:transparent;");
+    logoText->setStyleSheet("color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight:bold; background:transparent;");
     logoLayout->addWidget(logoText);
     logoLayout->addStretch();
     m_layout->addWidget(logoArea);
@@ -96,25 +103,36 @@ void SidebarMenu::setupUI() {
     QVBoxLayout* uil = new QVBoxLayout(m_userInfoWidget);
     uil->setSpacing(4);
     m_userNameLabel = new QLabel(QStringLiteral("未登录"));
-    m_userNameLabel->setStyleSheet("color:#ffffff; font-size:14px; font-weight:bold; background:transparent;");
+    m_userNameLabel->setStyleSheet("color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:bold; background:transparent;");
     m_userRoleLabel = new QLabel();
-    m_userRoleLabel->setStyleSheet("color:#888888; font-size:12px; background:transparent;");
+    m_userRoleLabel->setStyleSheet("color:#888888; " + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + " background:transparent;");
     uil->addWidget(m_userNameLabel);
     uil->addWidget(m_userRoleLabel);
     m_layout->addWidget(m_userInfoWidget);
 }
 
+/**
+ * @brief 设置用户信息
+ */
 void SidebarMenu::setUserInfo(const QString& name, const QString& role) {
     m_userNameLabel->setText(name.isEmpty() ? QStringLiteral("未登录") : name);
     m_userRoleLabel->setText(role);
 }
 
+/**
+         * @brief 高亮当前所在页面对应的菜单项
+         * @param pageKey 页面标识
+         */
 void SidebarMenu::setActivePage(int pageIdx) {
     for (auto* btn : m_navBtns) {
         btn->setChecked(btn->property("pageIdx").toInt() == pageIdx);
     }
 }
 
+/**
+         * @brief 按登录角色过滤可见菜单项
+         * @param role 角色标识
+         */
 void SidebarMenu::filterByRole(const QString& role) {
     bool isAdmin = (role == SC::ROLE_ADMIN);
     for (auto* btn : m_navBtns) {

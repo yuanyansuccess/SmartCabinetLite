@@ -1,6 +1,9 @@
+/**
+ * @file ToolCategory.h
+ * @brief 工具分类实体，字段对齐 tool_category
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  工具分类实体
-// 映射表：tool_category
 #include <QString>
 #include <QDateTime>
 

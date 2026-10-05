@@ -44,6 +44,9 @@ ResultDialog::ResultDialog(const QString& windowTitle, const QString& icon,
     m_layout->addLayout(m_body);
 }
 
+/**
+ * @brief 设置提示
+ */
 void ResultDialog::setHint(const QString& text) {
     auto* hintLabel = new QLabel(text);
     hintLabel->setWordWrap(true);
@@ -52,6 +55,11 @@ void ResultDialog::setHint(const QString& text) {
     m_layout->addWidget(hintLabel);
 }
 
+/**
+ * @brief 在对话框底部居中添加完成按钮
+ * @param text 按钮文字
+ * @param onClicked 点击回调
+ */
 void ResultDialog::addFinishButtonCentered(const QString& text, const QString& style) {
     auto* okBtn = new QPushButton(text);
     okBtn->setStyleSheet(style);
@@ -60,6 +68,10 @@ void ResultDialog::addFinishButtonCentered(const QString& text, const QString& s
     m_layout->addWidget(okBtn, 0, Qt::AlignCenter);
 }
 
+/**
+ * @brief 在对话框底部添加一行按钮
+ * @param buttons 按钮描述列表，含文字与回调
+ */
 void ResultDialog::addFinishButtonRow(const QString& text, const QString& style, int minWidth) {
     auto* btnRow = new QHBoxLayout();
     btnRow->addStretch();

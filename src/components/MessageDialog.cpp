@@ -22,6 +22,12 @@ MessageDialog::MessageDialog(DialogType type, QWidget* parent)
     setModal(true);
 }
 
+/**
+ * @brief 构建消息对话框界面
+         * @param type 对话框类型，决定配色与按钮
+         * @param title 标题文字
+         * @param message 消息内容
+         */
 void MessageDialog::setupUI(DialogType type, const QString& title, const QString& message)
 {
     // 弹窗尺寸：宽380px，高自适应
@@ -204,6 +210,13 @@ void MessageDialog::showEvent(QShowEvent* event)
     move(x, y);
 }
 
+/**
+         * @brief 显示单按钮消息对话框
+         * @param type 对话框类型
+         * @param parent 父窗口
+         * @param title 标题文字
+         * @param message 消息内容
+         */
 void MessageDialog::showSingle(DialogType type, QWidget* parent,
                                 const QString& title, const QString& message)
 {
@@ -212,21 +225,43 @@ void MessageDialog::showSingle(DialogType type, QWidget* parent,
     dlg.exec();
 }
 
+/**
+         * @brief 显示成功提示（单按钮）
+         * @param parent 父窗口
+         * @param title 标题文字
+         * @param message 消息内容
+         */
 void MessageDialog::showSuccess(QWidget* parent, const QString& title, const QString& message)
 {
     showSingle(Success, parent, title, message);
 }
 
+/**
+ * @brief 显示异常
+ */
 void MessageDialog::showError(QWidget* parent, const QString& title, const QString& message)
 {
     showSingle(Error, parent, title, message);
 }
 
+/**
+         * @brief 显示警告提示（单按钮）
+         * @param parent 父窗口
+         * @param title 标题文字
+         * @param message 消息内容
+         */
 void MessageDialog::showWarning(QWidget* parent, const QString& title, const QString& message)
 {
     showSingle(Warning, parent, title, message);
 }
 
+/**
+         * @brief 显示确认询问（确定与取消两个按钮）
+         * @param parent 父窗口
+         * @param title 标题文字
+         * @param message 消息内容
+         * @return true=用户点击确定
+         */
 bool MessageDialog::showQuestion(QWidget* parent, const QString& title, const QString& message)
 {
     MessageDialog dlg(Question, parent);

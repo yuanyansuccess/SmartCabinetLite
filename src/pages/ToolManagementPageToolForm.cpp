@@ -40,6 +40,9 @@
 #include <QDir>                // 创建文档存储目录
 #include <QTimer>              // 上传后延迟重新打开详情对话框
 
+/**
+ * @brief 处理工具
+ */
 void ToolManagementPage::onAddTool() {
     m_editToolId = 0;
     if (!m_toolDialog) {
@@ -114,6 +117,9 @@ void ToolManagementPage::onAddTool() {
     m_toolDialog->exec();
 }
 
+/**
+ * @brief 处理编辑框工具
+ */
 void ToolManagementPage::onEditTool(int toolId) {
     m_editToolId = toolId;
     ToolController ctrl;
@@ -129,6 +135,9 @@ void ToolManagementPage::onEditTool(int toolId) {
     m_toolDialog->exec();
 }
 
+/**
+ * @brief 处理工具
+ */
 void ToolManagementPage::onDeleteTool(int toolId) {
     if (!MessageDialog::showQuestion(this, QStringLiteral("确认删除"),
         QStringLiteral("确定要删除该工具吗？"))) return;
@@ -141,6 +150,9 @@ void ToolManagementPage::onDeleteTool(int toolId) {
     }
 }
 
+/**
+ * @brief 处理工具
+ */
 void ToolManagementPage::onSubmitTool() {
     QString name = m_dlgName->text().trimmed();
     if (name.isEmpty()) { MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("工具名称不能为空")); return; }

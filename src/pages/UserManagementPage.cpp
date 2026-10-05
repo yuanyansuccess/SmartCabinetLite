@@ -66,6 +66,9 @@ UserManagementPage::~UserManagementPage() {
 // 【① 界面构建与用户列表加载
 //   工具栏、部门筛选、用户表格与分页
 // ==============================================================
+/**
+ * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ */
 void UserManagementPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
     m_addBtn = ui->addBtn;
@@ -142,6 +145,9 @@ void UserManagementPage::setupUI() {
     m_table->horizontalHeader()->setMinimumSectionSize(60);
 }
 
+/**
+ * @brief 刷新页面数据与统计显示
+ */
 void UserManagementPage::refresh() {
     loadDepartments();  // 每次刷新重新加载部门列表(对齐Web版onMounted)
     loadUsers();
@@ -152,11 +158,17 @@ void UserManagementPage::refresh() {
 // 【② 查询与筛选（搜索/重置/部门多选）
 //   搜索条件与部门筛选交互
 // ==============================================================
+/**
+ * @brief 处理搜索
+ */
 void UserManagementPage::onSearch() {
     m_currentPage = 1;  // 筛选查询必须重置到第1页
     loadUsers();
 }
 
+/**
+ * @brief 处理重置
+ */
 void UserManagementPage::onReset() {
     // 重置所有筛选条件
     m_searchEdit->clear();
@@ -260,6 +272,9 @@ void UserManagementPage::loadDepartments() {
     m_deptPopup->hide();
 }
 
+/**
+ * @brief 加载用户
+ */
 void UserManagementPage::loadUsers() {
     QString kw = m_searchEdit->text().trimmed();
     // SingleSelectFilter::selectedText() + selectedIndex() 替换 QComboBox::currentText() + currentIndex()
@@ -427,6 +442,9 @@ void UserManagementPage::loadUsers() {
 // 【③ 分页
 //   上一页/下一页
 // ==============================================================
+/**
+ * @brief 处理页面
+ */
 void UserManagementPage::onPrevPage() {
     if (m_currentPage > 1) {
         m_currentPage--;
@@ -434,6 +452,9 @@ void UserManagementPage::onPrevPage() {
     }
 }
 
+/**
+ * @brief 处理页面
+ */
 void UserManagementPage::onNextPage() {
     int totalPages = (m_totalRecords + m_pageSize - 1) / m_pageSize;
     if (m_currentPage < totalPages) {
@@ -449,6 +470,9 @@ void UserManagementPage::onNextPage() {
 // 【⑤ 输入控件事件与部门筛选交互
 //   软键盘弹起、清空/确认部门
 // ==============================================================
+/**
+ * @brief 处理搜索输入框点击事件
+ */
 void UserManagementPage::onSearchFieldClicked() {
     // 先隐藏数字键盘防止穿透残留
     if (m_numKeypad) m_numKeypad->hide();
@@ -460,6 +484,12 @@ void UserManagementPage::onSearchFieldClicked() {
     }
 }
 
+/**
+         * 事件过滤器：拦截控件与窗口事件并转交专用处理
+         * @param obj 事件来源控件
+         * @param event 事件对象
+         * @return true=事件已被处理
+         */
 bool UserManagementPage::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
         if (obj == m_searchEdit) {
@@ -534,6 +564,9 @@ void UserManagementPage::onConfirmDepts() {
 // 【⑥ 启用/停用切换
 //   状态互斥与二次确认
 // ==============================================================
+/**
+ * @brief 处理状态
+ */
 void UserManagementPage::onToggleUserStatus(int userId) {
   // 通过UserController替代直接调用db/UserDAO
     UserController ctrl;

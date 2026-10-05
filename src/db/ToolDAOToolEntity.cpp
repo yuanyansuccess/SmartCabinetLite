@@ -16,6 +16,17 @@
 
 namespace db {
 
+/**
+ * @brief 分页查询工具实体列表
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param keyword 关键字，为空不过滤
+ * @param cat 分类名称，为空不过滤
+ * @param cab 柜体名称，为空不过滤
+ * @param status 工具状态，为空不过滤
+ * @param machineGroupId 机组ID，0表示不限
+ * @return 工具实体列表
+ */
 QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& keyword,
                                        const QString& cat, const QString& cab, const QString& status,
                                        const QString& machineGroup) {
@@ -187,6 +198,10 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     return list;
 }
 
+/**
+ * @brief 统计符合条件的工具数量
+ * @return 工具总数；筛选条件与 findAllTools 保持一致
+ */
 int ToolDAO::countTools(const QString& keyword, const QString& cat,
                          const QString& cab, const QString& status,
                          const QString& machineGroup) {
@@ -265,8 +280,12 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
 // 【⑤ 工具操作（ToolInfo 接口）
 //   按结构体的新增/更新/删除与状态
 // ==============================================================
+/**
+ * @brief 按工具ID查询工具实体
+ * @param toolId 工具ID
+ * @return 工具实体；不存在时返回默认构造的空实体
+ */
 ToolInfo ToolDAO::findToolById(int toolId) {
-    // 增加machine_group JOIN
     QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
@@ -276,8 +295,12 @@ ToolInfo ToolDAO::findToolById(int toolId) {
     return ToolInfo();
 }
 
+/**
+ * @brief 按工具编号查询工具实体
+ * @param code 工具编号
+ * @return 工具实体；不存在时返回默认构造的空实体
+ */
 ToolInfo ToolDAO::findToolByCode(const QString& code) {
-    // 增加machine_group JOIN
     QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
@@ -287,8 +310,12 @@ ToolInfo ToolDAO::findToolByCode(const QString& code) {
     return ToolInfo();
 }
 
+/**
+ * @brief 新增工具实体
+ * @param t 待写入的工具实体
+ * @return 新记录的ID；写入失败返回 -1
+ */
 int ToolDAO::insertTool(const ToolInfo& t) {
-    // 增加machine_group_id列
     // 增加recognition_method/document_path列
     return insertAndGetId("INSERT INTO tool_info (tool_code,tool_name,spec,category_id,"
                           "cabinet_id,machine_group_id,layer,position,total_qty,current_qty,vision_tag,status,"
@@ -298,8 +325,12 @@ int ToolDAO::insertTool(const ToolInfo& t) {
                            t.status, t.isRecommended, t.recognitionMethod, t.documentPath});
 }
 
+/**
+ * @brief 按实体更新工具信息
+ * @param t 含工具ID与待更新字段的实体
+ * @return true=更新成功
+ */
 bool ToolDAO::updateTool(const ToolInfo& t) {
-    // 增加machine_group_id更新
     // 增加recognition_method/document_path更新
     return execute("UPDATE tool_info SET tool_name=?,spec=?,category_id=?,cabinet_id=?,"
                    "machine_group_id=?,layer=?,position=?,total_qty=?,vision_tag=?,status=?,is_recommended=?,"
@@ -309,10 +340,21 @@ bool ToolDAO::updateTool(const ToolInfo& t) {
                     t.recognitionMethod, t.documentPath, t.toolId});
 }
 
+/**
+ * @brief 按工具ID删除工具记录
+ * @param toolId 工具ID
+ * @return true=删除成功
+ */
 bool ToolDAO::deleteToolById(int toolId) {
     return execute("DELETE FROM tool_info WHERE tool_id = ?", {toolId});
 }
 
+/**
+ * @brief 更新工具状态
+ * @param toolId 工具ID
+ * @param status 目标状态，取 SC::TOOL_* 常量
+ * @return true=更新成功
+ */
 bool ToolDAO::updateToolStatus(int toolId, const QString& status) {
     return execute("UPDATE tool_info SET status=? WHERE tool_id=?", {status, toolId});
 }
@@ -324,12 +366,24 @@ bool ToolDAO::updateDocumentPath(int toolId, const QString& docPath) {
                    {docPath, toolId});
 }
 
+/**
+ * @brief 借用工具并扣减在库数量
+ * @param toolId 工具ID
+ * @param qty 借用数量
+ * @return true=扣减成功；false=库存不足或写入失败
+ */
 bool ToolDAO::borrowTool(int toolId, int qty) {
     return execute("UPDATE tool_info SET current_qty=current_qty-?, "
                    "status=IF(current_qty-?<=0,'borrowed','in_stock') WHERE tool_id=?",
                    {qty, qty, toolId});
 }
 
+/**
+ * @brief 归还工具并回增在库数量
+ * @param toolId 工具ID
+ * @param qty 归还数量
+ * @return true=回增成功
+ */
 bool ToolDAO::returnTool(int toolId, int qty) {
     return execute("UPDATE tool_info SET current_qty=current_qty+?, "
                    "status='in_stock' WHERE tool_id=?", {qty, toolId});

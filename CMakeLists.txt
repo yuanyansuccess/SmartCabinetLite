@@ -93,9 +93,6 @@ endif()
 set(COMMON_SOURCES
     src/common/AppConfig.cpp
     src/common/DatabaseManager.cpp
-    # DatabaseManager 按职责物理拆分（类声明仍在 DatabaseManager.h，仅实现分文件，接口零变化）
-    src/common/DatabaseManagerSchema.cpp
-    src/common/DatabaseManagerSeed.cpp
     src/common/Logger.cpp
 )
 
@@ -212,6 +209,7 @@ set(COMPONENT_SOURCES
     src/components/PaginationBar.cpp
     src/components/SearchBar.cpp
     src/components/DrawerOpeningDialog.cpp
+    src/components/FlowDialogs.cpp
     src/components/VerifyAlertDialog.cpp
     src/components/ResultDialog.cpp
     src/components/MessageDialog.cpp

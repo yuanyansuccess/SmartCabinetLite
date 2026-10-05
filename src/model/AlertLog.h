@@ -1,7 +1,9 @@
+/**
+ * @file AlertLog.h
+ * @brief 告警记录实体，字段对齐 sys_alert 及其关联字典表
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  告警日志实体
-  // 注意：映射表sys_alert，字段对齐数据库schema
-// 新增typeId/typeName/status字段，移除alertType/alertLevel(改为JOIN获取)
 #include <QString>
 #include <QDateTime>
 

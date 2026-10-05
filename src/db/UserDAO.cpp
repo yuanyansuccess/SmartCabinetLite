@@ -14,9 +14,11 @@
 
 namespace db {
 
-// ════════════════════════════════════════════════════════
-// 实体类转换（fromQuery）— 从dao/UserDAO.cpp合并
-// ════════════════════════════════════════════════════════
+/**
+ * @brief 查询结果行转换为用户实体
+ * @param q 已定位到有效行的查询结果
+ * @return 填充完成的用户实体
+ */
 User UserDAO::fromQuery(const QSqlQuery& q) {
     User u;
     u.userId       = q.value("user_id").toInt();
@@ -38,10 +40,11 @@ User UserDAO::fromQuery(const QSqlQuery& q) {
     return u;
 }
 
-// ════════════════════════════════════════════════════════
-// QJsonObject API 实现（Service层使用）
-// ════════════════════════════════════════════════════════
-
+/**
+ * @brief 按登录账号查询用户
+ * @param username 登录账号
+ * @return 用户信息对象；账号不存在时返回空对象
+ */
 QJsonObject UserDAO::findByUsername(const QString& username) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -73,6 +76,11 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
     return user;
 }
 
+/**
+ * @brief 按用户ID查询用户
+ * @param userId 用户ID
+ * @return 用户信息对象；不存在时返回空对象
+ */
 QJsonObject UserDAO::findById(int userId) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -104,6 +112,16 @@ QJsonObject UserDAO::findById(int userId) {
     return user;
 }
 
+/**
+ * @brief 分页查询用户列表
+ * @param keyword 关键字，匹配账号/工号/姓名，为空不过滤
+ * @param role 角色，为空不过滤
+ * @param status 状态，为空不过滤
+ * @param department 部门名称，为空不过滤
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @return 含 list 数组与 total 总数的对象
+ */
 QJsonObject UserDAO::findAll(const QString& keyword, const QString& role,
                             const QString& status, const QString& department,
                             int page, int pageSize) {
@@ -174,6 +192,11 @@ QJsonObject UserDAO::findAll(const QString& keyword, const QString& role,
     return result;
 }
 
+/**
+ * @brief 新增用户记录
+ * @param info 用户字段集合，键名使用驼峰形式
+ * @return 新记录的用户ID；写入失败返回 -1
+ */
 int UserDAO::insert(const QJsonObject& info) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -196,6 +219,12 @@ int UserDAO::insert(const QJsonObject& info) {
     return query.lastInsertId().toInt();
 }
 
+/**
+ * @brief 按传入字段增量更新用户信息
+ * @param userId 用户ID
+ * @param updates 待更新字段集合，为空时不做任何写入
+ * @return true=至少更新一个字段；false=入参为空或无有效字段
+ */
 bool UserDAO::update(int userId, const QJsonObject& updates) {
     if (updates.isEmpty()) return false;
     QSqlDatabase db = getDb();
@@ -216,6 +245,11 @@ bool UserDAO::update(int userId, const QJsonObject& updates) {
     return safeExec(query);
 }
 
+/**
+ * @brief 逻辑删除用户：状态置为 deleted，保留原记录
+ * @param userId 用户ID
+ * @return true=状态已更新
+ */
 bool UserDAO::softDelete(int userId) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -224,6 +258,12 @@ bool UserDAO::softDelete(int userId) {
     return safeExec(query);
 }
 
+/**
+ * @brief 更新用户人脸特征
+ * @param userId 用户ID
+ * @param feature 人脸特征串（128维向量的逗号分隔文本）
+ * @return true=写入成功
+ */
 bool UserDAO::updateFace(int userId, const QString& feature, const QString&) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -232,6 +272,11 @@ bool UserDAO::updateFace(int userId, const QString& feature, const QString&) {
     return safeExec(query);
 }
 
+/**
+ * @brief 清除用户人脸特征
+ * @param userId 用户ID
+ * @return true=清除成功
+ */
 bool UserDAO::deleteFace(int userId) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -240,6 +285,10 @@ bool UserDAO::deleteFace(int userId) {
     return safeExec(query);
 }
 
+/**
+ * @brief 查询全部已录入人脸特征的用户
+ * @return 元素含 userId、realName、faceFeature 的数组；无人脸数据时返回空数组
+ */
 QJsonArray UserDAO::getAllFaceFeatures() {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -260,6 +309,12 @@ QJsonArray UserDAO::getAllFaceFeatures() {
     return arr;
 }
 
+/**
+ * @brief 更新用户状态
+ * @param userId 用户ID
+ * @param status 目标状态，取 SC::USER_* 常量
+ * @return true=更新成功
+ */
 bool UserDAO::updateStatus(int userId, const QString& status) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -268,6 +323,12 @@ bool UserDAO::updateStatus(int userId, const QString& status) {
     return safeExec(query);
 }
 
+/**
+ * @brief 记录用户登录成功
+ * @param userId 用户ID
+ * @param loginIp 登录来源地址
+ * @return true=记录成功
+ */
 bool UserDAO::recordLoginSuccess(int userId, const QString&) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
@@ -277,6 +338,10 @@ bool UserDAO::recordLoginSuccess(int userId, const QString&) {
     return safeExec(query);
 }
 
+/**
+ * @brief 查询全部在用部门名称
+ * @return 去重并按名称排序的部门列表（不含状态为 deleted 的用户）；无数据时返回空列表
+ */
 QStringList UserDAO::getDistinctDepartments() {
     QStringList result;
     QSqlDatabase db = getDb();
@@ -294,28 +359,49 @@ QStringList UserDAO::getDistinctDepartments() {
     return result;
 }
 
-// ════════════════════════════════════════════════════════
-// 实体类API 实现（Controller层使用）— 从dao/UserDAO.cpp合并
-// ════════════════════════════════════════════════════════
-
+/**
+ * @brief 按用户ID查询用户实体
+ * @param userId 用户ID
+ * @return 用户实体；不存在时返回默认构造的空实体
+ */
 User UserDAO::findUserById(int userId) {
     QSqlQuery q = query("SELECT * FROM sys_user WHERE user_id = ?", {userId});
     if (q.next()) return fromQuery(q);
     return User();
 }
 
+/**
+ * @brief 按登录账号查询用户实体
+ * @param username 登录账号
+ * @return 用户实体；不存在时返回默认构造的空实体
+ */
 User UserDAO::findUserByUsername(const QString& username) {
     QSqlQuery q = query("SELECT * FROM sys_user WHERE username = ?", {username});
     if (q.next()) return fromQuery(q);
     return User();
 }
 
+/**
+ * @brief 按工号查询用户实体
+ * @param workNo 工号
+ * @return 用户实体；不存在时返回默认构造的空实体
+ */
 User UserDAO::findUserByWorkNo(const QString& workNo) {
     QSqlQuery q = query("SELECT * FROM sys_user WHERE work_no = ?", {workNo});
     if (q.next()) return fromQuery(q);
     return User();
 }
 
+/**
+ * @brief 分页查询用户实体列表
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @param keyword 关键字，为空不过滤
+ * @param dept 部门名称，为空不过滤
+ * @param status 状态，为空不过滤
+ * @param role 角色，为空不过滤
+ * @return 管理员优先、其次按创建时间倒序的用户实体列表
+ */
 QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword,
                                    const QString& dept, const QString& status, const QString& role) {
     static const QString FALLBACK = QString::fromUtf8("\xe6\x9c\xaa\xe5\x88\x86\xe9\x85\x8d");
@@ -360,9 +446,17 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
     return list;
 }
 
+/**
+ * @brief 统计符合条件的用户数量
+ * @param keyword 关键字，为空不过滤
+ * @param dept 部门名称，为空不过滤
+ * @param status 状态，为空不过滤
+ * @param role 角色，为空不过滤
+ * @return 用户数量；始终排除状态为 deleted 的用户
+ */
 int UserDAO::countUsers(const QString& keyword, const QString& dept,
                          const QString& status, const QString& role) {
-    // countUsers必须排除已删除用户 + 不能使用BaseDAO::count()包装
+    // countUsers需排除 status='deleted' 的用户，且不能使用BaseDAO::count()包装
     // BaseDAO::count() 会把SQL包成 SELECT COUNT(*) FROM (原SQL) AS _cnt
     // 如果原SQL本身是SELECT COUNT(*)，就会变成双重COUNT，结果永远是1！
     // 注意：直接执行COUNT查询，不使用BaseDAO::count()包装
@@ -399,6 +493,11 @@ int UserDAO::countUsers(const QString& keyword, const QString& dept,
     return scalar(sql, params).toInt();
 }
 
+/**
+ * @brief 新增用户实体
+ * @param user 待写入的用户实体
+ * @return 新记录的用户ID；写入失败返回 -1
+ */
 int UserDAO::insertUser(const User& user) {
     QString sql = "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
                   "work_no, dept_id, department, role, face_feature, phone, email, status) "
@@ -410,6 +509,11 @@ int UserDAO::insertUser(const User& user) {
                           user.role, user.faceFeature, user.phone, user.email, user.status});
 }
 
+/**
+ * @brief 按实体更新用户信息
+ * @param user 含用户ID与待更新字段的实体
+ * @return true=更新成功
+ */
 bool UserDAO::updateUser(const User& user) {
     // 解析部门ID：编辑弹窗只传部门名称，dept_id按名称从部门表解析，
     // 避免把无效值0写库触发外键约束fk_user_dept导致保存失败；解析不到写NULL
@@ -426,18 +530,42 @@ bool UserDAO::updateUser(const User& user) {
                    user.role, user.phone, user.email, user.status, user.userId});
 }
 
+/**
+ * @brief 逻辑删除用户：状态置为 deleted
+ * @param userId 用户ID
+ * @return true=状态已更新
+ */
 bool UserDAO::deleteUserById(int userId) {
     return execute("UPDATE sys_user SET status = 'deleted' WHERE user_id = ?", {userId});
 }
 
+/**
+ * @brief 更新用户状态
+ * @param userId 用户ID
+ * @param status 目标状态，取 SC::USER_* 常量
+ * @return true=更新成功
+ */
 bool UserDAO::updateUserStatus(int userId, const QString& status) {
     return execute("UPDATE sys_user SET status = ? WHERE user_id = ?", {status, userId});
 }
 
+/**
+ * @brief 更新用户人脸特征
+ * @param userId 用户ID
+ * @param feature 人脸特征串
+ * @return true=更新成功
+ */
 bool UserDAO::updateFaceFeature(int userId, const QString& feature) {
     return execute("UPDATE sys_user SET face_feature = ? WHERE user_id = ?", {feature, userId});
 }
 
+/**
+ * @brief 更新用户口令哈希与盐值
+ * @param userId 用户ID
+ * @param hash 口令哈希
+ * @param salt 口令盐值
+ * @return true=更新成功
+ */
 bool UserDAO::updateUserPassword(int userId, const QString& hash, const QString& salt) {
     // 位置占位符 ?：BaseDAO::execute 内部按 params 顺序做 bindValue(i)，
     // 只支持位置占位符；命名占位符需走 query()+手动 bindValue 路径
@@ -445,6 +573,11 @@ bool UserDAO::updateUserPassword(int userId, const QString& hash, const QString&
                    {hash, salt, userId});
 }
 
+/**
+ * @brief 更新用户最后登录时间
+ * @param userId 用户ID
+ * @return true=更新成功
+ */
 bool UserDAO::updateLastLogin(int userId) {
     return execute("UPDATE sys_user SET last_login_at = CURRENT_TIMESTAMP WHERE user_id = ?", {userId});
 }
@@ -454,8 +587,8 @@ QString UserDAO::generateNextWorkNo()
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
-    // 工号为纯数字格式，数字项在C++侧用正则过滤后取最大值
-    // 不依赖GLOB/REGEXP，SQLite与MySQL 5.7均兼容
+    // 工号为纯数字格式，数字项在 C++ 侧用正则过滤后取最大值
+    // 不依赖数据库特有函数，保证跨版本 MySQL 行为一致
     q.prepare("SELECT work_no FROM sys_user WHERE status != 'deleted'");
     if (!safeExec(q)) return QStringLiteral("001");
     int maxNum = 0;

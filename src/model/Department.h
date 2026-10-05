@@ -1,6 +1,9 @@
+/**
+ * @file Department.h
+ * @brief 部门实体，字段对齐 sys_department
+ * @author 袁燕
+ */
 #pragma once
-// 智能柜Qt Widget 2.0  部门实体
-// 映射表：sys_department
 #include <QString>
 #include <QDateTime>
 
