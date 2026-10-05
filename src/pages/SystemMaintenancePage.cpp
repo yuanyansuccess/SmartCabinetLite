@@ -582,13 +582,13 @@ void SystemMaintenancePage::loadAvailablePositions() {
 
     m_posLayerCombo->blockSignals(true);
     m_posLayerCombo->clear();
-    for (int i = 1; i <= 12; ++i) {
+    for (int i = 1; i <= SC::MAX_CABINET_LAYERS; ++i) {
         m_posLayerCombo->addItem(QString::number(i).rightJustified(2, '0'), i);
     }
 
     m_posPositionCombo->blockSignals(true);
     m_posPositionCombo->clear();
-    for (int i = 1; i <= 15; ++i) {
+    for (int i = 1; i <= SC::MAX_CABINET_POSITIONS; ++i) {
         m_posPositionCombo->addItem(QString::number(i).rightJustified(2, '0'), i);
     }
 

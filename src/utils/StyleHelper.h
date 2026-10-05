@@ -326,24 +326,30 @@ public:
     static QString settingLineEdit() {
         return QString(
             "QLineEdit {"
-            "  border: none; border-radius: 8px;"
-            "  padding: 0 16px; font-size: 14px; color: %1;"  // 14小米紧凑
-            "  background: white; min-height: 40px;"  // 40紧凑
+            "  border: none; border-radius: %1px;"
+            "  padding: 0 16px; font-size: %2px; color: %3;"
+            "  background: white; min-height: %4px;"
             "}"
-        ).arg(textColor());
+        ).arg(QString::number(Token::RadiusSmall),
+              QString::number(Token::FontBody),
+              textColor(),
+              QString::number(Token::ControlHeightCompactInput));
     }
 
     // 去掉内部边框+纯白背景
     static QString settingComboBox() {
         return QString(
             "QComboBox {"
-            "  border: none; border-radius: 8px;"
-            "  padding: 0 16px; font-size: 16px; color: %1;"
-            "  background: white; min-height: 48px;"
+            "  border: none; border-radius: %1px;"
+            "  padding: 0 16px; font-size: %2px; color: %3;"
+            "  background: white; min-height: %4px;"
             "}"
             "QComboBox::drop-down { border: none; width: 36px; }"
-            "QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }"
-        ).arg(textColor());
+            "QComboBox QAbstractItemView { font-size: %2px; padding: 8px; }"
+        ).arg(QString::number(Token::RadiusSmall),
+              QString::number(Token::FontInput),
+              textColor(),
+              QString::number(Token::ControlHeightTouch));
     }
 
     // 去掉内部边框+纯白背景
@@ -351,9 +357,9 @@ public:
     static QString settingSpinBox() {
         return QString(
             "QSpinBox {"
-            "  border: none; border-radius: 8px;"
-            "  padding: 0 16px; font-size: 16px; color: %1;"
-            "  background: white; min-height: 48px; min-width: 90px;"
+            "  border: none; border-radius: %1px;"
+            "  padding: 0 16px; font-size: %2px; color: %3;"
+            "  background: white; min-height: %4px; min-width: 90px;"
             "  outline: none;"
             "}"
             "QSpinBox:focus { border: none; outline: none; }"
@@ -366,48 +372,61 @@ public:
             "QSpinBox::up-arrow, QSpinBox::down-arrow {"
             "  width: 10px; height: 10px;"
             "}"
-        ).arg(textColor());
+        ).arg(QString::number(Token::RadiusSmall),
+              QString::number(Token::FontInput),
+              textColor(),
+              QString::number(Token::ControlHeightTouch));
     }
 
     /// 设置页面板保存按钮（44px高，14px字体，蓝色实底对齐其他页面主操作）
     static QString settingSaveBtn() {
         return QString(
             "QPushButton {"
-            "  background: #4da3ff;"
-            "  color: white; border: none; border-radius: 10px;"
-            "  padding: 10px 24px; font-size: 14px; font-weight: 700;"
-            "  min-height: 44px;"
+            "  background: %1;"
+            "  color: white; border: none; border-radius: %2px;"
+            "  padding: 10px 24px; font-size: %3px; font-weight: 700;"
+            "  min-height: %4px;"
             "}"
-            "QPushButton:hover { background: #3d8ae0; }"
-            "QPushButton:pressed { background: #2e7bd6; }"
-        );
+            "QPushButton:hover { background: %5; }"
+            "QPushButton:pressed { background: %6; }"
+        ).arg(primaryColor(), QString::number(Token::Radius),
+              QString::number(Token::FontBody), QString::number(Token::ControlHeight),
+              primaryHover(), QStringLiteral("#2e7bd6"));
     }
 
     /// 数值输入框样式
     static QString spinBox() {
         return QString(
             "QSpinBox {"
-            "  border: 2px solid #e0e0e0; border-radius: 12px;"
-            "  padding: 10px 16px; font-size: 18px; color: %1;"
-            "  background: white; min-height: 56px;"
+            "  border: 2px solid #e0e0e0; border-radius: %1px;"
+            "  padding: 10px 16px; font-size: %2px; color: %3;"
+            "  background: white; min-height: %4px;"
             "}"
-            "QSpinBox:focus { border-color: %2; }"
+            "QSpinBox:focus { border-color: %5; }"
             "QSpinBox::up-button, QSpinBox::down-button { width: 36px; border: none; }"
-        ).arg(textColor(), primaryColor());
+        ).arg(QString::number(Token::RadiusMedium),
+              QString::number(Token::FontTitle),
+              textColor(),
+              QString::number(Token::ControlHeightLarge),
+              primaryColor());
     }
 
     /// 下拉框样式
     static QString comboBox() {
         return QString(
             "QComboBox {"
-            "  border: 1px solid #d0d0d0; border-radius: 10px;"
-            "  padding: 0 14px; font-size: 16px; color: %1;"
-            "  background: white; min-height: 48px;"
+            "  border: 1px solid #d0d0d0; border-radius: %1px;"
+            "  padding: 0 14px; font-size: %2px; color: %3;"
+            "  background: white; min-height: %4px;"
             "}"
-            "QComboBox:focus { border-color: %2; }"
+            "QComboBox:focus { border-color: %5; }"
             "QComboBox::drop-down { border: none; width: 36px; }"
-            "QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }"
-        ).arg(textColor(), primaryColor());
+            "QComboBox QAbstractItemView { font-size: %2px; padding: 8px; }"
+        ).arg(QString::number(Token::Radius),
+              QString::number(Token::FontInput),
+              textColor(),
+              QString::number(Token::ControlHeightTouch),
+              primaryColor());
     }
 
     // ============ 表格内嵌控件样式（紧凑版，适配56px行高）============
@@ -473,16 +492,16 @@ public:
         return QString(
             "QDialog {"
             "  background: %1;"  // 白色背景
-            "  border-radius: 16px;"  // 圆角
+            "  border-radius: 16px;"  // 圆角（弹窗专用尺寸，Token 表无对应值）
             "  border: 1px solid %2;"  // 边框
             "}"
             "QDialog::title {"
-            "  font-size: 18px;"  // 标题字体大小
+            "  font-size: %4px;"  // 标题字体大小
             "  font-weight: bold;"  // 标题字体粗细
             "  color: %3;"  // 标题颜色
             "  padding: 16px 24px;"  // 标题内边距
             "}"
-        ).arg(whiteColor(), borderColor(), textColor());
+        ).arg(whiteColor(), borderColor(), textColor(), QString::number(Token::FontTitle));
     }
 
     // ============ 麒麟系统字体适配 ============

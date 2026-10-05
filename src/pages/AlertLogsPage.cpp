@@ -131,26 +131,30 @@ void AlertLogsPage::onReset() {
     loadAlerts();
 }
 
+/// 构建类型筛选条件：类型多选反查 typeCode，全选或空选时返回空串（不限制类型）
+/// loadAlerts 与 updateStatCards 共用，消除原先两处逐字重复的 13 行筛选构建逻辑
+QString AlertLogsPage::buildDbTypeFilter() const {
+    QStringList typeNames = m_typeFilter->selectedOptions();
+    QStringList dbTypes;
+    for (const QString& cn : typeNames) {
+        QString code = m_typeMap.key(cn, QString());
+        if (!code.isEmpty()) dbTypes.append(code);
+    }
+    QString dbType = dbTypes.join(",");
+    QStringList allTypeNames = m_typeMap.values();
+    QSet<QString> selSet(typeNames.begin(), typeNames.end());
+    QSet<QString> allSet(allTypeNames.begin(), allTypeNames.end());
+    if (selSet == allSet || selSet.isEmpty()) dbType = "";
+    return dbType;
+}
+
 /**
  * @brief 加载告警
  */
 void AlertLogsPage::loadAlerts() {
     // 从数据库sys_alert表JOIN加载真实告警数据，替换硬编码getMockAlerts()
     // 类型筛选为type_code匹配（从数据库缓存m_typeMap获取）
-    QStringList typeNames = m_typeFilter->selectedOptions();
-    QStringList dbTypes;
-    for (const QString& cn : typeNames) {
-        // 反向查找：typeName → typeCode
-        QString code = m_typeMap.key(cn, QString());
-        if (!code.isEmpty()) dbTypes.append(code);
-    }
-    // 如果全选了则传空串（不限制类型），否则逗号拼接typeCode
-    QString dbType = dbTypes.join(",");
-    QStringList allTypeNames = m_typeMap.values();
-    QSet<QString> selSet(typeNames.begin(), typeNames.end());
-    QSet<QString> allSet(allTypeNames.begin(), allTypeNames.end());
-    if (selSet == allSet || selSet.isEmpty()) dbType = "";
-
+    QString dbType = buildDbTypeFilter();
     // SingleSelectFilter::selectedIndex() + selectedText() 替换 QComboBox::currentIndex() + currentText()
     QString levelText = m_levelFilter->selectedIndex() > 0 ? m_levelFilter->selectedText() : "";
     QString keyword = m_keywordEdit->text().trimmed();
@@ -299,19 +303,7 @@ void AlertLogsPage::loadAlerts() {
  * 统计受当前筛选条件（类型/级别/关键词）影响，但不限页码
  */
 void AlertLogsPage::updateStatCards() {
-    // 构建与loadAlerts相同的筛选条件
-    QStringList typeNames = m_typeFilter->selectedOptions();
-    QStringList dbTypes;
-    for (const QString& cn : typeNames) {
-        QString code = m_typeMap.key(cn, QString());
-        if (!code.isEmpty()) dbTypes.append(code);
-    }
-    QString dbType = dbTypes.join(",");
-    QStringList allTypeNames = m_typeMap.values();
-    QSet<QString> selSet(typeNames.begin(), typeNames.end());
-    QSet<QString> allSet(allTypeNames.begin(), allTypeNames.end());
-    if (selSet == allSet || selSet.isEmpty()) dbType = "";
-
+    QString dbType = buildDbTypeFilter();
     QString levelText = m_levelFilter->selectedIndex() > 0 ? m_levelFilter->selectedText() : "";
     QString keyword = m_keywordEdit->text().trimmed();
 

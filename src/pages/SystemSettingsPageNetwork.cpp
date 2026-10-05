@@ -17,8 +17,7 @@
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
 #include "common/DatabaseManager.h"     // DB写入机组配置
-#include "db/RecordDAO.h"               // 校验机组下未归还记录
-#include "db/ToolDAO.h"                 // 加载活跃机组列表
+#include "common/Constants.h"           // SC::NET_* 网络默认值
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>

@@ -436,8 +436,8 @@ bool SettingService::saveConfig(const QJsonObject& config) {
 
     QSqlQuery q(conn);
     for (auto it = config.begin(); it != config.end(); ++it) {
-        q.prepare("INSERT OR REPLACE INTO system_config(config_key, config_value, updated_at) "
-                  "VALUES(?, ?, datetime('now','localtime'))");
+        q.prepare("REPLACE INTO system_config(config_key, config_value, updated_at) "
+                  "VALUES(?, ?, NOW())");
         q.addBindValue(it.key());
         q.addBindValue(it.value().toString());
         if (!q.exec()) {

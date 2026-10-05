@@ -16,8 +16,6 @@
 #include "services/AuthService.h"
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/DatabaseManager.h"     // DB写入机组配置
-#include "db/RecordDAO.h"               // 校验机组下未归还记录
-#include "db/ToolDAO.h"                 // 加载活跃机组列表
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>

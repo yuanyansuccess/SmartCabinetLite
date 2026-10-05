@@ -81,7 +81,7 @@ public:
 
     /// 事务封装
     bool transaction(std::function<bool()> fn) {
-        DatabaseManager::instance().beginTransaction();
+        if (!DatabaseManager::instance().beginTransaction()) return false;
         if (fn()) {
             return DatabaseManager::instance().commit();
         }

@@ -101,6 +101,10 @@ const QString DEV_ONLINE  = "online";
 const QString DEV_OFFLINE = "offline";
 const QString DEV_ERROR   = "error";
 
+// ── 柜体物理规格（层号/位号上限，SystemMaintenancePage 位置下拉用）──
+const int MAX_CABINET_LAYERS    = 12;  // 工具柜最大层数
+const int MAX_CABINET_POSITIONS = 15;  // 每层最大位数
+
 // ── 告警级别 ──
 const QString ALERT_INFO    = "info";
 const QString ALERT_WARNING = "warning";

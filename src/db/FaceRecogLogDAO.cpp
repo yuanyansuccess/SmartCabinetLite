@@ -39,7 +39,7 @@ bool FaceRecogLogDAO::insertLog(const FaceRecogLog& log) {
 FaceRecogStats FaceRecogLogDAO::getStats(int days) {
     FaceRecogStats stats;
     QString where = days > 0
-        ? QString("WHERE created_at >= datetime('now','-%1 day','localtime')").arg(days)
+        ? QString("WHERE created_at >= DATE_SUB(NOW(), INTERVAL %1 DAY)").arg(days)
         : QString();
 
     // 总量与各结果计数

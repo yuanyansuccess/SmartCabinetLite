@@ -49,6 +49,7 @@ private:
     void setupUI();
     void loadAlerts();
     void loadAlertTypes();  // 从数据库加载告警类型列表
+    QString buildDbTypeFilter() const;  // 构建类型筛选条件（loadAlerts/updateStatCards 共用，消除重复）
     QFrame* createStatCard(const QString& label, const QString& value, const QString& color);
     void updateStatCards();  // 从数据库查询全局统计（不受分页影响）
     // 根据当前用户角色应用权限控制（解除告警按钮等）

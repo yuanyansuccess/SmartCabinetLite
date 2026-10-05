@@ -6,6 +6,7 @@
  */
 #include "AlertDAO.h"
 #include "DatabaseManager.h"
+#include "common/PositionFormatter.h"  // common::formatPosition 统一位置格式化
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
@@ -170,7 +171,7 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
         "a.status, a.user_id, a.created_at, a.handled_at, a.handler_id, a.remark, "
         "at.type_code, at.type_name, at.alert_level, "
         "u.real_name AS user_name, ti.tool_name, "
-        "COALESCE(tc.cabinet_name,'') AS cabinet_name, ti.position AS tool_position "
+        "COALESCE(tc.cabinet_name,'') AS cabinet_name, ti.position AS tool_position, ti.layer AS tool_layer "
         "FROM sys_alert a "
         "LEFT JOIN sys_alert_type at ON a.type_id=at.type_id "
         "LEFT JOIN sys_user u ON a.user_id=u.user_id "
@@ -198,7 +199,8 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
         item["userName"] = dq.value("user_name").toString();
         QString cab = dq.value("cabinet_name").toString();
         QString pos = dq.value("tool_position").toString();
-        item["position"] = cab.isEmpty() ? pos : cab + "01层-" + pos;
+        QString lay = dq.value("tool_layer").toString();
+        item["position"] = cab.isEmpty() ? pos : common::formatPosition(cab, lay, pos);
         item["createdAt"] = dq.value("created_at").toString();
         item["handledAt"] = dq.value("handled_at").toString();
         item["handlerId"] = dq.value("handler_id").toInt();
