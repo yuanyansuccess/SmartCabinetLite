@@ -387,7 +387,9 @@ set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT QtSmartCabinet)
 # 开关：-DSMARTCABINET_BUILD_TESTS=OFF 可关闭；测试失败不影响主程序
 # ═══════════════════════════════════════════
 option(SMARTCABINET_BUILD_TESTS "构建单元测试" ON)
-if(SMARTCABINET_BUILD_TESTS)
+# tests/ 目录不入版本库（见 .gitignore），故加存在性判断：
+# 目录缺失时自动跳过测试构建，保证仅含核心代码的克隆也能正常配置与编译
+if(SMARTCABINET_BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
     enable_testing()
     add_subdirectory(tests)
 endif()

@@ -35,6 +35,11 @@ temp/
 CMakeLists.txt.backup
 CMakeLists_*.txt
 
+# 单元测试代码（不入库）
+# 单元测试只用于本地开发自测，不随核心代码分发；文件仍保留在本地。
+# 主 CMakeLists 对 tests/ 的引用已加存在性判断，目录缺失时自动跳过，不影响构建。
+/tests/
+
 # AI 工具数据（不入库）
 .codebuddy/
 
