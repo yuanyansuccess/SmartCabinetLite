@@ -26,12 +26,14 @@ inline QString formatPosition(const QString& cabinetName,
 
     QString layerCode = layer;
     layerCode.remove(QRegularExpression("[^0-9]"));
-    if (!layerCode.isEmpty() && layerCode.toInt() < 10)
+    // ⚠ 不可动：必须按字符串长度补零，不得按数值(toInt()<10)判断——
+    // 库中原始值已带前导零（如"03层"），按数值判断会被补成"003"（显示 A-003-005）
+    if (!layerCode.isEmpty() && layerCode.size() < 2)
         layerCode = QStringLiteral("0") + layerCode;
 
     QString posCode = position;
     posCode.remove(QRegularExpression("[^0-9]"));
-    if (!posCode.isEmpty() && posCode.toInt() < 10)
+    if (!posCode.isEmpty() && posCode.size() < 2)
         posCode = QStringLiteral("0") + posCode;
 
     return QStringLiteral("%1-%2-%3").arg(cabCode, layerCode, posCode);
