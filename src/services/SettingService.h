@@ -14,10 +14,11 @@ public:
     explicit SettingService(QObject* parent = nullptr);
     QJsonObject getDashboardStats();
     QJsonArray getRecentLogs(int limit = 10);
-    // 告警域查询已迁移至 AlertService（getRecentAlerts/getAllAlerts/getAlertDetail/getAlertStats/getAlertTypes）
+    // 告警写域与详情/统计/类型查询已迁移至 AlertService；
+    // 本方法保留 AlertLogsPage 数据源入口，SQL 实现已下沉 db/AlertDAO::findAllPaged
     QJsonObject getAllAlerts(int page = 1, int pageSize = 200,  // 获取告警分页列表（含JOIN关联信息）
                             const QString& type = "", const QString& level = "",
-                            const QString& keyword = "");  // AlertLogsPage数据源 返回QJsonObject含total（待随分域拆分迁移）
+                            const QString& keyword = "");  // 返回QJsonObject含total
     QJsonObject getUserDashboardStats(int userId);       // 获取用户首页统计
     QJsonArray getUserBorrowRecords(int userId, int limit = 10);  // 获取用户借用记录（含归还提醒数据）
     QJsonObject getLedgerStats();

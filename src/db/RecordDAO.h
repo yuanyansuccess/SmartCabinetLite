@@ -64,6 +64,12 @@ public:
     QJsonArray  findRecentActivity(int limit);
     // 按用户ID查询借用记录
     QJsonArray  findByUserId(int userId, int limit);
+    // 台账统计（LedgerStatsPage数据源，自SettingService原样迁移）：
+    // totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
+    // + categoryStats（按品类件数）+ departmentStats（按部门），旧字段 totalBorrow/totalReturn 同步保留
+    QJsonObject getLedgerStats();
+    // 清空全部操作日志（sys_operation_log），仅限危险操作鉴权通过后调用
+    bool        clearAllLogs();
 
     // ═══════════════════════════════════════════════
     // 实体类API（Controller层使用）— 从dao/RecordDAO合并

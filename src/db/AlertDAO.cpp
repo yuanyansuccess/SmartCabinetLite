@@ -212,6 +212,134 @@ QJsonObject AlertDAO::findAll(const QString& alertType, const QString& alertLeve
 }
 
 /**
+ * @brief 分页查询告警列表（AlertLogsPage数据源，自SettingService原样迁移）
+ *        JOIN sys_alert_type + tool_info + tool_cabinet + sys_user，
+ *        与 findAll 的区别：本方法含 tool_cabinet JOIN 与位置格式化字段，
+ *        且显示所有状态告警（含已忽略），排序复用 ALERT_SORT_ORDER。
+ * @param type 逗号分隔的告警类型编码（type_code），为空不过滤
+ * @param level 告警级别，兼容显示值（严重/一般/提示）与库值，为空不过滤
+ * @param keyword 关键字（匹配工具名/告警内容），为空不过滤
+ * @param page 页码，从1开始
+ * @param pageSize 每页条数
+ * @return {list: [...], total: n}，字段名 camelCase
+ */
+QJsonObject AlertDAO::findAllPaged(const QString& type, const QString& level,
+                                   const QString& keyword, int page, int pageSize) {
+    QSqlDatabase db = getDb();
+    if (!db.isValid()) {
+        qWarning() << "[AlertDAO] findAllPaged: 数据库连接无效";
+        return {};
+    }
+
+    // 构建筛选条件（占位符 ? 位置绑定）
+    auto buildWhereClause = [&](QVariantList& outBindVals) -> QString {
+        QString where = "WHERE 1=1 ";  // 显示所有状态告警（含已忽略），要求忽略后仍可见
+        outBindVals.clear();
+        if (!type.isEmpty()) {
+            QStringList typeList = type.split(",", Qt::SkipEmptyParts);
+            if (!typeList.isEmpty()) {
+                if (typeList.size() == 1) {
+                    where += "AND at.type_code = ? ";
+                    outBindVals.append(typeList[0]);
+                } else {
+                    where += "AND at.type_code IN (";
+                    for (int i = 0; i < typeList.size(); ++i) {
+                        if (i > 0) where += ", ";
+                        where += "?";
+                        outBindVals.append(typeList[i]);
+                    }
+                    where += ") ";
+                }
+            }
+        }
+        if (!level.isEmpty()) {
+            where += "AND at.alert_level = ? ";
+            outBindVals.append(SC::alertLevelCodeFromText(level));
+        }
+        if (!keyword.isEmpty()) {
+            where += "AND (COALESCE(t.tool_name,'') LIKE ? OR a.content LIKE ?) ";
+            outBindVals.append(QString("%%1%").arg(keyword));
+            outBindVals.append(QString("%%1%").arg(keyword));
+        }
+        return where;
+    };
+
+    QVariantList bindVals;
+    QString whereClause = buildWhereClause(bindVals);
+
+    // COUNT查询
+    QString countSql = "SELECT COUNT(*) FROM sys_alert a "
+                       "LEFT JOIN sys_alert_type at ON a.type_id = at.type_id "
+                       "LEFT JOIN tool_info t ON a.tool_code = t.tool_code "
+                       "LEFT JOIN tool_cabinet c ON t.cabinet_id = c.cabinet_id "
+                       "LEFT JOIN sys_user u ON a.user_id = u.user_id "
+                       + whereClause;
+    int total = 0;
+    {
+        QSqlQuery cq(db);
+        cq.prepare(countSql);
+        for (int i = 0; i < bindVals.size(); ++i) cq.bindValue(i, bindVals[i]);
+        if (cq.exec() && cq.next()) {
+            total = cq.value(0).toInt();
+        } else {
+            qWarning() << "[AlertDAO] findAllPaged COUNT查询失败:" << cq.lastError().text();
+        }
+    }
+
+    // 数据查询：待处理优先 → 级别严重优先 → 时间倒序（复用 ALERT_SORT_ORDER）
+    QString sql = "SELECT a.alert_id, a.type_id, a.content, a.created_at, "
+                  "  a.status, a.tool_code, a.user_id, "
+                  "  at.type_code, at.type_name, at.alert_level, "
+                  "  COALESCE(t.tool_name, '未知工具') AS tool_name, "
+                  "  COALESCE(c.cabinet_name, '--') AS cabinet_name, "
+                  "  COALESCE(t.position, '--') AS position, "
+                  "  COALESCE(u.real_name, u.username, '--') AS borrower_name "
+                  "FROM sys_alert a "
+                  "LEFT JOIN sys_alert_type at ON a.type_id = at.type_id "
+                  "LEFT JOIN tool_info t ON a.tool_code = t.tool_code "
+                  "LEFT JOIN tool_cabinet c ON t.cabinet_id = c.cabinet_id "
+                  "LEFT JOIN sys_user u ON a.user_id = u.user_id "
+                  + whereClause + ALERT_SORT_ORDER + " LIMIT ? OFFSET ?";
+
+    QSqlQuery q(db);
+    q.prepare(sql);
+    for (int i = 0; i < bindVals.size(); ++i) q.bindValue(i, bindVals[i]);
+    q.bindValue(bindVals.size(), pageSize);
+    q.bindValue(bindVals.size() + 1, (page - 1) * pageSize);
+
+    QJsonObject result;
+    QJsonArray arr;
+    if (!q.exec()) {
+        qWarning() << "[AlertDAO] findAllPaged: 查询失败" << q.lastError().text() << "| SQL:" << sql;
+        result["list"] = arr;
+        result["total"] = 0;
+        return result;
+    }
+    while (q.next()) {
+        QJsonObject o;
+        o["alertId"]      = q.value("alert_id").toInt();
+        o["typeId"]       = q.value("type_id").toInt();
+        o["typeCode"]     = q.value("type_code").toString();
+        o["alertType"]    = q.value("type_name").toString();   // 直接返回中文类型名
+        o["alertLevel"]   = q.value("alert_level").toString();
+        o["content"]      = q.value("content").toString();
+        o["createdAt"]    = q.value("created_at").toString();
+        o["status"]       = q.value("status").toString();
+        o["toolCode"]     = q.value("tool_code").toString();
+        o["toolName"]     = q.value("tool_name").toString();
+        o["cabinetName"]  = q.value("cabinet_name").toString();
+        o["position"]     = q.value("position").toString();
+        o["borrowerName"] = q.value("borrower_name").toString();
+        arr.append(o);
+    }
+    result["list"] = arr;
+    result["total"] = total;
+    qInfo() << "[AlertDAO] findAllPaged: total=" << total << ", returned=" << arr.size()
+            << ", type=" << type << ", level=" << level << ", keyword=" << keyword;
+    return result;
+}
+
+/**
  * @brief 确认告警：状态置为已处理并记录处理人与处理时间
  * @param alertId 告警ID
  * @param handlerId 处理人ID
@@ -553,12 +681,8 @@ QJsonObject AlertDAO::getStats(const QString& types, const QString& level, const
         }
     }
     if (!level.isEmpty()) {
-        QString dbLevel = level;
-        if (level == QStringLiteral("严重")) dbLevel = "error";
-        else if (level == QStringLiteral("一般")) dbLevel = "warn";
-        else if (level == QStringLiteral("提示")) dbLevel = "info";
         where += "AND at.alert_level = ? ";
-        binds.append(dbLevel);
+        binds.append(SC::alertLevelCodeFromText(level));
     }
     if (!keyword.isEmpty()) {
         where += "AND (COALESCE(t.tool_name,'') LIKE ? OR a.content LIKE ?) ";

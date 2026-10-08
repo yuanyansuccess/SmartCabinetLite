@@ -27,6 +27,10 @@ public:
     QJsonObject findAll(const QString& alertType, const QString& alertLevel,
                         const QString& status, const QString& startDate,
                         const QString& endDate, int page, int pageSize);
+    // 分页查询告警列表（AlertLogsPage数据源，含tool_cabinet JOIN，显示所有状态含已忽略）
+    // level 兼容显示值（严重/一般/提示）与库值；返回 {list, total}
+    QJsonObject findAllPaged(const QString& type, const QString& level,
+                             const QString& keyword, int page, int pageSize);
     bool        acknowledge(int alertId, int handlerId, const QString& remark = "");
     bool        resolve(int alertId, int handlerId, const QString& remark = "");
     int         getUnresolvedCount();

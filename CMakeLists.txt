@@ -115,6 +115,7 @@ set(DB_SOURCES
     src/db/AlertDAO.cpp
     src/db/TaskTypeDAO.cpp
     src/db/DepartmentDAO.cpp
+    src/db/ConfigDAO.cpp
 )
 
 # [V6.9 2026-06-24] dao/层已全部合并到db/，此变量保留为空以兼容

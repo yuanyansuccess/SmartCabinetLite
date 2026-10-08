@@ -802,4 +802,126 @@ QJsonArray RecordDAO::findByUserId(int userId, int limit) {
     return arr;
 }
 
+// ═══════════════════════════════════════════════
+// 台账统计（自SettingService原样迁移，SQL一字未改）
+// ═══════════════════════════════════════════════
+/**
+ * @brief 汇总台账统计数据（LedgerStatsPage数据源）
+ * @return totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
+ *         + categoryStats（按品类件数）+ departmentStats（按部门）
+ */
+QJsonObject RecordDAO::getLedgerStats() {
+    // 字段名对齐LedgerStatsPage期望：
+    // totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
+    // 同时保留旧字段totalBorrow/totalReturn/activeUsers向后兼容
+    QJsonObject s;
+    QSqlDatabase db = getDb();
+    if (!db.isValid()) {
+        qWarning() << "[RecordDAO] getLedgerStats: 数据库连接无效";
+        return s;
+    }
+
+    // 总借用次数（所有记录）
+    {
+        QSqlQuery q(db);
+        if (q.exec("SELECT COUNT(*) FROM tool_borrow_record") && q.next())
+            s["totalBorrows"] = s["totalBorrow"] = q.value(0).toInt();
+        else qWarning() << "[RecordDAO] getLedgerStats: 总借用次数查询失败";
+    }
+    // 总归还次数
+    {
+        QSqlQuery q(db);
+        if (q.exec("SELECT COUNT(*) FROM tool_borrow_record WHERE status='returned'") && q.next())
+            s["totalReturns"] = s["totalReturn"] = q.value(0).toInt();
+        else qWarning() << "[RecordDAO] getLedgerStats: 总归还次数查询失败";
+    }
+    // 当前借用中
+    {
+        QSqlQuery q(db);
+        if (q.exec("SELECT COALESCE(SUM(borrow_qty),0) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')") && q.next())
+            s["currentBorrowed"] = q.value(0).toInt();
+        else qWarning() << "[RecordDAO] getLedgerStats: 当前借用数查询失败";
+    }
+    // 逾期未还
+    {
+        QSqlQuery q(db);
+        if (q.exec("SELECT COUNT(*) FROM tool_borrow_record WHERE status='overdue'") && q.next())
+            s["overdueCount"] = q.value(0).toInt();
+        else qWarning() << "[RecordDAO] getLedgerStats: 逾期数查询失败";
+    }
+    // 活跃用户数
+    {
+        QSqlQuery q(db);
+        if (q.exec("SELECT COUNT(DISTINCT user_id) FROM tool_borrow_record") && q.next())
+            s["activeUsers"] = q.value(0).toInt();
+        else qWarning() << "[RecordDAO] getLedgerStats: 活跃用户数查询失败";
+    }
+
+    // 分类统计：JOIN tool_info + tool_category 按件数统计
+    // 原COUNT(DISTINCT tool_id)按种类统计，与"总数量/借出中/可用"列名件数语义不符
+    // 用子查询先按tool_id聚合borrow_qty，避免LEFT JOIN多借用记录导致SUM(total_qty)重复计算
+    QJsonArray categoryStats;
+    {
+        QSqlQuery q(db);
+        if (q.exec(
+            "SELECT COALESCE(tc.category_name, '未分类') AS category, "
+            "  COALESCE(SUM(ti.total_qty),0) AS totalCount, "
+            "  COALESCE(SUM(ti.current_qty),0) AS availableCount, "
+            "  COALESCE(SUM(bq.borrowed_qty),0) AS borrowedCount "
+            "FROM tool_info ti "
+            "LEFT JOIN tool_category tc ON ti.category_id = tc.category_id "
+            "LEFT JOIN (SELECT tool_id, SUM(borrow_qty) AS borrowed_qty "
+            "           FROM tool_borrow_record WHERE status IN ('borrowing','overdue') "
+            "           GROUP BY tool_id) bq ON bq.tool_id = ti.tool_id "
+            "GROUP BY tc.category_name "
+            "ORDER BY totalCount DESC")) {
+            while (q.next()) {
+                QJsonObject cs;
+                cs["category"]       = q.value("category").toString();
+                cs["totalCount"]     = q.value("totalCount").toInt();
+                cs["borrowedCount"]  = q.value("borrowedCount").toInt();
+                cs["availableCount"] = q.value("availableCount").toInt();
+                categoryStats.append(cs);
+            }
+        }
+    }
+    s["categoryStats"] = categoryStats;
+
+    // 部门统计：JOIN tool_borrow_record + sys_user
+    QJsonArray deptStats;
+    {
+        QSqlQuery q(db);
+        if (q.exec(
+            "SELECT COALESCE(u.department, '未分配') AS department, "
+            "  COUNT(r.record_id) AS borrowCount, "
+            "  SUM(CASE WHEN r.status='overdue' THEN 1 ELSE 0 END) AS overdueCount "
+            "FROM tool_borrow_record r "
+            "LEFT JOIN sys_user u ON r.user_id = u.user_id "
+            "GROUP BY u.department "
+            "ORDER BY borrowCount DESC")) {
+            while (q.next()) {
+                QJsonObject ds;
+                int borrowC  = q.value("borrowCount").toInt();
+                int overdueC = q.value("overdueCount").toInt();
+                ds["department"]  = q.value("department").toString();
+                ds["borrowCount"] = borrowC;
+                ds["overdueCount"] = overdueC;
+                ds["overdueRate"]  = (borrowC > 0) ? (double)overdueC / borrowC : 0.0;
+                deptStats.append(ds);
+            }
+        }
+    }
+    s["departmentStats"] = deptStats;
+
+    return s;
+}
+
+/**
+ * @brief 清空全部操作日志（sys_operation_log）
+ * @return true=删除成功；仅限危险操作鉴权通过后由 Service 调用
+ */
+bool RecordDAO::clearAllLogs() {
+    return execute("DELETE FROM sys_operation_log");
+}
+
 } // namespace db

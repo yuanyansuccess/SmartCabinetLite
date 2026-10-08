@@ -110,6 +110,16 @@ const QString ALERT_INFO    = "info";
 const QString ALERT_WARNING = "warning";
 const QString ALERT_ERROR   = "error";
 
+/// 告警级别显示值→库值 单一映射（历史上 SettingService 与 AlertDAO 各硬编码一份）
+/// "严重/一般/提示"→error/warn/info；传入已是库值（crit/warn/info 等）则原样返回
+inline QString alertLevelCodeFromText(const QString& level)
+{
+    if (level == QStringLiteral("严重")) return QStringLiteral("error");
+    if (level == QStringLiteral("一般")) return QStringLiteral("warn");
+    if (level == QStringLiteral("提示")) return QStringLiteral("info");
+    return level;
+}
+
 // ── 分页 ──
 const int PAGE_SIZE_DEFAULT   = 20;
 const int PAGE_SIZE_UNLIMITED = 9999;   // 取全量数据的虚拟分页大小

@@ -27,6 +27,7 @@ SOURCES += \
     src/db/RecordDAO.cpp \
     src/db/AlertDAO.cpp \
     src/db/TaskTypeDAO.cpp \
+    src/db/ConfigDAO.cpp \
     src/services/AuthService.cpp \
     src/services/BorrowService.cpp \
     src/services/ReturnService.cpp \
@@ -56,6 +57,7 @@ HEADERS += \
     src/db/ToolDAO.h \
     src/db/RecordDAO.h \
     src/db/AlertDAO.h \
+    src/db/ConfigDAO.h \
     src/db/TaskTypeDAO.h \
     src/services/AuthService.h \
     src/services/BorrowService.h \
