@@ -7,6 +7,7 @@
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@vladmandic/face-api": "^1.7.13",
     "jpeg-js": "^0.4.4"
   }

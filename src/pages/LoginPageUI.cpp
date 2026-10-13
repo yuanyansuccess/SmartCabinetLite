@@ -159,9 +159,8 @@ void LoginPage::setupUI() {
 
 
 
-    // 启动延迟100ms，摄像头初始化足够
-
-    QTimer::singleShot(100, this, &LoginPage::startFaceRecognition);
+    // 启动延迟100ms，摄像头初始化足够（relogin=false=程序启动首次登录场景）
+    QTimer::singleShot(100, this, [this]() { startFaceRecognition(false); });
 
 }
 

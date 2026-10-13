@@ -49,8 +49,8 @@ public:
     // 4. maxEuclideanDist 0.80（欧氏距离收紧不变）
 
     FaceMatchResult matchFace(const QString& faceDescriptor,
-                               double threshold = 0.97,
-                               double highConfidence = 0.97,
+                               double threshold = 0.94,
+                               double highConfidence = 0.95,
                                double rejectThreshold = 0.35,
                                double marginThreshold = 0.15,
                                double maxEuclideanDist = 0.80);

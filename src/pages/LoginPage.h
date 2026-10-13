@@ -38,16 +38,19 @@ public:
     /// 公开停止摄像头方法，供MainWindow在登录成功后兜底调用
     void stopFaceRecognitionPublic() { stopFaceRecognition(); }
     /// 注销后抑制自动刷脸登录：人未离开画面时不自动回登，onFaceLost清除
-    /// ⚠ 不可动：抑制必须有 kLogoutSuppressWindowMs 时间兜底。早前版本只靠"人离开画面"解除，
-    /// 人一直站在镜头前会导致注销后永远无法刷脸登录（只能重启程序）
-    /// 抑制仅在 kLogoutSuppressWindowMs 内有效，超时自动解除（人一直站在镜头前也能登录）
+    /// [2026-10-13 袁燕] 决策变更：注销后直接进入识别，不再抑制——
+    ///   原5秒抑制窗口导致注销后必须干等5秒才能刷脸（现场体验不可接受）。
+    ///   现 kLogoutSuppressWindowMs=0（机制保留、当前不激活），
+    ///   若将来现场出现"注销瞬间被同一张脸弹回"问题，调回该值即可重新启用。
+    ///   配套：resumeFaceRecognition 路径文案为"请重新刷脸"。
     void suppressAutoLoginAfterLogout() {
         m_logoutSuppressed = true;
         m_logoutSuppressUntilMs = QDateTime::currentMSecsSinceEpoch() + kLogoutSuppressWindowMs;
     }
     /// 回到登录页时恢复人脸识别（注销/自动锁屏后摄像头需重新启动，已运行则跳过）
+    /// @note relogin=true 时状态文案为"请重新刷脸"（注销/锁屏回登场景）
     void resumeFaceRecognition() {
-        if (!m_faceRecognitionActive) startFaceRecognition();
+        if (!m_faceRecognitionActive) startFaceRecognition(true);
     }
 
 signals:
@@ -109,7 +112,9 @@ private:
     void setFaceResult(FaceResult state);
     /// 清除所有表单输入和状态面板（供resetPageState内部使用）
     void clearAllForms();
-    void startFaceRecognition();
+    /// 启动人脸识别
+    /// @param relogin true=注销/锁屏回登场景（状态文案为"请重新刷脸"），false=首次登录
+    void startFaceRecognition(bool relogin = false);
     void stopFaceRecognition();
     void verifyFace(const QString& descriptor, const QImage& image);
     void collectBestSample();
@@ -164,8 +169,10 @@ private:
     bool m_logoutSuppressed = false;  // 注销后抑制自动登录（人离开画面或超时后清除）
     /// 注销抑制截止时间戳（毫秒），超时后自动解除抑制
     qint64 m_logoutSuppressUntilMs = 0;
-    /// 注销抑制窗口：仅防止注销瞬间被同一张脸立即弹回
-    static constexpr qint64 kLogoutSuppressWindowMs = 5000;
+    /// 注销抑制窗口：0=不抑制（[2026-10-13 袁燕] 决策：注销后直接识别）。
+    /// 机制整体保留（isLogoutSuppressed/onFaceLost/retryFace 均未删），
+    /// 若将来现场需要防"注销瞬间被同一张脸弹回"，把 0 改回 3000~5000 即恢复。
+    static constexpr qint64 kLogoutSuppressWindowMs = 0;
 
     // 采集样本
     struct FaceSample {

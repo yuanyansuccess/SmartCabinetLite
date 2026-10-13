@@ -421,7 +421,7 @@ QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
     QByteArray jpegBytes;
     QBuffer buffer(&jpegBytes);
     buffer.open(QIODevice::WriteOnly);
-    scaledImg.save(&buffer, "JPEG", 75);
+    scaledImg.save(&buffer, "JPEG", 65);  // 质量65：检测足够，体积再降约20%，传输更快
     buffer.close();
     return jpegBytes.toBase64();
 }

@@ -53,8 +53,9 @@ namespace {
 // 每次录入需要采集的帧数（对应5个方位）
 const int MAX_CAPTURES = 5;
 
-// 方位检测服务预检参数：face-server首次加载模型约8秒，预检窗口取20秒
-const int POSTURE_PRECHECK_MAX_ATTEMPTS = 40;
+// 方位检测服务预检参数：服务冷启动后一般已就绪，3秒连不上就直接进正式流程
+// （正式流程HTTP连续15次失败(≈9秒)才退简易模式，用户不用干等20秒）
+const int POSTURE_PRECHECK_MAX_ATTEMPTS = 6;
 const int POSTURE_PRECHECK_INTERVAL_MS = 500;
 
 // 5个方位的目标参数
@@ -65,13 +66,15 @@ struct PostureTarget {
 // 方位目标参数（yaw/pitch方向与face-server.js /posture接口一致）
 // yaw: 正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
 // pitch: 正值=低头，负值=抬头
-// 归一化基准为人脸框宽高，阈值经实测校准
+// 归一化基准为人脸框宽高，阈值经实测校准。
+// pitch 判定阈值由0.15放宽到0.10：与底层"居中"定义(|pitch|<0.10)对齐，
+// 自然轻微低头(pitch≈0.08~0.12)即可判定低头，不再误判"居中"。
 const PostureTarget POSTURE_TARGETS[5] = {
     { QStringLiteral("居中"), QStringLiteral("请面向摄像头，保持正脸"),          -0.15, 0.15, -0.15, 0.15 },
     { QStringLiteral("左侧"), QStringLiteral("请将头部向右转，露出左侧面部"),   -0.50,-0.15, -0.30, 0.30 },
     { QStringLiteral("右侧"), QStringLiteral("请将头部向左转，露出右侧面部"),    0.15, 0.50, -0.30, 0.30 },
-    { QStringLiteral("上偏"), QStringLiteral("请略微抬头，露出面部上方"),       -0.30, 0.30, -0.50,-0.15 },
-    { QStringLiteral("下偏"), QStringLiteral("请略微低头，露出面部下方"),       -0.30, 0.30,  0.15, 0.50 },
+    { QStringLiteral("上偏"), QStringLiteral("请略微抬头，露出面部上方"),       -0.30, 0.30, -0.50,-0.10 },
+    { QStringLiteral("下偏"), QStringLiteral("请略微低头，露出面部下方"),       -0.30, 0.30,  0.10, 0.50 },
 };
 
 }  // namespace
@@ -123,7 +126,12 @@ void UserManagementPage::onFaceEnroll(int userId) {
     dlg->setDialogTitle(QStringLiteral("人脸信息录入"));
     dlg->setMinimumHeight(580);
 
-    FaceEnrollCtx ctx;
+    // ctx 必须堆分配：异步HTTP回调(onFacePostureReply)用引用捕获它，
+    // 若栈分配，对话框关闭函数返回后ctx即析构，飞行中的回复到达即野指针崩溃(0xC0000005)。
+    // dlg销毁时同步delete ctx（destroyed回调里delete堆对象是安全的）。
+    auto* ctxPtr = new FaceEnrollCtx();
+    FaceEnrollCtx& ctx = *ctxPtr;
+    QObject::connect(dlg, &QObject::destroyed, [ctxPtr] { delete ctxPtr; });
     ctx.dlg = dlg;
     ctx.userId = userId;
     // 方位检测定时器（本地估算0延迟，100ms高频检测）
@@ -325,10 +333,9 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
 
         ctx.camera->startCamera();
 
-        // 800ms后预检/posture（等摄像头和face-server就绪）
-        // ⚠ 不可动：预检用 QTimer+property 存储状态，改成 std::function 递归会触发 MSVC 栈崩溃
-        // ⚠ 不可动：预检窗口=40×500ms=20s，服务冷启动实测5s，调小会误判"服务未连接"退简易模式
-        QTimer::singleShot(800, ctx.dlg, [&ctx]() {
+        // 400ms后预检/posture（等摄像头和face-server就绪）
+        // ⚠ 预检用 QTimer+property 存储状态，改成 std::function 递归会触发 MSVC 栈崩溃
+        QTimer::singleShot(400, ctx.dlg, [&ctx]() {
             if (!ctx.isCapturing) return;
 
             QTimer* retryTimer = new QTimer(ctx.dlg);
@@ -488,7 +495,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         if (ctx.postureFirstMatchTime == 0)
             ctx.postureFirstMatchTime = QDateTime::currentMSecsSinceEpoch();
         qint64 stayMs = QDateTime::currentMSecsSinceEpoch() - ctx.postureFirstMatchTime;
-        double remainSec = qMax(0.0, (500.0 - stayMs) / 1000.0);
+        double remainSec = qMax(0.0, (300.0 - stayMs) / 1000.0);
 
         ctx.directionLabel->setText(QStringLiteral("【 %1 】 %2s").arg(target.name).arg(remainSec, 0, 'f', 1));
         ctx.directionLabel->setStyleSheet(StyleHelper::postureBadge());
@@ -498,7 +505,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         ctx.instructionLabel->setStyleSheet(
             "font-size:15px;font-weight:bold;color:#389e0d;padding:4px 0;background:transparent;");
 
-        if (ctx.postureMatchCount >= 2 && stayMs >= 500) {
+        if (ctx.postureMatchCount >= 2 && stayMs >= 300) {
             ctx.postureTimer->stop();
             ctx.directionLabel->setText(QStringLiteral("【 %1 】✓").arg(target.name));
             ctx.doCapture();
@@ -507,10 +514,11 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         ctx.postureMatchCount = 0;
         ctx.postureFirstMatchTime = 0;
         QString hint;
-        if (yaw > 0.15) hint = QStringLiteral("当前：右转(露右脸)");
-        else if (yaw < -0.15) hint = QStringLiteral("当前：左转(露左脸)");
-        else if (pitch > 0.15) hint = QStringLiteral("当前：低头");
-        else if (pitch < -0.15) hint = QStringLiteral("当前：抬头");
+        // 阈值0.10（与底层"居中"定义对齐，轻微动作即有反馈，不再0.08~0.14区间误判居中）
+        if (yaw > 0.10) hint = QStringLiteral("当前：右转(露右脸)");
+        else if (yaw < -0.10) hint = QStringLiteral("当前：左转(露左脸)");
+        else if (pitch > 0.10) hint = QStringLiteral("当前：低头");
+        else if (pitch < -0.10) hint = QStringLiteral("当前：抬头");
         else hint = QStringLiteral("当前：居中");
         ctx.directionLabel->setText(QStringLiteral("【 %1 】").arg(target.name));
         ctx.directionLabel->setStyleSheet(

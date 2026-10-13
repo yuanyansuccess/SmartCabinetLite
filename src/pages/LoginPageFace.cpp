@@ -40,8 +40,9 @@
 // ==============================================================
 /**
  * @brief 启动人脸识别
+ * @param relogin true=注销/自动锁屏回登场景（状态文案"请重新刷脸"），false=首次登录
  */
-void LoginPage::startFaceRecognition() {
+void LoginPage::startFaceRecognition(bool relogin) {
     m_faceResult = FaceResult::Scanning;  // 重置状态，防止上次fail状态残留
     m_samples.clear();
     m_captureCount = 0;
@@ -96,10 +97,11 @@ void LoginPage::startFaceRecognition() {
 
     if (m_hasCamera) {
         m_subtitleLabel->setText(QStringLiteral("请面向摄像头完成身份验证"));
-        setScanStatus(QStringLiteral("请对准摄像头"), 0);
+        // [2026-10-13 袁燕] 注销/锁屏回登场景文案"请重新刷脸"，首次登录"请对准摄像头"
+        setScanStatus(relogin ? QStringLiteral("请重新刷脸") : QStringLiteral("请对准摄像头"), 0);
     } else {
         m_subtitleLabel->setText(QStringLiteral("模拟人脸识别模式 (无摄像头)"));
-        setScanStatus(QStringLiteral("请对准摄像头"), 0);
+        setScanStatus(relogin ? QStringLiteral("请重新刷脸") : QStringLiteral("请对准摄像头"), 0);
     }
 
     m_faceCamera->startCamera();
@@ -461,7 +463,7 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     user["role"] = resp["role"].toString();
     user["token"] = resp["token"].toString();
     m_pendingUser = user;
-    m_autoJumpTimer->start(1200);  // 2s→1.2s，加快成功跳转
+    m_autoJumpTimer->start(700);   // 1.2s→0.7s：成功后显示0.7秒足够看清，加快跳转
 }
 
 /// 陌生人处理 (HTTP和本地共用)

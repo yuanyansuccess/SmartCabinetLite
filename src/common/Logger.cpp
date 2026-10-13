@@ -76,8 +76,9 @@ QString ensureDir() {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     g_dir = env.value(QStringLiteral("SC_LOG_DIR"));
     if (g_dir.isEmpty()) {
-        g_dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-                + QStringLiteral("/logs");
+        // 固定为 exe 同级 logs/ 目录：现场运维可直接翻到，
+        // 不依赖 QStandardPaths（某些环境 AppDataLocation 解析异常导致目录建不出来）
+        g_dir = QCoreApplication::applicationDirPath() + QStringLiteral("/logs");
     }
     QDir().mkpath(g_dir);
     return g_dir;

@@ -250,8 +250,8 @@ void LoginPage::resetPageState() {
     }
     m_activeField.clear();
 
-    // 10. 延迟重新启动人脸识别（对齐构造函数中的延迟）
-    QTimer::singleShot(SC::FACE_RETRY_DELAY_MS, this, &LoginPage::startFaceRecognition);
+    // 10. 延迟重新启动人脸识别（对齐构造函数中的延迟；relogin=false=首次登录场景）
+    QTimer::singleShot(SC::FACE_RETRY_DELAY_MS, this, [this]() { startFaceRecognition(false); });
 }
 
 /// 清除所有表单输入和采集数据

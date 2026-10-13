@@ -204,7 +204,10 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 注意：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
-    const double singleFaceThreshold = 0.97;  // 单人脸相似度门槛，低于此值判为非本人
+    // 单人脸相似度门槛：低于此值判为非本人。
+    // 取0.95（设计值，注释/登录页一致）——0.97过严，同一人波动0.94~0.97会反复拒，
+    // 而陌生人<0.5，0.95下不会放入任何陌生人。
+    const double singleFaceThreshold = 0.95;
     bool cosOk = false;
 
     if (candidates.size() == 1) {
