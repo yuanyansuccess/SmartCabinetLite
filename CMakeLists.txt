@@ -130,6 +130,12 @@ set(CONTROLLER_SOURCES
     src/controller/UserController.cpp
 )
 
+# 通信层 (comm/ — 与边缘计算机通信接口，V2.1新增)
+set(COMM_SOURCES
+    src/comm/EdgeLink.cpp
+    src/comm/EdgeService.cpp
+)
+
 # 服务层 (版本B)
 set(SERVICE_SOURCES
     src/services/AuthService.cpp
@@ -225,6 +231,7 @@ set(MAINWINDOW_SOURCE
 set(ALL_SOURCES
     src/main.cpp
     ${COMMON_SOURCES}
+    ${COMM_SOURCES}
     ${DB_SOURCES}
     ${DAO_SOURCES}
     ${CONTROLLER_SOURCES}
@@ -246,6 +253,10 @@ endif()
 # 头文件 (用于MOC)
 # ═══════════════════════════════════════════
 set(ALL_HEADERS
+    # Comm (V2.1 与边缘计算机通信接口)
+    src/comm/CommTypes.h
+    src/comm/EdgeLink.h
+    src/comm/EdgeService.h
     # Common
     src/common/AppConfig.h
     src/common/DatabaseManager.h
@@ -323,6 +334,7 @@ set(ALL_HEADERS
 # ═══════════════════════════════════════════
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/comm     # V2.1 与边缘计算机通信接口
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common   # DatabaseManager优先使用common版本
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model
     ${CMAKE_CURRENT_SOURCE_DIR}/src/db       # [V6.9] 统一DAO层 namespace db::
