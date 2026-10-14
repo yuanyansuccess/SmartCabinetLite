@@ -282,6 +282,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     }
     // 从数据库读取真实角色，防止doLocalFaceVerify硬编码"user"导致管理员降级
     result.role = user["role"].toString();
+    // 强制改密标志：初始口令用户刷脸登录时同样须提示修改，避免绕过改密
+    result.mustChangePwd = user["mustChangePwd"].toInt();
     // 安全回填：getAllFaceFeatures可能缺少workNo/department，从findById补全
     if (result.workNo.isEmpty() && !user["workNo"].toString().isEmpty())
         result.workNo = user["workNo"].toString();
@@ -292,14 +294,116 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
 }
 
 /**
- * @brief 为用户录入人脸特征
+ * @brief 在已录入人脸列表中找出与采集特征最相似的用户
+ * @param faceDescriptor 采集到的人脸特征串（128维，逗号分隔）
+ * @param enrolledFaces 已录入人脸列表，元素须含 userId/username/realName/workNo/department/faceFeature 字段
+ * @param excludeUserId 需排除的用户ID：重新录入本人人脸时传本人ID，使他不与自己比对
+ * @param similarityThreshold 判定为同一张脸的余弦相似度下限
+ * @return 相似度最高者的信息；duplicated 为 false 表示库内没有其他账户持有同一张脸
+ * @note 纯算法函数不访问数据库，便于单元测试覆盖
+ */
+FaceRecognitionService::FaceDuplicateInfo FaceRecognitionService::findBestMatch(
+    const QString& faceDescriptor, const QJsonArray& enrolledFaces,
+    int excludeUserId, double similarityThreshold) {
+
+    FaceDuplicateInfo best;
+    const QVector<double> inputVec = parseDescriptor(faceDescriptor);
+    if (inputVec.size() < 64) return best;   // 特征维度异常：不做重复判定，交由上层提示重新采集
+
+    double bestSim = -1.0;
+    for (const auto& item : enrolledFaces) {
+        const QJsonObject obj = item.toObject();
+        const int ownerId = obj["userId"].toInt();
+        if (ownerId == excludeUserId) continue;          // 本人已录入的人脸不算重复
+        const QVector<double> dbVec = parseDescriptor(obj["faceFeature"].toString());
+        if (dbVec.size() < 64) continue;
+        const double sim = cosineSimilarity(inputVec, dbVec);
+        if (sim > bestSim) {
+            bestSim = sim;
+            best.similarity = sim;
+            best.userId = ownerId;
+            best.username = obj["username"].toString();
+            best.realName = obj["realName"].toString();
+            best.workNo = obj["workNo"].toString();
+            best.department = obj["department"].toString();
+        }
+    }
+
+    best.duplicated = (best.userId > 0) && (bestSim >= similarityThreshold);
+    return best;
+}
+
+/**
+ * @brief 生成命中者的可读标识，形如「张三（工号 CF001）」
+ * @return 可直接展示给管理员的归属人说明；姓名与账号均为空时返回"未知用户"
+ */
+QString FaceRecognitionService::FaceDuplicateInfo::ownerText() const {
+    QString owner = realName.isEmpty() ? username : realName;
+    if (owner.isEmpty()) owner = QStringLiteral("未知用户");
+    if (!workNo.isEmpty()) owner += QStringLiteral("（工号 %1）").arg(workNo);
+    return owner;
+}
+
+/**
+ * @brief 查询采集特征是否与库内某个其他账户的人脸重复
+ * @param faceDescriptor 采集到的人脸特征串（128维）
+ * @param excludeUserId 需排除的用户ID（重新录入本人时传本人ID）
+ * @return 命中结果；duplicated 为 false 表示不重复
+ * @note 取数口径与登录识别一致：仅比对状态为 active 的账户人脸。
+ *       已停用账户不参与刷脸登录，其人脸视为已释放，可重新录入到其他账户；
+ *       若把停用账户也计入，其人脸会长期占位导致管理员无法为恢复使用的用户重新录入。
+ */
+FaceRecognitionService::FaceDuplicateInfo FaceRecognitionService::findDuplicateFace(
+    const QString& faceDescriptor, int excludeUserId) {
+    return findBestMatch(faceDescriptor, getAllEnrolledFaces(), excludeUserId,
+                         SC::FACE_DUPLICATE_SIMILARITY);
+}
+
+/**
+ * @brief 录入人脸特征，录入前先做查重
+ * @param userId 目标用户ID
+ * @param faceDescriptor 128维特征串
+ * @return 录入结果：success为true表示已写入；duplicated为true表示该脸已挂在其他账户上，未写入
+ */
+FaceRecognitionService::EnrollFaceResult FaceRecognitionService::enrollFaceChecked(
+    int userId, const QString& faceDescriptor) {
+
+    EnrollFaceResult result;
+    if (userId <= 0) {
+        result.message = QStringLiteral("用户无效，无法录入人脸");
+        return result;
+    }
+    if (parseDescriptor(faceDescriptor).size() < 64) {
+        result.message = QStringLiteral("人脸特征数据异常，请重新采集");
+        return result;
+    }
+
+    // 查重：同一张脸不允许挂在第二个账户上，命中即拒绝写入
+    result.duplicate = findDuplicateFace(faceDescriptor, userId);
+    if (result.duplicate.duplicated) {
+        result.message = QStringLiteral("该人脸已录入到用户「%1」，同一张人脸不允许录入到第二个账户")
+                         .arg(result.duplicate.ownerText());
+        return result;
+    }
+
+    UserDAO dao;
+    if (!dao.updateFace(userId, faceDescriptor)) {
+        result.message = QStringLiteral("人脸特征写入数据库失败，请重试");
+        return result;
+    }
+    result.success = true;
+    result.message = QStringLiteral("人脸特征采集成功");
+    return result;
+}
+
+/**
+ * @brief 为用户录入人脸特征（含查重，查重失败返回false）
  * @param userId 用户ID
  * @param faceDescriptor 128维特征串
- * @return true=录入成功
+ * @return true=录入成功；false=被查重拦截或写入失败（需查重复查调用 enrollFaceChecked 获取原因）
  */
 bool FaceRecognitionService::enrollFace(int userId, const QString& faceDescriptor) {
-    UserDAO dao;
-    return dao.updateFace(userId, faceDescriptor);
+    return enrollFaceChecked(userId, faceDescriptor).success;
 }
 
 /**

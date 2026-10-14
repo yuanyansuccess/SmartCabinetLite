@@ -38,11 +38,6 @@ int AlertService::unhandledCount() {
 
 // ── 读路径（自SettingService迁移） ──
 
-QJsonArray AlertService::getRecentAlerts(int limit) {
-    db::AlertDAO dao;
-    return dao.findRecentUnhandled(limit);
-}
-
 /**
  * @brief 查询告警详情
  * @param alertId 告警ID

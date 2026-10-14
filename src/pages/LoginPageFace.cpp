@@ -401,6 +401,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
         resp["department"] = result.department;
         resp["similarity"] = result.similarity * 100.0;
         resp["role"] = result.role.isEmpty() ? SC::ROLE_USER : result.role;  // 从DB读取真实角色，不硬编码SC::ROLE_USER
+        resp["mustChangePwd"] = result.mustChangePwd;  // 强制改密标志，刷脸与账密登录保持一致
         resp["token"] = QString::number(QDateTime::currentSecsSinceEpoch());
         handleFaceSuccess(resp);
     } else if (result.isStranger) {
@@ -461,6 +462,7 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     user["workNo"] = workNo;
     user["department"] = department;
     user["role"] = resp["role"].toString();
+    user["mustChangePwd"] = resp["mustChangePwd"].toInt();
     user["token"] = resp["token"].toString();
     m_pendingUser = user;
     m_autoJumpTimer->start(700);   // 1.2s→0.7s：成功后显示0.7秒足够看清，加快跳转

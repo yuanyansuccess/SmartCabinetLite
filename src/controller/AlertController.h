@@ -29,12 +29,6 @@ public:
     int        unhandledCount();
     int        todayTotal();
 
-    struct DashboardStats {
-        int totalTools = 0, inStock = 0, borrowed = 0, alerts = 0;
-        int activeBorrows = 0, overdueCount = 0, todayOperations = 0;
-    };
-    DashboardStats getDashboardStats();
-
 signals:
     void newAlert(int alertId, const QString& level, const QString& message);
     void criticalAlert(int alertId, const QString& message);

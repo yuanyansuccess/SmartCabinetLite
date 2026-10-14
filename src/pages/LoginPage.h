@@ -79,6 +79,8 @@ private slots:
     void onUsernameFieldClicked();
     void onPasswordFieldClicked();
     void onPasswordLogin();
+    /// 忘记密码：弹出刷脸验证对话框，成功后自助设置新密码
+    void onForgotPassword();
     void onTryFaceAgain();
     void retryFaceTimeout();
     void onExitSystem();  // 退出系统按钮
@@ -191,6 +193,8 @@ private:
     QLabel* m_errorLabel;
     /** 始终可见的密码登录入口链接 */
     QPushButton* m_altLoginHint = nullptr;
+    /** 忘记密码入口链接（密码模式下显示） */
+    QPushButton* m_forgotPwdBtn = nullptr;
     QPushButton* m_tryFaceBtn;
     QPushButton* m_exitBtn = nullptr;  // 退出系统按钮
 

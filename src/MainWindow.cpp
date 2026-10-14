@@ -6,7 +6,6 @@
 #include "MainWindow.h"
 #include "components/TopBar.h"
 #include "pages/LoginPage.h"
-#include "pages/DashboardPage.h"
 #include "pages/UserManagementPage.h"
 #include "pages/ToolManagementPage.h"
 #include "pages/ToolBorrowPage.h"
@@ -19,6 +18,8 @@
 #include "pages/SystemMaintenancePage.h"  // 系统维护页面
 #include "pages/CabinetSessionDialog.h"  // 普通用户智能柜会话（开柜提示+关柜清单）
 #include "pages/UserEntryDialog.h"  // 普通用户功能选择页（借用/归还、查询）
+#include "pages/ForceChangePasswordDialog.h"  // 首次登录强制修改初始密码
+#include "pages/RoleSelectDialog.h"  // 管理用户登录身份选择
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"  // 读取锁屏时间/备份配置
 #include "common/DatabaseManager.h"  // 备份检查
@@ -45,17 +46,16 @@ struct PageDef { QString name; int index; QString title; };
 static const QVector<PageDef>& pageRegistry() {
     static const QVector<PageDef> reg = {
         {"login",       0,  QString()},
-        {"dashboard",   1,  QStringLiteral("系统概览")},
-        {"users",       2,  QStringLiteral("人员管理")},
-        {"tools",       3,  QStringLiteral("工具管理")},
-        {"borrow",      4,  QStringLiteral("工具借用")},
-        {"return",      5,  QStringLiteral("工具归还")},
-        {"checkin",     6,  QStringLiteral("工具入库")},
-        {"checkout",    7,  QStringLiteral("工具出库")},
-        {"ledger",      8,  QStringLiteral("台账统计")},
-        {"alerts",      9,  QStringLiteral("告警日志")},
-        {SC::TOOL_MAINTENANCE, 10, QStringLiteral("系统维护")},
-        {"settings",    11, QStringLiteral("系统设置")},
+        {"users",       1,  QStringLiteral("人员管理")},
+        {"tools",       2,  QStringLiteral("工具管理")},
+        {"borrow",      3,  QStringLiteral("工具借用")},
+        {"return",      4,  QStringLiteral("工具归还")},
+        {"checkin",     5,  QStringLiteral("工具入库")},
+        {"checkout",    6,  QStringLiteral("工具出库")},
+        {"ledger",      7,  QStringLiteral("台账统计")},
+        {"alerts",      8,  QStringLiteral("告警日志")},
+        {SC::TOOL_MAINTENANCE, 9, QStringLiteral("系统维护")},
+        {"settings",    10, QStringLiteral("系统设置")},
     };
     return reg;
 }
@@ -63,7 +63,7 @@ static const QVector<PageDef>& pageRegistry() {
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     , m_topBar(nullptr), m_stack(nullptr), m_sidebar(nullptr), m_contentArea(nullptr)
-    , m_loginPage(nullptr), m_dashboardPage(nullptr), m_userMgmtPage(nullptr)
+    , m_loginPage(nullptr), m_userMgmtPage(nullptr)
     , m_toolMgmtPage(nullptr), m_borrowPage(nullptr), m_returnPage(nullptr)
     , m_checkinPage(nullptr), m_checkoutPage(nullptr), m_ledgerPage(nullptr)
     , m_alertsPage(nullptr), m_settingsPage(nullptr)
@@ -111,7 +111,6 @@ void MainWindow::setupUI() {
     m_stack->setStyleSheet("background:" + StyleHelper::bgColor() + ";");
 
     m_loginPage     = new LoginPage();
-    m_dashboardPage = new DashboardPage();
     m_userMgmtPage  = new UserManagementPage();
     m_toolMgmtPage  = new ToolManagementPage();
     m_borrowPage    = new ToolBorrowPage();
@@ -124,9 +123,8 @@ void MainWindow::setupUI() {
     m_maintenancePage = new SystemMaintenancePage();  // 系统维护
 
     // 移除人脸录入独立页面，人脸录入功能已集成到人员管理页
-    // 索引：0:登录 1:仪表盘 2:用户管理 3:工具管理 4:借用 5:归还 6:入库 7:出库 8:台账 9:告警 10:系统维护 11:设置
+    // 索引：0:登录 1:用户管理 2:工具管理 3:借用 4:归还 5:入库 6:出库 7:台账 8:告警 9:系统维护 10:设置
     m_stack->addWidget(m_loginPage);
-    m_stack->addWidget(m_dashboardPage);
     m_stack->addWidget(m_userMgmtPage);
     m_stack->addWidget(m_toolMgmtPage);
     m_stack->addWidget(m_borrowPage);
@@ -135,10 +133,10 @@ void MainWindow::setupUI() {
     m_stack->addWidget(m_checkoutPage);
     m_stack->addWidget(m_ledgerPage);
     m_stack->addWidget(m_alertsPage);
-    m_stack->addWidget(m_maintenancePage);  // 系统维护(索引10)
-    m_stack->addWidget(m_settingsPage);     // 系统设置(索引11)
+    m_stack->addWidget(m_maintenancePage);  // 系统维护(索引9)
+    m_stack->addWidget(m_settingsPage);     // 系统设置(索引10)
 
-    // 普通用户流程遮罩页(索引12)：登录后入口页/借用归还会话期间主界面停在本页，
+    // 普通用户流程遮罩页(索引11)：登录后入口页/借用归还会话期间主界面停在本页，
     // 避免两个全屏弹窗切换间隙露出背后的登录页（闪现按键页面问题）
     m_userFlowCover = new QWidget();
     m_userFlowCover->setStyleSheet("background:" + StyleHelper::bgColor() + ";");
@@ -149,7 +147,6 @@ void MainWindow::setupUI() {
 
     // 信号连接
     connect(m_loginPage, &LoginPage::loginSuccess, this, &MainWindow::onLoginSuccess);
-    connect(m_dashboardPage, &DashboardPage::navigateRequested, this, &MainWindow::navigateToPage);
     // 工具借用页面点击归还按钮 → 跳转工具归还页面并自动选中对应工具
     connect(m_borrowPage, &ToolBorrowPage::returnRequested, this, [this](int recordId) {
         m_returnPage->setPendingReturnRecordId(recordId);
@@ -222,7 +219,6 @@ QWidget* MainWindow::createSidebar() {
 
     struct NavItem { QString id; QString label; };
     QList<NavItem> items = {
-        {"dashboard",  QStringLiteral("📊 系统概览")},
         {"users",      QStringLiteral("👥 人员管理")},
         {"tools",      QStringLiteral("🔧 工具管理")},
         // 管理员借用/归还入口合并为一项，点击进入模拟数据智能柜会话
@@ -266,16 +262,18 @@ QWidget* MainWindow::createSidebar() {
  * @brief 显示页面
  */
 void MainWindow::showPage(const QString& name) {
-  // 普通用户仅允许访问 系统概览/工具机组查询，
+  // 普通用户仅允许访问 工具管理，
     // 防止其他入口（如告警跳转）绕过侧边栏限制
-    bool isAdmin = (m_user["role"].toString() == SC::ROLE_ADMIN);
-    if (!m_user.isEmpty() && !isAdmin && name != "dashboard" && name != "tools") {
-        qInfo() << "[MainWindow] 普通用户无权访问页面:" << name << "，重定向到 dashboard";
-        showPage("dashboard");
+    bool canUseAdminPages = (m_user["role"].toString() == SC::ROLE_ADMIN
+                          || m_user["role"].toString() == SC::ROLE_MANAGER)
+                          && !m_userModeAsNormalUser;
+    if (!m_user.isEmpty() && !canUseAdminPages && name != "tools") {
+        qInfo() << "[MainWindow] 普通用户无权访问页面:" << name << "，重定向到 tools";
+        showPage("tools");
         return;
     }
     // 覆盖层遮罩切换：overlay盖住页面→切换→overlay淡出→透出新页
-    int idx = 1;  // 未知名默认dashboard（与原map.value(name,1)一致）
+    int idx = 2;  // 未知名默认tools（工具管理）
     for (const auto& pd : pageRegistry()) {
         if (pd.name == name) { idx = pd.index; break; }
     }
@@ -286,8 +284,7 @@ void MainWindow::showPage(const QString& name) {
 
     // 页面刷新统一入口（同页点击与跨页切换共用）
     auto refreshPage = [this](const QString& n) {
-        if (n == "dashboard" && m_dashboardPage)      m_dashboardPage->refresh();
-        else if (n == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
+        if (n == "users" && m_userMgmtPage)      m_userMgmtPage->refresh();
         else if (n == "tools" && m_toolMgmtPage)      m_toolMgmtPage->refresh();
         else if (n == "borrow" && m_borrowPage)        m_borrowPage->refresh();
         else if (n == "return" && m_returnPage)        m_returnPage->refresh();
@@ -377,16 +374,19 @@ void MainWindow::updateSidebarVisibility() {
     m_sidebar->setVisible(loggedIn);
     for (auto* btn : m_navButtons) {
         QString id = btn->objectName();
-        bool isAdmin = m_user["role"].toString() == SC::ROLE_ADMIN;
+        const QString role = m_user["role"].toString();
+        // 管理员与管理用户可进入管理页面；以普通用户身份登录时按普通用户菜单显示
+        bool canUseAdminPages = (role == SC::ROLE_ADMIN || role == SC::ROLE_MANAGER)
+                                && !m_userModeAsNormalUser;
         bool show;
-        if (isAdmin) {
+        if (canUseAdminPages) {
             // 借用/归还合并为borrowreturn入口（模拟会话）
-            show = (id == "dashboard" || id == "tools" || id == "borrowreturn" || id == "alerts")
+            show = (id == "tools" || id == "borrowreturn" || id == "alerts")
                 || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
-                     || id == SC::TOOL_MAINTENANCE || id == "settings");  // 管理员可见系统维护
+                     || id == SC::TOOL_MAINTENANCE || id == "settings");  // 管理侧可见系统维护
         } else {
-  // 普通用户仅开放 系统概览/工具机组查询
-            show = (id == "dashboard" || id == "tools");
+  // 普通用户仅开放 工具管理
+            show = (id == "tools");
         }
         btn->setVisible(show);
     }
@@ -412,7 +412,6 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     // 登录成功后确保摄像头已关闭（兜底保险）
     m_loginPage->stopFaceRecognitionPublic();
     setCurrentUser(user);
-    m_dashboardPage->setUser(user);
     m_borrowPage->setUser(user);
     m_returnPage->setUser(user);
     // 出库页面设置当前用户（出库记录写入正确操作人）
@@ -424,38 +423,83 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     // 登录成功后刷新TopBar版本号显示（页面层读配置后注入）
     m_topBar->setVersionText(AppConfig::instance().appVersion());
 
-    // 普通用户登录成功后进入功能选择页（普通用户首页）：
-    // 借用/归还流程结束后回到功能选择页（首页），退出登录才回登录页
-    // "借用/归还"→进入智能柜会话，会话结束→循环回本页
-    // "查询/告警日志"→弹出明细对话框（不关闭本页）
-    // "退出登录"→回登录页
-    bool isAdmin = (user["role"].toString() == SC::ROLE_ADMIN);
-    if (!isAdmin) {
-        // 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏，
-        // 防止入口页与借用归还会话两个全屏弹窗切换间隙闪现登录页
-        if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
-        m_sidebar->setVisible(false);
-        while (true) {
-            UserEntryDialog entry(user, this);
-            UserEntryDialog::Choice choice = entry.execChoice();
-            if (choice == UserEntryDialog::Choice::Logout) break;   // 退出登录→登录页
-            if (choice == UserEntryDialog::Choice::BorrowReturn) {
-                CabinetSessionDialog session(user, this);
-                session.startSession();                             // 流程结束→循环回功能选择页
-                continue;
-            }
-            // Query兜底（查询按钮已为弹出对话框不accept，理论不可达）
-            updateSidebarVisibility();  // 恢复侧边栏后再进首页
-            showPage("dashboard");
-            emit userLoggedIn(user);
+    // 登录已通过但身份未定的过渡态：主界面切到中性遮罩页并隐藏侧边栏。
+    // 原因：此时后续可能先弹"强制改密"或"身份选择"对话框，若不先切走，
+    // 弹窗背景会停留在登录页的"身份验证通过"卡片上，且管理菜单会提前暴露。
+    if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
+    m_sidebar->setVisible(false);
+
+    // 初始密码用户必须先自设新密码才能继续（管理员同样适用）
+    // 校验不通过或主动退出登录时，一律回到登录页
+    if (user["mustChangePwd"].toInt() == 1) {
+        // 首次登录强制改密：初始口令是公开默认值，不显示也不校验原口令输入框
+        ForceChangePasswordDialog dlg(user["userId"].toInt(),
+                                      user["realName"].toString(), false, this);
+        if (dlg.exec() != QDialog::Accepted) {
+            onLogout();
             return;
         }
-        onLogout();  // 退出登录 → 登录页
+    }
+
+    const QString role = user["role"].toString();
+
+    // 普通用户：直接进功能选择页
+    if (role == SC::ROLE_USER) {
+        runUserEntryFlow(user);
         return;
     }
 
-    showPage("dashboard");
+    // 管理用户（管理员+普通用户双重身份）：先选本次登录身份
+    if (role == SC::ROLE_MANAGER) {
+        RoleSelectDialog roleDlg(user["realName"].toString(), this);
+        roleDlg.exec();
+        if (roleDlg.choice() == RoleSelectDialog::Choice::User) {
+            // 以普通用户身份进入：按普通用户权限显示菜单
+            m_userModeAsNormalUser = true;
+            updateSidebarVisibility();
+            runUserEntryFlow(user);
+            return;
+        }
+        if (roleDlg.choice() == RoleSelectDialog::Choice::Cancelled) {
+            onLogout();
+            return;
+        }
+        // 选择管理员身份：按管理侧流程继续
+        m_userModeAsNormalUser = false;
+    }
+
+    // 进入管理界面：恢复侧边栏后再切页（遮罩过渡态在此结束）
+    updateSidebarVisibility();
+    showPage("tools");
     emit userLoggedIn(user);
+}
+
+/**
+ * @brief 运行普通用户流程：功能选择页循环，直到用户退出登录
+ * @param user 已登录用户信息
+ * @note 流程期间主界面停在中性遮罩页并隐藏侧边栏，防止弹窗切换间隙闪现登录页；
+ *       "退出登录"退出循环并调用 onLogout() 回到登录页
+ */
+void MainWindow::runUserEntryFlow(const QJsonObject& user) {
+    // 整个普通用户流程期间：主界面停在中性遮罩页+隐藏侧边栏
+    if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
+    m_sidebar->setVisible(false);
+    while (true) {
+        UserEntryDialog entry(user, this);
+        UserEntryDialog::Choice choice = entry.execChoice();
+        if (choice == UserEntryDialog::Choice::Logout) break;
+        if (choice == UserEntryDialog::Choice::BorrowReturn) {
+            CabinetSessionDialog session(user, this);
+            session.startSession();
+            continue;
+        }
+        // Query兜底（查询按钮已为弹出对话框不accept，理论不可达）
+        updateSidebarVisibility();
+        showPage("tools");
+        emit userLoggedIn(user);
+        return;
+    }
+    onLogout();
 }
 
 /**
@@ -463,6 +507,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
          */
 void MainWindow::onLogout() {
     m_user = QJsonObject();
+    m_userModeAsNormalUser = false;  // 复位身份标志，避免下次登录沿用上次选择
     // 侧边栏已移除用户区域，仅重置TopBar
     m_topBar->setUserName(QStringLiteral("未登录"));
     m_topBar->setDepartment("");
@@ -485,7 +530,7 @@ void MainWindow::onLogout() {
 }
 
 // 快捷操作/侧边栏的"工具借用/归还"入口统一在转交处拦截：
-// borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到系统概览
+// borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到工具管理
 void MainWindow::navigateToPage(const QString& name) {
     if (name == QStringLiteral("borrowreturn")) {
         openBorrowReturnSession();
@@ -496,12 +541,12 @@ void MainWindow::navigateToPage(const QString& name) {
 
 // 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
 // CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
-// 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回系统概览
+// 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回工具管理页
 void MainWindow::openBorrowReturnSession() {
     if (m_user.isEmpty()) return;
     CabinetSessionDialog session(m_user, this);
     session.startSession();
-    showPage("dashboard");  // 管理员流程结束 → 回系统概览（管理页面）
+    showPage("tools");  // 管理员流程结束 → 回工具管理页
 }
 
 // 自动锁屏超时：退出登录回到登录页

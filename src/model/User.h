@@ -18,6 +18,7 @@ struct User {
     int     deptId       = 0;
     QString department;
     QString role         = "user";
+    int     mustChangePwd = 0;    // 1=下次登录强制修改初始密码（新建/重置时置1，改密成功后清0）
     QString faceFeature;       // 人脸特征(base64)
     QString phone;
     QString email;

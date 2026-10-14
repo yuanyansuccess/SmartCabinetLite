@@ -82,15 +82,15 @@ void UserManagementPage::createUserDialog() {
     m_dlgDept->setEditable(true);
     m_dlgDept->setStyleSheet(comboStyle);
 
-    // 角色按钮组（2选1）- 固定宽度不Expanding撑满整行
+    // 角色按钮组（3选1）- 固定宽度不Expanding撑满整行
     {
         auto makeRoleBtn = [&](const QString& text, int mode) -> QPushButton* {
             auto* btn = new QPushButton(text);
             btn->setCheckable(true);
             btn->setCursor(Qt::PointingHandCursor);
             btn->setFixedHeight(StyleHelper::Token::ControlHeight);
-            btn->setMinimumWidth(120);
-            btn->setMaximumWidth(180);
+            btn->setMinimumWidth(110);
+            btn->setMaximumWidth(160);
             btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             if (mode == 0) btn->setChecked(true);
             connect(btn, &QPushButton::clicked, this, [this, mode]() {
@@ -101,6 +101,7 @@ void UserManagementPage::createUserDialog() {
         };
         m_dlgRoleBtn1 = makeRoleBtn(QStringLiteral("普通用户"), 0);
         m_dlgRoleBtn2 = makeRoleBtn(QStringLiteral("管理员"), 1);
+        m_dlgRoleBtn3 = makeRoleBtn(QStringLiteral("管理用户"), 2);
     }
     m_dlgPhone = new QLineEdit();
     m_dlgPhone->setPlaceholderText(QStringLiteral("请输入手机号"));
@@ -190,11 +191,24 @@ void UserManagementPage::createUserDialog() {
         roleBtnLayout->setSpacing(8);
         roleBtnLayout->addWidget(m_dlgRoleBtn1);
         roleBtnLayout->addWidget(m_dlgRoleBtn2);
+        roleBtnLayout->addWidget(m_dlgRoleBtn3);
         updateRoleBtnStyles();
         addFormRow(makeLabel(QStringLiteral("角色")), roleBtnGroup);
     }
     addFormRow(makeLabel(QStringLiteral("电话")), m_dlgPhone);
-    addFormRow(makeLabel(QStringLiteral("密码")), m_dlgPasswordFrame);
+
+    // 密码整行：仅"编辑用户"时显示（管理员可代改口令）；
+    // 新增用户使用系统默认初始口令，无需在此输入
+    m_dlgPasswordRow = new QWidget();
+    m_dlgPasswordRow->setStyleSheet("background:transparent;");
+    auto* pr = new QHBoxLayout(m_dlgPasswordRow);
+    pr->setContentsMargins(0, 0, 0, 0);
+    pr->setSpacing(12);
+    auto* pwdLabel = makeLabel(QStringLiteral("密码"));
+    pwdLabel->setFixedWidth(80);
+    pr->addWidget(pwdLabel);
+    pr->addWidget(m_dlgPasswordFrame, 1);
+    cl->addWidget(m_dlgPasswordRow);
 
     // 底部按钮（通过 BaseDialog::buttonLayout() 添加）
     auto* bl = m_userDialog->buttonLayout();
@@ -242,6 +256,8 @@ void UserManagementPage::onAddUser() {
     m_dlgRealName->clear(); m_dlgWorkNo->clear(); m_dlgPassword->clear();
     m_dlgRoleMode = 0; updateRoleBtnStyles();
     m_dlgDept->setCurrentIndex(0); m_dlgPhone->clear();
+    // 新增用户不输入口令：系统统一使用初始密码，该行隐藏
+    if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
     m_userDialog->exec();
 }
 
@@ -269,10 +285,14 @@ void UserManagementPage::onEditUser(int userId) {
     m_dlgWorkNo->setText(u.workNo);
     m_dlgWorkNo->setEnabled(false);  // 工号编辑时禁用
     m_dlgDept->setCurrentText(u.department);
-    m_dlgRoleMode = (u.role == SC::ROLE_ADMIN) ? 1 : 0; updateRoleBtnStyles();
+    // 三种角色：普通用户(0)/管理员(1)/管理用户(2)
+    m_dlgRoleMode = (u.role == SC::ROLE_ADMIN) ? 1 : (u.role == SC::ROLE_MANAGER ? 2 : 0);
+    updateRoleBtnStyles();
     m_dlgPhone->setText(u.phone);
     m_dlgPassword->setText(QString());
     m_dlgPassword->setPlaceholderText(QStringLiteral("留空则不修改"));
+    // 编辑时显示密码行：管理员可代该用户设置新口令
+    if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(true);
     m_userDialog->exec();
 }
 
@@ -299,8 +319,10 @@ void UserManagementPage::onSubmitUser() {
     QString workNo = m_dlgWorkNo->text().trimmed();
     QString password = m_dlgPassword->text();
     QString dept = m_dlgDept->currentText();
-    // 角色从按钮组获取
-    QString role = (m_dlgRoleMode == 1) ? SC::ROLE_ADMIN : SC::ROLE_USER;
+    // 角色从按钮组获取：0=普通用户 1=管理员 2=管理用户
+    QString role = SC::ROLE_USER;
+    if (m_dlgRoleMode == 1)      role = SC::ROLE_ADMIN;
+    else if (m_dlgRoleMode == 2) role = SC::ROLE_MANAGER;
     QString phone = m_dlgPhone->text().trimmed();
 
     if (realName.isEmpty() || workNo.isEmpty()) {
@@ -311,8 +333,9 @@ void UserManagementPage::onSubmitUser() {
         MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("请选择所属部门"));
         return;
     }
-    if (m_editUserId == 0 && password.isEmpty()) {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("请输入初始密码"));
+    if (m_editUserId != 0 && !password.isEmpty() && password.length() < SC::PASSWORD_MIN_LENGTH) {
+        MessageDialog::showError(this, QStringLiteral("错误"),
+                                 QStringLiteral("密码长度不能少于%1位").arg(SC::PASSWORD_MIN_LENGTH));
         return;
     }
 
@@ -320,7 +343,7 @@ void UserManagementPage::onSubmitUser() {
     UserController ctrl;
     bool ok = false;
     if (m_editUserId == 0) {
-        // 新建用户
+        // 新建用户：口令统一使用系统初始密码，用户首次登录须自行修改
         User newUser;
         newUser.username = workNo;
         newUser.realName = realName;
@@ -329,21 +352,32 @@ void UserManagementPage::onSubmitUser() {
         newUser.role = role;
         newUser.phone = phone;
         newUser.status = SC::USER_ACTIVE;
-        int newId = ctrl.createUser(newUser, password);
+        int newId = ctrl.createUser(newUser, SC::DEFAULT_INIT_PASSWORD);
         ok = (newId > 0);
-    } else {
-        // 更新用户
-        User updateUser;
-        updateUser.userId = m_editUserId;
-        updateUser.realName = realName;
-        updateUser.workNo = workNo;
-        updateUser.department = dept;
-        updateUser.role = role;
-        updateUser.phone = phone;
-        ok = ctrl.updateUser(updateUser);
-        if (ok && !password.isEmpty()) {
-            ok = ctrl.changePassword(m_editUserId, "", password);
+        if (ok) {
+            m_userDialog->accept();
+            loadUsers();
+            MessageDialog::showSuccess(this, QStringLiteral("新增成功"),
+                                       QStringLiteral("用户已创建，初始密码为 %1，"
+                                                      "该用户首次登录时须修改密码").arg(SC::DEFAULT_INIT_PASSWORD));
+        } else {
+            MessageDialog::showError(this, QStringLiteral("错误"),
+                                     QStringLiteral("新增失败，请检查工号是否重复"));
         }
+        return;
+    }
+    // 更新用户
+    User updateUser;
+    updateUser.userId = m_editUserId;
+    updateUser.realName = realName;
+    updateUser.workNo = workNo;
+    updateUser.department = dept;
+    updateUser.role = role;
+    updateUser.phone = phone;
+    ok = ctrl.updateUser(updateUser);
+    if (ok && !password.isEmpty()) {
+        // 管理员代改口令：走重置接口（无需原密码），并标记该用户下次登录须再改一次
+        ok = ctrl.resetPassword(m_editUserId, password, true);
     }
     if (ok) {
         m_userDialog->accept();

@@ -30,7 +30,7 @@ private slots:
 private:
     void setupUI();
     void loadStats();
-    // 数字滚动动画（与DashboardPage统一风格）
+    // 数字滚动动画
     void setStatValue(QLabel* label, int targetValue);
     // 导出辅助方法
     QString generateCSV();                        // 生成台账CSV内容

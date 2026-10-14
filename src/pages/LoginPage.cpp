@@ -13,6 +13,7 @@
 #include "utils/StyleHelper.h"
 #include "services/AuthService.h"
 #include "services/FaceRecognitionService.h"
+#include "pages/ForgotPasswordDialog.h"  // 忘记密码（刷脸验证后自助改密）
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QStackedWidget>
@@ -177,6 +178,10 @@ void LoginPage::onPasswordLogin() {
         emit loginSuccess(r.user);
     } else {
         // 登录失败：清空密码+显示错误
+        // 失败提示固定为红色，"密码已重置"的成功绿色样式不能残留到此处
+        m_errorLabel->setStyleSheet(
+            QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
+                .arg(StyleHelper::dangerColor()));
         m_errorLabel->setText(r.message.isEmpty() ? QStringLiteral("用户名或密码错误，请重试") : r.message);
         m_errorLabel->setVisible(true);
         m_passwordEdit->clear();
@@ -188,6 +193,28 @@ void LoginPage::onPasswordLogin() {
             }
             onPasswordFieldClicked();
         });
+    }
+}
+
+/**
+ * @brief 忘记密码：弹刷脸验证对话框，验证通过后由用户自助设置新密码
+ * @note 重置成功后清空密码框并提示使用新密码登录；验证失败或取消时保持原输入状态
+ */
+void LoginPage::onForgotPassword() {
+    // 先收起数字键盘，避免键盘窗口残留遮挡对话框
+    if (m_numKeypad) m_numKeypad->hide();
+
+    ForgotPasswordDialog dlg(this);
+    dlg.exec();
+
+    if (dlg.passwordReset()) {
+        m_passwordEdit->clear();
+        if (m_errorLabel) {
+            m_errorLabel->setStyleSheet(
+                "color:#389e0d; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;");
+            m_errorLabel->setText(QStringLiteral("密码已重置，请使用新密码登录"));
+            m_errorLabel->setVisible(true);
+        }
     }
 }
 

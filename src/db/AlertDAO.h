@@ -35,7 +35,7 @@ public:
     bool        resolve(int alertId, int handlerId, const QString& remark = "");
     int         getUnresolvedCount();
     QJsonArray  getAlertTypes();  // 获取所有启用的告警类型（用于前端筛选下拉）
-    QJsonArray  findRecentUnhandled(int limit);   // 最近未处理告警（Dashboard用）
+    QJsonArray  findRecentUnhandled(int limit);   // 最近未处理告警
     QJsonObject findDetailById(int alertId);      // 告警详情（JOIN sys_alert_type+tool_info+sys_user）
     QJsonObject getStats(const QString& types, const QString& level, const QString& keyword);  // 告警统计
 

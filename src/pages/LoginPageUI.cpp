@@ -856,6 +856,16 @@ void LoginPage::buildPasswordForm(QVBoxLayout* layout) {
 
     pfLayout->addWidget(m_loginBtn);
 
+    // 忘记密码入口：密码已遗忘时刷脸验证身份自助重置（触屏目标高度≥48px）
+    m_forgotPwdBtn = new QPushButton(QStringLiteral("忘记密码？"));
+    m_forgotPwdBtn->setCursor(Qt::PointingHandCursor);
+    m_forgotPwdBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
+    m_forgotPwdBtn->setStyleSheet(
+        "QPushButton{color:#666;font-size:15px;border:none;background:transparent;font-weight:600;}"
+        "QPushButton:hover{color:#4da3ff;}");
+    connect(m_forgotPwdBtn, &QPushButton::clicked, this, &LoginPage::onForgotPassword);
+    pfLayout->addWidget(m_forgotPwdBtn, 0, Qt::AlignHCenter);
+
 
 
     // 重新人脸识别链接 (Web: .retry-link 14px)

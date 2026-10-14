@@ -4,8 +4,6 @@
  * @author 袁燕
  */
 #include "AlertController.h"
-#include "db/ToolDAO.h"
-#include "db/RecordDAO.h"
 #include <QDebug>
 #include "common/Constants.h"
 
@@ -95,22 +93,3 @@ int AlertController::unhandledCount() { return m_dao.unhandledCount(); }
  * @return 今日创建的告警条数
  */
 int AlertController::todayTotal() { return m_dao.todayTotal(); }
-
-/**
- * @brief 汇总概览页告警统计数据
- * @return 含未处理数、今日新增数等指标的结构
- */
-AlertController::DashboardStats AlertController::getDashboardStats() {
-    DashboardStats s;
-    db::ToolDAO toolDao;
-    db::RecordDAO recordDao;
-    s.totalTools    = toolDao.countTools("", "", "", "");
-    s.inStock       = toolDao.countTools("", "", "", SC::TOOL_IN_STOCK);
-    s.borrowed      = toolDao.countTools("", "", "", SC::TOOL_BORROWED);
-    s.alerts        = m_dao.unhandledCount();
-    s.activeBorrows = recordDao.activeBorrowCount();
-    s.overdueCount  = recordDao.overdueCount();
-    QDate today = QDate::currentDate();
-    s.todayOperations = recordDao.borrowCount("", "", 0, today, today);
-    return s;
-}

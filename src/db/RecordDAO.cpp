@@ -530,7 +530,7 @@ QList<ReturnRecord> RecordDAO::findReturns(int page, int pageSize,
 }
 
 // 返回去重工具数（统计逻辑与v_tool_stats.borrowed_count一致，
-// 便于Dashboard与工具管理页数值对齐）
+// 便于与工具管理页数值对齐）
 int RecordDAO::activeBorrowCount() {
     return scalar("SELECT COUNT(DISTINCT tool_id) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')").toInt();
 }
@@ -914,14 +914,6 @@ QJsonObject RecordDAO::getLedgerStats() {
     s["departmentStats"] = deptStats;
 
     return s;
-}
-
-/**
- * @brief 清空全部操作日志（sys_operation_log）
- * @return true=删除成功；仅限危险操作鉴权通过后由 Service 调用
- */
-bool RecordDAO::clearAllLogs() {
-    return execute("DELETE FROM sys_operation_log");
 }
 
 } // namespace db

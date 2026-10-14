@@ -99,7 +99,7 @@ void ToolManagementPage::setupStatsCards() {
     // 统计按"种类+位置"唯一标识排列
     // 工具总数=在库+已借出（不含出库/待入库）
     // 新增"待入库"卡片，pending=配置层尚未物理入库
-    // 举一反三：Dashboard统计也需同步调整
+    // 举一反三：概览统计也需同步调整
     m_statsCardAll         = createStatCard(QStringLiteral("工具总数"), QStringLiteral("📦"), "#4da3ff", m_labelTotalTools);
     m_statsCardInStock     = createStatCard(QStringLiteral("在库工具"),     QStringLiteral("✅"), "#43a047", m_labelInStock);
     m_statsCardBorrowed    = createStatCard(QStringLiteral("已借出"),   QStringLiteral("📤"), "#f57c00", m_labelBorrowed);

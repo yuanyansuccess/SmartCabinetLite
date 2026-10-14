@@ -21,8 +21,6 @@ public:
 
     // ── 读路径（自SettingService迁移，告警域查询统一入口） ──
 
-    /// 最近未处理告警（系统概览卡片）
-    QJsonArray getRecentAlerts(int limit = 5);
     /// 单条告警详情（含处理人信息）
     QJsonObject getAlertDetail(int alertId);
     /// 告警统计（按类型/级别/关键词筛选）

@@ -16,7 +16,6 @@
 
 class TopBar;
 class LoginPage;
-class DashboardPage;
 class UserManagementPage;
 class ToolManagementPage;
 class ToolBorrowPage;
@@ -56,6 +55,9 @@ private:
     QWidget* createSidebar();
     void updateSidebarActive(const QString& name);
     void updateSidebarVisibility();
+    /// 运行普通用户流程（功能选择页循环借用归还/查询，退出登录回登录页）
+    /// @param user 已登录用户信息（含 userId/realName/role 等登录结果字段）
+    void runUserEntryFlow(const QJsonObject& user);
 
     // 布局组件
     TopBar* m_topBar;
@@ -68,10 +70,11 @@ private:
     QList<QPushButton*> m_navButtons;
 
     QJsonObject m_user;
+    /// 管理用户本次是否选择"以普通用户身份登录"：true=按普通用户权限显示菜单与页面
+    bool m_userModeAsNormalUser = false;
 
-    // 11个页面（已移除人脸录入页，人脸录入已集成到人员管理页）
+    // 10个页面（人脸录入功能集成在人员管理页）
     LoginPage* m_loginPage;
-    DashboardPage* m_dashboardPage;
     UserManagementPage* m_userMgmtPage;
     ToolManagementPage* m_toolMgmtPage;
     ToolBorrowPage* m_borrowPage;

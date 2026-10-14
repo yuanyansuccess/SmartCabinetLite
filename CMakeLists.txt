@@ -168,8 +168,10 @@ set(PAGE_SOURCES
     src/pages/LoginPage.cpp
     src/pages/LoginPageUI.cpp
     src/pages/LoginPageFace.cpp
-    src/pages/DashboardPage.cpp
     src/pages/CabinetSessionDialog.cpp
+    src/pages/ForceChangePasswordDialog.cpp
+    src/pages/ForgotPasswordDialog.cpp
+    src/pages/RoleSelectDialog.cpp
     src/pages/UserManagementPage.cpp
     src/pages/UserManagementPageUserDialog.cpp
     src/pages/UserManagementPageFaceEnroll.cpp
@@ -209,7 +211,6 @@ set(COMPONENT_SOURCES
     src/components/FaceCameraWidget.cpp
     src/components/DeepFaceExtractor.cpp
     src/components/CameraCapture.cpp
-    src/components/SidebarMenu.cpp
     src/components/TopBar.cpp
     src/components/MultiSelectFilter.cpp
     src/components/SingleSelectFilter.cpp
@@ -297,8 +298,10 @@ set(ALL_HEADERS
     src/services/FaceRecognitionService.h
     # Pages (版本B)
     src/pages/LoginPage.h
-    src/pages/DashboardPage.h
     src/pages/CabinetSessionDialog.h
+    src/pages/ForceChangePasswordDialog.h
+    src/pages/ForgotPasswordDialog.h
+    src/pages/RoleSelectDialog.h
     src/pages/UserManagementPage.h
     src/pages/BatchImportDialog.h      # [2026-06-26] 批量导入用户对话框
     src/pages/ToolManagementPage.h
@@ -323,7 +326,6 @@ set(ALL_HEADERS
     src/components/SingleSelectFilter.h
     src/components/MessageDialog.h
     src/components/BaseDialog.h
-    src/components/SidebarMenu.h
     src/components/CameraCapture.h
     # MainWindow (版本B)
     src/MainWindow.h

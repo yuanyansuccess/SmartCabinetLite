@@ -12,20 +12,12 @@ class SettingService : public QObject {
     Q_OBJECT
 public:
     explicit SettingService(QObject* parent = nullptr);
-    QJsonObject getDashboardStats();
-    QJsonArray getRecentLogs(int limit = 10);
     // 告警写域与详情/统计/类型查询已迁移至 AlertService；
     // 本方法保留 AlertLogsPage 数据源入口，SQL 实现已下沉 db/AlertDAO::findAllPaged
     QJsonObject getAllAlerts(int page = 1, int pageSize = 200,  // 获取告警分页列表（含JOIN关联信息）
                             const QString& type = "", const QString& level = "",
                             const QString& keyword = "");  // 返回QJsonObject含total
-    QJsonObject getUserDashboardStats(int userId);       // 获取用户首页统计
-    QJsonArray getUserBorrowRecords(int userId, int limit = 10);  // 获取用户借用记录（含归还提醒数据）
     QJsonObject getLedgerStats();
-    bool factoryReset(const QString& adminPassword);
-    bool clearAllLogs(const QString& adminPassword);
-    /** 危险操作统一鉴权：验证真实管理员口令（查库哈希比对，拒绝停用管理员） */
-    bool verifyAdminPassword(const QString& adminPassword);
     QJsonArray getDepartments();
 
     // 系统配置持久化（读写 system_config 表）

@@ -99,7 +99,7 @@ void LedgerStatsPage::loadStats() {
     SettingService svc;
     QJsonObject stats = svc.getLedgerStats();
 
-    // 数字滚动动画，与DashboardPage风格统一
+    // 数字滚动动画，统计卡片统一风格
     setStatValue(m_totalBorrowLabel, stats["totalBorrows"].toInt());
     setStatValue(m_totalReturnLabel, stats["totalReturns"].toInt());
     setStatValue(m_currentBorrowedLabel, stats["currentBorrowed"].toInt());
@@ -219,7 +219,7 @@ void LedgerStatsPage::showExportSuccess(const QString& path) {
         QStringLiteral("台账数据已成功导出！\n\n文件位置：\n%1").arg(path));
 }
 
-// 数字滚动动画：每次从1开始跳转到目标值（与DashboardPage统一风格）
+// 数字滚动动画：每次从1开始跳转到目标值
 void LedgerStatsPage::setStatValue(QLabel* label, int targetValue) {
     if (!label) return;
 

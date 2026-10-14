@@ -30,6 +30,7 @@ User UserDAO::fromQuery(const QSqlQuery& q) {
     u.deptId       = q.value("dept_id").toInt();
     u.department   = q.value("department").toString();
     u.role         = q.value("role").toString();
+    u.mustChangePwd = q.value("must_change_pwd").toInt();
     u.faceFeature  = q.value("face_feature").toString();
     u.phone        = q.value("phone").toString();
     u.email        = q.value("email").toString();
@@ -50,7 +51,7 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
     QSqlQuery query(db);
     query.prepare(
         "SELECT user_id, username, password_hash, password_salt, real_name, "
-        "role, work_no, department, phone, email, face_feature, status, "
+        "role, must_change_pwd, work_no, department, phone, email, face_feature, status, "
         "last_login_at, created_at, updated_at "
         "FROM sys_user WHERE username = :username AND status != 'deleted'"
     );
@@ -64,6 +65,7 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
     user["passwordSalt"] = query.value("password_salt").toString();
     user["realName"] = query.value("real_name").toString();
     user["role"] = query.value("role").toString();
+    user["mustChangePwd"] = query.value("must_change_pwd").toInt();
     user["workNo"] = query.value("work_no").toString();
     user["department"] = query.value("department").toString();
     user["phone"] = query.value("phone").toString();
@@ -86,7 +88,7 @@ QJsonObject UserDAO::findById(int userId) {
     QSqlQuery query(db);
     query.prepare(
         "SELECT user_id, username, password_hash, password_salt, real_name, "
-        "role, work_no, department, phone, email, face_feature, status, "
+        "role, must_change_pwd, work_no, department, phone, email, face_feature, status, "
         "last_login_at, created_at, updated_at "
         "FROM sys_user WHERE user_id = :id AND status != 'deleted'"
     );
@@ -100,6 +102,7 @@ QJsonObject UserDAO::findById(int userId) {
     user["passwordSalt"] = query.value("password_salt").toString();
     user["realName"] = query.value("real_name").toString();
     user["role"] = query.value("role").toString();
+    user["mustChangePwd"] = query.value("must_change_pwd").toInt();
     user["workNo"] = query.value("work_no").toString();
     user["department"] = query.value("department").toString();
     user["phone"] = query.value("phone").toString();
@@ -500,13 +503,14 @@ int UserDAO::countUsers(const QString& keyword, const QString& dept,
  */
 int UserDAO::insertUser(const User& user) {
     QString sql = "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
-                  "work_no, dept_id, department, role, face_feature, phone, email, status) "
-                  "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+                  "work_no, dept_id, department, role, must_change_pwd, face_feature, phone, email, status) "
+                  "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
     // dept_id<=0时插入NULL，避免外键约束失败（sys_department中不存在dept_id=0）
     QVariant deptIdVal = (user.deptId > 0) ? QVariant(user.deptId) : QVariant();
     return insertAndGetId(sql, {user.username, user.passwordHash, user.passwordSalt,
                           user.realName, user.workNo, deptIdVal, user.department,
-                          user.role, user.faceFeature, user.phone, user.email, user.status});
+                          user.role, user.mustChangePwd, user.faceFeature, user.phone,
+                          user.email, user.status});
 }
 
 /**
@@ -560,17 +564,28 @@ bool UserDAO::updateFaceFeature(int userId, const QString& feature) {
 }
 
 /**
- * @brief 更新用户口令哈希与盐值
+ * @brief 更新用户口令哈希与盐值，并清除强制改密标志
  * @param userId 用户ID
  * @param hash 口令哈希
  * @param salt 口令盐值
  * @return true=更新成功
+ * @note 改密成功即视为用户已自设新口令，must_change_pwd 同步清 0，避免重复弹强制改密窗
  */
 bool UserDAO::updateUserPassword(int userId, const QString& hash, const QString& salt) {
     // 位置占位符 ?：BaseDAO::execute 内部按 params 顺序做 bindValue(i)，
     // 只支持位置占位符；命名占位符需走 query()+手动 bindValue 路径
-    return execute("UPDATE sys_user SET password_hash=?, password_salt=? WHERE user_id=?",
+    return execute("UPDATE sys_user SET password_hash=?, password_salt=?, must_change_pwd=0 WHERE user_id=?",
                    {hash, salt, userId});
+}
+
+/**
+ * @brief 设置强制改密标志（新建用户/管理员重置密码后置 1，用户改密成功后由改密方法清 0）
+ * @param userId 用户ID
+ * @param mustChange 1=下次登录必须修改初始密码；0=不强制
+ * @return true=更新成功
+ */
+bool UserDAO::setMustChangePwd(int userId, int mustChange) {
+    return execute("UPDATE sys_user SET must_change_pwd = ? WHERE user_id = ?", {mustChange, userId});
 }
 
 /**

@@ -118,7 +118,8 @@ void UserManagementPage::setupUI() {
 
     // 角色/状态筛选 - CheckBox样式单选组件（自定义组件装入.ui槽位）
     m_roleFilter = new SingleSelectFilter(QStringLiteral("全部角色"), this);
-    m_roleFilter->setOptions({QStringLiteral("全部角色"), QStringLiteral("管理员"), QStringLiteral("普通用户")});
+    m_roleFilter->setOptions({QStringLiteral("全部角色"), QStringLiteral("管理员"),
+                              QStringLiteral("管理用户"), QStringLiteral("普通用户")});
     connect(m_roleFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadUsers(); });
     ui->roleFilterSlotLayout->addWidget(m_roleFilter);
 
@@ -134,7 +135,7 @@ void UserManagementPage::setupUI() {
     connect(m_paginationBar, &PaginationBar::prevClicked, this, &UserManagementPage::onPrevPage);
     connect(m_paginationBar, &PaginationBar::nextClicked, this, &UserManagementPage::onNextPage);
 
-    // 表格列宽策略：数据列Stretch均分，操作列Fixed 200px（触屏按钮）
+    // 表格列宽策略：数据列Stretch均分，操作列Fixed 200px（编辑/禁用·启用 触屏按钮）
     m_table->horizontalHeader()->setStretchLastSection(false);
     for (int i = 0; i < 8; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
@@ -280,7 +281,13 @@ void UserManagementPage::loadUsers() {
     // SingleSelectFilter::selectedText() + selectedIndex() 替换 QComboBox::currentText() + currentIndex()
     QString roleText = m_roleFilter->selectedText();
     int roleIdx = m_roleFilter->selectedIndex();
-    QString role = (roleIdx > 0) ? (roleText == QStringLiteral("管理员") ? SC::ROLE_ADMIN : SC::ROLE_USER) : "";
+    // 角色筛选：显示值→库值映射（三种角色）
+    QString role;
+    if (roleIdx > 0) {
+        if (roleText == QStringLiteral("管理员"))           role = SC::ROLE_ADMIN;
+        else if (roleText == QStringLiteral("管理用户"))    role = SC::ROLE_MANAGER;
+        else                                               role = SC::ROLE_USER;
+    }
 
     QString statusText = m_statusFilter->selectedText();
     int statusIdx = m_statusFilter->selectedIndex();
@@ -310,7 +317,10 @@ void UserManagementPage::loadUsers() {
     for (int i = 0; i < pageResult.list.size(); ++i) {
         const User& u = pageResult.list[i];
         int userId = u.userId;
-        QString roleText = (u.role == SC::ROLE_ADMIN) ? QStringLiteral("管理员") : QStringLiteral("普通用户");
+        // 三种角色显示：管理员 / 管理用户 / 普通用户
+        QString roleText = QStringLiteral("普通用户");
+        if (u.role == SC::ROLE_ADMIN)        roleText = QStringLiteral("管理员");
+        else if (u.role == SC::ROLE_MANAGER) roleText = QStringLiteral("管理用户");
         QString statusText = (u.status == SC::USER_ACTIVE) ? QStringLiteral("启用") :
                           (u.status == SC::USER_PENDING) ? QStringLiteral("待激活") :
                           (u.status == SC::USER_DISABLED) ? QStringLiteral("禁用") : QStringLiteral("已锁定");
@@ -325,6 +335,9 @@ void UserManagementPage::loadUsers() {
         if (u.role == SC::ROLE_ADMIN) {
             roleItem->setForeground(QColor("#2b6cdf"));
             roleItem->setBackground(QColor("#e6f0ff"));
+        } else if (u.role == SC::ROLE_MANAGER) {
+            roleItem->setForeground(QColor("#d46b08"));
+            roleItem->setBackground(QColor("#fff7e6"));
         } else {
             roleItem->setForeground(QColor("#389e0d"));
             roleItem->setBackground(QColor("#f0f9e8"));
@@ -598,8 +611,8 @@ void UserManagementPage::onToggleUserStatus(int userId) {
 
 // 角色按钮组样式更新 — 44px高统一弹窗内按钮风格
 void UserManagementPage::updateRoleBtnStyles() {
-    QPushButton* btns[2] = { m_dlgRoleBtn1, m_dlgRoleBtn2 };
-    for (int i = 0; i < 2; ++i) {
+    QPushButton* btns[3] = { m_dlgRoleBtn1, m_dlgRoleBtn2, m_dlgRoleBtn3 };
+    for (int i = 0; i < 3; ++i) {
         if (!btns[i]) continue;
         bool sel = (i == m_dlgRoleMode);
         btns[i]->setChecked(sel);

@@ -60,7 +60,7 @@ public:
     int         countActiveByMachineGroup(int machineGroupId);
     // 用户首页统计：今日借用/待归还/本月借用
     QJsonObject getUserStats(int userId);
-    // 最近借用活动（Dashboard动态日志）
+    // 最近借用活动
     QJsonArray  findRecentActivity(int limit);
     // 按用户ID查询借用记录
     QJsonArray  findByUserId(int userId, int limit);
@@ -68,8 +68,6 @@ public:
     // totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
     // + categoryStats（按品类件数）+ departmentStats（按部门），旧字段 totalBorrow/totalReturn 同步保留
     QJsonObject getLedgerStats();
-    // 清空全部操作日志（sys_operation_log），仅限危险操作鉴权通过后调用
-    bool        clearAllLogs();
 
     // ═══════════════════════════════════════════════
     // 实体类API（Controller层使用）— 从dao/RecordDAO合并

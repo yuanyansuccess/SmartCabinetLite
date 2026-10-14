@@ -21,8 +21,9 @@ const QString DB_USER     = "root";
 const QString DB_PASS     = "root";  // 默认口令占位；实际以 system.ini [Database]pass 为准（可用 SC_DB_PASS 环境变量覆盖）
 
 // ── 用户角色 ──
-const QString ROLE_ADMIN  = "admin";
-const QString ROLE_USER   = "user";
+const QString ROLE_ADMIN   = "admin";    // 管理员：登录后直接进管理界面
+const QString ROLE_MANAGER = "manager";  // 管理用户（管理员+普通用户双重身份）：登录后先选身份
+const QString ROLE_USER    = "user";     // 普通用户：登录后进功能选择页（借用归还/查询）
 
 // ── 用户状态（值与页面实际写入/播种数据一致，新人勿另造值） ──
 const QString USER_ACTIVE   = "active";
@@ -33,6 +34,11 @@ const QString USER_DELETED  = "deleted";
 
 // ── 新用户初始密码（批量导入/新建用户统一来源，修改此处即可全局生效）──
 const QString DEFAULT_INIT_PASSWORD = "123456";
+
+// ── 口令规则 ──
+const int PASSWORD_MIN_LENGTH = 6;        // 口令最小长度（登录校验与修改口令共用）
+// 忘记密码刷脸身份验证：最多尝试次数，超过则关闭入口防止暴力试探
+const int FACE_VERIFY_MAX_ATTEMPTS = 3;
 
 // ── 操作日志类型（sys_operation_log.operation_type） ──
 const QString OP_CHECKIN  = "checkin";
@@ -159,6 +165,15 @@ const int  FACE_MATCH_MAX_WAIT_MS = 6000;
 // 而 0.75 以上基本都能稳定通过，过滤后可显著提升识别成功率。
 const double FACE_MIN_CONFIDENCE = 0.75;
 
+// ── 人脸录入查重 ──
+// 一张脸只允许挂在一个账户上：录入时若新采集特征与库内已有特征的余弦相似度
+// 达到此值，且库内那条不属于本次录入的用户，则判定为"同一张脸重复录入"，拒绝写入。
+// 取 0.90 的理由：同一人的不同次采集会因发型/眼镜/光照波动，相似度可能落到 0.85~0.97，
+// 门槛若照搬登录识别的 0.94 会漏检同人重复录入；而不同人的相似度普遍低于 0.5，
+// 0.90 仍有充足区分度。
+// 宁可拦错不可漏判：同一张脸挂两个账户会导致刷脸登录时身份随机混淆，危害远大于多问管理员一句。
+const double FACE_DUPLICATE_SIMILARITY = 0.90;
+
 // ── 统计卡片尺寸 ──
 const int STAT_CARD_HEIGHT      = 100;  // 卡片高度
 const int STAT_CARD_ICON_SIZE   = 56;   // 图标尺寸
@@ -205,7 +220,6 @@ const int FACE_RETRY_DELAY_MS        = 500;    // 人脸识别重试延迟
 // ── UI延迟配置 ──
 const int UI_KEYBOARD_POPUP_DELAY_MS = 150;    // 软键盘弹出延迟
 const int UI_CAMERA_INIT_DELAY_MS    = 100;    // 摄像头初始化延迟
-const int UI_DASHBOARD_LOAD_DELAY_MS = 300;    // Dashboard数据加载延迟
 const int UI_CPU_STATS_DELAY_MS      = 500;    // CPU统计刷新延迟
 const int UI_LOGIN_FAIL_KEYBOARD_DELAY_MS = 500; // 登录失败后重弹密码键盘延迟
 const bool    BACKUP_AUTO_ENABLED = true;

@@ -6,6 +6,7 @@
 #include "UserController.h"
 #include "controller/AuthController.h"
 #include "db/DepartmentDAO.h"  // 从 dao/ 迁移到 db/
+#include "services/FaceRecognitionService.h"  // 人脸录入统一入口（内含查重）
 #include "common/Constants.h"
 
 UserController::UserController(QObject* parent) : QObject(parent) {}
@@ -70,6 +71,8 @@ int UserController::createUser(const User& user, const QString& password) {
 
     int id = m_dao.insertUser(u);
     if (id > 0) {
+        // 新建用户一律标记"下次登录强制修改初始密码"，防止默认口令长期沿用
+        m_dao.setMustChangePwd(id, 1);
         emit userCreated(id);
     } else {
         qWarning() << "[createUser] 数据库插入失败 | username:" << u.username
@@ -121,14 +124,50 @@ bool UserController::setUserStatus(int userId, const QString& status) {
 /**
  * @brief 用户自助修改口令
  * @param userId 用户ID
- * @param oldPwd 原口令
- * @param newPwd 新口令，需通过强度校验
+ * @param oldPwd 原口令（需与库中哈希比对通过）
+ * @param newPwd 新口令：长度6~64位，不能是初始口令123456，不能与原口令相同
  * @return true=修改成功；false=原口令错误或新口令不合法
+ * @note 修改成功后强制改密标志由DAO自动清除，下次登录不再弹强制改密窗
  */
 bool UserController::changePassword(int userId, const QString& oldPwd, const QString& newPwd) {
     User u = m_dao.findUserById(userId);
     if (u.userId == 0) return false;
     if (!AuthController::verifyPassword(oldPwd, u.passwordHash, u.passwordSalt)) return false;
+    // 初始口令安全期：用户自设新口令不允许继续使用默认初始口令
+    if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
+        qWarning() << "[changePassword] 新口令不能是初始口令";
+        return false;
+    }
+    if (newPwd == oldPwd) {
+        qWarning() << "[changePassword] 新口令不能与原口令相同";
+        return false;
+    }
+    QString newSalt = AuthController::generateSalt();
+    QString newHash = AuthController::hashPassword(newPwd, newSalt);
+    return m_dao.updateUserPassword(userId, newHash, newSalt);
+}
+
+/**
+ * @brief 首次登录强制修改口令（不校验原口令）
+ * @param userId 用户ID
+ * @param newPwd 新口令：长度6~64位，且不能是初始口令123456
+ * @return true=修改成功；false=新口令不合法或写库失败
+ * @note 适用场景：用户用初始口令（公开默认值）登录后被要求自行设置新口令。
+ *       此时原口令就是初始口令，校验它没有任何安全意义，故本接口不做原口令校验；
+ *       修改成功后强制改密标志由DAO自动清除。
+ */
+bool UserController::forceChangePassword(int userId, const QString& newPwd) {
+    User u = m_dao.findUserById(userId);
+    if (u.userId == 0) return false;
+    if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
+        qWarning() << "[forceChangePassword] 新口令不能是初始口令";
+        return false;
+    }
+    QString errorMsg;
+    if (!validatePassword(newPwd, errorMsg)) {
+        qWarning() << "[forceChangePassword] 密码不合法:" << errorMsg;
+        return false;
+    }
     QString newSalt = AuthController::generateSalt();
     QString newHash = AuthController::hashPassword(newPwd, newSalt);
     return m_dao.updateUserPassword(userId, newHash, newSalt);
@@ -137,15 +176,20 @@ bool UserController::changePassword(int userId, const QString& oldPwd, const QSt
 /**
  * @brief 管理员重置用户口令
  * @param userId 用户ID
- * @param newPwd 新口令，需通过强度校验
+ * @param newPwd 重置后的口令（允许为初始口令123456，由用户下次登录时修改）
+ * @param mustChange true=重置后标记下次登录强制修改（默认）；false=不标记
  * @return true=重置成功
+ * @note 用户自助"忘记密码"重置时传 false：用户当场已设新口令，无需再强制
  */
-bool UserController::resetPassword(int userId, const QString& newPwd) {
+bool UserController::resetPassword(int userId, const QString& newPwd, bool mustChange) {
     User u = m_dao.findUserById(userId);
     if (u.userId == 0) return false;
     QString newSalt = AuthController::generateSalt();
     QString newHash = AuthController::hashPassword(newPwd, newSalt);
-    return m_dao.updateUserPassword(userId, newHash, newSalt);
+    // 先写口令再置标志：updateUserPassword 会清标志，顺序不能反
+    if (!m_dao.updateUserPassword(userId, newHash, newSalt)) return false;
+    if (mustChange) m_dao.setMustChangePwd(userId, 1);
+    return true;
 }
 
 /**
@@ -153,9 +197,12 @@ bool UserController::resetPassword(int userId, const QString& newPwd) {
  * @param userId 用户ID
  * @param faceFeature 128维特征串（逗号分隔）
  * @return true=录入成功
+ * @note 走 services/FaceRecognitionService::enrollFaceChecked 统一入口，录入前必查重：
+ *       同一张脸已挂在其他账户时拒绝写入，避免绕过页面直连数据库造成重复录入。
  */
 bool UserController::enrollFace(int userId, const QString& faceFeature) {
-    bool ok = m_dao.updateFaceFeature(userId, faceFeature);
+    FaceRecognitionService faceSvc;
+    bool ok = faceSvc.enrollFaceChecked(userId, faceFeature).success;
     if (ok) emit faceEnrolled(userId);
     return ok;
 }
@@ -191,7 +238,7 @@ QStringList UserController::allDepartments() {
  * @return 角色标识列表（管理员、普通用户）
  */
 QStringList UserController::allRoles() {
-    return {SC::ROLE_ADMIN, SC::ROLE_USER};
+    return {SC::ROLE_ADMIN, SC::ROLE_MANAGER, SC::ROLE_USER};
 }
 
 /**

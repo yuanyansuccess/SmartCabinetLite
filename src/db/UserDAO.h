@@ -54,6 +54,7 @@ public:
     bool         updateUserStatus(int userId, const QString& status);
     bool         updateFaceFeature(int userId, const QString& feature);
     bool         updateUserPassword(int userId, const QString& hash, const QString& salt);
+    bool         setMustChangePwd(int userId, int mustChange);  // 置/清强制改密标志（1=强制，0=不强制）
     bool         updateLastLogin(int userId);
 
     static User fromQuery(const QSqlQuery& q);

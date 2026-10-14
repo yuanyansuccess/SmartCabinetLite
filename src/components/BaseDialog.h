@@ -4,10 +4,17 @@
  * @author 袁燕
  * @date 2026-06-26
  * @说明 提供统一的圆角卡片式对话框容器，自动居中、无边框、ESC关闭。
- *   子类只需调用 setupCard() 获取内容布局即可添加业务控件。
+ *   子类有两种用法：
+ *     1) 重写 setupContent()，并在子类构造函数中显式调用一次 setupContent()；
+ *     2) 不重写，直接在构造函数里往 contentLayout() / buttonLayout() 添加控件。
+ *   ⚠ 基类不会自动调用 setupContent()（虚函数在基类构造期间无法派发到子类），
+ *     漏调用将得到一个只有标题栏的空白对话框。
  *   用法：
  *     class MyDialog : public BaseDialog {
- *         void setupContent(QVBoxLayout* contentLayout) override { ... }
+ *     public:
+ *         explicit MyDialog(QWidget* p) : BaseDialog(p, 520) { setupContent(); }
+ *     protected:
+ *         void setupContent() override { ... }   // 往 contentLayout() 添加控件
  *     };
  */
 #ifndef BASEDIALOG_H
