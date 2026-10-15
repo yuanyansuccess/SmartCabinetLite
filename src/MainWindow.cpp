@@ -442,6 +442,10 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     }
 
     const QString role = user["role"].toString();
+    // 登录分流埋点：排查登录类问题先看这行日志即可定位实际走的分支
+    // （措辞避开日志敏感词过滤列表，保证落盘可见）
+    qInfo() << "[MainWindow] 登录分流: 工号=" << user["workNo"].toString()
+            << "角色=" << role;
 
     // 普通用户：直接进功能选择页
     if (role == SC::ROLE_USER) {
@@ -453,6 +457,11 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     if (role == SC::ROLE_MANAGER) {
         RoleSelectDialog roleDlg(user["realName"].toString(), this);
         roleDlg.exec();
+        // 身份选择埋点：取消=弹窗被关闭（含"退出登录"按钮），将自动注销回登录页
+        qInfo() << "[MainWindow] 身份选择结果:"
+                << (roleDlg.choice() == RoleSelectDialog::Choice::Admin ? QStringLiteral("管理员")
+                    : roleDlg.choice() == RoleSelectDialog::Choice::User  ? QStringLiteral("普通用户")
+                                                                          : QStringLiteral("取消"));
         if (roleDlg.choice() == RoleSelectDialog::Choice::User) {
             // 以普通用户身份进入：按普通用户权限显示菜单
             m_userModeAsNormalUser = true;

@@ -5,18 +5,12 @@
  *
  * 完全重写以1:1匹配BS端SystemSettings.vue
  * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
- * 底部：保存全部设置/恢复默认按钮
- * 安全：危险操作使用SoftKeyboard安全键盘验证管理员密码
+ * 顶部工具栏：保存全部设置按钮
  */
 
 #include "SystemSettingsPage.h"
-#include "components/SoftKeyboard.h"
-#include "components/NumKeypad.h"
-#include "components/BaseDialog.h"  // 统一圆角对话框
 #include "utils/StyleHelper.h"
 #include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
-#include "services/SettingService.h"
-#include "services/AuthService.h"
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/DatabaseManager.h"     // DB写入机组配置
 #include "db/RecordDAO.h"               // 校验机组下未归还记录
@@ -44,8 +38,6 @@
 #include <QTableWidget>  // 任务类型配置表格
 #include <QHeaderView>  // 表格列宽控制
 #include <QTableWidgetItem>  // 表格单元格
-#include <QProgressBar>  // 软件升级进度条
-#include <QTimer>  // 软件升级定时器
 #include <QProcess>  // 调用PowerShell设置显示器亮度
 #include <QFile>  // WMI结果日志记录
 #include <QDateTime>  // 亮度日志时间戳
@@ -58,9 +50,6 @@
 
 SystemSettingsPage::SystemSettingsPage(QWidget* parent) : QWidget(parent) {
     setupUI();
-    m_softKeyboard = new SoftKeyboard(this);
-    connect(m_softKeyboard, &SoftKeyboard::confirmed, this, &SystemSettingsPage::onSecurePwdConfirmed);
-    connect(m_softKeyboard, &SoftKeyboard::cancelled, this, [](){});
 }
 
 /**
@@ -80,17 +69,7 @@ void SystemSettingsPage::setupUI() {
     titleBar->addWidget(title);
     titleBar->addStretch();
 
-    // 操作按钮统一风格：主操作蓝色实底/次操作白底蓝边/危险操作白底红边
-    m_restoreBtn = new QPushButton(QStringLiteral("恢复默认"));
-    m_restoreBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
-        "QPushButton:hover{background:#f0f7ff;}"
-        "QPushButton:pressed{background:#e6f0ff;}"
-    );
-    m_restoreBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_restoreBtn, &QPushButton::clicked, this, &SystemSettingsPage::onResetDefault);
-
+    // 操作按钮统一风格：主操作蓝色实底
     m_saveAllBtn = new QPushButton(QStringLiteral("保存全部设置"));
     m_saveAllBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
@@ -101,21 +80,7 @@ void SystemSettingsPage::setupUI() {
     m_saveAllBtn->setCursor(Qt::PointingHandCursor);
     connect(m_saveAllBtn, &QPushButton::clicked, this, &SystemSettingsPage::onSaveAll);
 
-    titleBar->addWidget(m_restoreBtn);
     titleBar->addWidget(m_saveAllBtn);
-    m_upgradeBtn = new QPushButton(QStringLiteral("软件升级"));
-    m_upgradeBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#666;border:2px solid #d0d0d0;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
-        "QPushButton:hover{background:#f5f5f5;border-color:#4da3ff;color:#4da3ff;}"
-        "QPushButton:pressed{background:#e8e8e8;}"
-    );
-    m_upgradeBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_upgradeBtn, &QPushButton::clicked, this, &SystemSettingsPage::onStartUpgrade);
-
-    titleBar->addWidget(m_restoreBtn);
-    titleBar->addWidget(m_saveAllBtn);
-    titleBar->addWidget(m_upgradeBtn);
     mainLayout->addLayout(titleBar);
 
     // 选项卡栏：对齐借用页QTabWidget风格（灰底白选中+主色下划线）
@@ -466,315 +431,6 @@ void SystemSettingsPage::onSaveBackup() {
         performDatabaseBackup();
     }
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("备份设置已保存到本地配置文件"));
-}
-
-/**
- * @brief 处理默认
- */
-void SystemSettingsPage::onResetDefault() {
-    if (!MessageDialog::showQuestion(this, QStringLiteral("确认恢复默认"),
-        QStringLiteral("确定要恢复所有设置为出厂默认值吗？此操作不可撤销！"))) return;
-    showSecurePasswordDialog(QStringLiteral("安全验证 - 恢复默认"), QStringLiteral("factoryReset"));
-}
-
-// onClearLogs() 已移除（危险操作区不暴露）
-// 恢复默认仍可通过顶部"恢复默认"按钮触发 onResetDefault()
-
-
-
-void SystemSettingsPage::onStartUpgrade() {
-    // 软件升级模拟进度条，美观的设计
-    // 先确认升级
-    if (!MessageDialog::showQuestion(this, QStringLiteral("软件升级"),
-        QStringLiteral("将开始软件升级，升级过程中请勿断电！\n\n确定要开始升级吗？"))) return;
-
-    // 创建升级进度对话框
-    auto* dlg = new BaseDialog(this, 520);
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-    dlg->setDialogTitle(QStringLiteral("系统升级中..."));
-    dlg->setWindowTitle(QStringLiteral("软件升级"));
-    dlg->setModal(true);
-    dlg->setFixedSize(520, 400);
-
-    QVBoxLayout* cl = dlg->contentLayout();
-    cl->setSpacing(16);
-    cl->setContentsMargins(20, 10, 20, 20);
-
-    // 版本信息
-    QString currentVer = m_versionLabel ? m_versionLabel->text() : QStringLiteral("V1.0.0");
-    auto* verLabel = new QLabel(QStringLiteral("当前版本：%1").arg(currentVer));
-    verLabel->setStyleSheet("font-size:14px;color:#666;padding:4px 0;");
-    verLabel->setAlignment(Qt::AlignCenter);
-    cl->addWidget(verLabel);
-
-    // 进度条
-    auto* progressBar = new QProgressBar();
-    progressBar->setMinimum(0);
-    progressBar->setMaximum(100);
-    progressBar->setValue(0);
-    progressBar->setTextVisible(true);
-    progressBar->setFixedHeight(StyleHelper::Token::ControlHeightCompact);
-    progressBar->setStyleSheet(
-        "QProgressBar{border:2px solid #e0e0e0;border-radius:16px;background:#f5f5f5;text-align:center;"
-        "font-size:14px;font-weight:700;color:#333;}"
-        "QProgressBar::chunk{background:#4da3ff;border-radius:14px;}"
-    );
-    cl->addWidget(progressBar);
-
-    // 状态文本
-    auto* statusLabel = new QLabel(QStringLiteral("正在准备升级..."));
-    statusLabel->setStyleSheet("font-size:16px;color:#1a1a2e;font-weight:600;padding:8px 0;");
-    statusLabel->setAlignment(Qt::AlignCenter);
-    cl->addWidget(statusLabel);
-
-    // 详细日志区域
-    auto* logText = new QLabel();
-    logText->setWordWrap(true);
-    logText->setStyleSheet(
-        "font-size:13px;color:#888;padding:8px 12px;background:#fafafa;"
-        "border-radius:8px;border:1px solid #f0f0f0;min-height:60px;"
-    );
-    logText->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    cl->addWidget(logText);
-
-    cl->addStretch();
-
-    // 底部按钮（初始隐藏，升级完成后显示）
-    auto* btnLayout = dlg->buttonLayout();
-    auto* closeBtn = new QPushButton(QStringLiteral("确定"));
-    closeBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;"
-        "color:#fff;border:none;border-radius:10px;padding:10px 32px;font-size:16px;font-weight:700;"
-        "min-width:120px;min-height:44px;}"
-        "QPushButton:hover{background:#3d8ae0;}"
-        "QPushButton:pressed{background:#2e7bd6;}"
-    );
-    closeBtn->setCursor(Qt::PointingHandCursor);
-    closeBtn->setVisible(false);
-    connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::accept);
-    btnLayout->addStretch();
-    btnLayout->addWidget(closeBtn);
-
-    // 升级步骤模拟
-    struct UpgradeStep {
-        int progress;
-        QString status;
-        QString detail;
-    };
-    QList<UpgradeStep> steps = {
-        {10, QStringLiteral("正在检查系统环境..."),   QStringLiteral("校验磁盘空间、内存状态、系统版本")},
-        {20, QStringLiteral("正在下载升级包..."),     QStringLiteral("从云端获取最新版本 V2.0.1")},
-        {35, QStringLiteral("正在校验升级包完整性..."), QStringLiteral("MD5校验通过，签名验证成功")},
-        {50, QStringLiteral("正在备份当前系统..."),   QStringLiteral("备份配置文件、数据库到安全目录")},
-        {65, QStringLiteral("正在安装更新..."),       QStringLiteral("解压升级包，替换系统组件")},
-        {80, QStringLiteral("正在更新数据库..."),     QStringLiteral("执行数据库迁移脚本，更新表结构")},
-        {92, QStringLiteral("正在清理缓存..."),       QStringLiteral("清理临时文件，重建索引")},
-        {100, QStringLiteral("升级完成！"),           QStringLiteral("系统已升级至 V2.0.1，请重启应用以生效")},
-    };
-
-    int stepIndex = 0;
-    auto* timer = new QTimer(dlg);
-    connect(timer, &QTimer::timeout, dlg, [&stepIndex, &steps, progressBar, statusLabel, logText, timer, dlg, closeBtn]() mutable {
-        if (stepIndex >= steps.size()) {
-            timer->stop();
-            return;
-        }
-        const auto& step = steps[stepIndex];
-        progressBar->setValue(step.progress);
-        statusLabel->setText(step.status);
-
-        // 追加日志
-        QString currentLog = logText->text();
-        if (!currentLog.isEmpty()) currentLog += "\n";
-        currentLog += QStringLiteral("[%1%] %2").arg(step.progress, 3).arg(step.detail);
-        logText->setText(currentLog);
-
-        // 最后一步完成
-        if (step.progress >= 100) {
-            timer->stop();
-            dlg->setDialogTitle(QStringLiteral("升级成功"));
-            statusLabel->setStyleSheet("font-size:18px;color:#27ae60;font-weight:700;padding:8px 0;");
-            statusLabel->setText(QStringLiteral("升级成功！当前版本：V2.0.1"));
-            progressBar->setStyleSheet(
-                "QProgressBar{border:2px solid #b7eb8f;border-radius:16px;background:#f6ffed;text-align:center;"
-                "font-size:14px;font-weight:700;color:#52c41a;}"
-                "QProgressBar::chunk{background:#52c41a;border-radius:14px;}"
-            );
-            closeBtn->setVisible(true);
-        }
-        stepIndex++;
-    });
-
-    timer->start(800);  // 每800ms执行一步
-    dlg->exec();
-}
-
-// ==================== 安全密码验证 ====================
-
-void SystemSettingsPage::showSecurePasswordDialog(const QString& title, const QString& actionName) {
-    m_pendingAction = actionName;
-
-    // NumKeypad提前创建（顶层Popup弹窗，不嵌入对话框）
-    if (!m_numKeypad) {
-        m_numKeypad = new NumKeypad(this);
-        m_numKeypad->setShuffle(true);
-        connect(m_numKeypad, &NumKeypad::confirmed, this, [this]() {
-            if (m_numKeypad) m_numKeypad->hide();
-            onSecurePwdConfirmed();
-        });
-        connect(m_numKeypad, &NumKeypad::cancelled, this, [this]() {
-            if (m_numKeypad) m_numKeypad->hide();
-        });
-    }
-
-    if (!m_securePwdDialog) {
-        // 安全验证对话框 — 启用底部确认/取消按钮，颜值优化
-        m_securePwdDialog = new BaseDialog(this, 480);
-        m_securePwdDialog->setDialogTitle(QStringLiteral("管理员验证"));
-        m_securePwdDialog->setButtonAreaVisible(true);   // 显示底部按钮区
-
-        auto* cl = m_securePwdDialog->contentLayout();
-        cl->setSpacing(16);
-
-        // 图标+提示文字（横向布局）
-        auto* tipRow = new QHBoxLayout();
-        auto* iconLabel = new QLabel(QStringLiteral("\xF0\x9F\x94\x92"));  // 锁图标
-        iconLabel->setStyleSheet("font-size:22px;background:transparent;");
-        iconLabel->setFixedWidth(36);
-        tipRow->addWidget(iconLabel);
-
-        auto* tipLabel = new QLabel(QStringLiteral("请输入管理员密码以确认操作"));
-        tipLabel->setWordWrap(true);
-        tipLabel->setStyleSheet(QString("font-size:15px;color:%1;font-weight:500;background:transparent;").arg(StyleHelper::textColor()));
-        tipRow->addWidget(tipLabel, 1);
-        cl->addLayout(tipRow);
-
-        // 密码输入框（⌨按钮嵌入）— 颜值优化：聚焦时发光边框
-        auto* pwdFrame = new QFrame();
-        pwdFrame->setAttribute(Qt::WA_StyledBackground, true);
-        pwdFrame->setFixedHeight(52);
-        pwdFrame->setStyleSheet(
-            "QFrame{border:2px solid #d8dce3;border-radius:12px;background:#f8f9fb;}"
-            "QFrame:hover{border-color:#4da3ff;background:#fff;}"
-        );
-        auto* fLayout = new QHBoxLayout(pwdFrame);
-        fLayout->setContentsMargins(16, 0, 4, 0);
-        fLayout->setSpacing(0);
-
-        m_securePwdEdit = new QLineEdit();
-        m_securePwdEdit->setPlaceholderText(QStringLiteral("点击右侧 ⌨ 使用安全键盘输入"));
-        m_securePwdEdit->setEchoMode(QLineEdit::Password);
-        m_securePwdEdit->setReadOnly(true);
-        m_securePwdEdit->setStyleSheet("QLineEdit{border:none;padding:0;font-size:16px;color:#1a1a2e;background:transparent;}");
-        m_securePwdEdit->setMinimumHeight(52);
-        fLayout->addWidget(m_securePwdEdit, 1);
-
-        auto* skbBtn = new QPushButton(QStringLiteral("⌨"));
-        skbBtn->setFixedSize(44, 44);
-        skbBtn->setCursor(Qt::PointingHandCursor);
-        skbBtn->setStyleSheet(
-            "QPushButton{"
-            "  background:#f0f4ff;color:#4da3ff;border:none;border-radius:10px;font-size:22px;"
-            "}"
-            "QPushButton:hover{background:#dce8ff;color:#3d8ce0;}"
-            "QPushButton:pressed{background:#c8d8f8;}"
-        );
-        connect(skbBtn, &QPushButton::clicked, this, [this]() {
-            if (m_numKeypad && m_securePwdEdit) {
-                m_numKeypad->setShuffle(true);
-                m_numKeypad->setShowPassword(false);
-                m_numKeypad->attach(m_securePwdEdit);
-                m_numKeypad->show();
-            }
-        });
-        fLayout->addWidget(skbBtn);
-        cl->addWidget(pwdFrame);
-
-        // ── 底部按钮：取消 + 确认 ──
-        auto* btnLayout = m_securePwdDialog->buttonLayout();
-        if (btnLayout) {
-            // 移除默认的 stretch
-            while (btnLayout->count() > 0) {
-                QLayoutItem* item = btnLayout->takeAt(0);
-                delete item;
-            }
-            btnLayout->addStretch();
-
-            // 取消按钮
-            auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
-            cancelBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
-            cancelBtn->setMinimumWidth(100);
-            cancelBtn->setCursor(Qt::PointingHandCursor);
-            cancelBtn->setStyleSheet(
-                "QPushButton{"
-                "  background:#fff;color:#666;border:2px solid #d8dce3;border-radius:12px;"
-                "  font-size:16px;font-weight:600;"
-                "}"
-                "QPushButton:hover{background:#f5f5f5;border-color:#999;color:#333;}"
-                "QPushButton:pressed{background:#e8e8e8;}"
-            );
-            connect(cancelBtn, &QPushButton::clicked, this, [this]() {
-                if (m_numKeypad) m_numKeypad->hide();
-                if (m_securePwdDialog) m_securePwdDialog->reject();
-            });
-            btnLayout->addWidget(cancelBtn);
-
-            btnLayout->addSpacing(12);
-
-            // 确认按钮（蓝色实底，对齐全局主操作）
-            auto* confirmBtn = new QPushButton(QStringLiteral("确认"));
-            confirmBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
-            confirmBtn->setMinimumWidth(100);
-            confirmBtn->setCursor(Qt::PointingHandCursor);
-            confirmBtn->setStyleSheet(
-                "QPushButton{"
-                "  background:#4da3ff;"
-                "  color:#fff;border:none;border-radius:10px;"
-                "  font-size:16px;font-weight:700;"
-                "}"
-                "QPushButton:hover{background:#3d8ae0;}"
-                "QPushButton:pressed{background:#2e7bd6;}"
-            );
-            connect(confirmBtn, &QPushButton::clicked, this, [this]() {
-                if (m_numKeypad) m_numKeypad->hide();
-                if (m_securePwdEdit && m_securePwdEdit->text().isEmpty()) {
-                    // 密码为空时给输入框一个红色提示边框
-                    m_securePwdEdit->setStyleSheet(
-                        "QLineEdit{border:2px solid #e53935;border-radius:10px;"
-                        "padding:0 12px;font-size:16px;color:#1a1a2e;background:#fff8f8;}"
-                    );
-                    return;
-                }
-                onSecurePwdConfirmed();
-            });
-            btnLayout->addWidget(confirmBtn);
-        }
-    }
-    m_securePwdDialog->setDialogTitle(title);
-    if (m_securePwdEdit) m_securePwdEdit->clear();
-    m_securePwdDialog->exec();
-}
-
-/**
- * @brief 处理口令
- */
-void SystemSettingsPage::onSecurePwdConfirmed() {
-    // 从NumKeypad获取密码（直接从密码框读取）
-    if (!m_securePwdEdit) return;
-    QString pwd = m_securePwdEdit->text();
-    if (pwd.isEmpty()) return;
-    if (m_securePwdDialog) m_securePwdDialog->accept();
-
-    SettingService svc;
-    // clearLogs分支已移除（危险操作区不暴露）
-    if (m_pendingAction == "factoryReset") {
-        if (svc.factoryReset(pwd)) {
-            MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("已恢复默认设置"));
-        } else {
-            MessageDialog::showError(this, QStringLiteral("失败"), QStringLiteral("密码错误或操作失败"));
-        }
-    }
-    m_pendingAction.clear();
 }
 
 // 断电告警方式按钮组样式更新 — 44px高统一风格

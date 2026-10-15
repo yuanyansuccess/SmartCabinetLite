@@ -15,10 +15,6 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QCryptographicHash>  // SQLite播种用SHA256
-#include <QNetworkInterface>  // 物理网络连接检测
-#include <QTcpSocket>
-#include <QEventLoop>
-#include <QTimer>
 
 /**
          * @brief 获取数据库连接单例
@@ -92,35 +88,6 @@ bool DatabaseManager::isConnected() const {
     const_cast<DatabaseManager*>(this)->ensureConnected();
     l.relock();
     return m_db.isOpen() && QSqlQuery(m_db).exec("SELECT 1");
-}
-
-/// 检测真实物理网络链路连接状态
-/// 区别于isConnected()（数据库连接检测），本方法检测网卡物理链路（网线/WiFi）是否真实连通
-/// 跨平台兼容：Windows + 麒麟Linux，纯Qt网络接口，无平台私有API
-/// 判断标准（全部满足才判定该网卡联网）：
-/// 1. 非回环、非虚拟隧道网卡
-/// 2. 网卡标记：IsUp(启用) + IsRunning(驱动正常) + CanBroadcast(物理链路存在，拔网线失效)
-/// 3. 拥有有效局域网/公网IPv4地址，排除169.254.x.x断网自动私有地址
-/// 返回：true=存在至少一张网卡物理链路连通且有可用IP；false=全部网卡断开/无有效网络
-bool DatabaseManager::isNetworkConnected() const
-{
-    QTcpSocket socket;
-    QEventLoop loop;
-    QTimer timeoutTimer;
-    timeoutTimer.setSingleShot(true);
-    timeoutTimer.setInterval(300);
-
-    QObject::connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    QObject::connect(&socket, &QTcpSocket::connected, &loop, &QEventLoop::quit);
-    QObject::connect(&socket, &QTcpSocket::errorOccurred, &loop, &QEventLoop::quit);
-
-    timeoutTimer.start();
-    socket.connectToHost("114.114.114.114", 53);
-    loop.exec();
-
-    bool reachable = socket.state() == QTcpSocket::ConnectedState;
-    socket.abort();
-    return reachable;
 }
 
 /**

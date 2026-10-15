@@ -153,9 +153,7 @@ QPushButton:pressed{}</string></property>
         <column><property name="text"><string>姓名</string></property></column>
         <column><property name="text"><string>部门</string></property></column>
         <column><property name="text"><string>角色</string></property></column>
-        <column><property name="text"><string>联系电话</string></property></column>
         <column><property name="text"><string>人脸录入</string></property></column>
-        <column><property name="text"><string>创建时间</string></property></column>
         <column><property name="text"><string>状态</string></property></column>
         <column><property name="text"><string>操作</string></property></column>
        </widget>

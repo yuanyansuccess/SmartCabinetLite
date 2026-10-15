@@ -41,13 +41,13 @@ public:
     static double euclideanDistance(const QVector<double>& a, const QVector<double>& b);
 
     // 从数据库获取所有已录入人脸并进行匹配
-    // 阈值依据实测分布标定（face-api 体系跨人相似度区间为 0.81~0.95，
-    // 同人不同帧为 0.94~0.99，区分带在 0.955~0.968 之间）：
-    // 1. threshold 0.94（多人脸 margin 分支的相似度下限，须配合第二名差距保护）
-    // 2. highConfidence 0.96（多人脸直通线：跨人实测可达 0.955，0.95 会放进陌生人）
-    // 3. singleFaceThreshold 0.96（库内仅 1 人脸时的最低门槛，同上取 0.96）
-    // 4. marginThreshold 0.15（第二名的最小差距，双高候选一律拒绝）
-    // 5. maxEuclideanDist 0.80（欧氏距离第二道防线）
+    // 阈值依据实测分布标定（face_recog_log 2026-10-15 实测）：
+    //   同人不同帧 0.9507~0.99，跨人（相像的两人）0.81~0.9375，区分带 0.9375~0.9507
+    // 1. threshold 0.94（多人脸第一名通过下限，同时兼任第二名拒绝线 secondRejectLine）
+    // 2. singleFaceThreshold 0.96（库内仅 1 人脸时的最低门槛，陌生人撞线实测可达 0.955）
+    // 3. maxEuclideanDist 0.80（欧氏距离第二道防线）
+    // 原 margin 0.15 相对差距判定已废弃：相像的两人与本人帧差距仅约 0.012，
+    // margin 会把真人误拒（日志 #565 实证），改为第二名绝对值判定。
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,

@@ -209,6 +209,14 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 相似度可达 0.955，0.95 会放行陌生人；本人成功帧实测全部 ≥0.968，
     // 0.96 之下本人低质量帧会被拒后由多帧重试兜回，不损失可用性。
     const double singleFaceThreshold = 0.96;
+    // 第二名拒绝线（多人脸判定核心，2026-10-15 face_recog_log 实测标定）：
+    //   同人帧下限 0.9507（本人成功帧最低值），跨人帧上限 0.9375（相像的两人最高值），
+    //   取 0.94 分界——第二名也达到此线说明两条候选同属一张脸（重复挂账户/双胞胎），
+    //   取最高者等于随机选人，必须拒绝；第二名低于此线说明第一名明确胜出，放行。
+    // 原 margin(0.15) 相对差距判定在"长得像的两人"场景失效：
+    //   本人帧 0.95 与相像第二名的 0.9375 差距仅 0.0125，远小于 0.15，
+    //   导致真人刷脸被"多个账户与您特征相近"误拒（日志 #565-566 实证）。
+    const double secondRejectLine = threshold;   // 0.94
     bool cosOk = false;
 
     if (candidates.size() == 1) {
@@ -218,18 +226,11 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         qDebug() << "[FaceRecog] 单人脸模式: best.sim=" << best.similarity
                  << "threshold=" << singleFaceThreshold
                  << "cosOk=" << cosOk;
-    } else if (best.similarity >= highConfidence &&
-               (best.similarity - secondSim) > marginThreshold) {
-        // 多人脸高置信度：除自身相似度达标外，第二名差距也必须足够大。
-        // 两个候选同时逼近直通线说明库内存在多条相近特征（同一张脸挂多个
-        // 账户，或双胞胎），此时取最高者等于随机选人，必须拒绝。
-        cosOk = true;
-    } else if (candidates.size() >= 2 &&
-               best.similarity >= threshold &&
-               (best.similarity - secondSim) > marginThreshold) {
-        // 多人脸中置信度：第二名差距足够大才通过
+    } else if (best.similarity >= threshold && secondSim < secondRejectLine) {
+        // 多人脸：第一名达到登录线且第二名处于跨人水平 → 第一名明确胜出
         cosOk = true;
     }
+    // 其余情况（第一名未达登录线 / 第二名同样达到同人线）一律拒绝
     // 欧氏距离验证（第二道防线）
     bool distOk = (best.euclideanDist <= maxEuclideanDist);
 
@@ -256,7 +257,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         // 界面不显示算法数值
         const bool ambiguousCandidates =
             (candidates.size() >= 2) &&
-            (best.similarity - secondSim) <= marginThreshold &&
+            (secondSim >= secondRejectLine) &&
             (best.similarity >= threshold);
         if (likelyStranger) {
             result.message = QStringLiteral("未识别到您，请重试");
@@ -265,6 +266,12 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
             qDebug() << "[FaceRecog] 双高候选拒绝: best=" << best.similarity
                      << "userId=" << best.userId
                      << "second=" << secondSim;
+        } else if (candidates.size() == 1 && best.similarity >= threshold) {
+            // 单人脸边界带：相似度已达多人脸通过线但未到单人脸直通线，
+            // 属"接近但本次帧质量不足"，给出改善采集的具体引导而非笼统重试
+            result.message = QStringLiteral("已接近识别成功，请正对摄像头并稍近一些重试");
+            qDebug() << "[FaceRecog] 单人脸边界带拒绝: sim=" << best.similarity
+                     << "need=" << singleFaceThreshold;
         } else {
             // 疑似同一人但本次质量不足：不算陌生人，交给上层继续采样
             result.message = QStringLiteral("未匹配，请重试");
@@ -394,7 +401,8 @@ FaceRecognitionService::EnrollFaceResult FaceRecognitionService::enrollFaceCheck
     result.duplicate = findDuplicateFace(faceDescriptor, userId);
     if (result.duplicate.duplicated) {
         result.duplicated = true;
-        result.message = QStringLiteral("该人脸已录入到用户「%1」，同一张人脸不允许录入到第二个账户")
+        result.message = QStringLiteral("该人脸已录入到用户「%1」，同一张人脸不允许录入到第二个账户；"
+                                        "若站错人请重新采集，若确需替换请联系管理员清除对方人脸后再录入")
                          .arg(result.duplicate.ownerText());
         return result;
     }

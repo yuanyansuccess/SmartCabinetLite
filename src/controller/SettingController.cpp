@@ -87,19 +87,6 @@ void SettingController::setSetting(const QString& key, const QString& value) {
 void SettingController::saveSettings() { m_config->save(); }
 
 /**
- * @brief 恢复出厂设置入口
- * @param adminPassword 管理员口令
- * @return true=管理员身份校验通过
- * @note 实际业务由 SettingService::factoryReset 执行
- */
-bool SettingController::factoryReset(const QString& adminPassword) {
-    // 恢复出厂设置由 SettingService::factoryReset 执行（内部已用 AuthService::verifyPassword 校验管理员密码），
-    // 本控制器保留转发入口，不重复实现校验逻辑
-    Q_UNUSED(adminPassword)
-    return true;
-}
-
-/**
  * @brief 重启系统
  * @return true=受理成功
  * @note 当前实现由上层负责重启流程

@@ -5,7 +5,7 @@
  *
  * 完全重写以1:1匹配BS端
  * 布局：双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
- * 底部：保存全部设置/恢复默认按钮
+ * 顶部工具栏：保存全部设置按钮
  */
 #pragma once
 #include <QWidget>
@@ -18,9 +18,6 @@
 #include <QSlider>
 #include <QSpinBox>
 
-class SoftKeyboard;
-class NumKeypad;
-class BaseDialog;
 class QVBoxLayout;
 
 #include <QList>
@@ -39,9 +36,6 @@ private slots:
     void onSaveAlert();
     void onSaveBorrow();
     void onSaveBackup();
-    void onResetDefault();
-    void onStartUpgrade();
-    void onSecurePwdConfirmed();
     void onMachineGroupSelected(int index);  // 下拉选择机组自动保存
 
 private:
@@ -66,7 +60,6 @@ private:
     void buildMachineGroupSection(QVBoxLayout* layout);
     void buildBackupSaveBar(QVBoxLayout* layout);
 
-    void showSecurePasswordDialog(const QString& title, const QString& actionName);
     // 调用系统API设置显示器亮度(0-100)，异步执行不阻塞UI
     void applyDisplayBrightness(int percent);
     /** 亮度调整平台分支与日志（applyDisplayBrightness拆解） */
@@ -101,10 +94,8 @@ private:
     QWidget* m_backupPanel = nullptr;
     // 任务配置面板已迁移到SystemMaintenancePage
 
-    // 底部按钮
-    QPushButton* m_restoreBtn = nullptr;
+    // 顶部工具栏按钮
     QPushButton* m_saveAllBtn = nullptr;
-    QPushButton* m_upgradeBtn = nullptr;
 
     // 网络配置
     QLineEdit* m_ipEdit = nullptr;
@@ -162,8 +153,6 @@ private:
     QLabel* m_cpuLabel = nullptr;
     QLabel* m_memoryLabel = nullptr;
 
-    // 危险操作区已移除（恢复出厂设置/清除全部日志功能不暴露在设置页面）
-
     // 离开页面未保存时提示用户
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
@@ -173,13 +162,6 @@ private:
     void loadConfigFromIni();  // 从本地INI文件加载配置到UI
     bool saveConfigToIni();  // 将当前UI值写入本地INI文件，返回是否成功
     bool m_savedFlag = false;     // 是否已点击过保存按钮
-
-    // 安全密码验证
-    SoftKeyboard* m_softKeyboard = nullptr;
-    NumKeypad* m_numKeypad = nullptr;  // 独立数字键盘
-    BaseDialog* m_securePwdDialog = nullptr;  // 统一圆角风格
-    QLineEdit* m_securePwdEdit = nullptr;
-    QString m_pendingAction;
 
     // 当前机组名称配置：下拉选择框
     QComboBox* m_machineGroupCombo = nullptr;

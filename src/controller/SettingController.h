@@ -7,8 +7,7 @@
 #include <QObject>
 #include "common/AppConfig.h"
 
-// 分层定位：Controller 负责配置读写转发与数据库连通性探测；
-// 恢复出厂设置等业务动作走 services/SettingService（内含管理员口令校验）。
+// 分层定位：Controller 负责配置读写转发与数据库连通性探测。
 class SettingController : public QObject {
     Q_OBJECT
 public:
@@ -32,7 +31,6 @@ public:
     void    saveSettings();
 
     // 系统操作
-    bool factoryReset(const QString& adminPassword);
     bool restartSystem();
 
 private:

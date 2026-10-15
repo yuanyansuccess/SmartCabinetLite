@@ -9,16 +9,34 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
+#include <QKeyEvent>
+#include <QDebug>
 
 RoleSelectDialog::RoleSelectDialog(const QString& realName, QWidget* parent)
     : BaseDialog(parent, 520)
     , m_realName(realName) {
     setDialogTitle(QStringLiteral("选择登录身份"));
     setMinimumHeight(460);
+    m_bornTimer.start();  // 出生冷却：拦截上一界面残留的连点
     setupContent();  // 基类不自动调用，需子类显式构建内容
 }
 
 RoleSelectDialog::~RoleSelectDialog() = default;
+
+/**
+ * @brief 拦截 Esc 键，防止误触关闭弹窗
+ * @param event 键盘事件
+ * 本弹窗决定本次登录进入管理侧还是用户侧，Esc 关闭会被上层判定为
+ * "取消登录"并自动注销，操作员看到的就是弹窗一闪而过回到登录页。
+ * 因此这里吞掉 Esc，离开弹窗必须显式点击三个按钮之一。
+ */
+void RoleSelectDialog::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape) {
+        return;  // 吞掉 Esc，不传给基类的 reject 逻辑
+    }
+    BaseDialog::keyPressEvent(event);
+}
 
 void RoleSelectDialog::setupContent() {
     auto* cl = contentLayout();
@@ -58,6 +76,12 @@ void RoleSelectDialog::setupContent() {
         vbox->addWidget(descLbl);
 
         connect(btn, &QPushButton::clicked, this, [this, choice]() {
+            // 冷却期内忽略点击：登录页双击"确认"时第二击的释放事件会恰好
+            // 落在刚弹出的本弹窗按钮上（实测弹出后185~217ms），误选身份进错首页
+            if (!m_bornTimer.hasExpired(600)) {
+                qDebug() << "[RoleSelectDialog] 冷却期内忽略残留点击";
+                return;
+            }
             m_choice = choice;
             accept();
         });
@@ -89,6 +113,13 @@ void RoleSelectDialog::setupContent() {
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
         "font-size:15px;font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}");
-    connect(cancelBtn, &QPushButton::clicked, this, &RoleSelectDialog::reject);
+    connect(cancelBtn, &QPushButton::clicked, this, [this]() {
+        // 与身份按钮同冷却：防止残留连点误触"退出登录"造成弹窗一闪而过
+        if (!m_bornTimer.hasExpired(600)) {
+            qDebug() << "[RoleSelectDialog] 冷却期内忽略残留点击(退出登录)";
+            return;
+        }
+        reject();
+    });
     bl->addWidget(cancelBtn);
 }

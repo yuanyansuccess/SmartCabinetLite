@@ -665,7 +665,7 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
         "font-size:32px; font-weight:900; color:#ffffff; "
         "background:#ff4d4f; border-radius:14px; padding:10px 20px;");
     ctx.instructionLabel->setText(
-        QStringLiteral("该人脸已录入到「%1」\n若站错人，请重新采集").arg(ownerText));
+        QStringLiteral("该人脸已录入到「%1」\n若站错人，请重新采集\n若确需替换，请联系管理员清除对方人脸").arg(ownerText));
     ctx.instructionLabel->setStyleSheet(
         "font-size:15px;font-weight:700;color:#ff4d4f;padding:4px 0;background:transparent;");
     ctx.statusLabel->setText(QStringLiteral("未保存：人脸重复"));
@@ -676,7 +676,7 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
     qDebug() << "[UserManagement] 人脸查重命中, owner=" << ownerText
              << "similarity=" << similarity;
     MessageDialog::showWarning(ctx.dlg, QStringLiteral("人脸重复"),
-        QStringLiteral("该人脸已录入到「%1」\n一张脸只能录入一个账户").arg(ownerText));
+        QStringLiteral("该人脸已录入到「%1」\n一张脸只能录入一个账户\n若确需替换，请联系管理员清除对方人脸后重试").arg(ownerText));
 }
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */

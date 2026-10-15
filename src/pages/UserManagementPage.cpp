@@ -136,12 +136,13 @@ void UserManagementPage::setupUI() {
     connect(m_paginationBar, &PaginationBar::nextClicked, this, &UserManagementPage::onNextPage);
 
     // 表格列宽策略：数据列Stretch均分，操作列Fixed 200px（编辑/禁用·启用 触屏按钮）
+    // 列布局：工号/姓名/部门/角色/人脸录入/状态/操作（共7列，已移除联系电话、创建时间）
     m_table->horizontalHeader()->setStretchLastSection(false);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 6; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
     }
-    m_table->horizontalHeader()->setSectionResizeMode(8, QHeaderView::Fixed);
-    m_table->setColumnWidth(8, 200);
+    m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
+    m_table->setColumnWidth(6, 200);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->horizontalHeader()->setMinimumSectionSize(60);
 }
@@ -312,7 +313,7 @@ void UserManagementPage::loadUsers() {
     m_paginationBar->setPageInfo(m_currentPage, totalPages);
     m_paginationBar->setTotalRecords(m_totalRecords);
 
-    // 填充表格（BS端列：工号/姓名/部门/角色/联系电话/人脸录入/创建时间/状态/操作）
+    // 填充表格（列：工号/姓名/部门/角色/人脸录入/状态/操作，已移除联系电话、创建时间）
     m_table->setRowCount(pageResult.list.size());
     for (int i = 0; i < pageResult.list.size(); ++i) {
         const User& u = pageResult.list[i];
@@ -346,8 +347,6 @@ void UserManagementPage::loadUsers() {
         roleFont.setBold(true);
         roleItem->setFont(roleFont);
         m_table->setItem(i, 3, roleItem);
-
-        m_table->setItem(i, 4, new QTableWidgetItem(u.phone));  // 联系电话
 
         // 人脸录入列：可点击按钮（已录入→查看/清除，未录入→录入）
         bool faceEnrolled = !u.faceFeature.isEmpty();
@@ -383,9 +382,7 @@ void UserManagementPage::loadUsers() {
             });
         }
         faceLayout->addWidget(faceBtn);
-        m_table->setCellWidget(i, 5, faceWidget);
-
-        m_table->setItem(i, 6, new QTableWidgetItem(u.createdAt.toString("yyyy-MM-dd HH:mm")));  // 创建时间
+        m_table->setCellWidget(i, 4, faceWidget);
 
         // 状态标签仿照设计图：启用(绿)/待激活(灰)/禁用(灰)/已锁定(红)
         auto* statusItem = new QTableWidgetItem(statusText);
@@ -406,7 +403,7 @@ void UserManagementPage::loadUsers() {
         QFont statusFont = statusItem->font();
         statusFont.setBold(true);
         statusItem->setFont(statusFont);
-        m_table->setItem(i, 7, statusItem);
+        m_table->setItem(i, 5, statusItem);
 
         // 按钮加大+间距增大，确保触屏可点、文字完整显示
         auto* opWidget = new QWidget();
@@ -445,7 +442,7 @@ void UserManagementPage::loadUsers() {
         opLayout->addWidget(editLink);
         opLayout->addWidget(toggleLink);
         opLayout->addStretch();
-        m_table->setCellWidget(i, 8, opWidget);
+        m_table->setCellWidget(i, 6, opWidget);
         m_table->setRowHeight(i, 64);  // 64 行高加大，确保36px按钮+8px边距完整显示不裁剪
     }
 }

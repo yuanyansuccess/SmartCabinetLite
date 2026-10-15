@@ -1,11 +1,10 @@
 /**
  * @file TopBar.cpp
- * @brief 顶部栏实现：品牌标识、系统标题、时钟、用户信息、退出按钮与网络/电量状态
+ * @brief 顶部栏实现：品牌标识、系统标题、时钟、用户信息、退出按钮与电量状态
  * @author 袁燕
  */
 #include "TopBar.h"
 #include "common/AppConfig.h"  // 从AppConfig读取软件版本号
-#include "common/DatabaseManager.h"  // 网络状态检测用数据库连接
 #include "utils/StyleHelper.h"  // 字号/颜色统一走 StyleHelper::Token
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -13,8 +12,6 @@
 #include <QFrame>
 #include <QDateTime>
 #include <QPixmap>
-#include <QNetworkInterface>  // 网络状态检测
-#include <QTcpSocket>  // 异步网络探测
 #include <QFile>  // 麒麟电池状态读取
 
 #ifdef Q_OS_WIN
@@ -28,16 +25,14 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     m_clockTimer->start(1000);
     updateClock();
 
-    // 电池+网络状态定时器，每30秒刷新一次
-    // 电池和网络状态变化较慢，30秒足够；避免频繁API调用影响性能
+    // 电池状态定时器，每15秒刷新一次
+    // 电池状态变化较慢，15秒足够；避免频繁API调用影响性能
     m_statusTimer = new QTimer(this);
     connect(m_statusTimer, &QTimer::timeout, this, [this]() {
         updateBatteryStatus();
-        updateNetworkStatus();
     });
-    m_statusTimer->start(15000);  // 30s→15s 更快响应网络变化
+    m_statusTimer->start(15000);
     updateBatteryStatus();
-    updateNetworkStatus();
 }
 
 /**
@@ -126,14 +121,6 @@ void TopBar::setupUI() {
         "padding:4px 10px; border-radius:14px;");
     m_batteryLabel->setAlignment(Qt::AlignCenter);
     rightLayout->addWidget(m_batteryLabel);
-
-    // 网络状态指示器
-    m_networkLabel = new QLabel();
-    m_networkLabel->setStyleSheet(
-        "color:#8a8a8a; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:400;"
-        "padding:4px 10px; border-radius:14px;");
-    m_networkLabel->setAlignment(Qt::AlignCenter);
-    rightLayout->addWidget(m_networkLabel);
 
     // 实时时钟 — 淡灰色小字，弱化不抢眼，不带任何装饰背景
     m_clockLabel = new QLabel();
@@ -317,67 +304,6 @@ void TopBar::updateBatteryStatus() {
     m_batteryLabel->setStyleSheet(QString(
         "color:%1; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
         "padding:4px 10px; border-radius:14px;").arg(color));
-}
-
-/// 更新网络连接状态显示
-/// 检测真实物理网络连接（DatabaseManager::isNetworkConnected），
-/// 不用数据库连接（isConnected）作为代理判断，
-/// 物理网卡断开时立即显示"未联网"
-/// 网络状态检测（异步化改造）：
-/// 原实现经 DatabaseManager::isNetworkConnected() 用 QEventLoop 同步等 TCP
-/// 握手结果（最长300ms）——断网时每15秒冻结UI一次。现为 QTcpSocket
-/// 非阻塞连接 + 信号回调，探测期间UI完全流畅；判定标准与超时保持一致。
-void TopBar::updateNetworkStatus() {
-    if (!m_networkLabel) return;
-
-    if (!m_probeSocket) {
-        m_probeSocket = new QTcpSocket(this);
-        m_probeTimeout = new QTimer(this);
-        m_probeTimeout->setSingleShot(true);
-        m_probeTimeout->setInterval(300);  // 与原同步实现超时一致
-
-        connect(m_probeTimeout, &QTimer::timeout, this, [this]() {
-            m_probeSocket->abort();
-            showNetworkState(false);
-        });
-        connect(m_probeSocket, &QTcpSocket::connected, this, [this]() {
-            m_probeTimeout->stop();
-            m_probeSocket->abort();
-            showNetworkState(true);
-        });
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-        connect(m_probeSocket, &QTcpSocket::errorOccurred, this, [this]() {
-#else
-        connect(m_probeSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, [this]() {
-#endif
-            m_probeTimeout->stop();
-            showNetworkState(false);
-        });
-    }
-
-    // 上一次探测尚未结束：跳过本轮（保持与原同步实现的串行语义一致）
-    if (m_probeSocket->state() != QAbstractSocket::UnconnectedState) return;
-
-    m_probeTimeout->start();
-    m_probeSocket->connectToHost("114.114.114.114", 53);  // 与原实现相同的探测目标
-}
-
-/**
- * @brief 显示网络状态
- */
-void TopBar::showNetworkState(bool online) {
-    if (!m_networkLabel) return;
-    if (online) {
-        m_networkLabel->setText(QStringLiteral("🟢 已联网"));
-        m_networkLabel->setStyleSheet(
-            "color:#43a047; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
-            "padding:4px 10px; border-radius:14px;");
-    } else {
-        m_networkLabel->setText(QStringLiteral("🔴 未联网"));
-        m_networkLabel->setStyleSheet(
-            "color:#e74c3c; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "background:transparent; font-weight:500;"
-            "padding:4px 10px; border-radius:14px;");
-    }
 }
 
 /// 登录页隐藏右侧用户信息区（时间/用户名/退出）

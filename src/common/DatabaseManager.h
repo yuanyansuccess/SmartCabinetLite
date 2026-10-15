@@ -19,8 +19,6 @@ public:
     bool initialize(const QString& host, int port,
                     const QString& dbName, const QString& user, const QString& password);
     bool isConnected() const;
-    /// 检测真实物理网络连接状态（非数据库连接），跨平台兼容Windows+麒麟Linux
-    bool isNetworkConnected() const;
     void close();
 
     QSqlDatabase database() const;
