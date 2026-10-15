@@ -458,20 +458,6 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
 
 
-    // === 成功圆圈下方"识别成功"文字 ===
-
-    m_successStatusText = new QLabel(QStringLiteral("识别成功"));
-
-    m_successStatusText->setAlignment(Qt::AlignCenter);
-
-    m_successStatusText->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textDisabled(), 600));
-
-    m_successStatusText->setVisible(false);
-
-    camLayout->addWidget(m_successStatusText, 0, Qt::AlignCenter);
-
-
-
     // === 失败状态圆圈 (Web: .camera-area.fail) ===
 
     m_statusCircleFail = new QLabel();

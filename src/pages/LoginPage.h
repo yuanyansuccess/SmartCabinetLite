@@ -164,7 +164,6 @@ private:
     QLabel* m_statusCircleFail = nullptr;
     QLabel* m_statusCircleStranger = nullptr;
     /** 圆圈下方状态文字(复刻Web版 .cam-text 14px #bbbbbb) */
-    QLabel* m_successStatusText = nullptr;
     QLabel* m_failStatusText = nullptr;
     QLabel* m_strangerStatusText = nullptr;
     int m_captureCount = 0;

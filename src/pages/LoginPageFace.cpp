@@ -67,7 +67,6 @@ void LoginPage::startFaceRecognition(bool relogin) {
     if (m_statusCircleSuccess) m_statusCircleSuccess->setVisible(false);
     if (m_statusCircleFail) m_statusCircleFail->setVisible(false);
     if (m_statusCircleStranger) m_statusCircleStranger->setVisible(false);
-    if (m_successStatusText) m_successStatusText->setVisible(false);
     if (m_failStatusText) m_failStatusText->setVisible(false);
     if (m_strangerStatusText) m_strangerStatusText->setVisible(false);
     m_altLoginHint->setVisible(true);
@@ -443,7 +442,6 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     m_statusCircleSuccess->setVisible(true);
     m_statusCircleFail->setVisible(false);
     m_statusCircleStranger->setVisible(false);
-    if (m_successStatusText) m_successStatusText->setVisible(true);
     if (m_failStatusText) m_failStatusText->setVisible(false);
     if (m_strangerStatusText) m_strangerStatusText->setVisible(false);
     m_altLoginHint->setVisible(false);
@@ -500,7 +498,6 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
     m_statusCircleSuccess->setVisible(false);
     m_statusCircleFail->setVisible(false);
     m_statusCircleStranger->setVisible(true);
-    if (m_successStatusText) m_successStatusText->setVisible(false);
     if (m_failStatusText) m_failStatusText->setVisible(false);
     if (m_strangerStatusText) m_strangerStatusText->setVisible(true);
     m_altLoginHint->setVisible(false);
