@@ -480,8 +480,10 @@ QString LoginPage::faceResultName(FaceResult result) {
 void LoginPage::setFaceResult(FaceResult state) {
     m_faceResult = state;
     if (state == FaceResult::Fail) {
-        // fail状态显示红色❌圆圈+下方文字 (复刻Web版 .camera-area.fail)，cameraWrap保持可见
-        m_faceCamera->setVisible(false);
+        // 失败原因由密码表单顶部的错误栏承载，不再显示 180px 状态圈：
+        // 8 寸屏高度有限，大圈与错误栏是重复信息，保留会把"忘记密码"等底部
+        // 控件顶出可视区；重新刷脸与页面复位时会恢复摄像头区域显示
+        if (m_cameraWrap) m_cameraWrap->setVisible(false);
         m_statusCircleSuccess->setVisible(false);
         m_statusCircleFail->setVisible(true);
         m_statusCircleStranger->setVisible(false);
