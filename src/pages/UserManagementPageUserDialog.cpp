@@ -197,10 +197,23 @@ void UserManagementPage::createUserDialog() {
         updateRoleBtnStyles();
         addFormRow(makeLabel(QStringLiteral("角色")), roleBtnGroup);
     }
-    addFormRow(makeLabel(QStringLiteral("电话")), m_dlgPhone);
+    // 电话整行：编辑态隐藏（手机号不在屏幕明文回显），保存时自动保留原值；
+    // 新增态可填写联系方式
+    m_dlgPhoneRow = new QWidget();
+    m_dlgPhoneRow->setStyleSheet("background:transparent;");
+    {
+        auto* phoneRow = new QHBoxLayout(m_dlgPhoneRow);
+        phoneRow->setContentsMargins(0, 0, 0, 0);
+        phoneRow->setSpacing(12);
+        auto* phoneLabel = makeLabel(QStringLiteral("电话"));
+        phoneLabel->setFixedWidth(80);
+        phoneRow->addWidget(phoneLabel);
+        phoneRow->addWidget(m_dlgPhone, 1);
+    }
+    cl->addWidget(m_dlgPhoneRow);
 
-    // 密码整行：仅"编辑用户"时显示（管理员可代改口令）；
-    // 新增用户使用系统默认初始口令，无需在此输入
+    // 密码整行：新增与编辑均不显示——口令不经过管理员代设明文，
+    // 需要重置时用下方"重置密码"按钮写回初始密码并要求用户下次登录自改
     m_dlgPasswordRow = new QWidget();
     m_dlgPasswordRow->setStyleSheet("background:transparent;");
     auto* pr = new QHBoxLayout(m_dlgPasswordRow);
@@ -210,18 +223,20 @@ void UserManagementPage::createUserDialog() {
     pwdLabel->setFixedWidth(80);
     pr->addWidget(pwdLabel);
     pr->addWidget(m_dlgPasswordFrame, 1);
-    // 一键重置口令：放密码行内不加行高（8 寸屏纵向空间有限），仅编辑态显示
+    cl->addWidget(m_dlgPasswordRow);
+
+    // 一键重置口令：编辑态显示的唯一口令操作（不涉及明文输入），
+    // 写回初始密码并要求该用户下次登录自行修改
     m_dlgResetPwdBtn = new QPushButton(QStringLiteral("重置密码"));
     m_dlgResetPwdBtn->setCursor(Qt::PointingHandCursor);
-    m_dlgResetPwdBtn->setFixedSize(96, 40);
+    m_dlgResetPwdBtn->setFixedHeight(StyleHelper::Token::ControlHeight);
     m_dlgResetPwdBtn->setStyleSheet(
         "QPushButton{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;"
         "border-radius:10px;font-size:14px;font-weight:600;}"
         "QPushButton:hover{background:#ffe7ba;}");
     connect(m_dlgResetPwdBtn, &QPushButton::clicked, this, &UserManagementPage::onResetPwdInDialog);
     m_dlgResetPwdBtn->setVisible(false);
-    pr->addWidget(m_dlgResetPwdBtn);
-    cl->addWidget(m_dlgPasswordRow);
+    cl->addWidget(m_dlgResetPwdBtn);
 
     // 底部按钮（通过 BaseDialog::buttonLayout() 添加）
     auto* bl = m_userDialog->buttonLayout();
@@ -269,7 +284,8 @@ void UserManagementPage::onAddUser() {
     m_dlgRealName->clear(); m_dlgWorkNo->clear(); m_dlgPassword->clear();
     m_dlgRoleMode = 0; updateRoleBtnStyles();
     m_dlgDept->setCurrentIndex(0); m_dlgPhone->clear();
-    // 新增用户不输入口令：系统统一使用初始密码，该行隐藏
+    // 新增用户不输入口令：系统统一使用初始密码，口令相关行均隐藏
+    if (m_dlgPhoneRow) m_dlgPhoneRow->setVisible(true);
     if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
     if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(false);
     m_userDialog->exec();
@@ -302,11 +318,12 @@ void UserManagementPage::onEditUser(int userId) {
     // 三种角色：普通用户(0)/管理员(1)/管理用户(2)
     m_dlgRoleMode = (u.role == SC::ROLE_ADMIN) ? 1 : (u.role == SC::ROLE_MANAGER ? 2 : 0);
     updateRoleBtnStyles();
-    m_dlgPhone->setText(u.phone);
+    m_dlgPhone->setText(u.phone);  // 值保留在控件内，保存时随整体更新回写原电话
     m_dlgPassword->setText(QString());
-    m_dlgPassword->setPlaceholderText(QStringLiteral("留空则不修改"));
-    // 编辑时显示密码行：管理员可代该用户设置新口令
-    if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(true);
+    // 编辑态不回显手机号与口令输入：柜机屏幕处于公共区域，敏感信息不上屏；
+    // 口令操作只保留"重置密码"一键写回初始密码
+    if (m_dlgPhoneRow) m_dlgPhoneRow->setVisible(false);
+    if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
     if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(true);
     m_userDialog->exec();
 }
@@ -385,19 +402,20 @@ void UserManagementPage::onSubmitUser() {
         }
         return;
     }
-    // 更新用户
+    // 更新用户：整体更新写库前从库里取一次原记录，
+// 把不在编辑界面展示的字段（电话/邮箱/状态）原样带回，避免被空值覆盖——
+// 状态尤其重要：禁用中的用户编辑保存后不能被意外激活
+    const User original = ctrl.getUserById(m_editUserId);
     User updateUser;
     updateUser.userId = m_editUserId;
     updateUser.realName = realName;
     updateUser.workNo = workNo;
     updateUser.department = dept;
     updateUser.role = role;
-    updateUser.phone = phone;
+    updateUser.phone = original.phone;   // 电话不在编辑界面展示，保留原值
+    updateUser.email = original.email;
+    updateUser.status = original.status;
     ok = ctrl.updateUser(updateUser);
-    if (ok && !password.isEmpty()) {
-        // 管理员代改口令：走重置接口（无需原密码），并标记该用户下次登录须再改一次
-        ok = ctrl.resetPassword(m_editUserId, password, true);
-    }
     if (ok) {
         m_userDialog->accept();
         loadUsers();

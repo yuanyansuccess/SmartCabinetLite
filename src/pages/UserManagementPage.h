@@ -114,7 +114,8 @@ private:
     QLineEdit* m_dlgRealName = nullptr;
     QLineEdit* m_dlgPassword = nullptr;  // 初始化为nullptr防野指针崩溃
     QFrame* m_dlgPasswordFrame = nullptr;  // 密码输入框容器(含⌨按钮)
-    QWidget* m_dlgPasswordRow = nullptr;   // 密码整行容器（新增用户时整行隐藏，默认口令无需输入）
+    QWidget* m_dlgPasswordRow = nullptr;   // 密码整行容器（新增与编辑均隐藏：口令不经过管理员代设）
+    QWidget* m_dlgPhoneRow = nullptr;      // 电话整行容器（编辑态隐藏：手机号不在屏幕明文回显）
     QPushButton* m_dlgResetPwdBtn = nullptr;  // 编辑态显示的一键重置口令按钮
     QLineEdit* m_dlgWorkNo = nullptr;
     // 角色为按钮组（3选1：普通用户/管理用户/管理员，风格统一）
