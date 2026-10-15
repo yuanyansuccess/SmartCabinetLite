@@ -205,14 +205,17 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 相似度可达 0.955，0.95 会放行陌生人；本人成功帧实测全部 ≥0.968，
     // 0.96 之下本人低质量帧会被拒后由多帧重试兜回，不损失可用性。
     const double singleFaceThreshold = 0.96;
-    // 第二名拒绝线（多人脸判定核心，2026-10-15 face_recog_log 实测标定）：
-    //   同人帧下限 0.9507（本人成功帧最低值），跨人帧上限 0.9375（相像的两人最高值），
-    //   取 0.94 分界——第二名也达到此线说明两条候选同属一张脸（重复挂账户/双胞胎），
+    // 第二名拒绝线（多人脸判定核心，face_recog_log 实测标定）：
+    //   同人帧下限 0.9403（本人低质量帧最低值，多帧重试可兜回），
+    //   跨人帧上限实测 0.9551（男生间相像，实发过按此值误登录另一账户、
+    //   以及忘记密码验证把未录入者匹配到他人账号），取 0.96 分界——
+    //   第一名必须高于跨人上限才算本人明确胜出；
+    //   第二名也达到此线说明两条候选同属一张脸（重复挂账户/双胞胎），
     //   取最高者等于随机选人，必须拒绝；第二名低于此线说明第一名明确胜出，放行。
     // 原 margin(0.15) 相对差距判定在"长得像的两人"场景失效：
     //   本人帧 0.95 与相像第二名的 0.9375 差距仅 0.0125，远小于 0.15，
     //   导致真人刷脸被"多个账户与您特征相近"误拒（日志 #565-566 实证）。
-    const double secondRejectLine = threshold;   // 0.94
+    const double secondRejectLine = threshold;   // 0.96
     bool cosOk = false;
 
     if (candidates.size() == 1) {
@@ -370,7 +373,9 @@ QString FaceRecognitionService::FaceDuplicateInfo::ownerText() const {
  */
 FaceRecognitionService::FaceDuplicateInfo FaceRecognitionService::findDuplicateFace(
     const QString& faceDescriptor, int excludeUserId) {
-    return findBestMatch(faceDescriptor, getAllEnrolledFaces(), excludeUserId,
+    // 查重取全部未注销账户：禁用账户的人脸同样占用一张脸，
+    // 账户重新启用时才不会出现同一张脸挂在两个账户上
+    return findBestMatch(faceDescriptor, getAllEnrolledFaces(false), excludeUserId,
                          SC::FACE_DUPLICATE_SIMILARITY);
 }
 
@@ -448,7 +453,12 @@ bool FaceRecognitionService::hasFaceEnrolled(int userId) {
  * @brief 查询全部已录入人脸的用户
  * @return 元素含 userId、realName、faceFeature 的数组
  */
-QJsonArray FaceRecognitionService::getAllEnrolledFaces() {
+/**
+ * @brief 获取所有已录入人脸
+ * @param activeOnly true=仅启用账户（登录匹配用）；false=全部未注销账户（录入查重用）
+ * @return 用户人脸数组，元素含 userId/username/realName/workNo/department/faceFeature
+ */
+QJsonArray FaceRecognitionService::getAllEnrolledFaces(bool activeOnly) {
     UserDAO dao;
-    return dao.getAllFaceFeatures();
+    return dao.getAllFaceFeatures(activeOnly);
 }

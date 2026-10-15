@@ -105,10 +105,6 @@ void UserManagementPage::createUserDialog() {
         m_dlgRoleBtn2 = makeRoleBtn(QStringLiteral("管理员"), 1);
         m_dlgRoleBtn3 = makeRoleBtn(QStringLiteral("管理用户"), 2);
     }
-    m_dlgPhone = new QLineEdit();
-    m_dlgPhone->setPlaceholderText(QStringLiteral("请输入手机号"));
-    m_dlgPhone->setStyleSheet(inputStyle);
-
     // 初始密码区域
     m_dlgPasswordFrame = new QFrame();
     m_dlgPasswordFrame->setAttribute(Qt::WA_StyledBackground, true);
@@ -197,21 +193,6 @@ void UserManagementPage::createUserDialog() {
         updateRoleBtnStyles();
         addFormRow(makeLabel(QStringLiteral("角色")), roleBtnGroup);
     }
-    // 电话整行：编辑态隐藏（手机号不在屏幕明文回显），保存时自动保留原值；
-    // 新增态可填写联系方式
-    m_dlgPhoneRow = new QWidget();
-    m_dlgPhoneRow->setStyleSheet("background:transparent;");
-    {
-        auto* phoneRow = new QHBoxLayout(m_dlgPhoneRow);
-        phoneRow->setContentsMargins(0, 0, 0, 0);
-        phoneRow->setSpacing(12);
-        auto* phoneLabel = makeLabel(QStringLiteral("电话"));
-        phoneLabel->setFixedWidth(80);
-        phoneRow->addWidget(phoneLabel);
-        phoneRow->addWidget(m_dlgPhone, 1);
-    }
-    cl->addWidget(m_dlgPhoneRow);
-
     // 密码整行：新增与编辑均不显示——口令不经过管理员代设明文，
     // 需要重置时用下方"重置密码"按钮写回初始密码并要求用户下次登录自改
     m_dlgPasswordRow = new QWidget();
@@ -234,7 +215,10 @@ void UserManagementPage::createUserDialog() {
         "QPushButton{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;"
         "border-radius:10px;font-size:14px;font-weight:600;}"
         "QPushButton:hover{background:#ffe7ba;}");
-    connect(m_dlgResetPwdBtn, &QPushButton::clicked, this, &UserManagementPage::onResetPwdInDialog);
+    // 重置密码同样含确认弹窗与查库写库，不在点击事件派发中同步执行
+    connect(m_dlgResetPwdBtn, &QPushButton::clicked, this, [this]() {
+        QTimer::singleShot(0, this, &UserManagementPage::onResetPwdInDialog);
+    });
     m_dlgResetPwdBtn->setVisible(false);
     cl->addWidget(m_dlgResetPwdBtn);
 
@@ -267,7 +251,12 @@ void UserManagementPage::createUserDialog() {
         "font-size:16px;font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}"
     );
-    connect(m_dlgSaveBtn, &QPushButton::clicked, this, &UserManagementPage::onSubmitUser);
+    // 确认按钮不在点击事件派发中直接执行提交：提交内含对话框 accept、查库与
+    // 模态提示弹窗，压在按钮事件派发栈内会让弹窗尺寸协商异常、界面假死，
+    // 先让派发结束、在干净的事件循环轮次里执行（登录页软键盘确认同款处理）
+    connect(m_dlgSaveBtn, &QPushButton::clicked, this, [this]() {
+        QTimer::singleShot(0, this, &UserManagementPage::onSubmitUser);
+    });
 
     bl->addWidget(cancelBtn);
     bl->addWidget(m_dlgSaveBtn);
@@ -283,9 +272,8 @@ void UserManagementPage::onAddUser() {
     m_dlgSaveBtn->setText(QStringLiteral("确认新增"));
     m_dlgRealName->clear(); m_dlgWorkNo->clear(); m_dlgPassword->clear();
     m_dlgRoleMode = 0; updateRoleBtnStyles();
-    m_dlgDept->setCurrentIndex(0); m_dlgPhone->clear();
+    m_dlgDept->setCurrentIndex(0);
     // 新增用户不输入口令：系统统一使用初始密码，口令相关行均隐藏
-    if (m_dlgPhoneRow) m_dlgPhoneRow->setVisible(true);
     if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
     if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(false);
     m_userDialog->exec();
@@ -318,11 +306,9 @@ void UserManagementPage::onEditUser(int userId) {
     // 三种角色：普通用户(0)/管理员(1)/管理用户(2)
     m_dlgRoleMode = (u.role == SC::ROLE_ADMIN) ? 1 : (u.role == SC::ROLE_MANAGER ? 2 : 0);
     updateRoleBtnStyles();
-    m_dlgPhone->setText(u.phone);  // 值保留在控件内，保存时随整体更新回写原电话
     m_dlgPassword->setText(QString());
-    // 编辑态不回显手机号与口令输入：柜机屏幕处于公共区域，敏感信息不上屏；
+    // 编辑态不显示口令输入：柜机屏幕处于公共区域，敏感信息不上屏；
     // 口令操作只保留"重置密码"一键写回初始密码
-    if (m_dlgPhoneRow) m_dlgPhoneRow->setVisible(false);
     if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
     if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(true);
     m_userDialog->exec();
@@ -340,7 +326,6 @@ void UserManagementPage::onSubmitUser() {
     QString role = SC::ROLE_USER;
     if (m_dlgRoleMode == 1)      role = SC::ROLE_ADMIN;
     else if (m_dlgRoleMode == 2) role = SC::ROLE_MANAGER;
-    QString phone = m_dlgPhone->text().trimmed();
 
     if (realName.isEmpty() || workNo.isEmpty()) {
         MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请填写姓名和工号"));
@@ -372,7 +357,7 @@ void UserManagementPage::onSubmitUser() {
         newUser.workNo = workNo;
         newUser.department = dept;
         newUser.role = role;
-        newUser.phone = phone;
+        newUser.phone = QString();  // 联系方式不在新增表单采集，落空值
         newUser.status = SC::USER_ACTIVE;
         int newId = ctrl.createUser(newUser, SC::DEFAULT_INIT_PASSWORD);
         ok = (newId > 0);

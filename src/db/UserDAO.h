@@ -31,7 +31,10 @@ public:
     bool         softDelete(int userId);
     bool         updateFace(int userId, const QString& faceFeature, const QString& faceImagePath = "");
     bool         deleteFace(int userId);
-    QJsonArray   getAllFaceFeatures();
+    /// 查询所有已录入人脸的用户
+    /// @param activeOnly true=仅启用账户（登录匹配用）；false=全部未注销账户（录入查重用，
+    ///                   禁用/待激活账户的人脸同样占用一张脸，防止账户重新启用后一张脸挂两户）
+    QJsonArray   getAllFaceFeatures(bool activeOnly = true);
     bool         updateStatus(int userId, const QString& status);
     bool         recordLoginSuccess(int userId, const QString& ip = "");
     QStringList  getDistinctDepartments();

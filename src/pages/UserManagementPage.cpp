@@ -136,7 +136,7 @@ void UserManagementPage::setupUI() {
     connect(m_paginationBar, &PaginationBar::nextClicked, this, &UserManagementPage::onNextPage);
 
     // 表格列宽策略：数据列Stretch均分，操作列Fixed 200px（编辑/禁用·启用 触屏按钮）
-    // 列布局：工号/姓名/部门/角色/人脸录入/状态/操作（共7列，已移除联系电话、创建时间）
+    // 列布局：工号/姓名/部门/角色/人脸录入/状态/操作（共7列）
     m_table->horizontalHeader()->setStretchLastSection(false);
     for (int i = 0; i < 6; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
@@ -313,7 +313,7 @@ void UserManagementPage::loadUsers() {
     m_paginationBar->setPageInfo(m_currentPage, totalPages);
     m_paginationBar->setTotalRecords(m_totalRecords);
 
-    // 填充表格（列：工号/姓名/部门/角色/人脸录入/状态/操作，已移除联系电话、创建时间）
+    // 填充表格（列：工号/姓名/部门/角色/人脸录入/状态/操作）
     m_table->setRowCount(pageResult.list.size());
     for (int i = 0; i < pageResult.list.size(); ++i) {
         const User& u = pageResult.list[i];

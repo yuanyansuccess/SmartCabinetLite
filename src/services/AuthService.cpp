@@ -219,7 +219,9 @@ AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
     if (faceFeature.isEmpty()) { r.message = "人脸特征为空"; return r; }
 
     FaceRecognitionService faceSvc;
-    auto matchResult = faceSvc.matchFace(faceFeature, 0.65);
+    // 阈值必须与登录页识别一致：跨人相似度实测可达 0.9551，
+    // 低于 0.96 的门槛会把长相相近的男生误判为同一人登录
+    auto matchResult = faceSvc.matchFace(faceFeature, 0.96);
 
     if (matchResult.success) {
         UserDAO dao;

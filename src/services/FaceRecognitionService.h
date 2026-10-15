@@ -41,17 +41,22 @@ public:
     static double euclideanDistance(const QVector<double>& a, const QVector<double>& b);
 
     // 从数据库获取所有已录入人脸并进行匹配
-    // 阈值依据实测分布标定（face_recog_log 2026-10-15 实测）：
-    //   同人不同帧 0.9507~0.99，跨人（相像的两人）0.81~0.9375，区分带 0.9375~0.9507
-    // 1. threshold 0.94（多人脸第一名通过下限，同时兼任第二名拒绝线 secondRejectLine）
+    // 阈值依据实测分布标定（跨人上限以实发误判事件为准）：
+    //   同人不同帧 0.9403~0.9967（低质量帧下限），跨人（男生间相像）实测上限 0.9551。
+    //   0.94~0.9551 为跨人误判高危区，实发两例：刷脸者被识别成另一男生登录成功；
+    //   同一未录入者登录页最优帧 0.93x 被拒、忘记密码单帧 0.94x 却匹配到他人账号——
+    //   判定线落在跨人波动带中间时，两边结论随机，必须整体抬到跨人上限之上。
+    // 1. threshold 0.96（多人脸第一名通过下限，兼任第二名拒绝线 secondRejectLine）：
+    //    必须高于跨人上限 0.9551，第一名才可能是"本人明确胜出"而非"跨人撞线"
     // 2. singleFaceThreshold 0.96（库内仅 1 人脸时的最低门槛，陌生人撞线实测可达 0.955）
     // 3. maxEuclideanDist 0.80（欧氏距离第二道防线）
+    // 同人低质量帧（0.9403~0.96）在 0.96 门槛下会被拒，由多帧取最优与重试兜回；
     // 原 margin 0.15 相对差距判定已废弃：相像的两人与本人帧差距仅约 0.012，
     // margin 会把真人误拒（日志 #565 实证），改为第二名绝对值判定。
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,
-                               double threshold = 0.94,
+                               double threshold = 0.96,
                                double highConfidence = 0.96,
                                double rejectThreshold = 0.35,
                                double marginThreshold = 0.15,
@@ -86,6 +91,8 @@ public:
     EnrollFaceResult enrollFaceChecked(int userId, const QString& faceDescriptor);
 
     /// 查询采集特征是否与库内某个其他账户的人脸重复（自身人脸不参与比对）
+    /// @note 查重范围为全部未注销账户：账户被禁用不等于其人脸可释放，
+    ///       否则账户重新启用后会出现同一张脸挂在两个账户上
     FaceDuplicateInfo findDuplicateFace(const QString& faceDescriptor, int excludeUserId);
 
     /// 在给定人脸列表中找出与采集特征最相似的用户（纯算法，不访问数据库，便于单元测试）
@@ -101,7 +108,9 @@ public:
     bool hasFaceEnrolled(int userId);
 
     // 获取所有已录入人脸
-    QJsonArray getAllEnrolledFaces();
+    /// 获取所有已录入人脸
+    /// @param activeOnly true=仅启用账户（登录匹配用）；false=全部未注销账户（录入查重用）
+    QJsonArray getAllEnrolledFaces(bool activeOnly = true);
 
 private:
     // L2归一化

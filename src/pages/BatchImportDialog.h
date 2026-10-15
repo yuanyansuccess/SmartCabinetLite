@@ -4,7 +4,7 @@
  * @author 袁燕
  * @date 2026-06-26
  * @说明 美观的圆角模态对话框，支持：
- *   1) 下载CSV模板（工号/姓名/部门/角色/联系电话/状态）
+ *   1) 下载CSV模板（工号/姓名/部门/角色/状态）
  *   2) 上传已编辑的Excel/CSV文件
  *   3) 模板格式校验 + 逐行数据校验
  *   4) 批量入库并刷新用户列表
@@ -28,7 +28,6 @@ struct ImportRow {
     QString realName;    // 姓名
     QString department;  // 部门
     QString role;        // 角色 (管理员/普通用户)
-    QString phone;       // 联系电话
     QString status;      // 状态 (启用/禁用)
     int     lineNumber;  // Excel行号(用于报错定位)
 };

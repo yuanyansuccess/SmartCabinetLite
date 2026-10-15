@@ -112,7 +112,6 @@ private:
     QLineEdit* m_dlgPassword = nullptr;  // 初始化为nullptr防野指针崩溃
     QFrame* m_dlgPasswordFrame = nullptr;  // 密码输入框容器(含⌨按钮)
     QWidget* m_dlgPasswordRow = nullptr;   // 密码整行容器（新增与编辑均隐藏：口令不经过管理员代设）
-    QWidget* m_dlgPhoneRow = nullptr;      // 电话整行容器（编辑态隐藏：手机号不在屏幕明文回显）
     QPushButton* m_dlgResetPwdBtn = nullptr;  // 编辑态显示的一键重置口令按钮
     QLineEdit* m_dlgWorkNo = nullptr;
     // 角色为按钮组（3选1：普通用户/管理用户/管理员，风格统一）
@@ -121,7 +120,6 @@ private:
     QPushButton* m_dlgRoleBtn3 = nullptr;  // 管理用户（管理员+普通用户双重身份）
     int m_dlgRoleMode = 0;  // 0=普通用户, 1=管理员, 2=管理用户
     QComboBox* m_dlgDept = nullptr;  // 部门保留下拉框（动态数据+可编辑）
-    QLineEdit* m_dlgPhone = nullptr;
     QPushButton* m_dlgSaveBtn = nullptr;
     int m_editUserId = 0;
 

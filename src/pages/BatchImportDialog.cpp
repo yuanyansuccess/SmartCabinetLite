@@ -112,13 +112,12 @@ static bool convertXlsxToCsv(const QString& xlsxPath, QString& csvPath)
 }
 #endif
 
-// 模板表头（6列，不含人脸录入）
+// 模板表头（5列，不含人脸录入）
 const QStringList BatchImportDialog::TEMPLATE_HEADERS = {
     QStringLiteral("工号"),
     QStringLiteral("姓名"),
     QStringLiteral("部门"),
     QStringLiteral("角色"),
-    QStringLiteral("联系电话"),
     QStringLiteral("状态")
 };
 
@@ -334,11 +333,9 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
         QString workNo = QStringLiteral("%1").arg(num, 3, 10, QChar('0'));
         QString name = (i < exampleNames.size()) ? exampleNames[i] : QStringLiteral("用户%1").arg(num);
         QString dept = (i < exampleDepartments.size()) ? exampleDepartments[i] : QStringLiteral("技术部");
-        QString phone = QStringLiteral("138%1%2").arg(num, 4, 10, QChar('0')).arg(num, 4, 10, QChar('0')).right(8);
         file.write((workNo + "," + csvEscape(name) + ","
             + csvEscape(dept) + ","
             + csvEscape(QStringLiteral("普通用户")) + ","
-            + phone + ","
             + csvEscape(QStringLiteral("启用")) + "\n").toUtf8());
     }
 
@@ -462,7 +459,7 @@ void BatchImportDialog::onConfirm()
         newUser.workNo     = workNo;
         newUser.department = row.department;
         newUser.role       = ROLE_MAP.value(row.role, SC::ROLE_USER);
-        newUser.phone      = row.phone;
+        newUser.phone      = QString();  // 联系方式不在批量导入采集，落空值
         newUser.status     = STATUS_MAP.value(row.status, SC::USER_ACTIVE);
 
         int newId = ctrl.createUser(newUser, SC::DEFAULT_INIT_PASSWORD);
@@ -564,13 +561,6 @@ QString BatchImportDialog::validateRow(const ImportRow& row)
     if (!row.status.isEmpty() && !STATUS_MAP.contains(row.status)) {
         return QStringLiteral("第%1行：状态\"%2\"不合法，请填写\"启用\"或\"禁用\"")
             .arg(row.lineNumber).arg(row.status);
-    }
-    if (!row.phone.isEmpty()) {
-        static QRegularExpression phoneRe("^1[3-9]\\d{9}$");
-        if (!phoneRe.match(row.phone).hasMatch()) {
-            return QStringLiteral("第%1行：联系电话\"%2\"格式不正确（应为11位手机号）")
-                .arg(row.lineNumber).arg(row.phone);
-        }
     }
     return QString();
 }
@@ -678,8 +668,7 @@ ImportResult BatchImportDialog::parseExcel(const QString& filePath)
         row.realName   = fields.value(colIndex.value(QStringLiteral("姓名"), 1)).trimmed();
         row.department = fields.value(colIndex.value(QStringLiteral("部门"), 2)).trimmed();
         row.role       = fields.value(colIndex.value(QStringLiteral("角色"), 3)).trimmed();
-        row.phone      = fields.value(colIndex.value(QStringLiteral("联系电话"), 4)).trimmed();
-        row.status     = fields.value(colIndex.value(QStringLiteral("状态"), 5), "启用").trimmed();
+        row.status     = fields.value(colIndex.value(QStringLiteral("状态"), 4), "启用").trimmed();
 
         QString err = validateRow(row);
         if (!err.isEmpty()) {

@@ -292,11 +292,16 @@ bool UserDAO::deleteFace(int userId) {
  * @brief 查询全部已录入人脸特征的用户
  * @return 元素含 userId、realName、faceFeature 的数组；无人脸数据时返回空数组
  */
-QJsonArray UserDAO::getAllFaceFeatures() {
+QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
-    query.prepare("SELECT user_id, username, real_name, work_no, department, face_feature FROM sys_user "
-                  "WHERE face_feature IS NOT NULL AND face_feature != '' AND status = 'active'");
+    // activeOnly=true：仅启用账户（登录匹配用，禁用账户由登录流程的状态检查单独拦截）；
+    // false：全部未注销账户（人脸录入查重用，禁用账户的人脸同样参与通盘比对）
+    QString sql = "SELECT user_id, username, real_name, work_no, department, face_feature FROM sys_user "
+                  "WHERE face_feature IS NOT NULL AND face_feature != ''";
+    sql += activeOnly ? " AND status = :st" : " AND status != :st";
+    query.prepare(sql);
+    query.bindValue(":st", activeOnly ? SC::USER_ACTIVE : SC::USER_DELETED);
     safeExec(query);
     QJsonArray arr;
     while (query.next()) {
