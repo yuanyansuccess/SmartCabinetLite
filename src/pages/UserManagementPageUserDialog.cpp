@@ -210,6 +210,17 @@ void UserManagementPage::createUserDialog() {
     pwdLabel->setFixedWidth(80);
     pr->addWidget(pwdLabel);
     pr->addWidget(m_dlgPasswordFrame, 1);
+    // 一键重置口令：放密码行内不加行高（8 寸屏纵向空间有限），仅编辑态显示
+    m_dlgResetPwdBtn = new QPushButton(QStringLiteral("重置密码"));
+    m_dlgResetPwdBtn->setCursor(Qt::PointingHandCursor);
+    m_dlgResetPwdBtn->setFixedSize(96, 40);
+    m_dlgResetPwdBtn->setStyleSheet(
+        "QPushButton{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;"
+        "border-radius:10px;font-size:14px;font-weight:600;}"
+        "QPushButton:hover{background:#ffe7ba;}");
+    connect(m_dlgResetPwdBtn, &QPushButton::clicked, this, &UserManagementPage::onResetPwdInDialog);
+    m_dlgResetPwdBtn->setVisible(false);
+    pr->addWidget(m_dlgResetPwdBtn);
     cl->addWidget(m_dlgPasswordRow);
 
     // 底部按钮（通过 BaseDialog::buttonLayout() 添加）
@@ -260,6 +271,7 @@ void UserManagementPage::onAddUser() {
     m_dlgDept->setCurrentIndex(0); m_dlgPhone->clear();
     // 新增用户不输入口令：系统统一使用初始密码，该行隐藏
     if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(false);
+    if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(false);
     m_userDialog->exec();
 }
 
@@ -295,6 +307,7 @@ void UserManagementPage::onEditUser(int userId) {
     m_dlgPassword->setPlaceholderText(QStringLiteral("留空则不修改"));
     // 编辑时显示密码行：管理员可代该用户设置新口令
     if (m_dlgPasswordRow) m_dlgPasswordRow->setVisible(true);
+    if (m_dlgResetPwdBtn) m_dlgResetPwdBtn->setVisible(true);
     m_userDialog->exec();
 }
 
@@ -390,6 +403,26 @@ void UserManagementPage::onSubmitUser() {
         loadUsers();
     } else {
         MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("保存失败，请重试"));
+    }
+}
+
+/**
+ * @brief 编辑对话框内一键重置口令：写回系统初始密码，并标记该用户下次登录必须修改
+ * @note 仅编辑态可用（新增时用户尚未创建）；重置后清空口令输入框，
+ *       管理员若同时在框内输入了新口令，以重置结果为准
+ */
+void UserManagementPage::onResetPwdInDialog() {
+    if (m_editUserId <= 0) return;
+    if (!MessageDialog::showQuestion(this, QStringLiteral("确认重置"),
+        QStringLiteral("将该用户口令重置为初始密码？"))) return;
+
+    UserController ctrl;
+    if (ctrl.resetPassword(m_editUserId, SC::DEFAULT_INIT_PASSWORD, true)) {
+        m_dlgPassword->clear();
+        MessageDialog::showSuccess(this, QStringLiteral("重置成功"),
+                                   QStringLiteral("下次登录须修改密码"));
+    } else {
+        MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("重置失败，请重试"));
     }
 }
 

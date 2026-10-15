@@ -545,9 +545,9 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
     setStatusDot("background:#ff4d4f;");
     setFaceResult(FaceResult::Fail);
     m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
-    // 详细原因（含相似度与距离）只进日志，界面只给一句话，避免向普通用户暴露调试参数
+    // 提示文案由服务层给出（不含算法数值），双高候选时引导改用密码登录
     qDebug() << "[LoginPage] 人脸验证未通过:" << errMsg;
-    m_errorLabel->setText(QStringLiteral("未识别到您，请重试"));
+    m_errorLabel->setText(errMsg.isEmpty() ? QStringLiteral("未识别到您，请重试") : errMsg);
     m_errorLabel->setVisible(true);
     setScanStatus(QStringLiteral("请重试"), 3);
     m_altLoginHint->setText(QStringLiteral("🔑 使用账号密码登录"));

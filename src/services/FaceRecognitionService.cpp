@@ -217,8 +217,11 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         qDebug() << "[FaceRecog] 单人脸模式: best.sim=" << best.similarity
                  << "threshold=" << singleFaceThreshold
                  << "cosOk=" << cosOk;
-    } else if (best.similarity >= highConfidence) {
-        // 多人脸高置信度直接通过（>=0.95）
+    } else if (best.similarity >= highConfidence &&
+               (best.similarity - secondSim) > marginThreshold) {
+        // 多人脸高置信度：除自身相似度达标外，第二名差距也必须足够大。
+        // 两个候选同时逼近 0.95 说明库内存在多条相近特征（同一张脸挂多个
+        // 账户，或双胞胎），此时取最高者等于随机选人，必须拒绝。
         cosOk = true;
     } else if (candidates.size() >= 2 &&
                best.similarity >= threshold &&
@@ -247,12 +250,20 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         const bool likelyStranger = (best.similarity < strangerLine);
 
         result.isStranger = likelyStranger;
+        // 多个候选相似度接近（差距不足 margin）且都高于阈值：库内有多条
+        // 相近特征，拒绝并给出可操作的引导；相似度数值只进识别日志表，
+        // 界面不显示算法数值
+        const bool ambiguousCandidates =
+            (candidates.size() >= 2) &&
+            (best.similarity - secondSim) <= marginThreshold &&
+            (best.similarity >= threshold);
         if (likelyStranger) {
-            // 注意：QString::arg 使用 %1/%2 占位符并单独指定小数位，
-            // 不支持 printf 风格的 %.1f（会导致 "Argument missing" 且显示错乱）
-            result.message = QStringLiteral("人脸验证失败，相似度: %1%% 距离: %2 (未通过双验证)")
-                              .arg(best.similarity * 100, 0, 'f', 1)
-                              .arg(best.euclideanDist, 0, 'f', 3);
+            result.message = QStringLiteral("未识别到您，请重试");
+        } else if (ambiguousCandidates) {
+            result.message = QStringLiteral("多个账户与您特征相近，请用密码登录");
+            qDebug() << "[FaceRecog] 双高候选拒绝: best=" << best.similarity
+                     << "userId=" << best.userId
+                     << "second=" << secondSim;
         } else {
             // 疑似同一人但本次质量不足：不算陌生人，交给上层继续采样
             result.message = QStringLiteral("未匹配，请重试");
