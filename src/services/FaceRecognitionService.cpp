@@ -61,10 +61,8 @@ double FaceRecognitionService::cosineSimilarity(const QVector<double>& a, const 
     normalizeL2(bn);
     double dot = 0;
     for (int i = 0; i < an.size(); ++i) dot += an[i] * bn[i];
-    // 移除(dot+1)/2映射 → 直接返回原始余弦相似度
-    // 原映射把不同人sim从0.3抬高到0.65，超过rejectThreshold被纳入候选
-    // 原始值：同一个人>0.9，不同人<0.5，辨识力强
-    //   修复陌生人泛化误识P0致命Bug
+    // 直接返回原始余弦相似度：同人>0.9、不同人<0.5，辨识力强；
+    // 若做(dot+1)/2映射会把不同人相似度抬到0.65以上，越界进入候选区，造成陌生人泛化误识
     return dot;
 }
 
@@ -129,10 +127,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         return result;
     }
 
-    // 遍历所有已录入人脸，计算余弦相似度+欧氏距离
-    // 移除提前退出逻辑：陌生人sim碰巧高时直接return success=true是致命Bug
-    // 所有候选必须遍历完再综合判断
-    //   修复陌生人泛化误识P0致命Bug
+    // 遍历所有已录入人脸，计算余弦相似度+欧氏距离；
+    // 所有候选必须遍历完再综合判断——禁止提前退出，防止陌生人相似度碰巧高时被直接放行
     struct Candidate {
         int userId;
         QString username;

@@ -83,7 +83,7 @@ void ToolCheckinPage::setupUI() {
     m_layerCombo = new QComboBox(); m_layerCombo->setVisible(false);
     m_positionCombo = new QComboBox(); m_positionCombo->setVisible(false);
 
-    // 数据加载（顺序与原实现一致）
+    // 数据加载
     loadCategoryOptions();
     loadLocalMachineGroup();
     // 页面初始化时主动加载工具下拉

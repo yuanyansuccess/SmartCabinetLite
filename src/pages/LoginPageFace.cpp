@@ -250,7 +250,7 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
         return;
     }
 
-    // 修复描述符为空时静默返回、用户无任何提示的致命Bug
+    // 描述符为空时给出明确提示而非静默返回，避免用户得不到任何反馈
     QString descriptor = m_faceCamera->getLastDescriptor();
     if (descriptor.isEmpty()) {
         qWarning() << "[LoginPage] 人脸特征提取失败(描述符为空), confidence:" << confidence;
@@ -375,11 +375,10 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
 
 /// 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
-/// 阈值对齐FaceRecognitionService默认值(0.94/0.95/0.35/0.15/0.80)
-/// 单人脸模式必须达到直通线（96%）以上才通过，陌生人绝对不能登录
+/// 使用 FaceRecognitionService 默认阈值，与登录识别共用同一套判定
 void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     FaceRecognitionService svc;
-    auto result = svc.matchFace(descriptor);  // 使用默认参数(0.94/0.95/0.35/0.15/0.80)
+    auto result = svc.matchFace(descriptor);
 
     // 记录本次相似度：便于现场判断"差多少到阈值"（SC_LOG_SENSITIVE=1 可见）
     ++m_verifyBudget;
@@ -461,7 +460,7 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     user["mustChangePwd"] = resp["mustChangePwd"].toInt();
     user["token"] = resp["token"].toString();
     m_pendingUser = user;
-    m_autoJumpTimer->start(700);   // 1.2s→0.7s：成功后显示0.7秒足够看清，加快跳转
+    m_autoJumpTimer->start(700);   // 成功提示停留0.7秒后自动跳转，加快登录节奏
 }
 
 /// 陌生人处理 (HTTP和本地共用)

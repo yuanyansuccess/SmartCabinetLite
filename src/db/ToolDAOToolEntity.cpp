@@ -146,8 +146,7 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     QString orderBy = "tc.category_name, mpm_cb.cabinet_name, mpm.layer, mpm.position, t.created_at DESC";
     QString nonPosOrderBy = "c.category_name, cb.cabinet_name, t.layer, t.position, t.created_at DESC";
 
-    // 修复分页Bug：原逻辑对pos/nonPos分别分页导致每页数量不一致
-    // 新逻辑：统一偏移量分配
+    // 分页采用统一偏移量分配：保证 pos/nonPos 混合列表每页数量一致
     // 1. 先查pos部分总数posCount
     // 2. 计算当前页offset，从pos和nonPos各取对应条数
     // 效果：每页固定返回pageSize条，total与list一致

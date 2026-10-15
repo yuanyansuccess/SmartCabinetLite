@@ -150,9 +150,8 @@ void NumKeypad::hide()
         setParent(m_ownerWidget);
     }
 
-    // 键盘必须真正隐藏自己
-    // 原实现只拆面板、不调 QWidget::hide()，本控件作为 LoginPage 子控件仍然可见
-    // → 表现为"密码登录后软键盘还挂在登录页上"
+    // 键盘必须真正调用 QWidget::hide()：仅拆面板时本控件作为 LoginPage 子控件仍可见，
+    // 表现为"密码登录后软键盘还挂在登录页上"
     QWidget::hide();
 
     QWidget* overlay = m_overlay;
@@ -169,7 +168,7 @@ void NumKeypad::hide()
     // （onPasswordLogin → loginSuccess → MainWindow::onLoginSuccess）继续在已损坏的
     // 窗口状态上跑，最终在 onLoginSuccess 第一处 Qt 调用处崩溃。
     // 注意：面板/遮罩的关闭与销毁延迟到本轮事件派发结束（singleShot(0)）执行，
-    // 且必须真正 deleteLater —— 原实现只 close()+置空指针，每次登录泄漏一个全屏半透明顶层窗口。
+    // 且必须 deleteLater 释放——仅 close()+置空指针会每次登录泄漏一个全屏半透明顶层窗口。
     QObject* ctx = m_ownerWidget ? static_cast<QObject*>(m_ownerWidget)
                                  : static_cast<QObject*>(this);
     QTimer::singleShot(0, ctx, [overlay, panel]() {

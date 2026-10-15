@@ -52,8 +52,6 @@ private slots:
     void onToggleUserStatus(int userId);  // 禁用/启用用户
     /** 编辑对话框内一键重置口令为初始密码 */
     void onResetPwdInDialog();
-    /** 密码框点击→弹出软键盘 */
-    void onDlgPasswordClicked();
     /** 搜索框点击→弹出用户名软键盘(对齐登录页) */
     void onSearchFieldClicked();
     // 更新角色按钮组样式

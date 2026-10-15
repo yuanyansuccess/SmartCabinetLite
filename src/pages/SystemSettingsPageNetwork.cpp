@@ -262,8 +262,7 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
         return;
     }
 
-    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
-    // 旧实现硬编码开发机路径 d:/CFDZ/...，部署到客户机器后目录不存在导致写日志失败
+    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台自动创建），避免部署后路径不存在导致写日志失败
     QString logPath = Log::logDirectory() + "/network.log";
 
     auto writeNetLog = [logPath](const QString& action, const QString& result, const QString& detail) {

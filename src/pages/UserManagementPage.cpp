@@ -101,7 +101,7 @@ void UserManagementPage::setupUI() {
     // 部门筛选按钮
     connect(m_deptFilterBtn, &QPushButton::clicked, this, &UserManagementPage::onDeptFilterClicked);
 
-    // 部门多选下拉面板 QFrame→QDialog修复checkbox选不中致命Bug（弹窗动态构建）
+    // 部门多选下拉面板：用 QDialog(Qt::Popup) 承载 checkbox，QFrame 无法正确处理其交互
     m_deptPopup = new QDialog(this);
     m_deptPopup->setWindowFlags(Qt::FramelessWindowHint | Qt::Popup);
     m_deptPopup->setModal(false);
@@ -519,12 +519,6 @@ bool UserManagementPage::eventFilter(QObject* obj, QEvent* event) {
         }
     }
     return QWidget::eventFilter(obj, event);
-}
-
-/** 密码框点击 → 弹出安全软键盘(密码随机模式) */
-/// NumKeypad嵌入式控件，此函数已废弃但保留接口兼容
-void UserManagementPage::onDlgPasswordClicked() {
-    // 已NumKeypad嵌入式控件，逻辑移至⌨按钮的lambda中
 }
 
 /** 部门筛选按钮点击 */

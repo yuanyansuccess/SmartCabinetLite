@@ -252,8 +252,6 @@ void BatchImportDialog::setupContent()
     bl->addWidget(m_confirmBtn);
 }
 
-// ── 以下方法与原实现一致 ──
-
 void BatchImportDialog::onDownloadTemplate()
 {
     QString defaultPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)
