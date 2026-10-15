@@ -157,7 +157,8 @@ void UserManagementPage::onFaceEnroll(int userId) {
 /** 构建录入对话框头部：说明文字与用户信息行 */
 void UserManagementPage::buildFaceEnrollHeader(const User& user, QVBoxLayout* cl) {
     // 说明文字
-    auto* descLabel = new QLabel(QStringLiteral("请面向摄像头，保持正脸清晰可见"));
+    auto* descLabel = new QLabel(QStringLiteral("请面向摄像头，保持正脸清晰可见\n"
+                                                "一张人脸只能录入到一个账户，录入时系统自动查重"));
     descLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
     cl->addWidget(descLabel);
 
@@ -557,6 +558,19 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
     double score = confidence * 0.7 + (dimCount >= 128 ? 0.3 : 0.1);
     if (score > ctx.bestConfidence) { ctx.bestConfidence = score; ctx.bestDescriptor = descriptor; }
 
+    // 采集即查重：本帧若已与库内其他账户的人脸高度相似，立即停止采集并告知归属人，
+    // 避免管理员白等 5 帧采完、点保存后才被拒绝。
+    // 相似度低的中间帧不提示：同一人的不同姿态帧相似度本就有波动，仅在达标时拦截。
+    {
+        FaceRecognitionService svc;
+        const FaceRecognitionService::FaceDuplicateInfo dup =
+            svc.findDuplicateFace(descriptor, ctx.userId);
+        if (dup.duplicated) {
+            showFaceDuplicateHint(ctx, dup.ownerText(), dup.similarity);
+            return;
+        }
+    }
+
     if (ctx.captureCount < MAX_CAPTURES) {
         // 进入下一个方位
         ctx.targetIdx = ctx.captureCount;
@@ -594,6 +608,7 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
         ctx.directionLabel->setText(QStringLiteral("5方位采集完成"));
         ctx.directionLabel->setStyleSheet(StyleHelper::postureBadge());
         ctx.confirmBtn->setVisible(true);
+        ctx.confirmBtn->setEnabled(true);
         ctx.instructionLabel->setText(QStringLiteral("🎉 采集完成！最佳置信度: %1%\n请点击「确认保存」")
             .arg(QString::number(ctx.bestConfidence * 100, 'f', 1)));
         ctx.instructionLabel->setStyleSheet(
@@ -601,7 +616,7 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
     }
 }
 
-/** 确认保存 — 将最佳人脸特征写入数据库 */
+/** 确认保存 — 先查重（同一张脸不允许挂到第二个账户），通过后写入数据库 */
 void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
     if (ctx.bestDescriptor.isEmpty() || ctx.userId <= 0) return;
     ctx.confirmBtn->setEnabled(false);
@@ -609,17 +624,60 @@ void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
     ctx.instructionLabel->setText(QStringLiteral("正在保存人脸特征..."));
     ctx.instructionLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::primaryColor(), 400, "padding:4px 0;"));
     FaceRecognitionService svc;
-    if (svc.enrollFace(ctx.userId, ctx.bestDescriptor)) {
+    const FaceRecognitionService::EnrollFaceResult result = svc.enrollFaceChecked(ctx.userId, ctx.bestDescriptor);
+    if (result.success) {
         ctx.statusLabel->setText(QStringLiteral("人脸特征采集成功！"));
         ctx.statusLabel->setStyleSheet("font-size:15px;font-weight:700;color:#389e0d;background:transparent;");
         ctx.camera->stopCamera();
         refresh();
         QTimer::singleShot(800, ctx.dlg, &QDialog::accept);
+    } else if (result.duplicated) {
+        showFaceDuplicateHint(ctx, result.duplicate.ownerText(), result.duplicate.similarity);
     } else {
         ctx.statusLabel->setText(QStringLiteral("人脸录入失败，请重试"));
         ctx.statusLabel->setStyleSheet("font-size:15px;font-weight:700;color:#ff4d4f;background:transparent;");
         ctx.confirmBtn->setEnabled(true);
     }
+}
+
+/**
+ * @brief 查重命中后的统一提示：停止本次采集、切回可重新采集状态并说明该脸归属谁
+ * @param ctx 本次人脸录入会话上下文
+ * @param ownerText 该人脸的归属人标识，形如「张三（工号 CF001）」
+ * @param similarity 与归属人特征的相似度，取值 0~1，界面按百分比展示
+ * @note 采集过程中与保存时两条拦截路径共用本方法，保证两处界面表现与文案完全一致；
+ *       特征与采集进度在此丢弃并把"开始人脸录入"按钮恢复出来，管理员可换人重新采集。
+ */
+void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
+                                               const QString& ownerText, double similarity) {
+    ctx.isCapturing = false;
+    ctx.stopTimers();
+    ctx.camera->stopCamera();
+    ctx.camera->reset();
+    // 丢弃本次已采到的特征与进度，避免残留数据被下一次保存动作误用
+    ctx.bestDescriptor.clear();
+    ctx.bestConfidence = 0.0;
+    ctx.captureCount = 0;
+    ctx.targetIdx = 0;
+    ctx.confirmBtn->setVisible(false);
+    ctx.startBtn->setVisible(true);
+
+    ctx.directionLabel->setText(QStringLiteral("⚠ 人脸重复"));
+    ctx.directionLabel->setStyleSheet(
+        "font-size:32px; font-weight:900; color:#ffffff; "
+        "background:#ff4d4f; border-radius:14px; padding:10px 20px;");
+    ctx.instructionLabel->setText(
+        QStringLiteral("该人脸已录入到「%1」\n若站错人，请重新采集").arg(ownerText));
+    ctx.instructionLabel->setStyleSheet(
+        "font-size:15px;font-weight:700;color:#ff4d4f;padding:4px 0;background:transparent;");
+    ctx.statusLabel->setText(QStringLiteral("未保存：人脸重复"));
+    ctx.statusLabel->setStyleSheet(
+        "font-size:15px;font-weight:700;color:#ff4d4f;background:transparent;");
+
+    MessageDialog::showWarning(ctx.dlg, QStringLiteral("人脸重复"),
+        QStringLiteral("该人脸已录入到用户「%1」，相似度 %2%。\n同一张人脸不允许录入到第二个账户，请核对是否站错人。")
+            .arg(ownerText)
+            .arg(similarity * 100, 0, 'f', 1));
 }
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */

@@ -381,6 +381,7 @@ FaceRecognitionService::EnrollFaceResult FaceRecognitionService::enrollFaceCheck
     // 查重：同一张脸不允许挂在第二个账户上，命中即拒绝写入
     result.duplicate = findDuplicateFace(faceDescriptor, userId);
     if (result.duplicate.duplicated) {
+        result.duplicated = true;
         result.message = QStringLiteral("该人脸已录入到用户「%1」，同一张人脸不允许录入到第二个账户")
                          .arg(result.duplicate.ownerText());
         return result;

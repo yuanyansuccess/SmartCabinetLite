@@ -81,6 +81,7 @@ private:
     void onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* reply);
     void onFaceCaptureReady(FaceEnrollCtx& ctx, double confidence);
     void onFaceConfirmSave(FaceEnrollCtx& ctx);
+    void showFaceDuplicateHint(FaceEnrollCtx& ctx, const QString& ownerText, double similarity);
 
     // 搜索筛选
     QLineEdit* m_searchEdit;
