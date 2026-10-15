@@ -376,7 +376,7 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
 /// 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
 /// 阈值对齐FaceRecognitionService默认值(0.94/0.95/0.35/0.15/0.80)
-/// 单人脸模式必须95%以上才通过，陌生人绝对不能登录
+/// 单人脸模式必须达到直通线（96%）以上才通过，陌生人绝对不能登录
 void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     FaceRecognitionService svc;
     auto result = svc.matchFace(descriptor);  // 使用默认参数(0.94/0.95/0.35/0.15/0.80)

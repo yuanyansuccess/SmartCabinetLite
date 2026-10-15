@@ -236,7 +236,7 @@ void ForgotPasswordDialog::verifyOnce() {
     }
 
     FaceRecognitionService faceSvc;
-    auto result = faceSvc.matchFace(descriptor);  // 默认阈值与登录一致（94%/95%）
+    auto result = faceSvc.matchFace(descriptor);  // 默认阈值与登录一致（margin 下限94%/直通线96%）
     m_verifying = false;
 
     if (result.success && result.userId > 0) {

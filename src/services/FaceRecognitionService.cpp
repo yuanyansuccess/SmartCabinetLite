@@ -199,20 +199,21 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     auto& best = candidates[0];
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
 
-  // 单人脸严格策略：系统仅1人脸时必须95%以上
-    // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，陌生人碰巧0.94+就可能通过
-    // 注意：单人脸模式下使用singleFaceThreshold=0.95，多人脸模式仍可用margin降至0.94
+  // 单人脸严格策略：系统仅1人脸时必须达到更高门槛
+    // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，
+    // 陌生人（未录入者）与库内特征的相似度实测可达 0.955
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     // 单人脸相似度门槛：低于此值判为非本人。
-    // 取0.95（设计值，注释/登录页一致）——0.97过严，同一人波动0.94~0.97会反复拒，
-    // 而陌生人<0.5，0.95下不会放入任何陌生人。
-    const double singleFaceThreshold = 0.95;
+    // 取 0.96：实测库内仅一条相近特征时，陌生人（未录入者）与该特征的
+    // 相似度可达 0.955，0.95 会放行陌生人；本人成功帧实测全部 ≥0.968，
+    // 0.96 之下本人低质量帧会被拒后由多帧重试兜回，不损失可用性。
+    const double singleFaceThreshold = 0.96;
     bool cosOk = false;
 
     if (candidates.size() == 1) {
-        // 单人脸模式：没有第二名候选，必须达到singleFaceThreshold(0.95)才通过
-        // 杜绝陌生人误识：只有1个人脸时，任何低于95%的匹配一律拒绝
+        // 单人脸模式：没有第二名候选，必须达到 singleFaceThreshold 才通过
+        // 杜绝陌生人误识：只有1个人脸时，低于门槛的匹配一律拒绝
         cosOk = (best.similarity >= singleFaceThreshold);
         qDebug() << "[FaceRecog] 单人脸模式: best.sim=" << best.similarity
                  << "threshold=" << singleFaceThreshold
@@ -220,7 +221,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     } else if (best.similarity >= highConfidence &&
                (best.similarity - secondSim) > marginThreshold) {
         // 多人脸高置信度：除自身相似度达标外，第二名差距也必须足够大。
-        // 两个候选同时逼近 0.95 说明库内存在多条相近特征（同一张脸挂多个
+        // 两个候选同时逼近直通线说明库内存在多条相近特征（同一张脸挂多个
         // 账户，或双胞胎），此时取最高者等于随机选人，必须拒绝。
         cosOk = true;
     } else if (candidates.size() >= 2 &&
