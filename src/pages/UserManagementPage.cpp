@@ -597,10 +597,13 @@ void UserManagementPage::onToggleUserStatus(int userId) {
     bool ok = ctrl.setUserStatus(userId, newStatus);
 
     if (ok) {
-        MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("操作成功"));
+        // 标题已表达"成功"，正文给出具体对象与动作，避免两处控件说同一句话
+        MessageDialog::showSuccess(this, QStringLiteral("操作成功"),
+                                   QStringLiteral("%1 已%2").arg(user.realName, actionText));
         loadUsers();
     } else {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("操作失败"));
+        MessageDialog::showError(this, QStringLiteral("提示"),
+                                 QStringLiteral("操作失败，请重试"));
     }
 }
 

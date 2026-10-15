@@ -38,11 +38,10 @@ public:
     /// 公开停止摄像头方法，供MainWindow在登录成功后兜底调用
     void stopFaceRecognitionPublic() { stopFaceRecognition(); }
     /// 注销后抑制自动刷脸登录：人未离开画面时不自动回登，onFaceLost清除
-    /// [2026-10-13 袁燕] 决策变更：注销后直接进入识别，不再抑制——
-    ///   原5秒抑制窗口导致注销后必须干等5秒才能刷脸（现场体验不可接受）。
-    ///   现 kLogoutSuppressWindowMs=0（机制保留、当前不激活），
-    ///   若将来现场出现"注销瞬间被同一张脸弹回"问题，调回该值即可重新启用。
-    ///   配套：resumeFaceRecognition 路径文案为"请重新刷脸"。
+    /// 抑制时长由 kLogoutSuppressWindowMs 控制，当前为 0（不抑制）；
+    /// 机制整体保留：若现场需要防"注销瞬间被同一张脸弹回"，
+    /// 把该值改为 3000~5000 即启用。
+    /// 配套：resumeFaceRecognition 路径文案为"请重新刷脸"。
     void suppressAutoLoginAfterLogout() {
         m_logoutSuppressed = true;
         m_logoutSuppressUntilMs = QDateTime::currentMSecsSinceEpoch() + kLogoutSuppressWindowMs;
@@ -171,9 +170,7 @@ private:
     bool m_logoutSuppressed = false;  // 注销后抑制自动登录（人离开画面或超时后清除）
     /// 注销抑制截止时间戳（毫秒），超时后自动解除抑制
     qint64 m_logoutSuppressUntilMs = 0;
-    /// 注销抑制窗口：0=不抑制（[2026-10-13 袁燕] 决策：注销后直接识别）。
-    /// 机制整体保留（isLogoutSuppressed/onFaceLost/retryFace 均未删），
-    /// 若将来现场需要防"注销瞬间被同一张脸弹回"，把 0 改回 3000~5000 即恢复。
+    /// 注销抑制窗口（毫秒）：0=不抑制；改为 3000~5000 可启用"注销后短暂不自动刷脸"
     static constexpr qint64 kLogoutSuppressWindowMs = 0;
 
     // 采集样本

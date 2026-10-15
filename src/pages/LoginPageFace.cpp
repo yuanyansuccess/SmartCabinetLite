@@ -96,8 +96,8 @@ void LoginPage::startFaceRecognition(bool relogin) {
     });
 
     if (m_hasCamera) {
-        m_subtitleLabel->setText(QStringLiteral("请面向摄像头完成身份验证"));
-        // [2026-10-13 袁燕] 注销/锁屏回登场景文案"请重新刷脸"，首次登录"请对准摄像头"
+        m_subtitleLabel->setText(QStringLiteral("请面向摄像头"));
+        // 注销/锁屏回登时提示"请重新刷脸"，首次登录提示"请对准摄像头"
         setScanStatus(relogin ? QStringLiteral("请重新刷脸") : QStringLiteral("请对准摄像头"), 0);
     } else {
         m_subtitleLabel->setText(QStringLiteral("模拟人脸识别模式 (无摄像头)"));
@@ -116,11 +116,12 @@ void LoginPage::startFaceRecognition(bool relogin) {
             qDebug() << "[LoginPage] Face recognition timeout, falling back to password";
             stopFaceRecognition();
             setFaceResult(FaceResult::Fail);
-            // 对齐Web版：超时显示"人脸验证未通过"而非"人脸验证超时"
+            // 失败提示只说"原因 + 下一步"两件事：不再重复告知"可用账号密码登录"
+            // （页面上"使用账号密码登录"按钮本身已是常驻引导）
             m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
-            m_errorLabel->setText(QStringLiteral("⚠️ 人脸识别超时，请使用账号密码登录"));
+            m_errorLabel->setText(QStringLiteral("识别超时，请重试"));
             m_errorLabel->setVisible(true);
-            setScanStatus(QStringLiteral("识别超时，请刷脸"), 1);
+            setScanStatus(QStringLiteral("请重试"), 1);
         }
     }, Qt::SingleShotConnection);
 }
@@ -188,18 +189,13 @@ void LoginPage::onFaceTooFarChanged(bool tooFar) {
 }
 
 /**
- * @brief 距离提示持有点：识别过程中距离偏远时，提示不被流程文案覆盖
- */
-/**
- * @brief 统一状态提示：所有状态文案走此入口，保证颜色语义一致且不截断
+ * @brief 统一状态提示：所有状态文案走此入口，保证颜色语义一致
+ * @param text 提示文案，由调用方保证简短（一行可容纳），本方法不再替换文案
  * @param level 0=常规灰 1=引导橙 2=成功绿 3=失败红
  */
 void LoginPage::setScanStatus(const QString& text, int level) {
     if (!m_cameraStatusText) return;
-    // 文案超过 12 个字自动降一档字号，避免被控件宽度截断
-    const QString t = text.size() > 12 ? QStringLiteral("正在识别，请稍候...")
-                                       : text;
-    m_cameraStatusText->setText(t);
+    m_cameraStatusText->setText(text);
     static const QStringList kStyles = {
         // 0 常规：浅灰蓝（#888 视觉柔和，避免深色看起来像黑字）
         QStringLiteral("font-size:14px; color:#888888; font-weight:600; background:transparent;"),
@@ -287,9 +283,9 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
             setStatusDot("background:#ff4d4f;");
             setFaceResult(FaceResult::Fail);
             m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
-            m_errorLabel->setText(QStringLiteral("⚠️ 人脸特征提取失败，请使用账号密码登录"));
+            m_errorLabel->setText(QStringLiteral("人脸提取失败，请重试"));
             m_errorLabel->setVisible(true);
-            setScanStatus(QStringLiteral("识别失败，请重试"), 3);
+            setScanStatus(QStringLiteral("请重试"), 3);
         } else {
             // 第一帧就失败 → 重置重试
             m_faceCamera->reset();
@@ -549,9 +545,11 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
     setStatusDot("background:#ff4d4f;");
     setFaceResult(FaceResult::Fail);
     m_subtitleLabel->setText(QStringLiteral("人脸验证未通过"));
-    m_errorLabel->setText(QStringLiteral("⚠️ %1").arg(errMsg));
+    // 详细原因（含相似度与距离）只进日志，界面只给一句话，避免向普通用户暴露调试参数
+    qDebug() << "[LoginPage] 人脸验证未通过:" << errMsg;
+    m_errorLabel->setText(QStringLiteral("未识别到您，请重试"));
     m_errorLabel->setVisible(true);
-    setScanStatus(QStringLiteral("识别失败，请重试"), 3);
+    setScanStatus(QStringLiteral("请重试"), 3);
     m_altLoginHint->setText(QStringLiteral("🔑 使用账号密码登录"));
 }
 
@@ -564,10 +562,12 @@ void LoginPage::onCameraError(const QString& msg) {
     setStatusDot("background:#ff4d4f;");
     setFaceResult(FaceResult::NoCamera);
     m_faceCamera->setVisible(false);
-    m_errorLabel->setText(QStringLiteral("⚠️ 摄像头不可用: %1").arg(msg));
+    // 摄像头故障详情只进日志，界面保持一句话，避免出现半句技术描述
+    qDebug() << "[LoginPage] 摄像头不可用:" << msg;
+    m_errorLabel->setText(QStringLiteral("摄像头不可用"));
     m_errorLabel->setVisible(true);
     m_subtitleLabel->setText(QStringLiteral("摄像头未就绪"));
-    setScanStatus(QStringLiteral("摄像头不可用"), 3);
+    setScanStatus(QStringLiteral("请用密码登录"), 3);
     m_altLoginHint->setVisible(false);
 }
 

@@ -8,6 +8,7 @@
 #include "components/MessageDialog.h"
 #include "controller/UserController.h"
 #include "common/Constants.h"
+#include "common/UserInputValidator.h"  // 密码规则与提示文案
 #include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -33,9 +34,8 @@ void ForceChangePasswordDialog::setupContent() {
 
     // 顶部说明：告知用户为什么必须改密
     auto* hint = new QLabel(m_requireOldPassword
-        ? QStringLiteral("%1，请修改登录密码。").arg(m_realName)
-        : QStringLiteral("%1，您的密码仍是初始密码 123456。\n为了账户安全，请先设置新密码再使用系统。")
-              .arg(m_realName));
+        ? QStringLiteral("%1，请修改登录密码").arg(m_realName)
+        : QStringLiteral("%1，请设置新密码").arg(m_realName));
     hint->setWordWrap(true);
     hint->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel,
                                                StyleHelper::textBody(), 600));
@@ -52,9 +52,8 @@ void ForceChangePasswordDialog::setupContent() {
     cl->addWidget(buildPasswordRow(QStringLiteral("新密码"), m_newPwdEdit));
     cl->addWidget(buildPasswordRow(QStringLiteral("确认新密码"), m_confirmPwdEdit));
 
-    // 规则提示：新密码要求一行说清
-    auto* rule = new QLabel(QStringLiteral("新密码至少 %1 位，不能使用 123456，两次输入需一致")
-                                .arg(SC::PASSWORD_MIN_LENGTH));
+    // 规则提示：一行说清，规则与文案统一取自 common::UserInputValidator
+    auto* rule = new QLabel(common::passwordRuleText());
     rule->setStyleSheet("font-size:13px;color:#999;background:transparent;");
     cl->addWidget(rule);
 
@@ -172,14 +171,14 @@ void ForceChangePasswordDialog::onSubmit() {
         return;
     }
     if (newPwd.length() < SC::PASSWORD_MIN_LENGTH) {
-        showError(QStringLiteral("新密码至少 %1 位").arg(SC::PASSWORD_MIN_LENGTH));
+        showError(common::passwordTooShortText());
         return;
     }
     if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
-        showError(QStringLiteral("新密码不能使用初始密码 123456"));
+        showError(QStringLiteral("不能使用初始密码"));
         return;
     }
-    if (newPwd != confirmPwd) { showError(QStringLiteral("两次输入的新密码不一致")); return; }
+    if (newPwd != confirmPwd) { showError(QStringLiteral("两次输入不一致")); return; }
 
     if (m_errorLabel) m_errorLabel->setVisible(false);
 
@@ -195,7 +194,7 @@ void ForceChangePasswordDialog::onSubmit() {
         return;
     }
     MessageDialog::showSuccess(this, QStringLiteral("修改成功"),
-                               QStringLiteral("密码已更新，请使用新密码登录"));
+                               QStringLiteral("请用新密码登录"));
     accept();
 }
 

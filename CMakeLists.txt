@@ -263,6 +263,7 @@ set(ALL_HEADERS
     src/common/DatabaseManager.h
     src/common/Constants.h
     src/common/PositionFormatter.h
+    src/common/UserInputValidator.h
     # Model (共享)
     src/model/User.h
     src/model/Department.h

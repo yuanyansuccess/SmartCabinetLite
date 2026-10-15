@@ -29,13 +29,14 @@ AuthService::AuthService(QObject* parent) : QObject(parent) {}
  */
 AuthService::LoginResult AuthService::login(const QString& username, const QString& password) {
     LoginResult r; r.success = false;
-    if (username.isEmpty() || password.isEmpty()) { r.message = "用户名和密码不能为空"; return r; }
+    if (username.isEmpty() || password.isEmpty()) { r.message = "请输入工号和密码"; return r; }
     UserDAO dao;
     QJsonObject user = dao.findByUsername(username);
-    if (user.isEmpty()) { r.message = "用户名或密码错误"; return r; }
-    if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已被禁用"; return r; }
+    // 工号不存在与口令错误给同一句提示：区分二者等于告诉攻击者哪些工号有效
+    if (user.isEmpty()) { r.message = "工号或密码错误"; return r; }
+    if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已禁用"; return r; }
     if (!verifyPassword(password, user["passwordSalt"].toString(), user["passwordHash"].toString())) {
-        r.message = "用户名或密码错误"; return r;
+        r.message = "工号或密码错误"; return r;
     }
     dao.recordLoginSuccess(user["userId"].toInt());
     user.remove("passwordHash"); user.remove("passwordSalt");

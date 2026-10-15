@@ -108,8 +108,7 @@ void UserEntryDialog::showBorrowDetail()
     lay->addWidget(title);
 
     // 统计行
-    auto* statLabel = new QLabel(QStringLiteral("%1 · 当前借用 %2 件 · 累计借用 %3 次")
-                                     .arg(m_user["realName"].toString())
+    auto* statLabel = new QLabel(QStringLiteral("当前 %1 件 · 累计 %2 次")
                                      .arg(activeCount).arg(records.size()));
     statLabel->setAlignment(Qt::AlignCenter);
     statLabel->setStyleSheet(QString("font-size: 17px; color: %1; background: transparent;")

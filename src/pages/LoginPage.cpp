@@ -35,6 +35,7 @@
 #include <QJsonArray>
 #include <QApplication>  // qApp->quit()退出系统
 #include "common/Constants.h"
+#include "common/UserInputValidator.h"  // 工号与密码校验规则及提示文案
 
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_faceCamera(nullptr) {
@@ -145,16 +146,16 @@ void LoginPage::onPasswordLogin() {
     QString username = m_usernameEdit->text().trimmed();
     QString password = m_passwordEdit->text();
 
-    // [完善] 前端校验
+    // 输入校验：规则与提示文案统一由 common::UserInputValidator 提供，
+    // 登录页与用户管理页共用同一套规则，避免同一规则两处措辞
     if (username.isEmpty()) {
         m_errorLabel->setText(QStringLiteral("请输入工号"));
         m_errorLabel->setVisible(true);
         return;
     }
     // 工号为纯数字（与数字键盘输入、DB存储格式统一）
-    static const QRegularExpression workNoRe(QStringLiteral("^\\d{1,32}$"));
-    if (!workNoRe.match(username).hasMatch()) {
-        m_errorLabel->setText(QStringLiteral("工号应为1-32位纯数字"));
+    if (!common::isValidWorkNo(username)) {
+        m_errorLabel->setText(common::workNoInvalidText());
         m_errorLabel->setVisible(true);
         return;
     }
@@ -163,8 +164,8 @@ void LoginPage::onPasswordLogin() {
         m_errorLabel->setVisible(true);
         return;
     }
-    if (password.length() < 6) {
-        m_errorLabel->setText(QStringLiteral("密码长度不能少于6位"));
+    if (password.length() < SC::PASSWORD_MIN_LENGTH) {
+        m_errorLabel->setText(common::passwordTooShortText());
         m_errorLabel->setVisible(true);
         return;
     }
@@ -182,7 +183,7 @@ void LoginPage::onPasswordLogin() {
         m_errorLabel->setStyleSheet(
             QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
                 .arg(StyleHelper::dangerColor()));
-        m_errorLabel->setText(r.message.isEmpty() ? QStringLiteral("用户名或密码错误，请重试") : r.message);
+        m_errorLabel->setText(r.message.isEmpty() ? QStringLiteral("工号或密码错误") : r.message);
         m_errorLabel->setVisible(true);
         m_passwordEdit->clear();
         // 自动弹出密码键盘便于重试
@@ -260,7 +261,7 @@ void LoginPage::resetPageState() {
     m_altLoginHint->setText(QStringLiteral("🔑 使用账号密码登录"));
 
     // 6. 重置状态文字（恢复初始文案）
-    m_subtitleLabel->setText(QStringLiteral("请面向摄像头完成身份验证"));
+    m_subtitleLabel->setText(QStringLiteral("请面向摄像头"));
     m_welcomeLabel->setText(QStringLiteral("欢迎使用"));
     setScanStatus(QStringLiteral("请对准摄像头"), 0);
     m_captureProgress->setVisible(false);
@@ -298,10 +299,11 @@ void LoginPage::switchToPasswordLogin() {
     setFaceResult(FaceResult::Fail);
     stopDotBlink();
     setStatusDot("background:#ff4d4f;");
-    m_errorLabel->setText(QStringLiteral("⚠️ 人脸识别失败，请使用账号密码登录"));
-    m_errorLabel->setVisible(true);
+    // 主动切换登录方式不是错误：只留一句引导文案，
+    // 避免错误栏、标题、状态栏三处控件重复告知"改用账号密码登录"
+    m_errorLabel->setVisible(false);
     m_subtitleLabel->setText(QStringLiteral("请输入账号密码"));
-        setScanStatus(QStringLiteral("已切换密码登录"), 0);
+    setScanStatus(QString(), 0);
     // cameraWrap保持可见(fail圆圈已由setFaceResult管理)，不额外隐藏
 }
 

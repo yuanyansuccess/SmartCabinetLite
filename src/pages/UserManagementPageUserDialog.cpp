@@ -43,15 +43,17 @@
 #include <QDateTime>  // 方位检测时间戳
 #include <functional>  // std::function
 #include "common/Constants.h"
+#include "common/UserInputValidator.h"  // 工号与密码校验规则及提示文案
 
 // ==============================================================
-  // 统一圆角风格 — BaseDialog基类
-// 供 onAddUser / onEditUser 复用，避免 onEditUser 错误调用 onAddUser 导致弹出"新增用户"标题
+// 用户表单对话框（新增与编辑共用同一实例）
+// 标题与主按钮文案由 onAddUser / onEditUser 在打开前按场景设置，
+// 两处共用同一套表单，避免维护两份布局。
 void UserManagementPage::createUserDialog() {
     if (m_userDialog) return;  // 已初始化，跳过
 
     m_userDialog = new BaseDialog(this, 520);
-    m_userDialog->setDialogTitle(QStringLiteral("用户"));  // 占位标题，由调用方覆盖
+    m_userDialog->setDialogTitle(QStringLiteral("用户信息"));
     m_userDialog->setMinimumHeight(460);
 
     auto* cl = m_userDialog->contentLayout();
@@ -326,16 +328,21 @@ void UserManagementPage::onSubmitUser() {
     QString phone = m_dlgPhone->text().trimmed();
 
     if (realName.isEmpty() || workNo.isEmpty()) {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("请填写姓名和工号"));
+        MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请填写姓名和工号"));
         return;
     }
-    if (m_editUserId == 0 && dept.isEmpty()) {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("请选择所属部门"));
+    // 工号格式校验：登录页与本对话框共用 common::UserInputValidator 的同一套规则
+    if (m_editUserId == 0 && !common::isValidWorkNo(workNo)) {
+        MessageDialog::showError(this, QStringLiteral("提示"), common::workNoInvalidText());
+        return;
+    }
+    // 部门为必填，新增与编辑都校验，避免编辑时被清空或改成不存在的部门
+    if (dept.isEmpty()) {
+        MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请选择部门"));
         return;
     }
     if (m_editUserId != 0 && !password.isEmpty() && password.length() < SC::PASSWORD_MIN_LENGTH) {
-        MessageDialog::showError(this, QStringLiteral("错误"),
-                                 QStringLiteral("密码长度不能少于%1位").arg(SC::PASSWORD_MIN_LENGTH));
+        MessageDialog::showError(this, QStringLiteral("提示"), common::passwordTooShortText());
         return;
     }
 
@@ -358,11 +365,10 @@ void UserManagementPage::onSubmitUser() {
             m_userDialog->accept();
             loadUsers();
             MessageDialog::showSuccess(this, QStringLiteral("新增成功"),
-                                       QStringLiteral("用户已创建，初始密码为 %1，"
-                                                      "该用户首次登录时须修改密码").arg(SC::DEFAULT_INIT_PASSWORD));
+                                       QStringLiteral("初始密码 %1").arg(SC::DEFAULT_INIT_PASSWORD));
         } else {
-            MessageDialog::showError(this, QStringLiteral("错误"),
-                                     QStringLiteral("新增失败，请检查工号是否重复"));
+            MessageDialog::showError(this, QStringLiteral("提示"),
+                                     QStringLiteral("新增失败，工号可能已存在"));
         }
         return;
     }
@@ -383,7 +389,7 @@ void UserManagementPage::onSubmitUser() {
         m_userDialog->accept();
         loadUsers();
     } else {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("保存失败"));
+        MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("保存失败，请重试"));
     }
 }
 

@@ -157,8 +157,7 @@ void UserManagementPage::onFaceEnroll(int userId) {
 /** 构建录入对话框头部：说明文字与用户信息行 */
 void UserManagementPage::buildFaceEnrollHeader(const User& user, QVBoxLayout* cl) {
     // 说明文字
-    auto* descLabel = new QLabel(QStringLiteral("请面向摄像头，保持正脸清晰可见\n"
-                                                "一张人脸只能录入到一个账户，录入时系统自动查重"));
+    auto* descLabel = new QLabel(QStringLiteral("请正对摄像头\n一张脸只能录入一个账户"));
     descLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
     cl->addWidget(descLabel);
 
@@ -500,9 +499,8 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
 
         ctx.directionLabel->setText(QStringLiteral("【 %1 】 %2s").arg(target.name).arg(remainSec, 0, 'f', 1));
         ctx.directionLabel->setStyleSheet(StyleHelper::postureBadge());
-        ctx.instructionLabel->setText(QStringLiteral("✅ 方位匹配 %1/2帧  (yaw=%2 pitch=%3)\n还需保持%4秒...")
-            .arg(ctx.postureMatchCount)
-            .arg(yaw, 0, 'f', 2).arg(pitch, 0, 'f', 2).arg(remainSec, 0, 'f', 1));
+        // 倒计时只在方位徽标上显示，指令区不再重复同一数字
+        ctx.instructionLabel->setText(QStringLiteral("保持不动"));
         ctx.instructionLabel->setStyleSheet(
             "font-size:15px;font-weight:bold;color:#389e0d;padding:4px 0;background:transparent;");
 
@@ -525,8 +523,9 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         ctx.directionLabel->setStyleSheet(
             "font-size:32px; font-weight:900; color:#ffffff; "
             "background:#4da3ff; border-radius:14px; padding:10px 20px;");
-        ctx.instructionLabel->setText(QStringLiteral("%1\n请调整到【%2】方位\n%3")
-            .arg(hint).arg(target.name).arg(target.instruction));
+        // 一行说清：当前姿态 → 目标姿态；方位检测的 yaw/pitch 数值只进日志不显示
+        ctx.instructionLabel->setText(QStringLiteral("%1，请转到【%2】")
+            .arg(hint, target.name));
         ctx.instructionLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::orangeAccent(), 700, "padding:4px 0;"));
     }
 }
@@ -609,8 +608,7 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
         ctx.directionLabel->setStyleSheet(StyleHelper::postureBadge());
         ctx.confirmBtn->setVisible(true);
         ctx.confirmBtn->setEnabled(true);
-        ctx.instructionLabel->setText(QStringLiteral("🎉 采集完成！最佳置信度: %1%\n请点击「确认保存」")
-            .arg(QString::number(ctx.bestConfidence * 100, 'f', 1)));
+        ctx.instructionLabel->setText(QStringLiteral("采集完成\n请点击「确认保存」"));
         ctx.instructionLabel->setStyleSheet(
             "font-size:15px;font-weight:600;color:#389e0d;padding:4px 0;background:transparent;");
     }
@@ -674,10 +672,11 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
     ctx.statusLabel->setStyleSheet(
         "font-size:15px;font-weight:700;color:#ff4d4f;background:transparent;");
 
+    // 相似度只进日志：现场只需知道"这张脸已经属于谁"，不需要算法数值
+    qDebug() << "[UserManagement] 人脸查重命中, owner=" << ownerText
+             << "similarity=" << similarity;
     MessageDialog::showWarning(ctx.dlg, QStringLiteral("人脸重复"),
-        QStringLiteral("该人脸已录入到用户「%1」，相似度 %2%。\n同一张人脸不允许录入到第二个账户，请核对是否站错人。")
-            .arg(ownerText)
-            .arg(similarity * 100, 0, 'f', 1));
+        QStringLiteral("该人脸已录入到「%1」\n一张脸只能录入一个账户").arg(ownerText));
 }
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */
@@ -740,7 +739,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
     auto* statusText = new QLabel(QStringLiteral("人脸特征已录入"));
     statusText->setAlignment(Qt::AlignCenter);
     statusText->setStyleSheet("font-size:16px;font-weight:600;color:#389e0d;background:transparent;");
-    auto* statusHint = new QLabel(QStringLiteral("该用户可使用人脸识别登录智能柜系统"));
+    auto* statusHint = new QLabel(QStringLiteral("可刷脸登录"));
     statusHint->setAlignment(Qt::AlignCenter);
     statusHint->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontSmall, StyleHelper::textMuted()));
 

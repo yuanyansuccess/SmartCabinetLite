@@ -10,6 +10,7 @@
 #include "services/FaceRecognitionService.h"
 #include "controller/UserController.h"
 #include "common/Constants.h"
+#include "common/UserInputValidator.h"  // 密码规则与提示文案
 #include "utils/StyleHelper.h"
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -118,8 +119,7 @@ QWidget* ForgotPasswordDialog::buildResetPage() {
     vl->addWidget(buildPasswordRow(QStringLiteral("新密码"), m_newPwdEdit));
     vl->addWidget(buildPasswordRow(QStringLiteral("确认密码"), m_confirmPwdEdit));
 
-    auto* rule = new QLabel(QStringLiteral("密码至少 %1 位，不能使用 123456，两次输入需一致")
-                                .arg(SC::PASSWORD_MIN_LENGTH));
+    auto* rule = new QLabel(common::passwordRuleText());
     rule->setStyleSheet("font-size:13px;color:#999;background:transparent;");
     vl->addWidget(rule);
 
@@ -231,7 +231,7 @@ void ForgotPasswordDialog::verifyOnce() {
     const QString descriptor = m_camera->captureFaceFeature();
     if (descriptor.isEmpty()) {
         m_verifying = false;
-        if (m_captureStatus) m_captureStatus->setText(QStringLiteral("未获取到人脸特征，请对准摄像头"));
+        if (m_captureStatus) m_captureStatus->setText(QStringLiteral("未识别人脸，请对准摄像头"));
         return;
     }
 
@@ -253,11 +253,11 @@ void ForgotPasswordDialog::verifyOnce() {
     if (m_captureStatus) m_captureStatus->setText(QStringLiteral("未识别到本人，请再试一次"));
     if (m_verifyError) {
         if (remain > 0) {
-            m_verifyError->setText(QStringLiteral("身份验证未通过，还可尝试 %1 次").arg(remain));
+            m_verifyError->setText(QStringLiteral("还可尝试 %1 次").arg(remain));
             m_verifyError->setVisible(true);
         } else {
             // 超过上限：关闭入口，避免反复刷脸试探
-            m_verifyError->setText(QStringLiteral("验证次数已用尽，请联系管理员在人员管理中重置密码"));
+            m_verifyError->setText(QStringLiteral("次数已用尽，请联系管理员"));
             m_verifyError->setVisible(true);
             if (m_pollTimer) m_pollTimer->stop();
             if (m_camera) m_camera->stopCamera();
@@ -288,26 +288,26 @@ void ForgotPasswordDialog::onResetSubmit() {
 
     if (newPwd.isEmpty()) { showError(QStringLiteral("请输入新密码")); return; }
     if (newPwd.length() < SC::PASSWORD_MIN_LENGTH) {
-        showError(QStringLiteral("密码至少 %1 位").arg(SC::PASSWORD_MIN_LENGTH));
+        showError(common::passwordTooShortText());
         return;
     }
     if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
-        showError(QStringLiteral("新密码不能使用初始密码 123456"));
+        showError(QStringLiteral("不能使用初始密码"));
         return;
     }
-    if (newPwd != confirmPwd) { showError(QStringLiteral("两次输入的密码不一致")); return; }
+    if (newPwd != confirmPwd) { showError(QStringLiteral("两次输入不一致")); return; }
 
     if (m_resetError) m_resetError->setVisible(false);
 
     UserController ctrl;
     // mustChange=false：用户当场自设新密码，无需下次登录再强制修改
     if (!ctrl.resetPassword(m_userId, newPwd, false)) {
-        showError(QStringLiteral("密码重置失败，请稍后重试"));
+        showError(QStringLiteral("重置失败，请重试"));
         return;
     }
     m_passwordReset = true;
     MessageDialog::showSuccess(this, QStringLiteral("重置成功"),
-                               QStringLiteral("密码已重置，请使用新密码登录"));
+                               QStringLiteral("请用新密码登录"));
     accept();
 }
 

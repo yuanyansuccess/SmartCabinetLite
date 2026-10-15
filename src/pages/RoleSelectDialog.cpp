@@ -24,9 +24,8 @@ void RoleSelectDialog::setupContent() {
     auto* cl = contentLayout();
     cl->setSpacing(16);
 
-    auto* hint = new QLabel(QStringLiteral(
-        "%1，您的账号同时具有管理员与普通用户权限，\n请选择本次登录使用的身份。").arg(m_realName.isEmpty()
-            ? QStringLiteral("您好") : m_realName));
+    auto* hint = new QLabel(QStringLiteral("%1，请选择本次登录身份")
+                             .arg(m_realName.isEmpty() ? QStringLiteral("您好") : m_realName));
     hint->setWordWrap(true);
     hint->setAlignment(Qt::AlignCenter);
     hint->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel,
@@ -67,11 +66,11 @@ void RoleSelectDialog::setupContent() {
 
     cl->addWidget(makeChoiceBtn(
         QStringLiteral("🛠️"), QStringLiteral("以管理员身份登录"),
-        QStringLiteral("管理功能：人员、工具、入库出库、台账、告警"),
+        QStringLiteral("人员、工具、台账、告警等管理功能"),
         Choice::Admin));
     cl->addWidget(makeChoiceBtn(
         QStringLiteral("👤"), QStringLiteral("以普通用户身份登录"),
-        QStringLiteral("工具借用与归还、借用明细查询"),
+        QStringLiteral("借用、归还、明细查询"),
         Choice::User));
 
     // 底部取消按钮：放弃本次登录回到登录页

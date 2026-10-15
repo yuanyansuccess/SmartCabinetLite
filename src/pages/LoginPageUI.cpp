@@ -354,7 +354,7 @@ void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
 
 
 
-    m_subtitleLabel = new QLabel(QStringLiteral("请面向摄像头完成身份验证"));
+    m_subtitleLabel = new QLabel(QStringLiteral("请面向摄像头"));
 
     m_subtitleLabel->setAlignment(Qt::AlignCenter);
 
@@ -1026,7 +1026,7 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
 
 
-    auto* successMsg = new QLabel(QStringLiteral("✅ 身份验证通过，即将进入系统..."));
+    auto* successMsg = new QLabel(QStringLiteral("验证通过"));
 
     successMsg->setWordWrap(true);
 
@@ -1096,7 +1096,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     // 陌生人警告消息 (Web: .stranger-msg 15px #d48806)
 
-    auto* strMsg = new QLabel(QStringLiteral("⚠️ 检测到未授权人员，请联系管理员录入信息"));
+    auto* strMsg = new QLabel(QStringLiteral("未授权人员，请联系管理员"));
 
     strMsg->setWordWrap(true);
 
