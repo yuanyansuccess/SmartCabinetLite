@@ -221,8 +221,6 @@ QWidget* MainWindow::createSidebar() {
     QList<NavItem> items = {
         {"users",      QStringLiteral("👥 人员管理")},
         {"tools",      QStringLiteral("🔧 工具管理")},
-        // 管理员借用/归还入口合并为一项，点击进入模拟数据智能柜会话
-        {"borrowreturn", QStringLiteral("📤 工具借用/归还")},
         {"checkin",    QStringLiteral("📦 工具入库")},
         {"checkout",   QStringLiteral("📋 工具出库")},
         {"ledger",     QStringLiteral("📈 台账统计")},
@@ -244,8 +242,6 @@ QWidget* MainWindow::createSidebar() {
             "QPushButton[active=\"true\"] { background:#4da3ff; color:white; font-weight:bold; }"
         );
         connect(btn, &QPushButton::clicked, this, [this, id = item.id] {
-            // 借用/归并入口不进页面栈，直接启动模拟会话
-            if (id == "borrowreturn") { openBorrowReturnSession(); return; }
             navigateToPage(id);
         });
         m_sidebarNav->addWidget(btn);
@@ -380,8 +376,7 @@ void MainWindow::updateSidebarVisibility() {
                                 && !m_userModeAsNormalUser;
         bool show;
         if (canUseAdminPages) {
-            // 借用/归还合并为borrowreturn入口（模拟会话）
-            show = (id == "tools" || id == "borrowreturn" || id == "alerts")
+            show = (id == "tools" || id == "alerts")
                 || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
                      || id == SC::TOOL_MAINTENANCE || id == "settings");  // 管理侧可见系统维护
         } else {
@@ -538,24 +533,8 @@ void MainWindow::onLogout() {
     emit userLoggedOut();
 }
 
-// 快捷操作/侧边栏的"工具借用/归还"入口统一在转交处拦截：
-// borrowreturn 不属于页面栈，直接启动智能柜借用/归还会话，避免落入未知页面兜底到工具管理
 void MainWindow::navigateToPage(const QString& name) {
-    if (name == QStringLiteral("borrowreturn")) {
-        openBorrowReturnSession();
-        return;
-    }
     showPage(name);
-}
-
-// 管理员"工具借用/归还"入口：与普通用户相同的智能柜会话流程
-// CabinetSessionDialog为全模拟数据演示（开柜提示→演示面板模拟拿取/放回→关柜差异清单）
-// 功能选择页(普通用户首页)仅普通用户可见，管理员流程结束回工具管理页
-void MainWindow::openBorrowReturnSession() {
-    if (m_user.isEmpty()) return;
-    CabinetSessionDialog session(m_user, this);
-    session.startSession();
-    showPage("tools");  // 管理员流程结束 → 回工具管理页
 }
 
 // 自动锁屏超时：退出登录回到登录页

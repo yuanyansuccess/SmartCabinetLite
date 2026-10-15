@@ -44,7 +44,6 @@ private slots:
     void onLoginSuccess(const QJsonObject& user);
     void onLogout();
     void navigateToPage(const QString& name);
-    void openBorrowReturnSession();  // 管理员借用/归还模拟会话入口
     void onAutoLockTimeout();  // 自动锁屏超时→退出登录回登录页
     void onBackupCheckTimeout();  // 定时检查是否到了备份时间
     void resetIdleTimer();  // 用户操作重置空闲计时器

@@ -171,13 +171,29 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
     // 工号不存在与口令错误给同一句提示：区分二者等于告诉攻击者哪些工号有效
     if (user.isEmpty()) {
         // 工号不存在同样计入防爆破窗口（防"枚举工号+逐个试密码"）
-        if (recordPasswordFailure()) recordLockAlert();
+        if (recordPasswordFailure()) {
+            recordLockAlert();
+            // 触发锁定的这一次失败必须明确告知锁定事实，
+            // 仍返回"工号或密码错误"会让操作员在锁定期内继续盲试
+            r.locked = true;
+            r.message = QStringLiteral("密码连续输错%1次，密码登录已锁定%2分钟，请改用刷脸登录")
+                            .arg(SC::PWD_FAIL_LOCK_TIMES)
+                            .arg(SC::PWD_LOCK_MS / (60 * 1000));
+            return r;
+        }
         r.message = "工号或密码错误"; return r;
     }
     if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已禁用"; return r; }
     if (!verifyPassword(password, user["passwordSalt"].toString(), user["passwordHash"].toString())) {
         // 密码校验失败计入防爆破窗口，达到阈值自动进入整机锁定
-        if (recordPasswordFailure()) recordLockAlert();
+        if (recordPasswordFailure()) {
+            recordLockAlert();
+            r.locked = true;
+            r.message = QStringLiteral("密码连续输错%1次，密码登录已锁定%2分钟，请改用刷脸登录")
+                            .arg(SC::PWD_FAIL_LOCK_TIMES)
+                            .arg(SC::PWD_LOCK_MS / (60 * 1000));
+            return r;
+        }
         r.message = "工号或密码错误"; return r;
     }
     // 登录成功：清空失败计数（只对"连续"失败计数）

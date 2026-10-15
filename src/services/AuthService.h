@@ -19,6 +19,8 @@ public:
         bool success; 
         QString message; 
         QJsonObject user; 
+        /// 本次失败是否恰好触发整机锁定：页面据此弹出醒目的锁定警示框
+        bool locked = false;
     };
     
     // 密码登录

@@ -58,10 +58,12 @@ void RoleSelectDialog::setupContent() {
         btn->setMinimumHeight(96);
         // 水平方向可伸缩：按钮宽度跟随卡片，长说明文字换行显示而不被裁切
         btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        // 视觉降噪：身份入口用浅色块区分层级，不加描边，
+        // emoji 图标周围不再出现边框线条，悬停时以背景色变化给出反馈
         btn->setStyleSheet(
-            "QPushButton{background:#f8f9fc;border:2px solid #eef0f4;border-radius:14px;"
+            "QPushButton{background:#f8f9fc;border:none;border-radius:14px;"
             "text-align:left;padding:14px 18px;}"
-            "QPushButton:hover{border-color:#4da3ff;background:#f0f7ff;}");
+            "QPushButton:hover{background:#f0f7ff;}");
         auto* vbox = new QVBoxLayout(btn);
         vbox->setContentsMargins(0, 0, 0, 0);
         vbox->setSpacing(4);

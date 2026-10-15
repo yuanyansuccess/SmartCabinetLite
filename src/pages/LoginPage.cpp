@@ -13,6 +13,7 @@
 #include "utils/StyleHelper.h"
 #include "services/AuthService.h"
 #include "services/FaceRecognitionService.h"
+#include "components/MessageDialog.h"  // 锁定警示弹窗（表单红字外的醒目提示）
 #include "pages/ForgotPasswordDialog.h"  // 忘记密码（刷脸验证后自助改密）
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -187,9 +188,14 @@ void LoginPage::onPasswordLogin() {
     // 防爆破锁定检查：锁定期内不发起密码校验，展示剩余时间并保持倒计时刷新
     qint64 remainMs = 0;
     if (AuthService::isPasswordLoginLocked(&remainMs)) {
+        if (m_numKeypad) m_numKeypad->hide();  // 收起软键盘（全屏遮罩会盖住表单红字）
         m_passwordEdit->clear();
-        showFormError(QStringLiteral("密码登录已锁定，请%1后重试，或刷脸登录")
-                          .arg(AuthService::lockRemainText(remainMs)));
+        const QString lockMsg = QStringLiteral("密码登录已锁定，请%1后重试，或改用刷脸登录")
+                                    .arg(AuthService::lockRemainText(remainMs));
+        showFormError(lockMsg);
+        // 弹窗强提醒：触屏操作视线集中在软键盘上，仅靠表单顶部一行小红字
+        // 操作员感知不到已进入锁定期，会继续盲试密码
+        MessageDialog::showWarning(this, QStringLiteral("密码登录已锁定"), lockMsg);
         if (!m_lockCountdownTimer->isActive()) m_lockCountdownTimer->start();
         return;
     }
@@ -234,6 +240,14 @@ void LoginPage::onPasswordLogin() {
         // 失败提示固定为红色，"密码已重置"的成功绿色样式不能残留到此处
         showFormError(r.message.isEmpty() ? QStringLiteral("工号或密码错误") : r.message);
         m_passwordEdit->clear();
+        if (r.locked) {
+            // 本次失败恰好触发整机锁定：弹窗强提醒并停止失败后的键盘自动弹出，
+            // 锁定期内继续输密码没有意义，倒计时由下方定时器每秒刷新剩余时间
+            if (m_numKeypad) m_numKeypad->hide();
+            MessageDialog::showWarning(this, QStringLiteral("密码登录已锁定"), r.message);
+            if (!m_lockCountdownTimer->isActive()) m_lockCountdownTimer->start();
+            return;
+        }
         // 自动弹出密码键盘便于重试
         // Linux/麒麟上Popup窗口可能不显示，延迟更长并确保键盘可见
         QTimer::singleShot(SC::UI_LOGIN_FAIL_KEYBOARD_DELAY_MS, this, [this]() {
@@ -301,7 +315,6 @@ void LoginPage::resetPageState() {
     if (m_statusCircleSuccess) m_statusCircleSuccess->setVisible(false);
     if (m_statusCircleFail) m_statusCircleFail->setVisible(false);
     if (m_statusCircleStranger) m_statusCircleStranger->setVisible(false);
-    if (m_successStatusText) m_successStatusText->setVisible(false);
     if (m_failStatusText) m_failStatusText->setVisible(false);
     if (m_strangerStatusText) m_strangerStatusText->setVisible(false);
     m_altLoginHint->setVisible(true);
@@ -536,7 +549,6 @@ void LoginPage::setFaceResult(FaceResult state) {
         m_statusCircleSuccess->setVisible(false);
         m_statusCircleFail->setVisible(true);
         m_statusCircleStranger->setVisible(false);
-        if (m_successStatusText) m_successStatusText->setVisible(false);
         if (m_failStatusText) m_failStatusText->setVisible(true);
         if (m_strangerStatusText) m_strangerStatusText->setVisible(false);
         m_captureProgress->setVisible(false);
