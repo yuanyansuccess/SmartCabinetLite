@@ -71,6 +71,21 @@ LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_timeoutTimer->setSingleShot(true);
     m_autoJumpTimer = new QTimer(this);
     m_autoJumpTimer->setSingleShot(true);
+
+    // 密码登录锁定倒计时：锁定期间每秒刷新剩余时间提示，到期自动恢复可输入状态
+    m_lockCountdownTimer = new QTimer(this);
+    m_lockCountdownTimer->setInterval(SC::UI_LOCK_COUNTDOWN_MS);
+    connect(m_lockCountdownTimer, &QTimer::timeout, this, [this]() {
+        qint64 remainMs = 0;
+        if (!AuthService::isPasswordLoginLocked(&remainMs)) {
+            // 锁定到期：停止刷新并给出恢复提示
+            m_lockCountdownTimer->stop();
+            showFormNotice(QStringLiteral("密码登录已恢复，请输入工号密码"));
+            return;
+        }
+        m_errorLabel->setText(QStringLiteral("密码登录已锁定，请%1后重试，或刷脸登录")
+                                  .arg(AuthService::lockRemainText(remainMs)));
+    });
     connect(m_autoJumpTimer, &QTimer::timeout, this, [this]() {
         if (m_destroying) return;  // 析构保护
         if (!m_pendingUser.isEmpty())
@@ -85,6 +100,7 @@ LoginPage::~LoginPage() {
     // 1. 停止所有定时器
     m_timeoutTimer->stop();
     m_autoJumpTimer->stop();
+    m_lockCountdownTimer->stop();
     if (m_dotBlinkTimer) {
         m_dotBlinkTimer->stop();
     }
@@ -140,9 +156,45 @@ void LoginPage::onPasswordFieldClicked() {
 }
 
 /**
+ * @brief 显示红色错误提示
+ * @param text 提示文案
+ * @note 登录失败与密码锁定警示共用同一红色样式，保证提示条样式单一来源
+ */
+void LoginPage::showFormError(const QString& text) {
+    m_errorLabel->setStyleSheet(
+        QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
+            .arg(StyleHelper::dangerColor()));
+    m_errorLabel->setText(text);
+    m_errorLabel->setVisible(true);
+}
+
+/**
+ * @brief 显示绿色操作提示
+ * @param text 提示文案
+ * @note 用于密码重置成功、锁定解除等正向反馈
+ */
+void LoginPage::showFormNotice(const QString& text) {
+    m_errorLabel->setStyleSheet(
+        "color:#389e0d; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;");
+    m_errorLabel->setText(text);
+    m_errorLabel->setVisible(true);
+}
+
+/**
  * @brief 处理口令
  */
 void LoginPage::onPasswordLogin() {
+    // 防爆破锁定检查：锁定期内不发起密码校验，展示剩余时间并保持倒计时刷新
+    qint64 remainMs = 0;
+    if (AuthService::isPasswordLoginLocked(&remainMs)) {
+        m_passwordEdit->clear();
+        showFormError(QStringLiteral("密码登录已锁定，请%1后重试，或刷脸登录")
+                          .arg(AuthService::lockRemainText(remainMs)));
+        if (!m_lockCountdownTimer->isActive()) m_lockCountdownTimer->start();
+        return;
+    }
+    m_lockCountdownTimer->stop();
+
     QString username = m_usernameEdit->text().trimmed();
     QString password = m_passwordEdit->text();
 
@@ -180,11 +232,7 @@ void LoginPage::onPasswordLogin() {
     } else {
         // 登录失败：清空密码+显示错误
         // 失败提示固定为红色，"密码已重置"的成功绿色样式不能残留到此处
-        m_errorLabel->setStyleSheet(
-            QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
-                .arg(StyleHelper::dangerColor()));
-        m_errorLabel->setText(r.message.isEmpty() ? QStringLiteral("工号或密码错误") : r.message);
-        m_errorLabel->setVisible(true);
+        showFormError(r.message.isEmpty() ? QStringLiteral("工号或密码错误") : r.message);
         m_passwordEdit->clear();
         // 自动弹出密码键盘便于重试
         // Linux/麒麟上Popup窗口可能不显示，延迟更长并确保键盘可见
@@ -210,12 +258,7 @@ void LoginPage::onForgotPassword() {
 
     if (dlg.passwordReset()) {
         m_passwordEdit->clear();
-        if (m_errorLabel) {
-            m_errorLabel->setStyleSheet(
-                "color:#389e0d; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;");
-            m_errorLabel->setText(QStringLiteral("密码已重置，请使用新密码登录"));
-            m_errorLabel->setVisible(true);
-        }
+        showFormNotice(QStringLiteral("密码已重置，请使用新密码登录"));
     }
 }
 
@@ -232,6 +275,9 @@ void LoginPage::resetPageState() {
     // 1. 停止所有定时器（防止退出后autoJumpTimer触发登录）
     m_autoJumpTimer->stop();
     m_timeoutTimer->stop();
+    // 倒计时只负责刷新提示，锁定状态存于AuthService不受页面复位影响：
+    // 注销/锁屏回登录页后再次点登录仍会重新提示剩余锁定时间
+    m_lockCountdownTimer->stop();
     stopDotBlink();
 
     // 2. 停止人脸识别和摄像头
@@ -346,8 +392,7 @@ void LoginPage::retryFace() {
 // 设计理念：触屏设备无窗口关闭按钮，需明确退出入口
 // 退出前弹窗确认防止误触（小米极简风格）
 // 退出按钮跟随窗口右上角
-// 新增showEvent：窗口首次显示时定位退出按钮
-// 修复Bug：setupUI时this->width()返回默认值，按钮定位到错误位置
+// 窗口首次显示后再定位退出按钮：构造期宽度尚未确定，须按实际宽度计算避免定位错误
 void LoginPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     // 回到登录页且识别未运行（注销/自动锁屏后）→ 自动恢复人脸识别，避免摄像头停着不工作

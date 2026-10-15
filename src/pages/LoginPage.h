@@ -113,6 +113,10 @@ private:
     void setFaceResult(FaceResult state);
     /// 清除所有表单输入和状态面板（供resetPageState内部使用）
     void clearAllForms();
+    /// 显示红色错误提示（登录失败/密码锁定警示共用样式入口）
+    void showFormError(const QString& text);
+    /// 显示绿色操作提示（密码重置成功/锁定解除等正向反馈）
+    void showFormNotice(const QString& text);
     /// 启动人脸识别
     /// @param relogin true=注销/锁屏回登场景（状态文案为"请重新刷脸"），false=首次登录
     void startFaceRecognition(bool relogin = false);
@@ -226,6 +230,8 @@ private:
 
     QTimer* m_timeoutTimer;
     QTimer* m_autoJumpTimer;
+    /** 密码登录锁定倒计时（锁定中每秒刷新剩余时间提示，到期自动恢复） */
+    QTimer* m_lockCountdownTimer = nullptr;
 
     // 软键盘
     // 账号改纯数字0....................................................................工号，用户名/密码统一由NumKeypad输入，移除字母软键盘

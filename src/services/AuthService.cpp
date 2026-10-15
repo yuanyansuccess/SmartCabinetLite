@@ -4,14 +4,15 @@
  * @author 袁燕
  *
  * 统一使用驼峰命名字段，与Qt Widget前端保持一致
- * 修复loginByFace致命Bug：字符串严格相等(==)永远无法匹配人脸特征向量
- *             改为委托FaceRecognitionService::matchFace做余弦相似度比对
+ * loginByFace：人脸特征向量无法用字符串相等比较，委托FaceRecognitionService::matchFace做余弦相似度比对
  */
 #include "AuthService.h"
 #include "UserDAO.h"
 #include "FaceRecognitionService.h"
+#include "db/AlertDAO.h"
 #include <QCryptographicHash>
 #include <QRandomGenerator>
+#include <QElapsedTimer>
 #include <QDebug>
 #include "common/Constants.h"
 
@@ -19,6 +20,134 @@
 using db::UserDAO;
 
 AuthService::AuthService(QObject* parent) : QObject(parent) {}
+
+// ═══════════════════════════════════════════════════════════
+// 密码登录防爆破锁定（整机级）
+// 状态为本进程静态数据：观察窗口内的失败时刻列表 + 锁定截止时刻。
+// 时刻一律取 QElapsedTimer 单调时钟——用户改系统时间无法绕过锁定。
+// ═══════════════════════════════════════════════════════════
+QVector<qint64> AuthService::s_pwdFailTicks;
+qint64 AuthService::s_pwdLockUntilTick = 0;
+
+namespace {
+/**
+ * @brief 进程级单调时钟（首次使用时启动）
+ * @return 全局唯一的 QElapsedTimer 引用
+ */
+QElapsedTimer& authClock() {
+    static QElapsedTimer clock;
+    if (!clock.isValid()) clock.start();
+    return clock;
+}
+}
+
+/**
+ * @brief 取防爆破模块的单调时钟当前毫秒数
+ * @return 距时钟启动的毫秒数（不受系统时间修改影响）
+ */
+qint64 AuthService::guardNow() {
+    return authClock().elapsed();
+}
+
+/**
+ * @brief 判定指定时刻密码登录是否处于锁定中
+ * @param nowTick 单调时钟毫秒数
+ * @param remainMs 输出锁定剩余毫秒数，可为 nullptr
+ * @return true=锁定中；false=未锁定或已到期
+ * @note 锁定到期时顺便清掉截止时刻（自动恢复，无需额外定时器）
+ */
+bool AuthService::isPasswordLoginLockedAt(qint64 nowTick, qint64* remainMs) {
+    if (s_pwdLockUntilTick > 0 && nowTick < s_pwdLockUntilTick) {
+        if (remainMs) *remainMs = s_pwdLockUntilTick - nowTick;
+        return true;
+    }
+    if (s_pwdLockUntilTick > 0) s_pwdLockUntilTick = 0;  // 已到期，恢复密码登录
+    if (remainMs) *remainMs = 0;
+    return false;
+}
+
+/**
+ * @brief 在指定时刻记录一次密码登录失败
+ * @param nowTick 单调时钟毫秒数
+ * @return true=本次失败触发了锁定（调用方据此写告警日志）
+ * @note 滑动窗口：先剔除滑出观察窗口的旧失败，窗口内累计达到阈值即锁定；
+ *       已在锁定中时不再累计（锁定期内页面不发起校验，此处为兜底）
+ */
+bool AuthService::recordPasswordFailureAt(qint64 nowTick) {
+    if (isPasswordLoginLockedAt(nowTick)) return false;
+    while (!s_pwdFailTicks.isEmpty()
+           && nowTick - s_pwdFailTicks.first() > SC::PWD_FAIL_WINDOW_MS) {
+        s_pwdFailTicks.removeFirst();
+    }
+    s_pwdFailTicks.append(nowTick);
+    if (s_pwdFailTicks.size() >= SC::PWD_FAIL_LOCK_TIMES) {
+        s_pwdLockUntilTick = nowTick + SC::PWD_LOCK_MS;
+        s_pwdFailTicks.clear();  // 锁定中无需继续计数，解锁后重新累计
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief 密码登录是否处于锁定中（按当前时刻判定）
+ * @param remainMs 输出锁定剩余毫秒数，可为 nullptr
+ * @return true=锁定中
+ */
+bool AuthService::isPasswordLoginLocked(qint64* remainMs) {
+    return isPasswordLoginLockedAt(guardNow(), remainMs);
+}
+
+/**
+ * @brief 记录一次密码登录失败（按当前时刻）
+ * @return true=本次失败触发了锁定
+ */
+bool AuthService::recordPasswordFailure() {
+    return recordPasswordFailureAt(guardNow());
+}
+
+/**
+ * @brief 清空失败计数
+ * @note 登录成功时调用，保证只对"连续"失败计数
+ */
+void AuthService::clearPasswordFailures() {
+    s_pwdFailTicks.clear();
+}
+
+/**
+ * @brief 清空全部锁定状态（锁定截止时刻+失败计数）
+ * @note 供单元测试在用例间隔离防爆破状态
+ */
+void AuthService::resetPasswordGuard() {
+    s_pwdFailTicks.clear();
+    s_pwdLockUntilTick = 0;
+}
+
+/**
+ * @brief 锁定剩余毫秒数转为人读时间文案
+ * @param remainMs 剩余毫秒数
+ * @return "X分X秒"格式（秒数向上取整，避免倒计时长时间停留在0秒）
+ */
+QString AuthService::lockRemainText(qint64 remainMs) {
+    if (remainMs < 0) remainMs = 0;
+    const qint64 totalSec = (remainMs + 999) / 1000;
+    return QStringLiteral("%1分%2秒").arg(totalSec / 60).arg(totalSec % 60);
+}
+
+/**
+ * @brief 触发整机锁定时写一条"登录失败"告警（管理员在告警日志页可查）
+ * @note 告警写库失败只记警告日志，不影响锁定本身；
+ *       告警类型按编码查 sys_alert_type，查不到时 DAO 内自动用系统类型兜底
+ */
+void AuthService::recordLockAlert() {
+    db::AlertDAO alertDao;
+    AlertLog alert;
+    alert.typeId = alertDao.findTypeIdByCode(SC::ALERT_TYPE_LOGIN_FAIL);
+    alert.message = QStringLiteral("密码连续输错%1次，密码登录已锁定%2分钟")
+                        .arg(SC::PWD_FAIL_LOCK_TIMES)
+                        .arg(SC::PWD_LOCK_MS / (60 * 1000));
+    alert.status = SC::ALERT_UNHANDLED;
+    alertDao.insertAlert(alert);
+}
 
 /**
  * @brief 账号口令登录
@@ -29,15 +158,30 @@ AuthService::AuthService(QObject* parent) : QObject(parent) {}
  */
 AuthService::LoginResult AuthService::login(const QString& username, const QString& password) {
     LoginResult r; r.success = false;
+    // 防爆破锁定优先于一切校验：锁定期内拒绝密码登录（刷脸登录不受影响）
+    qint64 remainMs = 0;
+    if (isPasswordLoginLocked(&remainMs)) {
+        r.message = QStringLiteral("密码登录已锁定，请%1后重试，或刷脸登录")
+                        .arg(lockRemainText(remainMs));
+        return r;
+    }
     if (username.isEmpty() || password.isEmpty()) { r.message = "请输入工号和密码"; return r; }
     UserDAO dao;
     QJsonObject user = dao.findByUsername(username);
     // 工号不存在与口令错误给同一句提示：区分二者等于告诉攻击者哪些工号有效
-    if (user.isEmpty()) { r.message = "工号或密码错误"; return r; }
-    if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已禁用"; return r; }
-    if (!verifyPassword(password, user["passwordSalt"].toString(), user["passwordHash"].toString())) {
+    if (user.isEmpty()) {
+        // 工号不存在同样计入防爆破窗口（防"枚举工号+逐个试密码"）
+        if (recordPasswordFailure()) recordLockAlert();
         r.message = "工号或密码错误"; return r;
     }
+    if (user["status"].toString() != SC::USER_ACTIVE) { r.message = "账户已禁用"; return r; }
+    if (!verifyPassword(password, user["passwordSalt"].toString(), user["passwordHash"].toString())) {
+        // 密码校验失败计入防爆破窗口，达到阈值自动进入整机锁定
+        if (recordPasswordFailure()) recordLockAlert();
+        r.message = "工号或密码错误"; return r;
+    }
+    // 登录成功：清空失败计数（只对"连续"失败计数）
+    clearPasswordFailures();
     dao.recordLoginSuccess(user["userId"].toInt());
     user.remove("passwordHash"); user.remove("passwordSalt");
     r.success = true; r.message = "登录成功"; r.user = user;
@@ -65,6 +209,8 @@ AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
         UserDAO dao;
         QJsonObject userInfo = dao.findById(matchResult.userId);
         if (!userInfo.isEmpty() && userInfo["status"].toString() == SC::USER_ACTIVE) {
+            // 刷脸登录成功同样清空密码失败计数，避免历史误输残留影响后续判定
+            clearPasswordFailures();
             dao.recordLoginSuccess(matchResult.userId);
             userInfo.remove("passwordHash"); userInfo.remove("passwordSalt");
             r.success = true;

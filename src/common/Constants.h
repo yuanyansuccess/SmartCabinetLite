@@ -40,6 +40,14 @@ const int PASSWORD_MIN_LENGTH = 6;        // 口令最小长度（登录校验�
 // 忘记密码刷脸身份验证：最多尝试次数，超过则关闭入口防止暴力试探
 const int FACE_VERIFY_MAX_ATTEMPTS = 3;
 
+// ── 密码登录防爆破锁定（整机级：任意工号的失败都累计到同一计数） ──
+// 观察窗口(毫秒)：滑动窗口内累计密码失败达到阈值即触发锁定，窗口外的旧失败自动失效
+const int PWD_FAIL_WINDOW_MS  = 5 * 60 * 1000;   // 5分钟
+// 锁定阈值：观察窗口内第4次密码失败触发锁定（连续错3次后仍失败即锁）
+const int PWD_FAIL_LOCK_TIMES = 4;
+// 锁定时长(毫秒)：锁定期内拒绝一切密码登录，刷脸登录不受影响，到期自动恢复
+const int PWD_LOCK_MS         = 5 * 60 * 1000;   // 5分钟
+
 // ── 操作日志类型（sys_operation_log.operation_type） ──
 const QString OP_CHECKIN  = "checkin";
 const QString OP_CHECKOUT = "checkout";
@@ -115,6 +123,9 @@ const int MAX_CABINET_POSITIONS = 15;  // 每层最大位数
 const QString ALERT_INFO    = "info";
 const QString ALERT_WARNING = "warning";
 const QString ALERT_ERROR   = "error";
+
+// 告警类型编码（sys_alert_type.type_code）：写告警时经 AlertDAO::findTypeIdByCode 查回 type_id
+const QString ALERT_TYPE_LOGIN_FAIL = "login_fail";  // 登录失败（密码连续错误触发整机锁定）
 
 /// 告警级别显示值→库值 单一映射（历史上 SettingService 与 AlertDAO 各硬编码一份）
 /// "严重/一般/提示"→error/warn/info；传入已是库值（crit/warn/info 等）则原样返回
@@ -226,6 +237,7 @@ const int UI_KEYBOARD_POPUP_DELAY_MS = 150;    // 软键盘弹出延迟
 const int UI_CAMERA_INIT_DELAY_MS    = 100;    // 摄像头初始化延迟
 const int UI_CPU_STATS_DELAY_MS      = 500;    // CPU统计刷新延迟
 const int UI_LOGIN_FAIL_KEYBOARD_DELAY_MS = 500; // 登录失败后重弹密码键盘延迟
+const int UI_LOCK_COUNTDOWN_MS      = 1000;  // 密码锁定倒计时刷新间隔
 const bool    BACKUP_AUTO_ENABLED = true;
 const int     BACKUP_PERIOD       = 0;   // 0=每日
 const int     BACKUP_CACHE_HOURS  = 4;
