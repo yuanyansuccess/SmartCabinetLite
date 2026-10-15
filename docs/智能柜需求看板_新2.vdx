@@ -1,0 +1,2286 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<VisioDocument key='EF4129B0B5307AAC08D3B78611ACAAAF238957D37AB06DF348B0A206CABA3C233967F557BA5184726229AFCF8DE7379DF0350BDB6E101BBA7C1A57E5A82EBA65' start='190' metric='1' DocLangID='2052' buildnum='4756' version='14.0' xml:space='preserve' xmlns='http://schemas.microsoft.com/visio/2003/core' xmlns:vx='http://schemas.microsoft.com/visio/2006/extension' xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><DocumentProperties><Creator>袁燕</Creator><Company> </Company><BuildNumberCreated>939528852</BuildNumberCreated><BuildNumberEdited>939528852</BuildNumberEdited><PreviewPicture Size='276'>
+AQAAAGwAAAAAAAAAAAAAAP//////////AAAAAAAAAAArzwEA2CkBACBFTUYAAAEAFAEAAAUAAAABA
+AAAAAAAAAAAAAAAAAAAgAcAALAEAABYAQAA1wAAAAAAAAAAAAAAAAAAAMA/BQDYRwMARgAAACwAAA
+AgAAAARU1GKwFAAQAcAAAAEAAAAAIQwNsBAAAAeAAAAHgAAABGAAAATAAAAEAAAABFTUYrMEACABA
+AAAAEAAAAAACAPx9AAQAMAAAAAAAAAB5ABQAMAAAAAAAAAB1AAAAUAAAACAAAAAIAAACeEAAARgAA
+ABwAAAAQAAAARU1GKwJAAAAMAAAAAAAAAA4AAAAUAAAAAAAAABAAAAAUAAAA</PreviewPicture><CustomProps><CustomProp Name='_VPID_EXTENDED_VDX' PropType='Number'>1</CustomProp></CustomProps><TimeCreated>2026-10-12T10:52:30</TimeCreated><TimeSaved>2026-10-12T10:52:31</TimeSaved><TimeEdited>2026-10-12T10:52:31</TimeEdited><TimePrinted>2026-10-12T10:52:30</TimePrinted></DocumentProperties><DocumentSettings TopPage='0' DefaultTextStyle='3' DefaultLineStyle='3' DefaultFillStyle='3' DefaultGuideStyle='4'><GlueSettings>9</GlueSettings><SnapSettings>65847</SnapSettings><SnapExtensions>34</SnapExtensions><DynamicGridEnabled>0</DynamicGridEnabled><ProtectStyles>0</ProtectStyles><ProtectShapes>0</ProtectShapes><ProtectMasters>0</ProtectMasters><ProtectBkgnds>0</ProtectBkgnds></DocumentSettings><Colors><ColorEntry IX='0' RGB='#000000'/><ColorEntry IX='1' RGB='#FFFFFF'/><ColorEntry IX='2' RGB='#FF0000'/><ColorEntry IX='3' RGB='#00FF00'/><ColorEntry IX='4' RGB='#0000FF'/><ColorEntry IX='5' RGB='#FFFF00'/><ColorEntry IX='6' RGB='#FF00FF'/><ColorEntry IX='7' RGB='#00FFFF'/><ColorEntry IX='8' RGB='#800000'/><ColorEntry IX='9' RGB='#008000'/><ColorEntry IX='10' RGB='#000080'/><ColorEntry IX='11' RGB='#808000'/><ColorEntry IX='12' RGB='#800080'/><ColorEntry IX='13' RGB='#008080'/><ColorEntry IX='14' RGB='#C0C0C0'/><ColorEntry IX='15' RGB='#E6E6E6'/><ColorEntry IX='16' RGB='#CDCDCD'/><ColorEntry IX='17' RGB='#B3B3B3'/><ColorEntry IX='18' RGB='#9A9A9A'/><ColorEntry IX='19' RGB='#808080'/><ColorEntry IX='20' RGB='#666666'/><ColorEntry IX='21' RGB='#4D4D4D'/><ColorEntry IX='22' RGB='#333333'/><ColorEntry IX='23' RGB='#1A1A1A'/><ColorEntry IX='24' RGB='#FFD966'/><ColorEntry IX='25' RGB='#8C8C8C'/><ColorEntry IX='26' RGB='#333333'/></Colors><FaceNames><FaceName ID='1' Name='Arial Unicode MS' UnicodeRanges='-1 -369098753 63 0' CharSets='1614742015 -65536' Panos='2 11 6 4 2 2 2 2 2 4' Flags='357'/><FaceName ID='2' Name='Symbol' UnicodeRanges='0 0 0 0' CharSets='-2147483648 0' Panos='5 5 1 2 1 7 6 2 5 7' Flags='261'/><FaceName ID='3' Name='Wingdings' UnicodeRanges='0 0 0 0' CharSets='-2147483648 0' Panos='5 0 0 0 0 0 0 0 0 0' Flags='261'/><FaceName ID='4' Name='Calibri' UnicodeRanges='-469750017 -1040178053 9 0' CharSets='536871423 0' Panos='2 15 5 2 2 2 4 3 2 4' Flags='357'/><FaceName ID='5' Name='宋体' UnicodeRanges='515 680460288 6 0' CharSets='262145 0' Panos='2 1 6 0 3 1 1 1 1 1' Flags='421'/><FaceName ID='6' Name='PMingLiU' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='7' Name='MS PGothic' UnicodeRanges='-536870145 1791491579 134217746 0' CharSets='1073873055 -539557888' Panos='2 11 6 0 7 2 5 8 2 4' Flags='421'/><FaceName ID='8' Name='Dotum' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='9' Name='Sylfaen' UnicodeRanges='67110535 0 0 0' CharSets='536871071 0' Panos='1 10 5 2 5 3 6 3 3 3' Flags='325'/><FaceName ID='10' Name='Estrangelo Edessa' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='11' Name='Vrinda' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='12' Name='Shruti' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='13' Name='Mangal' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='14' Name='Tunga' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='15' Name='Sendnya' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='16' Name='Raavi' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='17' Name='Dhenu' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='18' Name='Latha' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='19' Name='Gautami' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='20' Name='Cordia New' UnicodeRanges='-452972801 -1073717157 41 0' CharSets='536936959 539492352' Panos='2 11 6 4 2 2 2 2 2 4' Flags='327'/><FaceName ID='21' Name='Arial' UnicodeRanges='-536858881 -1073711013 9 0' CharSets='1073742335 -65536' Panos='2 11 6 4 2 2 2 2 2 4' Flags='325'/><FaceName ID='22' Name='Malgun Gothic' UnicodeRanges='-1879048145 701988091 18 0' CharSets='524289 0' Panos='2 11 5 3 2 0 0 2 0 4' Flags='421'/><FaceName ID='23' Name='Times New Roman' UnicodeRanges='-536858881 -1073711013 9 0' CharSets='1073742335 -65536' Panos='2 2 6 3 5 4 5 2 3 4' Flags='325'/></FaceNames><StyleSheets><StyleSheet ID='0' NameU='No Style' Name='无样式'><StyleProp><EnableLineProps>1</EnableLineProps><EnableFillProps>1</EnableFillProps><EnableTextProps>1</EnableTextProps><HideForApply>0</HideForApply></StyleProp><Line><LineWeight>0.01041666666666667</LineWeight><LineColor>0</LineColor><LinePattern>1</LinePattern><Rounding>0</Rounding><EndArrowSize>2</EndArrowSize><BeginArrow>0</BeginArrow><EndArrow>0</EndArrow><LineCap>0</LineCap><BeginArrowSize>2</BeginArrowSize><LineColorTrans>0</LineColorTrans></Line><Fill><FillForegnd>1</FillForegnd><FillBkgnd>0</FillBkgnd><FillPattern>1</FillPattern><ShdwForegnd>0</ShdwForegnd><ShdwBkgnd>1</ShdwBkgnd><ShdwPattern>0</ShdwPattern><FillForegndTrans>0</FillForegndTrans><FillBkgndTrans>0</FillBkgndTrans><ShdwForegndTrans>0</ShdwForegndTrans><ShdwBkgndTrans>0</ShdwBkgndTrans><ShapeShdwType>0</ShapeShdwType><ShapeShdwOffsetX>0</ShapeShdwOffsetX><ShapeShdwOffsetY>0</ShapeShdwOffsetY><ShapeShdwObliqueAngle>0</ShapeShdwObliqueAngle><ShapeShdwScaleFactor>1</ShapeShdwScaleFactor></Fill><TextBlock><LeftMargin>0</LeftMargin><RightMargin>0</RightMargin><TopMargin>0</TopMargin><BottomMargin>0</BottomMargin><VerticalAlign>1</VerticalAlign><TextBkgnd>0</TextBkgnd><DefaultTabStop>0.5905511811023622</DefaultTabStop><TextDirection>0</TextDirection><TextBkgndTrans>0</TextBkgndTrans></TextBlock><Protection><LockWidth>0</LockWidth><LockHeight>0</LockHeight><LockMoveX>0</LockMoveX><LockMoveY>0</LockMoveY><LockAspect>0</LockAspect><LockDelete>0</LockDelete><LockBegin>0</LockBegin><LockEnd>0</LockEnd><LockRotate>0</LockRotate><LockCrop>0</LockCrop><LockVtxEdit>0</LockVtxEdit><LockTextEdit>0</LockTextEdit><LockFormat>0</LockFormat><LockGroup>0</LockGroup><LockCalcWH>0</LockCalcWH><LockSelect>0</LockSelect><LockCustProp>0</LockCustProp></Protection><vx:Protection xmlns:vx='http://schemas.microsoft.com/visio/2006/extension'><vx:LockFromGroupFormat>0</vx:LockFromGroupFormat><vx:LockThemeColors>0</vx:LockThemeColors><vx:LockThemeEffects>0</vx:LockThemeEffects></vx:Protection><Misc><NoObjHandles>0</NoObjHandles><NonPrinting>0</NonPrinting><NoCtlHandles>0</NoCtlHandles><NoAlignBox>0</NoAlignBox><UpdateAlignBox>0</UpdateAlignBox><HideText>0</HideText><DynFeedback>0</DynFeedback><GlueType>0</GlueType><WalkPreference>0</WalkPreference><BegTrigger F='No Formula'>0</BegTrigger><EndTrigger F='No Formula'>0</EndTrigger><ObjType>0</ObjType><Comment V='null'/><IsDropSource>0</IsDropSource><NoLiveDynamics>0</NoLiveDynamics><LocalizeMerge>0</LocalizeMerge><Calendar>0</Calendar><LangID>2052</LangID><ShapeKeywords V='null'/><DropOnPageScale>1</DropOnPageScale></Misc><Event><TheData F='No Formula'>0</TheData><TheText F='No Formula'>0</TheText><EventDblClick F='No Formula'>0</EventDblClick><EventXFMod F='No Formula'>0</EventXFMod><EventDrop F='No Formula'>0</EventDrop></Event><vx:Event xmlns:vx='http://schemas.microsoft.com/visio/2006/extension'><vx:EventMultiDrop F='No Formula'>0</vx:EventMultiDrop></vx:Event><Help><HelpTopic V='null'/><Copyright V='null'/></Help><LayerMem><LayerMember V='null'/></LayerMem><RulerGrid><XRulerDensity>32</XRulerDensity><YRulerDensity>32</YRulerDensity><XRulerOrigin>0</XRulerOrigin><YRulerOrigin>0</YRulerOrigin><XGridDensity>8</XGridDensity><YGridDensity>8</YGridDensity><XGridSpacing>0</XGridSpacing><YGridSpacing>0</YGridSpacing><XGridOrigin>0</XGridOrigin><YGridOrigin>0</YGridOrigin></RulerGrid><Image><Gamma>1</Gamma><Contrast>0.5</Contrast><Brightness>0.5</Brightness><Sharpen>0</Sharpen><Blur>0</Blur><Denoise>0</Denoise><Transparency>0</Transparency></Image><Group><SelectMode>1</SelectMode><DisplayMode>2</DisplayMode><IsDropTarget>0</IsDropTarget><IsSnapTarget>1</IsSnapTarget><IsTextEditTarget>1</IsTextEditTarget><DontMoveChildren>0</DontMoveChildren></Group><Layout><ShapePermeableX>0</ShapePermeableX><ShapePermeableY>0</ShapePermeableY><ShapePermeablePlace>0</ShapePermeablePlace><ShapeFixedCode>0</ShapeFixedCode><ShapePlowCode>0</ShapePlowCode><ShapeRouteStyle>0</ShapeRouteStyle><ConFixedCode>0</ConFixedCode><ConLineJumpCode>0</ConLineJumpCode><ConLineJumpStyle>0</ConLineJumpStyle><ConLineJumpDirX>0</ConLineJumpDirX><ConLineJumpDirY>0</ConLineJumpDirY><ShapePlaceFlip>0</ShapePlaceFlip><ConLineRouteExt>0</ConLineRouteExt><ShapeSplit>0</ShapeSplit><ShapeSplittable>0</ShapeSplittable></Layout><vx:Layout xmlns:vx='http://schemas.microsoft.com/visio/2006/extension'><vx:ShapePlaceStyle>0</vx:ShapePlaceStyle></vx:Layout><v14:Layout xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><v14:Relationships>0</v14:Relationships><v14:DisplayLevel>0</v14:DisplayLevel></v14:Layout><PageLayout><ResizePage>0</ResizePage><EnableGrid>0</EnableGrid><DynamicsOff>0</DynamicsOff><CtrlAsInput>0</CtrlAsInput><PlaceStyle>0</PlaceStyle><RouteStyle>0</RouteStyle><PlaceDepth>0</PlaceDepth><PlowCode>0</PlowCode><LineJumpCode>1</LineJumpCode><LineJumpStyle>0</LineJumpStyle><PageLineJumpDirX>0</PageLineJumpDirX><PageLineJumpDirY>0</PageLineJumpDirY><LineToNodeX>0.09842519685039369</LineToNodeX><LineToNodeY>0.09842519685039369</LineToNodeY><BlockSizeX>0.1968503937007874</BlockSizeX><BlockSizeY>0.1968503937007874</BlockSizeY><AvenueSizeX>0.2952755905511811</AvenueSizeX><AvenueSizeY>0.2952755905511811</AvenueSizeY><LineToLineX>0.09842519685039369</LineToLineX><LineToLineY>0.09842519685039369</LineToLineY><LineJumpFactorX>0.66666666666667</LineJumpFactorX><LineJumpFactorY>0.66666666666667</LineJumpFactorY><LineAdjustFrom>0</LineAdjustFrom><LineAdjustTo>0</LineAdjustTo><PlaceFlip>0</PlaceFlip><LineRouteExt>0</LineRouteExt><PageShapeSplit>0</PageShapeSplit></PageLayout><v14:PageLayout xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><v14:AvoidPageBreaks>0</v14:AvoidPageBreaks></v14:PageLayout><PrintProps><PageLeftMargin>0.25</PageLeftMargin><PageRightMargin>0.25</PageRightMargin><PageTopMargin>0.25</PageTopMargin><PageBottomMargin>0.25</PageBottomMargin><ScaleX>1</ScaleX><ScaleY>1</ScaleY><PagesX>1</PagesX><PagesY>1</PagesY><CenterX>0</CenterX><CenterY>0</CenterY><OnPage>0</OnPage><PrintGrid>0</PrintGrid><PrintPageOrientation>1</PrintPageOrientation><PaperKind>9</PaperKind><PaperSource>7</PaperSource></PrintProps><Char IX='0'><Font>5</Font><Color>0</Color><Style>0</Style><Case>0</Case><Pos>0</Pos><FontScale>1</FontScale><Size>0.1666666666666667</Size><DblUnderline>0</DblUnderline><Overline>0</Overline><Strikethru>0</Strikethru><Highlight>0</Highlight><DoubleStrikethrough>0</DoubleStrikethrough><RTLText>0</RTLText><UseVertical>0</UseVertical><Letterspace>0</Letterspace><ColorTrans>0</ColorTrans><AsianFont>5</AsianFont><ComplexScriptFont>0</ComplexScriptFont><LocalizeFont>0</LocalizeFont><ComplexScriptSize>-1</ComplexScriptSize><LangID>2052</LangID></Char><Para IX='0'><IndFirst>0</IndFirst><IndLeft>0</IndLeft><IndRight>0</IndRight><SpLine>-1.2</SpLine><SpBefore>0</SpBefore><SpAfter>0</SpAfter><HorzAlign>1</HorzAlign><Bullet>0</Bullet><BulletStr V='null'/><BulletFont>0</BulletFont><LocalizeBulletFont>0</LocalizeBulletFont><BulletFontSize>-1</BulletFontSize><TextPosAfterBullet>0</TextPosAfterBullet><Flags>0</Flags></Para><Tabs IX='0'/></StyleSheet><StyleSheet ID='1' NameU='Text Only' Name='纯文本' LineStyle='3' FillStyle='3' TextStyle='3'><StyleProp><EnableLineProps>1</EnableLineProps><EnableFillProps>1</EnableFillProps><EnableTextProps>1</EnableTextProps><HideForApply>0</HideForApply></StyleProp><Line><LineWeight F='Inh'>0.01041666666666667</LineWeight><LineColor F='Inh'>0</LineColor><LinePattern>0</LinePattern><Rounding F='Inh'>0</Rounding><EndArrowSize F='Inh'>2</EndArrowSize><BeginArrow F='Inh'>0</BeginArrow><EndArrow F='Inh'>0</EndArrow><LineCap F='Inh'>0</LineCap><BeginArrowSize F='Inh'>2</BeginArrowSize><LineColorTrans F='Inh'>0</LineColorTrans></Line><Fill><FillForegnd F='Inh'>1</FillForegnd><FillBkgnd F='Inh'>0</FillBkgnd><FillPattern>0</FillPattern><ShdwForegnd F='Inh'>0</ShdwForegnd><ShdwBkgnd F='Inh'>1</ShdwBkgnd><ShdwPattern F='Inh'>0</ShdwPattern><FillForegndTrans F='Inh'>0</FillForegndTrans><FillBkgndTrans F='Inh'>0</FillBkgndTrans><ShdwForegndTrans F='Inh'>0</ShdwForegndTrans><ShdwBkgndTrans F='Inh'>0</ShdwBkgndTrans><ShapeShdwType F='Inh'>0</ShapeShdwType><ShapeShdwOffsetX F='Inh'>0</ShapeShdwOffsetX><ShapeShdwOffsetY F='Inh'>0</ShapeShdwOffsetY><ShapeShdwObliqueAngle F='Inh'>0</ShapeShdwObliqueAngle><ShapeShdwScaleFactor F='Inh'>1</ShapeShdwScaleFactor></Fill><TextBlock><LeftMargin>0</LeftMargin><RightMargin>0</RightMargin><TopMargin>0</TopMargin><BottomMargin>0</BottomMargin><VerticalAlign>0</VerticalAlign><TextBkgnd>0</TextBkgnd><DefaultTabStop F='Inh'>0.5905511811023622</DefaultTabStop><TextDirection F='Inh'>0</TextDirection><TextBkgndTrans F='Inh'>0</TextBkgndTrans></TextBlock><Para IX='0'><IndFirst F='Inh'>0</IndFirst><IndLeft F='Inh'>0</IndLeft><IndRight F='Inh'>0</IndRight><SpLine F='Inh'>-1.2</SpLine><SpBefore F='Inh'>0</SpBefore><SpAfter F='Inh'>0</SpAfter><HorzAlign>0</HorzAlign><Bullet F='Inh'>0</Bullet><BulletStr F='Inh'/><BulletFont F='Inh'>0</BulletFont><LocalizeBulletFont F='Inh'>0</LocalizeBulletFont><BulletFontSize F='Inh'>-1</BulletFontSize><TextPosAfterBullet F='Inh'>0</TextPosAfterBullet><Flags F='Inh'>0</Flags></Para></StyleSheet><StyleSheet ID='2' NameU='None' Name='无' LineStyle='3' FillStyle='3' TextStyle='3'><StyleProp><EnableLineProps>1</EnableLineProps><EnableFillProps>1</EnableFillProps><EnableTextProps>1</EnableTextProps><HideForApply>0</HideForApply></StyleProp><Line><LineWeight F='Inh'>0.01041666666666667</LineWeight><LineColor F='Inh'>0</LineColor><LinePattern>0</LinePattern><Rounding F='Inh'>0</Rounding><EndArrowSize F='Inh'>2</EndArrowSize><BeginArrow F='Inh'>0</BeginArrow><EndArrow F='Inh'>0</EndArrow><LineCap F='Inh'>0</LineCap><BeginArrowSize F='Inh'>2</BeginArrowSize><LineColorTrans F='Inh'>0</LineColorTrans></Line><Fill><FillForegnd F='Inh'>1</FillForegnd><FillBkgnd F='Inh'>0</FillBkgnd><FillPattern>0</FillPattern><ShdwForegnd F='Inh'>0</ShdwForegnd><ShdwBkgnd F='Inh'>1</ShdwBkgnd><ShdwPattern F='Inh'>0</ShdwPattern><FillForegndTrans F='Inh'>0</FillForegndTrans><FillBkgndTrans F='Inh'>0</FillBkgndTrans><ShdwForegndTrans F='Inh'>0</ShdwForegndTrans><ShdwBkgndTrans F='Inh'>0</ShdwBkgndTrans><ShapeShdwType F='Inh'>0</ShapeShdwType><ShapeShdwOffsetX F='Inh'>0</ShapeShdwOffsetX><ShapeShdwOffsetY F='Inh'>0</ShapeShdwOffsetY><ShapeShdwObliqueAngle F='Inh'>0</ShapeShdwObliqueAngle><ShapeShdwScaleFactor F='Inh'>1</ShapeShdwScaleFactor></Fill></StyleSheet><StyleSheet ID='3' NameU='Normal' Name='正常' LineStyle='0' FillStyle='0' TextStyle='0'><StyleProp><EnableLineProps>1</EnableLineProps><EnableFillProps>1</EnableFillProps><EnableTextProps>1</EnableTextProps><HideForApply>0</HideForApply></StyleProp><TextBlock><LeftMargin Unit='PT'>0.05555555555555555</LeftMargin><RightMargin Unit='PT'>0.05555555555555555</RightMargin><TopMargin Unit='PT'>0.05555555555555555</TopMargin><BottomMargin Unit='PT'>0.05555555555555555</BottomMargin><VerticalAlign F='Inh'>1</VerticalAlign><TextBkgnd F='Inh'>0</TextBkgnd><DefaultTabStop F='Inh'>0.5905511811023622</DefaultTabStop><TextDirection F='Inh'>0</TextDirection><TextBkgndTrans F='Inh'>0</TextBkgndTrans></TextBlock></StyleSheet><StyleSheet ID='4' NameU='Guide' Name='参考线' LineStyle='3' FillStyle='3' TextStyle='3'><StyleProp><EnableLineProps>1</EnableLineProps><EnableFillProps>1</EnableFillProps><EnableTextProps>1</EnableTextProps><HideForApply>0</HideForApply></StyleProp><Line><LineWeight Unit='PT'>0</LineWeight><LineColor>4</LineColor><LinePattern>23</LinePattern><Rounding F='Inh'>0</Rounding><EndArrowSize F='Inh'>2</EndArrowSize><BeginArrow F='Inh'>0</BeginArrow><EndArrow F='Inh'>0</EndArrow><LineCap F='Inh'>0</LineCap><BeginArrowSize F='Inh'>2</BeginArrowSize><LineColorTrans F='Inh'>0</LineColorTrans></Line><Fill><FillForegnd F='Inh'>1</FillForegnd><FillBkgnd F='Inh'>0</FillBkgnd><FillPattern>0</FillPattern><ShdwForegnd F='Inh'>0</ShdwForegnd><ShdwBkgnd F='Inh'>1</ShdwBkgnd><ShdwPattern F='Inh'>0</ShdwPattern><FillForegndTrans F='Inh'>0</FillForegndTrans><FillBkgndTrans F='Inh'>0</FillBkgndTrans><ShdwForegndTrans F='Inh'>0</ShdwForegndTrans><ShdwBkgndTrans F='Inh'>0</ShdwBkgndTrans><ShapeShdwType F='Inh'>0</ShapeShdwType><ShapeShdwOffsetX F='Inh'>0</ShapeShdwOffsetX><ShapeShdwOffsetY F='Inh'>0</ShapeShdwOffsetY><ShapeShdwObliqueAngle F='Inh'>0</ShapeShdwObliqueAngle><ShapeShdwScaleFactor F='Inh'>1</ShapeShdwScaleFactor></Fill><TextBlock><LeftMargin Unit='PT' F='Inh'>0.05555555555555555</LeftMargin><RightMargin Unit='PT' F='Inh'>0.05555555555555555</RightMargin><TopMargin>0</TopMargin><BottomMargin>0</BottomMargin><VerticalAlign>2</VerticalAlign><TextBkgnd F='Inh'>0</TextBkgnd><DefaultTabStop F='Inh'>0.5905511811023622</DefaultTabStop><TextDirection F='Inh'>0</TextDirection><TextBkgndTrans F='Inh'>0</TextBkgndTrans></TextBlock><Misc><NoObjHandles F='Inh'>0</NoObjHandles><NonPrinting>1</NonPrinting><NoCtlHandles F='Inh'>0</NoCtlHandles><NoAlignBox F='Inh'>0</NoAlignBox><UpdateAlignBox F='Inh'>0</UpdateAlignBox><HideText F='Inh'>0</HideText><DynFeedback F='Inh'>0</DynFeedback><GlueType F='Inh'>0</GlueType><WalkPreference F='Inh'>0</WalkPreference><BegTrigger F='No Formula'>0</BegTrigger><EndTrigger F='No Formula'>0</EndTrigger><ObjType F='Inh'>0</ObjType><Comment F='Inh'/><IsDropSource F='Inh'>0</IsDropSource><NoLiveDynamics F='Inh'>0</NoLiveDynamics><LocalizeMerge F='Inh'>0</LocalizeMerge><Calendar F='Inh'>0</Calendar><LangID F='Inh'>2052</LangID><ShapeKeywords F='Inh'/><DropOnPageScale F='Inh'>1</DropOnPageScale></Misc><Layout><ShapePermeableX>1</ShapePermeableX><ShapePermeableY>1</ShapePermeableY><ShapePermeablePlace>1</ShapePermeablePlace><ShapeFixedCode F='Inh'>0</ShapeFixedCode><ShapePlowCode F='Inh'>0</ShapePlowCode><ShapeRouteStyle F='Inh'>0</ShapeRouteStyle><ConFixedCode F='Inh'>0</ConFixedCode><ConLineJumpCode F='Inh'>0</ConLineJumpCode><ConLineJumpStyle F='Inh'>0</ConLineJumpStyle><ConLineJumpDirX F='Inh'>0</ConLineJumpDirX><ConLineJumpDirY F='Inh'>0</ConLineJumpDirY><ShapePlaceFlip F='Inh'>0</ShapePlaceFlip><ConLineRouteExt F='Inh'>0</ConLineRouteExt><ShapeSplit F='Inh'>0</ShapeSplit><ShapeSplittable F='Inh'>0</ShapeSplittable></Layout><vx:Layout xmlns:vx='http://schemas.microsoft.com/visio/2006/extension'><vx:ShapePlaceStyle F='Inh'>0</vx:ShapePlaceStyle></vx:Layout><v14:Layout xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><v14:Relationships F='Inh'>0</v14:Relationships><v14:DisplayLevel F='Inh'>0</v14:DisplayLevel></v14:Layout><Char IX='0'><Font F='Inh'>5</Font><Color>4</Color><Style F='Inh'>0</Style><Case F='Inh'>0</Case><Pos F='Inh'>0</Pos><FontScale F='Inh'>1</FontScale><Size>0.125</Size><DblUnderline F='Inh'>0</DblUnderline><Overline F='Inh'>0</Overline><Strikethru F='Inh'>0</Strikethru><Highlight F='Inh'>0</Highlight><DoubleStrikethrough F='Inh'>0</DoubleStrikethrough><RTLText F='Inh'>0</RTLText><UseVertical F='Inh'>0</UseVertical><Letterspace F='Inh'>0</Letterspace><ColorTrans F='Inh'>0</ColorTrans><AsianFont F='Inh'>5</AsianFont><ComplexScriptFont F='Inh'>0</ComplexScriptFont><LocalizeFont F='Inh'>0</LocalizeFont><ComplexScriptSize F='Inh'>-1</ComplexScriptSize><LangID F='Inh'>2052</LangID></Char></StyleSheet></StyleSheets><DocumentSheet NameU='TheDoc' Name='TheDoc' LineStyle='0' FillStyle='0' TextStyle='0'><DocProps><OutputFormat>0</OutputFormat><LockPreview>0</LockPreview><AddMarkup>0</AddMarkup><ViewMarkup>0</ViewMarkup><PreviewQuality>0</PreviewQuality><PreviewScope>0</PreviewScope><DocLangID>2052</DocLangID></DocProps></DocumentSheet><Masters/><Pages><Page ID='0' NameU='Page-1' ViewScale='-1' ViewCenterX='27.534448818898' ViewCenterY='17.741141732283'><PageSheet LineStyle='0' FillStyle='0' TextStyle='0'><PageProps><PageWidth Unit='MM'>55.1181</PageWidth><PageHeight Unit='MM'>137.4409</PageHeight><ShdwOffsetX>0.1181102362204724</ShdwOffsetX><ShdwOffsetY>-0.1181102362204724</ShdwOffsetY><PageScale Unit='MM'>0.03937007874015748</PageScale><DrawingScale Unit='MM'>0.03937007874015748</DrawingScale><DrawingSizeType>0</DrawingSizeType><DrawingScaleType>0</DrawingScaleType><InhibitSnap>0</InhibitSnap><UIVisibility>0</UIVisibility><ShdwType>0</ShdwType><ShdwObliqueAngle>0</ShdwObliqueAngle><ShdwScaleFactor>1</ShdwScaleFactor></PageProps><v14:PageProps xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><v14:DrawingResizeType>1</v14:DrawingResizeType></v14:PageProps><XForm><PinX>0</PinX><PinY>0</PinY><Width>1</Width><Height>1</Height><LocPinX F='Width*0'>0</LocPinX><LocPinY F='Height*0'>0</LocPinY><Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode></XForm><PageLayout><ResizePage F='Inh'>0</ResizePage><EnableGrid F='Inh'>0</EnableGrid><DynamicsOff F='Inh'>0</DynamicsOff><CtrlAsInput F='Inh'>0</CtrlAsInput><PlaceStyle F='Inh'>0</PlaceStyle><RouteStyle F='Inh'>0</RouteStyle><PlaceDepth F='Inh'>0</PlaceDepth><PlowCode F='Inh'>0</PlowCode><LineJumpCode F='Inh'>1</LineJumpCode><LineJumpStyle F='Inh'>0</LineJumpStyle><PageLineJumpDirX F='Inh'>0</PageLineJumpDirX><PageLineJumpDirY F='Inh'>0</PageLineJumpDirY><LineToNodeX F='Inh'>0.09842519685039369</LineToNodeX><LineToNodeY F='Inh'>0.09842519685039369</LineToNodeY><BlockSizeX F='Inh'>0.1968503937007874</BlockSizeX><BlockSizeY F='Inh'>0.1968503937007874</BlockSizeY><AvenueSizeX F='Inh'>0.2952755905511811</AvenueSizeX><AvenueSizeY F='Inh'>0.2952755905511811</AvenueSizeY><LineToLineX F='Inh'>0.09842519685039369</LineToLineX><LineToLineY F='Inh'>0.09842519685039369</LineToLineY><LineJumpFactorX F='Inh'>0.66666666666667</LineJumpFactorX><LineJumpFactorY F='Inh'>0.66666666666667</LineJumpFactorY><LineAdjustFrom F='Inh'>0</LineAdjustFrom><LineAdjustTo F='Inh'>0</LineAdjustTo><PlaceFlip F='Inh'>0</PlaceFlip><LineRouteExt F='Inh'>0</LineRouteExt><PageShapeSplit>1</PageShapeSplit></PageLayout><v14:PageLayout xmlns:v14='http://schemas.microsoft.com/office/visio/2010/extension'><v14:AvoidPageBreaks F='Inh'>0</v14:AvoidPageBreaks></v14:PageLayout></PageSheet><Shapes>    <Shape ID='1' NameU='BoardTitle' Name='BoardTitle' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>27.4606</PinX>
+        <PinY>135.9646</PinY>
+        <Width>53.7402</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>26.8701</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.50000000</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>53.7402</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>53.7402</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>智能柜系统 史诗需求看板（三配置项 · 七阶段泳道）
+<cp IX='1'/>  卡片六要素：需求概述 / 确认情况 / 阻塞项 / 开发情况 / 自测调试 / 测试情况；拖动卡片即代表状态流转</Text>
+    </Shape>
+    <Shape ID='2' NameU='LaneBg0' Name='LaneBg0' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>27.4606</PinX>
+        <PinY>92.7559</PinY>
+        <Width>53.7402</Width>
+        <Height>80.0000</Height>
+        <LocPinX F='Width*0.5'>26.8701</LocPinX>
+        <LocPinY F='Height*0.5'>40.0000</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#F7F9FC</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#D6DCE4</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>53.7402</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>53.7402</X><Y F='Height*1'>80.0000</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>80.0000</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='3' NameU='LaneBg1' Name='LaneBg1' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>27.4606</PinX>
+        <PinY>43.2283</PinY>
+        <Width>53.7402</Width>
+        <Height>18.2677</Height>
+        <LocPinX F='Width*0.5'>26.8701</LocPinX>
+        <LocPinY F='Height*0.5'>9.1339</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FBFBFD</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#D6DCE4</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>53.7402</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>53.7402</X><Y F='Height*1'>18.2677</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>18.2677</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='4' NameU='LaneBg2' Name='LaneBg2' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>27.4606</PinX>
+        <PinY>17.9528</PinY>
+        <Width>53.7402</Width>
+        <Height>31.4961</Height>
+        <LocPinX F='Width*0.5'>26.8701</LocPinX>
+        <LocPinY F='Height*0.5'>15.7480</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#F7F9FC</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#D6DCE4</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>53.7402</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>53.7402</X><Y F='Height*1'>31.4961</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>31.4961</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='5' NameU='LaneLabel0' Name='LaneLabel0' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>1.9685</PinX>
+        <PinY>92.7559</PinY>
+        <Width>2.7559</Width>
+        <Height>80.0000</Height>
+        <LocPinX F='Width*0.5'>1.3780</LocPinX>
+        <LocPinY F='Height*0.5'>40.0000</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#2F5597</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#FFFFFF</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#FFFFFF</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>2.7559</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>2.7559</X><Y F='Height*1'>80.0000</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>80.0000</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>CI-HMI
+<cp IX='1'/>配置项 智能柜上位机管理软件
+管人和账：人脸本机完成、台账与告警
+共29张</Text>
+    </Shape>
+    <Shape ID='6' NameU='LaneLabel1' Name='LaneLabel1' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>1.9685</PinX>
+        <PinY>43.2283</PinY>
+        <Width>2.7559</Width>
+        <Height>18.2677</Height>
+        <LocPinX F='Width*0.5'>1.3780</LocPinX>
+        <LocPinY F='Height*0.5'>9.1339</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#2F5597</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#FFFFFF</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#FFFFFF</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>2.7559</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>2.7559</X><Y F='Height*1'>18.2677</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>18.2677</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>CI-EDGE
+<cp IX='1'/>配置项 边缘计算机视觉处理软件
+管眼睛：柜内工具识别与通信
+共8张</Text>
+    </Shape>
+    <Shape ID='7' NameU='LaneLabel2' Name='LaneLabel2' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>1.9685</PinX>
+        <PinY>17.9528</PinY>
+        <Width>2.7559</Width>
+        <Height>31.4961</Height>
+        <LocPinX F='Width*0.5'>1.3780</LocPinX>
+        <LocPinY F='Height*0.5'>15.7480</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#2F5597</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#FFFFFF</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#FFFFFF</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>2.7559</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>2.7559</X><Y F='Height*1'>31.4961</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>31.4961</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>CI-IO
+<cp IX='1'/>配置项 IO版下位机处理软件
+管手：锁、门磁、灯、蜂鸣离散量
+共7张</Text>
+    </Shape>
+    <Shape ID='8' NameU='ColBg0' Name='ColBg0' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>6.9882</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='9' NameU='ColBg1' Name='ColBg1' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='10' NameU='ColBg2' Name='ColBg2' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>21.5551</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='11' NameU='ColBg3' Name='ColBg3' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='12' NameU='ColBg4' Name='ColBg4' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='13' NameU='ColBg5' Name='ColBg5' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>43.4055</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='14' NameU='ColBg6' Name='ColBg6' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>50.6890</PinX>
+        <PinY>67.4803</PinY>
+        <Width>7.2047</Width>
+        <Height>130.5512</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>65.2756</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0003</LineWeight><LineColor>#E7E9EE</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>130.5512</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='15' NameU='ColHead0' Name='ColHead0' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>6.9882</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#E8E8E8</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>产品待办
+<cp IX='1'/>共 3 张</Text>
+    </Shape>
+    <Shape ID='16' NameU='ColHead1' Name='ColHead1' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFF2CC</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>需求确认中
+<cp IX='1'/>共 6 张</Text>
+    </Shape>
+    <Shape ID='17' NameU='ColHead2' Name='ColHead2' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>21.5551</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#DEEAF6</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>需求设计
+<cp IX='1'/>共 0 张</Text>
+    </Shape>
+    <Shape ID='18' NameU='ColHead3' Name='ColHead3' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#DDEBF7</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>开发实现
+<cp IX='1'/>共 16 张</Text>
+    </Shape>
+    <Shape ID='19' NameU='ColHead4' Name='ColHead4' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#E2EFDA</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>自测调试
+<cp IX='1'/>共 19 张</Text>
+    </Shape>
+    <Shape ID='20' NameU='ColHead5' Name='ColHead5' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>43.4055</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FCE4D6</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>迭代测试
+<cp IX='1'/>共 0 张</Text>
+    </Shape>
+    <Shape ID='21' NameU='ColHead6' Name='ColHead6' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>50.6890</PinX>
+        <PinY>133.8780</PinY>
+        <Width>7.2047</Width>
+        <Height>1.7717</Height>
+        <LocPinX F='Width*0.5'>3.6024</LocPinX>
+        <LocPinY F='Height*0.5'>0.8858</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#D9E1F2</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.1181</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>1</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>7.2047</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>7.2047</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.7717</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>已验收关闭
+<cp IX='1'/>共 0 张</Text>
+    </Shape>
+    <Shape ID='22' NameU='CI-HMI-20' Name='CI-HMI-20' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>6.9882</PinX>
+        <PinY>130.2362</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>20 智能存放规划
+<cp IX='1'/>需求概述：按使用频率统计高频工具，生成存放规划建议
+确认情况：待PO确认
+阻塞项：规划策略待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='23' NameU='CI-HMI-21' Name='CI-HMI-21' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>6.9882</PinX>
+        <PinY>125.8268</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>21 借用数量与超期控制
+<cp IX='1'/>需求概述：单人借用数量上限、超期拦截与缓冲规则
+确认情况：待PO确认
+阻塞项：规则取值待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='24' NameU='CI-HMI-24' Name='CI-HMI-24' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>6.9882</PinX>
+        <PinY>121.4173</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>24 操作审计
+<cp IX='1'/>需求概述：借还出入库与用户变更等操作留痕可追溯
+确认情况：待PO确认
+阻塞项：覆盖范围待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='25' NameU='CI-HMI-19' Name='CI-HMI-19' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>130.2362</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>19 任务工具配置
+<cp IX='1'/>需求概述：配置任务类型与工具绑定及推荐数量
+确认情况：待PO确认
+阻塞项：任务类型清单待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='26' NameU='CI-HMI-22' Name='CI-HMI-22' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>125.8268</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>22 角色权限控制
+<cp IX='1'/>需求概述：管理员与普通用户的功能与操作权限划分
+确认情况：待PO确认
+阻塞项：权限边界清单待PO确认
+开发情况：告警权限已控制，其余待明确
+自测/调试：部分通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='27' NameU='CI-HMI-23' Name='CI-HMI-23' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>121.4173</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>23 工具基础信息维护
+<cp IX='1'/>需求概述：维护工具品类与货位对照关系（页签隐藏）
+确认情况：待PO确认
+阻塞项：是否恢复页签待PO确认
+开发情况：代码保留
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='28' NameU='CI-HMI-25' Name='CI-HMI-25' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>130.2362</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>25 关柜比对与落账
+<cp IX='1'/>需求概述：识别清单与台账逐位比对，判定借出归还错放缺失并落账
+确认情况：待PO确认
+阻塞项：依赖视觉软件识别清单
+开发情况：未开始，当前为演示数据
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='29' NameU='CI-HMI-26' Name='CI-HMI-26' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>125.8268</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>26 与视觉软件通信
+<cp IX='1'/>需求概述：收发识别清单与版本报文，处理周期帧与相机状态
+确认情况：待PO确认
+阻塞项：协议初稿待PO确认
+开发情况：接收端已完成
+自测/调试：模拟器验证通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='30' NameU='CI-HMI-27' Name='CI-HMI-27' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>121.4173</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>27 与下位机通信
+<cp IX='1'/>需求概述：下发开锁关锁，轮询门磁、计数器与状态字
+确认情况：待PO确认
+阻塞项：协议初稿待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='31' NameU='CI-HMI-28' Name='CI-HMI-28' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>117.0079</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>28 告警联动
+<cp IX='1'/>需求概述：按告警级别驱动蜂鸣器与指示灯动作
+确认情况：待PO确认
+阻塞项：依赖下位机通信
+开发情况：参数配置已完成
+自测/调试：配置通过，下发未打通
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='32' NameU='CI-HMI-29' Name='CI-HMI-29' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>112.5984</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFD966</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>29 链路离线保护
+<cp IX='1'/>需求概述：链路离线禁止开锁，界面状态置灰，恢复自动解除
+确认情况：待PO确认
+阻塞项：无
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='33' NameU='CI-HMI-01' Name='CI-HMI-01' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>130.2362</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>01 登录认证
+<cp IX='1'/>需求概述：人脸与账号密码双通道登录，人脸过小提示，陌生人拦截留痕
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='34' NameU='CI-HMI-02' Name='CI-HMI-02' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>125.8268</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>02 借用明细查询
+<cp IX='1'/>需求概述：普通用户查询本人借还记录明细与统计
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='35' NameU='CI-HMI-03' Name='CI-HMI-03' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>121.4173</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>03 工具档案管理
+<cp IX='1'/>需求概述：工具建档、信息维护、附件与多条件检索
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='36' NameU='CI-HMI-04' Name='CI-HMI-04' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>117.0079</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>04 工具入库
+<cp IX='1'/>需求概述：待入库工具上架货位，位置自动匹配一次一件
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='37' NameU='CI-HMI-05' Name='CI-HMI-05' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>112.5984</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>05 工具出库
+<cp IX='1'/>需求概述：出库工具并清除识别信息，批量单事务
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='38' NameU='CI-HMI-06' Name='CI-HMI-06' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>108.1890</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>06 工具借用
+<cp IX='1'/>需求概述：按任务推荐工具，开柜取件，关柜比对确认；仅限本机组
+确认情况：待PO确认
+阻塞项：柜内识别依赖视觉软件
+开发情况：主流程已完成
+自测/调试：比对通过，识别未打通
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='39' NameU='CI-HMI-07' Name='CI-HMI-07' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>103.7795</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>07 工具归还
+<cp IX='1'/>需求概述：关柜核对归还，错放告警，超期拦截；仅限本机组
+确认情况：待PO确认
+阻塞项：柜内识别依赖视觉软件
+开发情况：主流程已完成
+自测/调试：比对通过，识别未打通
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='40' NameU='CI-HMI-08' Name='CI-HMI-08' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>99.3701</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>08 用户管理
+<cp IX='1'/>需求概述：用户增删改查、启用停用、按部门角色维护
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='41' NameU='CI-HMI-09' Name='CI-HMI-09' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>94.9606</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>09 人脸录入
+<cp IX='1'/>需求概述：五方位采集人脸特征并保存，供登录比对
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='42' NameU='CI-HMI-10' Name='CI-HMI-10' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>90.5512</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>10 用户批量导入
+<cp IX='1'/>需求概述：按模板表格批量导入用户并校验重复
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='43' NameU='CI-HMI-11' Name='CI-HMI-11' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>86.1417</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>11 台账统计
+<cp IX='1'/>需求概述：按品类部门日期统计，含高频工具统计
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='44' NameU='CI-HMI-12' Name='CI-HMI-12' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>81.7323</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>12 告警日志与处理
+<cp IX='1'/>需求概述：告警筛选查看，处理忽略闭环，处理留痕
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='45' NameU='CI-HMI-13' Name='CI-HMI-13' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>77.3228</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>13 机组工具查询
+<cp IX='1'/>需求概述：查看各机组工具在库与借出状态及去向
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='46' NameU='CI-HMI-14' Name='CI-HMI-14' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>72.9134</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>14 文档与台账导入导出
+<cp IX='1'/>需求概述：导入工具关联文档，台账日志导出存储介质
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='47' NameU='CI-HMI-15' Name='CI-HMI-15' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>68.5039</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#F2F2F2</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>15 网络参数配置
+<cp IX='1'/>需求概述：配置地址、掩码、网关与域名解析并生效
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：调试中，麒麟待验证
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='48' NameU='CI-HMI-16' Name='CI-HMI-16' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>64.0945</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#F2F2F2</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>16 屏幕亮度调节
+<cp IX='1'/>需求概述：调节屏幕亮度并保存，重启后保持
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：调试中，麒麟待验证
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='49' NameU='CI-HMI-17' Name='CI-HMI-17' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>59.6850</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>17 系统信息查看
+<cp IX='1'/>需求概述：查看版本、运行时长、磁盘与内存占用
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='50' NameU='CI-HMI-18' Name='CI-HMI-18' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>55.2756</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>18 货位映射维护
+<cp IX='1'/>需求概述：维护货位与工具映射，支撑入库位置匹配
+确认情况：待PO确认
+阻塞项：无
+开发情况：已完成
+自测/调试：通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='51' NameU='CI-EDGE-01' Name='CI-EDGE-01' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>49.8425</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E01 柜内工具识别
+<cp IX='1'/>需求概述：识别各货位工具有无、类别与置信度
+确认情况：待PO确认
+阻塞项：相机方案与准确率指标待确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='52' NameU='CI-EDGE-02' Name='CI-EDGE-02' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>45.4331</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E02 大图拆分识别
+<cp IX='1'/>需求概述：整柜大图按区域拆分逐块识别并合并结果
+确认情况：待PO确认
+阻塞项：拆分策略待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='53' NameU='CI-EDGE-03' Name='CI-EDGE-03' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.2717</PinX>
+        <PinY>41.0236</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E03 未知物与低置信判定
+<cp IX='1'/>需求概述：标注未知物体与低置信结果，给出告警级别
+确认情况：待PO确认
+阻塞项：判定阈值待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='54' NameU='CI-EDGE-04' Name='CI-EDGE-04' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>49.8425</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E04 摄像头状态自检
+<cp IX='1'/>需求概述：自检各相机掉线、光照不足、脏污并上报
+确认情况：待PO确认
+阻塞项：依赖相机选型
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='55' NameU='CI-EDGE-05' Name='CI-EDGE-05' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>45.4331</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFD966</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E05 周期帧上报
+<cp IX='1'/>需求概述：每3秒上报运行时长与各相机自检结果
+确认情况：待PO确认
+阻塞项：无
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='56' NameU='CI-EDGE-06' Name='CI-EDGE-06' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>41.0236</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E06 与上位机通信
+<cp IX='1'/>需求概述：按协议收发识别清单与版本报文
+确认情况：待PO确认
+阻塞项：协议初稿待PO确认
+开发情况：接收端已完成
+自测/调试：模拟器验证通过
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='57' NameU='CI-EDGE-07' Name='CI-EDGE-07' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>36.6142</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E07 报文配对与丢弃
+<cp IX='1'/>需求概述：回应携带请求编号，非法报文丢弃计数
+确认情况：待PO确认
+阻塞项：依赖通信协议确定
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='58' NameU='CI-EDGE-08' Name='CI-EDGE-08' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>36.1220</PinX>
+        <PinY>49.8425</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>E08 服务启停与回收
+<cp IX='1'/>需求概述：随上位机启动拉起，退出回收，异常可重拉
+确认情况：待PO确认
+阻塞项：强杀场景会残留占用端口
+开发情况：已完成
+自测/调试：正常退出通过，强杀待处理
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='59' NameU='CI-IO-01' Name='CI-IO-01' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>31.1811</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I01 与上位机通信
+<cp IX='1'/>需求概述：Modbus收发指令与状态，异常码拒绝执行
+确认情况：待PO确认
+阻塞项：协议初稿待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='60' NameU='CI-IO-02' Name='CI-IO-02' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>26.7717</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I02 电磁锁控制
+<cp IX='1'/>需求概述：写线圈开锁上锁，回读校验防虚动作
+确认情况：待PO确认
+阻塞项：依赖通信接口
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='61' NameU='CI-IO-03' Name='CI-IO-03' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>22.3622</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I03 门磁信号采集
+<cp IX='1'/>需求概述：提供门磁离散输入点，供上位机轮询
+确认情况：待PO确认
+阻塞项：依赖硬件选型
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='62' NameU='CI-IO-04' Name='CI-IO-04' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>17.9528</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I04 层指示灯引导
+<cp IX='1'/>需求概述：按指令点亮对应层引导灯与运行指示灯
+确认情况：待PO确认
+阻塞项：依赖硬件选型
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='63' NameU='CI-IO-05' Name='CI-IO-05' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>13.5433</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I05 声光告警执行
+<cp IX='1'/>需求概述：按指令鸣响蜂鸣器与告警灯闪烁
+确认情况：待PO确认
+阻塞项：依赖通信接口
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='64' NameU='CI-IO-06' Name='CI-IO-06' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>9.1339</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFD966</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I06 在线计数器
+<cp IX='1'/>需求概述：每秒自增寄存器，供上位机链路判活
+确认情况：待PO确认
+阻塞项：无
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='65' NameU='CI-IO-07' Name='CI-IO-07' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>28.8386</PinX>
+        <PinY>4.7244</PinY>
+        <Width>6.6142</Width>
+        <Height>4.0945</Height>
+        <LocPinX F='Width*0.5'>3.3071</LocPinX>
+        <LocPinY F='Height*0.5'>2.0472</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>0</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.36111111</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>6.6142</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>6.6142</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>4.0945</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='0'/>I07 离散量自检
+<cp IX='1'/>需求概述：状态字上报锁、继电器、电源是否正常
+确认情况：待PO确认
+阻塞项：自检策略待PO确认
+开发情况：未开始
+自测/调试：未开始
+测试情况：未开始</Text>
+    </Shape>
+    <Shape ID='66' NameU='LegendBox' Name='LegendBox' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>0.9055</PinX>
+        <PinY>1.2598</PinY>
+        <Width>0.6299</Width>
+        <Height>0.6299</Height>
+        <LocPinX F='Width*0.5'>0.3150</LocPinX>
+        <LocPinY F='Height*0.5'>0.3150</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FF9999</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>0.6299</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>0.6299</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='67' NameU='LegendText' Name='LegendText' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>3.1102</PinX>
+        <PinY>1.1811</PinY>
+        <Width>3.4646</Width>
+        <Height>0.9449</Height>
+        <LocPinX F='Width*0.5'>1.7323</LocPinX>
+        <LocPinY F='Height*0.5'>0.4724</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#404040</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>3.4646</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>3.4646</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='1'/>红色：存在阻塞</Text>
+    </Shape>
+    <Shape ID='68' NameU='LegendBox' Name='LegendBox' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>5.3150</PinX>
+        <PinY>1.2598</PinY>
+        <Width>0.6299</Width>
+        <Height>0.6299</Height>
+        <LocPinX F='Width*0.5'>0.3150</LocPinX>
+        <LocPinY F='Height*0.5'>0.3150</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#C6E0B4</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>0.6299</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>0.6299</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='69' NameU='LegendText' Name='LegendText' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>7.5197</PinX>
+        <PinY>1.1811</PinY>
+        <Width>3.4646</Width>
+        <Height>0.9449</Height>
+        <LocPinX F='Width*0.5'>1.7323</LocPinX>
+        <LocPinY F='Height*0.5'>0.4724</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#404040</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>3.4646</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>3.4646</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='1'/>绿色：自测通过</Text>
+    </Shape>
+    <Shape ID='70' NameU='LegendBox' Name='LegendBox' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>9.7244</PinX>
+        <PinY>1.2598</PinY>
+        <Width>0.6299</Width>
+        <Height>0.6299</Height>
+        <LocPinX F='Width*0.5'>0.3150</LocPinX>
+        <LocPinY F='Height*0.5'>0.3150</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFD966</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>0.6299</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>0.6299</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='71' NameU='LegendText' Name='LegendText' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>11.9291</PinX>
+        <PinY>1.1811</PinY>
+        <Width>3.4646</Width>
+        <Height>0.9449</Height>
+        <LocPinX F='Width*0.5'>1.7323</LocPinX>
+        <LocPinY F='Height*0.5'>0.4724</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#404040</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>3.4646</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>3.4646</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='1'/>黄色：尚未启动</Text>
+    </Shape>
+    <Shape ID='72' NameU='LegendBox' Name='LegendBox' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>14.1339</PinX>
+        <PinY>1.2598</PinY>
+        <Width>0.6299</Width>
+        <Height>0.6299</Height>
+        <LocPinX F='Width*0.5'>0.3150</LocPinX>
+        <LocPinY F='Height*0.5'>0.3150</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#F2F2F2</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#8C8C8C</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0000</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Char IX='1'><Color>#333333</Color><Style>0</Style><Size Unit='PT'>0.12500000</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>0.6299</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>0.6299</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.6299</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text></Text>
+    </Shape>
+    <Shape ID='73' NameU='LegendText' Name='LegendText' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>16.3386</PinX>
+        <PinY>1.1811</PinY>
+        <Width>3.4646</Width>
+        <Height>0.9449</Height>
+        <LocPinX F='Width*0.5'>1.7323</LocPinX>
+        <LocPinY F='Height*0.5'>0.4724</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#404040</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>3.4646</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>3.4646</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>0.9449</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='1'/>灰色：待出结果</Text>
+    </Shape>
+    <Shape ID='74' NameU='LegendTip' Name='LegendTip' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <XForm>
+        <PinX>26.4961</PinX>
+        <PinY>1.1024</PinY>
+        <Width>16.5354</Width>
+        <Height>1.1024</Height>
+        <LocPinX F='Width*0.5'>8.2677</LocPinX>
+        <LocPinY F='Height*0.5'>0.5512</LocPinY>
+        <Angle>0</Angle><FlipX>0</FlipX><FlipY>0</FlipY><ResizeMode>0</ResizeMode>
+      </XForm>
+      <Fill><FillForegnd>#FFFFFF</FillForegnd><FillPattern>1</FillPattern></Fill>
+      <Line><LineWeight Unit='PT'>0.0004</LineWeight><LineColor>#FFFFFF</LineColor><LinePattern>1</LinePattern><Rounding Unit='MM'>0.0787</Rounding></Line>
+      <TextBlock><VerticalAlign>1</VerticalAlign></TextBlock>
+      <Char IX='0'><Color>#1F3864</Color><Style>1</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Char IX='1'><Color>#595959</Color><Style>0</Style><Size Unit='PT'>0.33333333</Size></Char>
+      <Para IX='0'><HorzAlign>0</HorzAlign></Para>
+      <Para IX='1'><HorzAlign>0</HorzAlign></Para>
+      <Geom IX='0'>
+        <NoFill>0</NoFill><NoLine>0</NoLine><NoShow>0</NoShow><NoSnap>0</NoSnap>
+        <MoveTo IX='1'><X F='Width*0'>0</X><Y F='Height*0'>0</Y></MoveTo>
+        <LineTo IX='2'><X F='Width*1'>16.5354</X><Y F='Height*0'>0</Y></LineTo>
+        <LineTo IX='3'><X F='Width*1'>16.5354</X><Y F='Height*1'>1.1024</Y></LineTo>
+        <LineTo IX='4'><X F='Width*0'>0</X><Y F='Height*1'>1.1024</Y></LineTo>
+        <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
+      </Geom>
+      <Text><cp IX='1'/>使用说明：拖动卡片到目标列即代表状态流转；双击卡片可编辑文本。</Text>
+    </Shape>
+</Shapes></Page></Pages><Windows ClientWidth='1920' ClientHeight='931'><Window ID='0' WindowType='Drawing' WindowState='1073741824' WindowLeft='-9' WindowTop='-38' WindowWidth='1938' WindowHeight='978' ContainerType='Page' Page='0' ViewScale='-1' ViewCenterX='27.534448818898' ViewCenterY='17.741141732283'><ShowRulers>1</ShowRulers><ShowGrid>1</ShowGrid><ShowPageBreaks>1</ShowPageBreaks><ShowGuides>1</ShowGuides><ShowConnectionPoints>1</ShowConnectionPoints><GlueSettings>9</GlueSettings><SnapSettings>65847</SnapSettings><SnapExtensions>34</SnapExtensions><DynamicGridEnabled>0</DynamicGridEnabled><TabSplitterPos>0.5</TabSplitterPos></Window></Windows></VisioDocument>

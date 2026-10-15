@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>智能柜系统 史诗需求看板</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #f4f6f9;
+  color: #2b2b2b;
+  font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+  font-size: 14px;
+}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #ffffff;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid #e3e8ef;
+  box-shadow: 0 2px 8px rgba(31, 56, 100, 0.06);
+}
+h1 { margin: 0 0 6px; font-size: 22px; color: #1f3864; letter-spacing: 0.5px; }
+.sub { color: #6b7280; font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; margin: 10px 0 8px; align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #4b5563; }
+.swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #b9c2cf; display: inline-block; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3864;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+button:hover { background: #eef3fb; }
+button.primary { background: #1f3864; color: #fff; border-color: #1f3864; }
+button.primary:hover { background: #2f5597; }
+button.on { background: #dbe6f7; border-color: #2f5597; }
+main { padding: 16px 24px 40px; overflow-x: auto; }
+.board { min-width: 2100px; }
+.grid {
+  display: grid;
+  grid-template-columns: 190px repeat(7, 262px);
+  gap: 8px;
+  align-items: stretch;
+}
+.col-head {
+  position: sticky;
+  top: 0;
+  background: #eef2f8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: #1f3864;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 4px solid #1f3864;
+}
+.col-head .cnt { font-weight: 400; font-size: 12px; color: #6b7280; }
+.corner { background: #1f3864; color: #fff; justify-content: center; border-top: none; }
+.lane-label {
+  background: #1f3864;
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+.lane-label b { font-size: 15px; line-height: 1.4; }
+.lane-label small { opacity: 0.85; line-height: 1.4; }
+.lane-label .code { font-size: 12px; opacity: 0.75; }
+.cell {
+  background: #e9edf3;
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cell.over { outline: 2px dashed #2f5597; background: #dce6f7; }
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  border-left: 6px solid var(--c);
+  box-shadow: 0 1px 3px rgba(31, 56, 100, 0.12);
+  padding: 10px 12px;
+  cursor: grab;
+}
+.card:hover { box-shadow: 0 4px 12px rgba(31, 56, 100, 0.18); }
+.card.dragging { opacity: 0.5; }
+.card.hide { display: none; }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cid { font-size: 13px; color: #6b7280; font-weight: 700; }
+.stage {
+  font-size: 13px;
+  background: #eef2f8;
+  color: #2f5597;
+  border-radius: 8px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.card h3 { margin: 6px 0 8px; font-size: 19px; color: #1f3864; line-height: 1.35; }
+.card dl { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.card dl > div { display: flex; gap: 6px; align-items: flex-start; }
+.card dt { flex: 0 0 84px; font-size: 14px; color: #6b7280; }
+.card dd { margin: 0; flex: 1; font-size: 16px; line-height: 1.45; color: #2b2b2b; word-break: break-word; }
+.card dd[contenteditable="true"]:hover { background: #fffbe6; }
+.card dd[contenteditable="true"]:focus { outline: 2px solid #2f5597; background: #fff; }
+.tip { position: fixed; right: 24px; bottom: 24px; background: #1f3864; color: #fff;
+  padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .25s; z-index: 50; }
+.tip.show { opacity: 1; }
+@media print {
+  header { position: static; box-shadow: none; }
+  main { overflow: visible; }
+  .toolbar { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+<h1>智能柜系统 史诗需求看板</h1>
+<div class="sub">史诗：智能柜系统 ｜ 配置项：上位机管理软件 / 边缘计算机视觉处理软件 / IO版下位机处理软件 ｜ 共 44 张需求卡片</div>
+<div class="legend"><span><i class="swatch" style="background:#FF9999"></i>红色 = 存在阻塞</span><span><i class="swatch" style="background:#C6E0B4"></i>绿色 = 自测通过</span><span><i class="swatch" style="background:#FFD966"></i>黄色 = 尚未启动</span><span><i class="swatch" style="background:#F2F2F2"></i>灰色 = 待出结果</span><span>拖动卡片到目标列即代表状态流转；卡片正文可直接点击编辑</span></div>
+<div class="toolbar"><button data-filter="all" class="on">全部</button><button data-filter="yellow">只看待PO确认</button><button data-filter="red">只看阻塞</button><button data-filter="green">只看通过</button><button id="btn-save" class="primary">保存本机</button><button id="btn-export">导出CSV</button><button id="btn-print">打印</button><button id="btn-reset">恢复初始</button></div>
+</header>
+<main><div class="board"><div class="grid"><div class="col-head corner">配置项 \ 阶段</div><div class="col-head" data-col="0">产品待办<span class="cnt">共 3 张</span></div><div class="col-head" data-col="1">需求确认中<span class="cnt">共 6 张</span></div><div class="col-head" data-col="2">需求设计<span class="cnt">共 0 张</span></div><div class="col-head" data-col="3">开发实现<span class="cnt">共 16 张</span></div><div class="col-head" data-col="4">自测调试<span class="cnt">共 19 张</span></div><div class="col-head" data-col="5">迭代测试<span class="cnt">共 0 张</span></div><div class="col-head" data-col="6">已验收关闭<span class="cnt">共 0 张</span></div><div class="lane-label" data-lane="0"><span class="code">CI-HMI</span><b>配置项 智能柜上位机管理软件</b><small>管人和账：人脸本机完成、台账与告警</small><small>卡片 29 张</small></div><div class="cell" data-lane="0" data-col="0"><article class="card" draggable="true" data-id="CI-HMI-20" data-lane="0" data-col="0" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-20</span><span class="stage">产品待办</span></div><h3>智能存放规划</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按使用频率统计高频工具，生成存放规划建议</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">规划策略待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-21" data-lane="0" data-col="0" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-21</span><span class="stage">产品待办</span></div><h3>借用数量与超期控制</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">单人借用数量上限、超期拦截与缓冲规则</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">规则取值待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-24" data-lane="0" data-col="0" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-24</span><span class="stage">产品待办</span></div><h3>操作审计</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">借还出入库与用户变更等操作留痕可追溯</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">覆盖范围待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="0" data-col="1"><article class="card" draggable="true" data-id="CI-HMI-19" data-lane="0" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-19</span><span class="stage">需求确认中</span></div><h3>任务工具配置</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">配置任务类型与工具绑定及推荐数量</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">任务类型清单待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-22" data-lane="0" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-22</span><span class="stage">需求确认中</span></div><h3>角色权限控制</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">管理员与普通用户的功能与操作权限划分</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">权限边界清单待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">告警权限已控制，其余待明确</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">部分通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-23" data-lane="0" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-23</span><span class="stage">需求确认中</span></div><h3>工具基础信息维护</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">维护工具品类与货位对照关系（页签隐藏）</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">是否恢复页签待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">代码保留</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="0" data-col="2"></div><div class="cell" data-lane="0" data-col="3"><article class="card" draggable="true" data-id="CI-HMI-25" data-lane="0" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-25</span><span class="stage">开发实现</span></div><h3>关柜比对与落账</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">识别清单与台账逐位比对，判定借出归还错放缺失并落账</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖视觉软件识别清单</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始，当前为演示数据</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-26" data-lane="0" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-26</span><span class="stage">开发实现</span></div><h3>与视觉软件通信</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">收发识别清单与版本报文，处理周期帧与相机状态</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">协议初稿待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">接收端已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">模拟器验证通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-27" data-lane="0" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-27</span><span class="stage">开发实现</span></div><h3>与下位机通信</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">下发开锁关锁，轮询门磁、计数器与状态字</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">协议初稿待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-28" data-lane="0" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-28</span><span class="stage">开发实现</span></div><h3>告警联动</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按告警级别驱动蜂鸣器与指示灯动作</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖下位机通信</dd></div><div><dt>开发情况</dt><dd contenteditable="true">参数配置已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">配置通过，下发未打通</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-29" data-lane="0" data-col="3" data-color="#FFD966" style="--c:#FFD966"><div class="card-top"><span class="cid">CI-HMI-29</span><span class="stage">开发实现</span></div><h3>链路离线保护</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">链路离线禁止开锁，界面状态置灰，恢复自动解除</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="0" data-col="4"><article class="card" draggable="true" data-id="CI-HMI-01" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-01</span><span class="stage">自测调试</span></div><h3>登录认证</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">人脸与账号密码双通道登录，人脸过小提示，陌生人拦截留痕</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-02" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-02</span><span class="stage">自测调试</span></div><h3>借用明细查询</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">普通用户查询本人借还记录明细与统计</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-03" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-03</span><span class="stage">自测调试</span></div><h3>工具档案管理</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">工具建档、信息维护、附件与多条件检索</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-04" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-04</span><span class="stage">自测调试</span></div><h3>工具入库</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">待入库工具上架货位，位置自动匹配一次一件</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-05" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-05</span><span class="stage">自测调试</span></div><h3>工具出库</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">出库工具并清除识别信息，批量单事务</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-06" data-lane="0" data-col="4" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-06</span><span class="stage">自测调试</span></div><h3>工具借用</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按任务推荐工具，开柜取件，关柜比对确认；仅限本机组</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">柜内识别依赖视觉软件</dd></div><div><dt>开发情况</dt><dd contenteditable="true">主流程已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">比对通过，识别未打通</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-07" data-lane="0" data-col="4" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-HMI-07</span><span class="stage">自测调试</span></div><h3>工具归还</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">关柜核对归还，错放告警，超期拦截；仅限本机组</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">柜内识别依赖视觉软件</dd></div><div><dt>开发情况</dt><dd contenteditable="true">主流程已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">比对通过，识别未打通</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-08" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-08</span><span class="stage">自测调试</span></div><h3>用户管理</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">用户增删改查、启用停用、按部门角色维护</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-09" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-09</span><span class="stage">自测调试</span></div><h3>人脸录入</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">五方位采集人脸特征并保存，供登录比对</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-10" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-10</span><span class="stage">自测调试</span></div><h3>用户批量导入</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按模板表格批量导入用户并校验重复</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-11" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-11</span><span class="stage">自测调试</span></div><h3>台账统计</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按品类部门日期统计，含高频工具统计</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-12" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-12</span><span class="stage">自测调试</span></div><h3>告警日志与处理</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">告警筛选查看，处理忽略闭环，处理留痕</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-13" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-13</span><span class="stage">自测调试</span></div><h3>机组工具查询</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">查看各机组工具在库与借出状态及去向</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-14" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-14</span><span class="stage">自测调试</span></div><h3>文档与台账导入导出</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">导入工具关联文档，台账日志导出存储介质</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-15" data-lane="0" data-col="4" data-color="#F2F2F2" style="--c:#F2F2F2"><div class="card-top"><span class="cid">CI-HMI-15</span><span class="stage">自测调试</span></div><h3>网络参数配置</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">配置地址、掩码、网关与域名解析并生效</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">调试中，麒麟待验证</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-16" data-lane="0" data-col="4" data-color="#F2F2F2" style="--c:#F2F2F2"><div class="card-top"><span class="cid">CI-HMI-16</span><span class="stage">自测调试</span></div><h3>屏幕亮度调节</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">调节屏幕亮度并保存，重启后保持</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">调试中，麒麟待验证</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-17" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-17</span><span class="stage">自测调试</span></div><h3>系统信息查看</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">查看版本、运行时长、磁盘与内存占用</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-HMI-18" data-lane="0" data-col="4" data-color="#C6E0B4" style="--c:#C6E0B4"><div class="card-top"><span class="cid">CI-HMI-18</span><span class="stage">自测调试</span></div><h3>货位映射维护</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">维护货位与工具映射，支撑入库位置匹配</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="0" data-col="5"></div><div class="cell" data-lane="0" data-col="6"></div><div class="lane-label" data-lane="1"><span class="code">CI-EDGE</span><b>配置项 边缘计算机视觉处理软件</b><small>管眼睛：柜内工具识别与通信</small><small>卡片 8 张</small></div><div class="cell" data-lane="1" data-col="0"></div><div class="cell" data-lane="1" data-col="1"><article class="card" draggable="true" data-id="CI-EDGE-01" data-lane="1" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-01</span><span class="stage">需求确认中</span></div><h3>柜内工具识别</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">识别各货位工具有无、类别与置信度</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">相机方案与准确率指标待确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-EDGE-02" data-lane="1" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-02</span><span class="stage">需求确认中</span></div><h3>大图拆分识别</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">整柜大图按区域拆分逐块识别并合并结果</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">拆分策略待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-EDGE-03" data-lane="1" data-col="1" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-03</span><span class="stage">需求确认中</span></div><h3>未知物与低置信判定</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">标注未知物体与低置信结果，给出告警级别</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">判定阈值待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="1" data-col="2"></div><div class="cell" data-lane="1" data-col="3"><article class="card" draggable="true" data-id="CI-EDGE-04" data-lane="1" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-04</span><span class="stage">开发实现</span></div><h3>摄像头状态自检</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">自检各相机掉线、光照不足、脏污并上报</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖相机选型</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-EDGE-05" data-lane="1" data-col="3" data-color="#FFD966" style="--c:#FFD966"><div class="card-top"><span class="cid">CI-EDGE-05</span><span class="stage">开发实现</span></div><h3>周期帧上报</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">每3秒上报运行时长与各相机自检结果</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-EDGE-06" data-lane="1" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-06</span><span class="stage">开发实现</span></div><h3>与上位机通信</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按协议收发识别清单与版本报文</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">协议初稿待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">接收端已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">模拟器验证通过</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-EDGE-07" data-lane="1" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-07</span><span class="stage">开发实现</span></div><h3>报文配对与丢弃</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">回应携带请求编号，非法报文丢弃计数</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖通信协议确定</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="1" data-col="4"><article class="card" draggable="true" data-id="CI-EDGE-08" data-lane="1" data-col="4" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-EDGE-08</span><span class="stage">自测调试</span></div><h3>服务启停与回收</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">随上位机启动拉起，退出回收，异常可重拉</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">强杀场景会残留占用端口</dd></div><div><dt>开发情况</dt><dd contenteditable="true">已完成</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">正常退出通过，强杀待处理</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="1" data-col="5"></div><div class="cell" data-lane="1" data-col="6"></div><div class="lane-label" data-lane="2"><span class="code">CI-IO</span><b>配置项 IO版下位机处理软件</b><small>管手：锁、门磁、灯、蜂鸣离散量</small><small>卡片 7 张</small></div><div class="cell" data-lane="2" data-col="0"></div><div class="cell" data-lane="2" data-col="1"></div><div class="cell" data-lane="2" data-col="2"></div><div class="cell" data-lane="2" data-col="3"><article class="card" draggable="true" data-id="CI-IO-01" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-01</span><span class="stage">开发实现</span></div><h3>与上位机通信</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">Modbus收发指令与状态，异常码拒绝执行</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">协议初稿待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-02" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-02</span><span class="stage">开发实现</span></div><h3>电磁锁控制</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">写线圈开锁上锁，回读校验防虚动作</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖通信接口</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-03" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-03</span><span class="stage">开发实现</span></div><h3>门磁信号采集</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">提供门磁离散输入点，供上位机轮询</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖硬件选型</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-04" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-04</span><span class="stage">开发实现</span></div><h3>层指示灯引导</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按指令点亮对应层引导灯与运行指示灯</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖硬件选型</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-05" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-05</span><span class="stage">开发实现</span></div><h3>声光告警执行</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">按指令鸣响蜂鸣器与告警灯闪烁</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">依赖通信接口</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-06" data-lane="2" data-col="3" data-color="#FFD966" style="--c:#FFD966"><div class="card-top"><span class="cid">CI-IO-06</span><span class="stage">开发实现</span></div><h3>在线计数器</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">每秒自增寄存器，供上位机链路判活</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">无</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article><article class="card" draggable="true" data-id="CI-IO-07" data-lane="2" data-col="3" data-color="#FF9999" style="--c:#FF9999"><div class="card-top"><span class="cid">CI-IO-07</span><span class="stage">开发实现</span></div><h3>离散量自检</h3><dl><div><dt>需求概述</dt><dd contenteditable="true">状态字上报锁、继电器、电源是否正常</dd></div><div><dt>确认情况</dt><dd contenteditable="true">待PO确认</dd></div><div><dt>阻塞项</dt><dd contenteditable="true">自检策略待PO确认</dd></div><div><dt>开发情况</dt><dd contenteditable="true">未开始</dd></div><div><dt>自测/调试</dt><dd contenteditable="true">未开始</dd></div><div><dt>测试情况</dt><dd contenteditable="true">未开始</dd></div></dl></article></div><div class="cell" data-lane="2" data-col="4"></div><div class="cell" data-lane="2" data-col="5"></div><div class="cell" data-lane="2" data-col="6"></div></div></div></main>
+<div class="tip" id="tip"></div>
+<script>
+
+var STORAGE_KEY = 'smartcabinet_kanban_state_v1';
+var COLUMNS = ["产品待办", "需求确认中", "需求设计", "开发实现", "自测调试", "迭代测试", "已验收关闭"];
+
+function tip(msg) {
+  var el = document.getElementById('tip');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function () { el.classList.remove('show'); }, 1800);
+}
+
+function refreshCounts() {
+  var cells = document.querySelectorAll('.cell');
+  for (var i = 0; i < cells.length; i++) {
+    var visible = 0;
+    var cards = cells[i].querySelectorAll('.card');
+    for (var j = 0; j < cards.length; j++) {
+      if (!cards[j].classList.contains('hide')) visible++;
+    }
+    var head = document.querySelector('.col-head[data-col="' + cells[i].getAttribute('data-col') + '"] .cnt');
+    if (head) head.textContent = '共 ' + countColumn(cells[i].getAttribute('data-col')) + ' 张';
+  }
+}
+
+function countColumn(col) {
+  var n = 0;
+  var cards = document.querySelectorAll('.card');
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    if (card.getAttribute('data-col') === col && !card.classList.contains('hide')) n++;
+  }
+  return n;
+}
+
+function bindCards() {
+  var cards = document.querySelectorAll('.card');
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    card.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', this.getAttribute('data-id'));
+      this.classList.add('dragging');
+    });
+    card.addEventListener('dragend', function () {
+      this.classList.remove('dragging');
+      refreshCounts();
+      saveState();
+    });
+  }
+}
+
+function bindCells() {
+  var cells = document.querySelectorAll('.cell');
+  for (var i = 0; i < cells.length; i++) {
+    var cell = cells[i];
+    cell.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      this.classList.add('over');
+    });
+    cell.addEventListener('dragleave', function () {
+      this.classList.remove('over');
+    });
+    cell.addEventListener('drop', function (e) {
+      e.preventDefault();
+      this.classList.remove('over');
+      var id = e.dataTransfer.getData('text/plain');
+      var card = document.querySelector('.card[data-id="' + id + '"]');
+      if (!card) return;
+      this.appendChild(card);
+      var col = this.getAttribute('data-col');
+      card.setAttribute('data-col', col);
+      card.setAttribute('data-lane', this.getAttribute('data-lane'));
+      var stage = card.querySelector('.stage');
+      if (stage) stage.textContent = COLUMNS[parseInt(col, 10)];
+      tip(id + ' 已流转到「' + COLUMNS[parseInt(col, 10)] + '」');
+      refreshCounts();
+      saveState();
+    });
+  }
+}
+
+function saveState() {
+  var out = [];
+  var cards = document.querySelectorAll('.card');
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    var values = card.querySelectorAll('dd');
+    var fields = [];
+    for (var j = 0; j < values.length; j++) fields.push(values[j].textContent.trim());
+    out.push({
+      id: card.getAttribute('data-id'),
+      lane: card.getAttribute('data-lane'),
+      col: card.getAttribute('data-col'),
+      stage: card.querySelector('.stage').textContent,
+      title: card.querySelector('h3').textContent.trim(),
+      fields: fields
+    });
+  }
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
+  } catch (err) {
+    tip('本地保存失败，请检查浏览器存储权限');
+  }
+}
+
+function loadState() {
+  var raw = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch (err) {
+    raw = null;
+  }
+  if (!raw) return false;
+  var list = JSON.parse(raw);
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    var card = document.querySelector('.card[data-id="' + item.id + '"]');
+    if (!card) continue;
+    var cell = document.querySelector('.cell[data-lane="' + item.lane + '"][data-col="' + item.col + '"]');
+    if (cell) cell.appendChild(card);
+    card.setAttribute('data-col', item.col);
+    card.setAttribute('data-lane', item.lane);
+    card.querySelector('.stage').textContent = item.stage;
+    card.querySelector('h3').textContent = item.title;
+    var values = card.querySelectorAll('dd');
+    for (var j = 0; j < values.length; j++) {
+      if (item.fields[j] !== undefined) values[j].textContent = item.fields[j];
+    }
+  }
+  return true;
+}
+
+function clearState() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch (err) {
+    /* 忽略清理失败 */
+  }
+  window.location.reload();
+}
+
+function filterCards(mode) {
+  var cards = document.querySelectorAll('.card');
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    var color = card.getAttribute('data-color');
+    var show = true;
+    if (mode === 'yellow') show = (color === '#FFD966');
+    if (mode === 'red') show = (color === '#FF9999');
+    if (mode === 'green') show = (color === '#C6E0B4');
+    if (show) card.classList.remove('hide');
+    else card.classList.add('hide');
+  }
+  var buttons = document.querySelectorAll('.toolbar button[data-filter]');
+  for (var k = 0; k < buttons.length; k++) {
+    buttons[k].classList.toggle('on', buttons[k].getAttribute('data-filter') === mode);
+  }
+  refreshCounts();
+}
+
+function exportCsv() {
+  var rows = [['编号', '配置项', '当前阶段', '需求标题', '需求概述', '需求确认情况',
+               '阻塞项', '开发情况', '自测调试情况', '测试情况']];
+  var cards = document.querySelectorAll('.card');
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    if (card.classList.contains('hide')) continue;
+    var values = card.querySelectorAll('dd');
+    var lane = document.querySelector('.lane-label[data-lane="' + card.getAttribute('data-lane') + '"] b');
+    rows.push([
+      card.getAttribute('data-id'),
+      lane ? lane.textContent.trim() : '',
+      card.querySelector('.stage').textContent,
+      card.querySelector('h3').textContent.trim(),
+      values[0].textContent.trim(), values[1].textContent.trim(),
+      values[2].textContent.trim(), values[3].textContent.trim(),
+      values[4].textContent.trim(), values[5].textContent.trim()
+    ]);
+  }
+  var csv = rows.map(function (r) {
+    return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\r\n');
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '智能柜需求看板.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  tip('已导出 ' + (rows.length - 1) + ' 张卡片');
+}
+
+function init() {
+  bindCards();
+  bindCells();
+  var restored = loadState();
+  refreshCounts();
+  if (restored) tip('已恢复上次本地保存的看板状态');
+  var buttons = document.querySelectorAll('.toolbar button[data-filter]');
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener('click', function () {
+      filterCards(this.getAttribute('data-filter'));
+    });
+  }
+  document.getElementById('btn-save').addEventListener('click', function () {
+    saveState();
+    tip('已保存到本机浏览器');
+  });
+  document.getElementById('btn-export').addEventListener('click', exportCsv);
+  document.getElementById('btn-reset').addEventListener('click', clearState);
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+  var fields = document.querySelectorAll('.card dd[contenteditable="true"]');
+  for (var j = 0; j < fields.length; j++) {
+    fields[j].addEventListener('blur', saveState);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
