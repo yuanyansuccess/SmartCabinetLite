@@ -133,9 +133,8 @@ void LedgerStatsPage::loadStats() {
 }
 
 // 台账导出：生成CSV文件并保存到桌面
-// 彻底修复编码问题：QTextStream在Windows中文环境默认GBK编码，
-// 导致BOM(UTF-8)与内容(GBK)编码不一致，Excel打开乱码。
-// 直接用QFile::write()写入UTF-8字节流，保证BOM和内容编码统一。
+// CSV 以 UTF-8 BOM 字节流写入：QTextStream 默认跟随系统 GBK，
+// BOM 与内容编码不一致会导致 Excel 打开乱码。
 void LedgerStatsPage::onExportLedger() {
     QString csv = generateCSV();
     if (csv.isEmpty()) {

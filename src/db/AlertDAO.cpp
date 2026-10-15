@@ -410,9 +410,10 @@ int AlertDAO::insertAlert(const AlertLog& a) {
 
     // sys_alert表完整列：alert_id, type_id, alert_type, alert_level, tool_id, tool_code,
     // content, status, user_id, record_id, created_at, handled_at, handler_id, remark
+    // created_at 列无默认值，写入方不传会落 NULL（告警列表无时间可显示），统一补当前时间
     int result = insertAndGetId(
-        "INSERT INTO sys_alert (type_id, alert_type, alert_level, user_id, tool_id, tool_code, content, status) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sys_alert (type_id, alert_type, alert_level, user_id, tool_id, tool_code, content, status, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
         {a.typeId, alertTypeCode, alertLevelStr, userIdVal, toolIdVal, a.toolCode, a.message, SC::ALERT_UNHANDLED});
 
     if (result <= 0) {

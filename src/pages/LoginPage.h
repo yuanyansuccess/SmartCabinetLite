@@ -171,6 +171,10 @@ private:
     static const int MAX_CAPTURES = 3;
     /// 人脸识别是否处于运行中（防止showEvent重复启动；注销/锁屏回登录页时自动恢复）
     bool m_faceRecognitionActive = false;
+    /// 密码登录模式标志：true 时所有人脸回调不得改写界面状态。
+    /// 切换密码登录后异步在途的采集回调仍会到达，必须整体拦截，
+    /// 防止密码登录页浮现"请保持不动/请靠近"等人脸提示
+    bool m_passwordMode = false;
     bool m_logoutSuppressed = false;  // 注销后抑制自动登录（人离开画面或超时后清除）
     /// 注销抑制截止时间戳（毫秒），超时后自动解除抑制
     qint64 m_logoutSuppressUntilMs = 0;

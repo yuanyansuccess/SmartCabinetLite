@@ -293,7 +293,7 @@ void BatchImportDialog::onDownloadTemplate()
 bool BatchImportDialog::generateTemplate(const QString& filePath)
 {
     QFile file(filePath);
-    // 修复编码问题：不用QTextStream(默认GBK)，直接用write写入UTF-8字节流
+    // 直接以 UTF-8 字节流写入：QTextStream 在中文 Windows 默认 GBK，会产生非 UTF-8 文件
     if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }

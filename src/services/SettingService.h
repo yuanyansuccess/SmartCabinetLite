@@ -20,9 +20,5 @@ public:
     QJsonObject getLedgerStats();
     QJsonArray getDepartments();
 
-    // 系统配置持久化（读写 system_config 表）
-    QJsonObject loadAllConfig();                                  // 加载全部配置
     bool saveConfig(const QJsonObject& config);                  // 批量保存配置
-    bool saveConfigValue(const QString& key, const QString& value);  // 保存单个配置项
-    QString loadConfigValue(const QString& key, const QString& defaultValue = "");  // 读取单个配置项
 };

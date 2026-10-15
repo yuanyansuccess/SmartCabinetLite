@@ -23,15 +23,11 @@ public:
     QString dbName() const;
     QString dbUser() const;
     void    setDbConfig(const QString& host, int port, const QString& name, const QString& user, const QString& pass);
-    bool    testDbConnection();
 
-    // 通用设置
+    /// 读取配置项（键不存在时返回默认值），tests 引用
     QString setting(const QString& key, const QString& def = "") const;
-    void    setSetting(const QString& key, const QString& value);
-    void    saveSettings();
 
-    // 系统操作
-    bool restartSystem();
+    void    saveSettings();
 
 private:
     AppConfig* m_config = nullptr;

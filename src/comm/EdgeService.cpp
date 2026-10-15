@@ -165,34 +165,11 @@ QString EdgeService::requestRecognize()
  * @return 请求编号，含义同 requestRecognize；离线时返回空串且不发送（日志留痕）
  * @note  异步：结果通过 versionReceived 信号返回
  */
-QString EdgeService::queryVersion()
-{
-    if (!m_online) {
-        qWarning() << "[EdgeService] version_query 被拒绝：链路离线";
-        return QString();
-    }
-    QJsonObject frame;
-    frame["type"] = "version_query";
-    frame["request_id"] = nextRequestId();   // 便于登记表统一管理超时
-
-    Pending p;
-    p.frame = frame;
-    p.sentAtMs = nowMs();
-    p.tries = 1;
-    m_pending.insert(frame["request_id"].toString(), p);
-
-    sendToEdge(frame);
-    return frame["request_id"].toString();
-}
 
 /**
  * @brief 取当前边缘机的IP地址（界面显示/日志定位用）
  * @return 形如 "127.0.0.1" 的地址串；无连接时为空串
  */
-QString EdgeService::edgeAddress() const
-{
-    return m_link ? m_link->peerAddress(m_activeClient) : QString();
-}
 
 /**
  * @brief 边缘机TCP接入（含重连，每次接入都是新编号）

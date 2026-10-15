@@ -47,21 +47,6 @@ void SettingController::setDbConfig(const QString& host, int port,
 }
 
 /**
- * @brief 探测数据库连通性
- * @return true=连接成功
- * @note 已连接时直接返回成功，未连接时尝试按当前配置重新连接
- */
-bool SettingController::testDbConnection() {
-    DatabaseManager& db = DatabaseManager::instance();
-    if (db.isConnected()) { emit dbConnected(true); return true; }
-    bool ok = db.initialize(m_config->dbHost(), m_config->dbPort(),
-                              m_config->dbName(), m_config->dbUser(),
-                              m_config->dbPass());
-    emit dbConnected(ok);
-    return ok;
-}
-
-/**
  * @brief 读取配置项
  * @param key 配置键
  * @param def 键不存在时返回的默认值
@@ -72,23 +57,6 @@ QString SettingController::setting(const QString& key, const QString& def) const
 }
 
 /**
- * @brief 写入配置项
- * @param key 配置键
- * @param value 配置值
- * @note 需调用 saveSettings() 才会落盘
- */
-void SettingController::setSetting(const QString& key, const QString& value) {
-    m_config->setValue(key, value);
-}
-
-/**
  * @brief 将配置写入配置文件
  */
 void SettingController::saveSettings() { m_config->save(); }
-
-/**
- * @brief 重启系统
- * @return true=受理成功
- * @note 当前实现由上层负责重启流程
- */
-bool SettingController::restartSystem() { return true; }

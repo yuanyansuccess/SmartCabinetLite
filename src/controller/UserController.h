@@ -31,8 +31,6 @@ public:
     bool        enrollFace(int userId, const QString& faceFeature);
     bool        deleteFace(int userId);
     bool        hasFaceEnrolled(int userId);
-    QStringList allDepartments();
-    QStringList allRoles();
 
 signals:
     void userCreated(int userId);

@@ -29,11 +29,7 @@ public:
     void start(const EdgeConfig& cfg);   ///< 启动服务（重复调用安全）
     void stop();                          ///< 停止服务
     QString requestRecognize();           ///< 发全柜识别请求，返回请求编号
-    QString queryVersion();               ///< 查边缘机软件版本，返回请求编号
-    QString edgeAddress() const;          ///< 取当前边缘机IP
-    bool isOnline() const { return m_online; }                 ///< 链路是否在线
     PeriodicInfo lastPeriodic() const { return m_lastPeriodic; } ///< 最近一帧周期帧
-    QString softwareVersion() const { return m_version; }      ///< 最近版本回应
 
 signals:
     /**

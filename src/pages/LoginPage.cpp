@@ -282,6 +282,7 @@ void LoginPage::resetPageState() {
 
     // 2. 停止人脸识别和摄像头
     stopFaceRecognition();
+    m_passwordMode = false;  // 复位密码模式标志，后续重启识别后回调恢复正常写状态
 
     // 3. 清空待登录用户（防止下次自动跳转）
     m_pendingUser = QJsonObject();
@@ -341,16 +342,19 @@ void LoginPage::clearAllForms() {
 
 /** 切换到密码登录 */
 void LoginPage::switchToPasswordLogin() {
+    // 先置密码模式标志：切换后异步在途的人脸采集回调仍会到达，
+    // 必须让所有回调改写界面状态的路径失效（onFaceCaptured/setScanStatus等均有此判断）
+    m_passwordMode = true;
     stopFaceRecognition();
     setFaceResult(FaceResult::Fail);
     stopDotBlink();
-    setStatusDot("background:#ff4d4f;");
+    // 状态行（圆点+提示文字）是人脸识别专用指示，密码登录页整行隐藏
+    if (m_statusDot) m_statusDot->hide();
+    if (m_cameraStatusText) m_cameraStatusText->hide();
     // 主动切换登录方式不是错误：只留一句引导文案，
     // 避免错误栏、标题、状态栏三处控件重复告知"改用账号密码登录"
     m_errorLabel->setVisible(false);
     m_subtitleLabel->setText(QStringLiteral("请输入账号密码"));
-    setScanStatus(QString(), 0);
-    // cameraWrap保持可见(fail圆圈已由setFaceResult管理)，不额外隐藏
 }
 
 /**

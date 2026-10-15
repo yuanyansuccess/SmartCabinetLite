@@ -21,9 +21,6 @@ public:
     bool updateTool(int toolId, const QJsonObject& updates);
     /// 删除工具及其关联的位置映射记录
     bool deleteTool(int toolId);
-    /// 新增位置对照关系（默认 pending 状态）
-    bool createPositionMapping(int toolId, int cabinetId, const QString& layer,
-                               const QString& position, const QString& status);
     /// 删除位置对照关系（位置已占用时拒绝）
     bool removePositionMapping(int mappingId);
 };

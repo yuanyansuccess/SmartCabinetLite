@@ -45,7 +45,6 @@ private slots:
     void onReset();
     void onAddUser();
     void onEditUser(int userId);
-    void onDeleteUser(int userId);
     void onSubmitUser();
     void onPrevPage();
     void onNextPage();

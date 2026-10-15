@@ -43,6 +43,9 @@
  * @param relogin true=注销/自动锁屏回登场景（状态文案"请重新刷脸"），false=首次登录
  */
 void LoginPage::startFaceRecognition(bool relogin) {
+    m_passwordMode = false;  // 回到人脸模式：恢复回调写状态的资格与状态行显示
+    if (m_statusDot) m_statusDot->show();
+    if (m_cameraStatusText) m_cameraStatusText->show();
     m_faceResult = FaceResult::Scanning;  // 重置状态，防止上次fail状态残留
     m_samples.clear();
     m_captureCount = 0;
@@ -146,6 +149,7 @@ void LoginPage::stopFaceRecognition() {
  * @brief 处理人脸
  */
 void LoginPage::onFaceDetected() {
+    if (m_passwordMode) return;  // 密码登录模式不响应人脸检测回调
     m_faceResult = FaceResult::Scanning;
     // 距离过远时保持"请靠近"提示，不被"已检测到人脸"覆盖
     if (m_faceCamera && m_faceCamera->isFaceTooFar()) {
@@ -166,6 +170,7 @@ void LoginPage::onFaceDetected() {
  * @brief 处理人脸
  */
 void LoginPage::onFaceLost() {
+    if (m_passwordMode) return;  // 密码登录模式不响应
     // 人离开摄像头画面 → 清除注销抑制（含截止时间），恢复正常自动刷脸登录
     m_logoutSuppressed = false;
     m_logoutSuppressUntilMs = 0;
@@ -181,6 +186,7 @@ void LoginPage::onFaceLost() {
  * 此时引导用户靠近比继续比对更有意义。识别成功后不再覆盖结果提示。
  */
 void LoginPage::onFaceTooFarChanged(bool tooFar) {
+    if (m_passwordMode) return;  // 密码登录模式不显示距离提示
     if (!tooFar) {
         m_distanceHintShown = false;   // 距离已恢复，允许下次重新提示
         return;
@@ -195,6 +201,7 @@ void LoginPage::onFaceTooFarChanged(bool tooFar) {
  */
 void LoginPage::setScanStatus(const QString& text, int level) {
     if (!m_cameraStatusText) return;
+    if (m_passwordMode) return;  // 密码登录模式整行已隐藏，禁止写入任何人脸状态文案
     m_cameraStatusText->setText(text);
     static const QStringList kStyles = {
         // 0 常规：浅灰蓝（#888 视觉柔和，避免深色看起来像黑字）
@@ -210,6 +217,7 @@ void LoginPage::setScanStatus(const QString& text, int level) {
  * @brief 更新"请靠近"距离提示：人脸过远时提示，过近后自动消除
  */
 bool LoginPage::keepDistanceHint() {
+    if (m_passwordMode) return false;  // 密码登录模式不显示距离提示
     if (!m_faceCamera || !m_faceCamera->isFaceTooFar()) return false;
     if (m_faceResult == FaceResult::Success) return false;
     // 节流：提示已在显示时不再重复重设样式（每帧重设会与其它文案交替闪烁）
@@ -224,6 +232,10 @@ bool LoginPage::keepDistanceHint() {
  * @brief 处理人脸
  */
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
+    // 密码登录模式或识别已停止：切换/停止后异步在途的采集回调仍会到达，必须整体丢弃。
+    // 不拦截会把状态拉回Scanning并在密码页或失败页写下"请保持不动"等人脸提示
+    if (m_passwordMode || !m_faceRecognitionActive) return;
+
     // 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
     // 根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
     // stopFaceRecognition()但没有等待异步提取完成，导致fail状态覆盖success显示

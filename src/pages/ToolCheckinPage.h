@@ -46,7 +46,6 @@ private slots:
 private:
     void setupUI();
     bool validateForm(QString& errorMsg);
-    void updateCabinetBtnStyles();
     void loadLocalMachineGroup();
     void loadCategoryOptions();  // 加载工具类型下拉选项
     void loadCabinetOptions();  // 加载入库柜体下拉选项

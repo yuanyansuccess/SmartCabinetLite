@@ -117,28 +117,10 @@ void SingleSelectFilter::reset() {
 /**
  * @brief 选择文本
  */
-void SingleSelectFilter::selectText(const QString& text) {
-    for (int i = 0; i < m_options.size(); ++i) {
-        if (m_options[i] == text) {
-            m_selectedIndex = i;
-            updateButtonText();
-            return;
-        }
-    }
-    // 未找到则重置
-    m_selectedIndex = 0;
-    m_filterBtn->setText(m_placeholder);
-}
 
 /**
  * @brief 选择索引
  */
-void SingleSelectFilter::selectIndex(int index) {
-    if (index >= 0 && index < m_options.size()) {
-        m_selectedIndex = index;
-        updateButtonText();
-    }
-}
 
 /**
  * @brief 处理筛选按钮点击事件

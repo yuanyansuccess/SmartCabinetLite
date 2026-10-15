@@ -54,3 +54,14 @@ CMakeLists_*.txt
 *.autosave
 *.autosave-*
 *.bak
+
+# Office 锁文件 / 文档临时产物
+~$*
+docs/_unpacked/
+docs/_insert_diagrams.py
+
+# 模拟器构建产物与临时测试脚本
+tools/EdgeSimulator/release/
+tools/face-recognition/_tmp_*
+tools/face-recognition/server_timing*
+tools/face-recognition/test_face_sample.*

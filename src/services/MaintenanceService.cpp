@@ -63,13 +63,6 @@ bool MaintenanceService::deleteTool(int toolId) {
  * @param status 初始状态，默认待入库
  * @return true=新增成功
  */
-bool MaintenanceService::createPositionMapping(int toolId, int cabinetId, const QString& layer,
-                                               const QString& position, const QString& status) {
-    if (toolId <= 0 || cabinetId <= 0 || layer.isEmpty() || position.isEmpty()) return false;
-    db::ToolDAO dao;
-    return dao.insertPositionMapping(toolId, cabinetId, layer, position,
-                                     status.isEmpty() ? QString(SC::TOOL_PENDING) : status);
-}
 
 /**
  * @brief 删除位置对照关系

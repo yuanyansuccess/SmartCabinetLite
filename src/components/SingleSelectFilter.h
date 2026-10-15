@@ -33,12 +33,6 @@ public:
     /// 重置为默认（选中第一项"全部"）
     void reset();
 
-    /// 程序化选中指定文本
-    void selectText(const QString& text);
-
-    /// 程序化选中指定索引
-    void selectIndex(int index);
-
 signals:
     /// 选中项变化时发射（点击即发射，无需确认）
     void selectionChanged(const QString& selected);

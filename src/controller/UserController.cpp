@@ -229,17 +229,11 @@ bool UserController::hasFaceEnrolled(int userId) {
  * @brief 查询全部部门名称
  * @return 部门名称列表
  */
-QStringList UserController::allDepartments() {
-    return db::DepartmentDAO().allNames();
-}
 
 /**
  * @brief 查询全部可用角色
  * @return 角色标识列表（管理员、普通用户）
  */
-QStringList UserController::allRoles() {
-    return {SC::ROLE_ADMIN, SC::ROLE_MANAGER, SC::ROLE_USER};
-}
 
 /**
  * @brief 校验登录账号格式

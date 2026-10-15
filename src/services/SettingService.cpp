@@ -60,27 +60,8 @@ QJsonArray SettingService::getDepartments() {
     return arr;
 }
 
-// 从 system_config 表加载全部配置（SQL 在 ConfigDAO）
-QJsonObject SettingService::loadAllConfig() {
-    ConfigDAO dao;
-    return dao.loadAll();
-}
-
 // 批量保存配置到 system_config 表（事务在 ConfigDAO 内）
 bool SettingService::saveConfig(const QJsonObject& config) {
     ConfigDAO dao;
     return dao.saveBatch(config);
-}
-
-// 保存单个配置项
-bool SettingService::saveConfigValue(const QString& key, const QString& value) {
-    QJsonObject obj;
-    obj[key] = value;
-    return saveConfig(obj);
-}
-
-// 读取单个配置项
-QString SettingService::loadConfigValue(const QString& key, const QString& defaultValue) {
-    ConfigDAO dao;
-    return dao.value(key, defaultValue);
 }
