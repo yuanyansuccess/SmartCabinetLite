@@ -38,16 +38,6 @@ QPushButton:pressed{}</string></property>
          <property name="text"><string>＋ 新增人员</string></property>
         </widget>
        </item>
-       <item>
-        <widget class="QPushButton" name="importBtn">
-         <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-         <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;
-padding:10px 22px;font-size:14px;font-weight:700;}
-QPushButton:hover{background:#f0f7ff;}
-QPushButton:pressed{}</string></property>
-         <property name="text"><string>📥 批量导入</string></property>
-        </widget>
-       </item>
       </layout>
      </item>
     </layout>

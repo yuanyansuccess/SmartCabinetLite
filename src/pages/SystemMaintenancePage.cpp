@@ -1,14 +1,14 @@
 /**
  * @file    SystemMaintenancePage.cpp
  * @author  袁燕
- * @brief   系统维护页面 — 任务配置/工具维护/工具对照关系维护
+ * @brief   系统维护页面 — 任务配置/工具维护/工具对照关系维护/导入导出
  *
  * 新建系统维护页面
  * 排布对齐系统设置 + 对照关系支持手动选择
  * 改为Tab选项卡布局（QStackedWidget），去掉滚动
  *   触屏友好：点击Tab切换页面，不用滑轮滚动
  *   样式对齐系统设置：灰底白选中+主色下划线
- *   三个Tab：任务配置 / 工具维护 / 工具对照关系
+ *   四个Tab：任务配置 / 工具维护 / 工具对照关系 / 导入导出
  */
 #include "SystemMaintenancePage.h"
 #include "ui_SystemMaintenancePage.h"
@@ -31,6 +31,8 @@
 #include <QFileInfo>  // 文件信息
 #include <QDir>  // 目录创建
 #include <QDateTime>  // 时间戳文件名
+#include <QFile>  // 告警日志导出写CSV文件
+#include <QTextStream>  // 告警日志导出CSV流
 #include "common/Constants.h"  // RECOGNITION_VISION + TOOL_DOC_SUFFIXES
 
 SystemMaintenancePage::SystemMaintenancePage(QWidget* parent) : QWidget(parent), ui(new Ui::SystemMaintenancePage) {
@@ -49,7 +51,6 @@ SystemMaintenancePage::SystemMaintenancePage(QWidget* parent) : QWidget(parent),
     m_posToolCombo = ui->posToolCombo;
 
     // Tab选项卡：点击切换+Hover效果的事件过滤
-    m_tabLabels << ui->tabLabel0 << ui->tabLabel1 << ui->tabLabel2;
     for (QLabel* tab : m_tabLabels) {
         tab->installEventFilter(this);
     }
@@ -995,3 +996,4 @@ void SystemMaintenancePage::onUploadDocument() {
     m_dlgDocumentPath = destPath;
     m_dlgDocumentEdit->setText(srcInfo.fileName() + QStringLiteral("  (%1MB)").arg(sizeMb));
 }
+

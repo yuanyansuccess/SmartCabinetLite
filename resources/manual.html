@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>智能工具柜管理系统 用户操作指南</title>
+</head>
+<body style="font-family:'Microsoft YaHei','PingFang SC',sans-serif; color:#333333;">
+
+<p align="center"><font size="6" color="#1a1a2e"><b>智能工具柜管理系统</b></font></p>
+<p align="center"><font size="4" color="#666666">用 户 操 作 指 南</font></p>
+<p align="center"><font size="2" color="#999999">适用对象：柜机使用人员、系统管理员&nbsp;&nbsp;|&nbsp;&nbsp;本指南随系统内置，可在任意页面点击顶栏"帮助"随时查看</font></p>
+<hr>
+
+<p><b>目录</b></p>
+<ul>
+<li><a href="#intro">一、产品概述</a></li>
+<li><a href="#compose">二、系统组成与数据说明</a></li>
+<li><a href="#quickstart">三、快速开始</a></li>
+<li><a href="#login">四、登录与身份选择</a></li>
+<li><a href="#userop">五、使用人员操作指南</a></li>
+<li><a href="#adminop">六、管理员操作指南</a></li>
+<li><a href="#alerts">七、告警日志说明</a></li>
+<li><a href="#faq">八、常见问题</a></li>
+</ul>
+<hr>
+
+<a name="intro"></a>
+<h2><font color="#1a1a2e">一、产品概述</font></h2>
+<p>智能工具柜管理系统用于机组工具的出入库、借用、归还与台账管理。使用人员刷脸即可登录，柜门开关与工具取放由系统自动记录，全程无需纸质登记，实现工具"时时可查、步步可追溯"。</p>
+<p><b>系统核心能力：</b></p>
+<ul>
+<li><b>刷脸登录：</b>人脸识别自动完成身份核验，无需记住密码；</li>
+<li><b>自动登记：</b>开柜取放工具后自动生成借还清单，确认即入账；</li>
+<li><b>台账管理：</b>工具位置、在库状态、借用记录一屏可查；</li>
+<li><b>异常告警：</b>工具错放、柜门异常等情况自动记录并提醒。</li>
+</ul>
+<p><b>系统分三种使用角色：</b></p>
+<table width="100%" cellspacing="0" cellpadding="6" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#eef3fb"><td width="20%"><b>角色</b></td><td width="40%"><b>登录后去向</b></td><td><b>适用人员</b></td></tr>
+<tr><td>使用人员</td><td>功能主页（借用归还 / 查询 / 告警日志）</td><td>日常借用工具的操作人员</td></tr>
+<tr><td>管理员</td><td>管理界面（全部管理功能）</td><td>系统维护与管理人员</td></tr>
+<tr><td>管理用户</td><td>先选择本次身份，再进入对应界面</td><td>同时具备管理与使用两种身份的人员</td></tr>
+</table>
+
+<a name="compose"></a>
+<h2><font color="#1a1a2e">二、系统组成与数据说明</font></h2>
+<table width="100%" cellspacing="0" cellpadding="8" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#e8f2ff"><td width="24%"><b>柜体终端</b></td><td>由触控显示屏、电子锁控与摄像头组成，全部操作均在屏幕上点按完成</td></tr>
+<tr bgcolor="#f5f9ff"><td><b>人脸识别</b></td><td>识别在柜机本地完成，人脸信息不出柜机，也无需连接外网</td></tr>
+<tr bgcolor="#e8f2ff"><td><b>数据存储</b></td><td>出入库、借还、告警等记录实时保存至服务器数据库，每日自动备份，断电不丢失</td></tr>
+<tr bgcolor="#f5f9ff"><td><b>使用范围</b></td><td>每位使用人员仅可借用本机组配置的工具，不可跨机组借用</td></tr>
+</table>
+
+<a name="quickstart"></a>
+<h2><font color="#1a1a2e">三、快速开始</font></h2>
+<p>首次使用只需三步：</p>
+<table width="100%" cellspacing="0" cellpadding="6" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#eef3fb"><td width="8%"><b>步骤</b></td><td width="22%"><b>操作</b></td><td><b>说明</b></td></tr>
+<tr><td align="center"><b>1</b></td><td><b>登录</b></td><td>站在摄像头前正脸刷脸，识别成功自动进入；也可点击左下角"账号登录"，用工号加密码登录</td></tr>
+<tr bgcolor="#f7f9fc"><td align="center"><b>2</b></td><td><b>选择功能</b></td><td>在功能主页点按需要的功能入口；管理员还可使用左侧菜单进入各管理页面</td></tr>
+<tr><td align="center"><b>3</b></td><td><b>用完注销</b></td><td>点击屏幕右上角"注销"返回登录页；长时间不操作系统会自动退出登录</td></tr>
+</table>
+
+<a name="login"></a>
+<h2><font color="#1a1a2e">四、登录与身份选择</font></h2>
+<p><b>刷脸登录：</b>正对摄像头，保持人脸完整出现在画面中，识别成功后自动进入系统；屏幕提示"请靠近"时，请靠近摄像头，靠近后自动重新识别。</p>
+<p><b>账号密码登录：</b>点击屏幕左下角"账号登录"，用数字键盘输入工号与密码。新账号初始密码为 123456，首次登录必须修改，新密码为 6-12 位。</p>
+<p><b>安全保护：</b>密码连续输错 4 次将锁定密码登录 5 分钟，锁定期间可改用刷脸登录，刷脸不受影响。</p>
+<p><b>忘记密码：</b>在密码登录页点击"忘记密码"，通过刷脸验证身份后即可设置新密码。</p>
+<p><b>管理用户：</b>登录成功后弹出身份选择，可选择本次以管理员或使用人员身份进入；注销后重新登录可再次选择。</p>
+
+<a name="userop"></a>
+<h2><font color="#1a1a2e">五、使用人员操作指南</font></h2>
+<p>使用人员登录后进入功能主页，主页提供三个功能入口：</p>
+<table width="100%" cellspacing="0" cellpadding="6" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#eef3fb"><td width="22%"><b>功能入口</b></td><td><b>操作说明</b></td></tr>
+<tr><td><b>借用归还</b></td><td>点击后柜门自动打开：取出或放回工具，关闭柜门，系统自动比对柜内工具变化并列出本次借出 / 归还清单，确认后完成登记。仅可借用本机组的工具。</td></tr>
+<tr><td><b>查&nbsp;&nbsp;询</b></td><td>查看本人的全部借用明细：借用时间、工具名称与编号、预计归还时间、当前状态（借用中 / 已逾期 / 已归还）。</td></tr>
+<tr><td><b>告警日志</b></td><td>查看系统产生的告警（时间、类型、内容），如有异常请及时联系管理员处理。</td></tr>
+</table>
+<p>操作完成后点击右上角"注销"返回登录页；离开柜机前请确认已注销，避免他人冒用身份。</p>
+
+<a name="adminop"></a>
+<h2><font color="#1a1a2e">六、管理员操作指南</font></h2>
+<p>管理员登录后，功能主页与左侧菜单提供全部管理入口（两者内容一致，共 9 项）：</p>
+<table width="100%" cellspacing="0" cellpadding="6" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#eef3fb"><td width="22%"><b>功能</b></td><td><b>操作说明</b></td></tr>
+<tr><td><b>人员管理</b></td><td>新增 / 编辑 / 停用启用用户，录入人脸，重置密码。新建工号为 6-12 位纯数字；同一张人脸同一时间只能绑定一个账户。</td></tr>
+<tr><td><b>工具管理</b></td><td>维护工具档案（名称、编号、所属机组、存放位置），上传工具文档，查看工具当前状态。</td></tr>
+<tr><td><b>工具入库</b></td><td>将工具放入指定柜位并登记入库，工具入库后即可被借用。</td></tr>
+<tr><td><b>工具出库</b></td><td>工具永久移出柜体（调拨 / 报废）时使用。与借用不同，出库后工具不再属于本柜。</td></tr>
+<tr><td><b>台账统计</b></td><td>按时间、分类、部门查看借用 / 归还次数、逾期情况等统计。</td></tr>
+<tr><td><b>系统告警</b></td><td>查看设备与系统状态类告警，详见"七、告警日志说明"。</td></tr>
+<tr><td><b>操作告警</b></td><td>查看用户操作行为类告警，详见"七、告警日志说明"。</td></tr>
+<tr><td><b>系统维护</b></td><td>按任务类型配置推荐工具清单，使用人员借用时可按任务快速带出所需工具。</td></tr>
+<tr><td><b>系统设置</b></td><td>配置网络参数、借还规则，管理数据库备份。</td></tr>
+</table>
+
+<a name="alerts"></a>
+<h2><font color="#1a1a2e">七、告警日志说明</font></h2>
+<p>告警日志分"系统告警"与"操作告警"两个入口，页面显示内容一致（告警时间、告警类型、告警内容）：</p>
+<ul>
+<li><b>系统告警：</b>设备与系统状态类，如工具错放、柜门异常、网络故障、硬件通讯故障等；</li>
+<li><b>操作告警：</b>用户操作行为类，如登录失败（密码连续输错触发锁定）等。</li>
+</ul>
+<p>告警记录支持按类型筛选与关键词搜索定位，并可导出为 CSV 文件保存到桌面 log 文件夹，便于留存备查。发现异常告警请及时处理，或联系维护人员。</p>
+
+<a name="faq"></a>
+<h2><font color="#1a1a2e">八、常见问题</font></h2>
+<table width="100%" cellspacing="0" cellpadding="6" border="1" bordercolor="#d9dee6">
+<tr bgcolor="#eef3fb"><td width="38%"><b>现象</b></td><td><b>处理方法</b></td></tr>
+<tr><td>刷脸无反应或提示"请靠近"</td><td>靠近摄像头正脸站立；若仍无反应，改用账号密码登录。</td></tr>
+<tr><td>密码登录被锁定</td><td>等待 5 分钟后自动恢复，或先用刷脸登录；锁定不影响刷脸。</td></tr>
+<tr><td>忘记密码</td><td>在密码登录页点击"忘记密码"，刷脸验证后重置；也可联系管理员重置密码。</td></tr>
+<tr><td>借用归还清单与实际不符</td><td>不要离开，联系管理员核对柜内工具与系统记录。</td></tr>
+<tr><td>工具位置显示不对</td><td>联系管理员在"工具入库"中重新放置到正确位置。</td></tr>
+<tr><td>系统提示数据库连接异常</td><td>联系维护人员检查服务器与网络连接，勿自行关机重启。</td></tr>
+</table>
+
+<hr>
+<p align="center"><font size="2" color="#999999">使用中如有问题，请联系现场管理人员或设备维护人员</font></p>
+
+</body>
+</html>

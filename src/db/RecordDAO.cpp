@@ -221,19 +221,6 @@ QJsonObject RecordDAO::findAll(int userId, int toolId, const QString& status,
     return result;
 }
 
-// 统计某机组下未归还(borrowing/overdue)的借用记录数
-// 入参：machineGroupId 机组ID
-// 返回：该机组下所有未归还的借用记录数
-// SQL：JOIN tool_info 获取 machine_group_id，筛选 status IN ('borrowing','overdue')
-int RecordDAO::countActiveByMachineGroup(int machineGroupId) {
-    QSqlDatabase db = getDb(); QSqlQuery q(db);
-    q.prepare("SELECT COUNT(*) FROM tool_borrow_record r "
-              "LEFT JOIN tool_info t ON r.tool_id = t.tool_id "
-              "WHERE t.machine_group_id = :mgid AND r.status IN ('borrowing','overdue')");
-    q.bindValue(":mgid", machineGroupId);
-    if (!safeExec(q) || !q.next()) return 0;
-    return q.value(0).toInt();
-}
 // 入参：toolId 工具ID，limit 返回记录数(默认5)
 // 返回：QJsonArray，每项含 borrowTime/borrowerName/borrowQty/borrowReason/status/expectedReturnTime
 // 排序优化：借用中/逾期优先，已归还在后，确保两种状态都能显示
@@ -624,6 +611,46 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
         r["toolCode"] = q.value(3).toString();
         r["realName"] = q.value(4).toString();
         r["workNo"] = q.value(5).toString();
+        list.append(r);
+    }
+    result["list"] = list;
+    return result;
+}
+
+// 分页查询全部类型操作日志（含操作人信息）
+QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
+{
+    QSqlDatabase db = getDb();
+    QJsonObject result;
+    // 总数
+    QSqlQuery countQ(db);
+    countQ.prepare("SELECT COUNT(*) FROM sys_operation_log");
+    safeExec(countQ);
+    int total = 0;
+    if (countQ.next()) total = countQ.value(0).toInt();
+    result["total"] = total;
+    // 分页数据（类型字段一并返回，供展示层做中文映射）
+    int offset = (page - 1) * pageSize;
+    QSqlQuery q(db);
+    q.prepare(
+        "SELECT log.created_at, log.operation_type, log.content, "
+        "       u.real_name, u.work_no "
+        "FROM sys_operation_log log "
+        "LEFT JOIN sys_user u ON log.user_id = u.user_id "
+        "ORDER BY log.created_at DESC "
+        "LIMIT ? OFFSET ?"
+    );
+    q.addBindValue(pageSize);
+    q.addBindValue(offset);
+    safeExec(q);
+    QJsonArray list;
+    while (q.next()) {
+        QJsonObject r;
+        r["createdAt"] = q.value(0).toString();
+        r["type"]      = q.value(1).toString();
+        r["content"]   = q.value(2).toString();
+        r["realName"]  = q.value(3).toString();
+        r["workNo"]    = q.value(4).toString();
         list.append(r);
     }
     result["list"] = list;

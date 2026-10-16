@@ -56,9 +56,6 @@ signals:
 
 private slots:
     void onCaptureTimer();
-#ifdef HAS_QT_MULTIMEDIA
-    void onFrameCaptured(const QVideoFrame& frame);
-#endif
 
 private:
 #ifdef _WIN32

@@ -49,7 +49,7 @@ int UserController::createUser(const User& user, const QString& password) {
     // 增加诊断日志，定位批量导入失败的具体原因
     if (!validateUsername(user.username)) {
         qWarning() << "[createUser] 工号格式不合法:" << user.username
-                   << "(规则: 1-32位纯数字)";
+                   << "(规则: 6-12位纯数字)";
         return -1;
     }
     if (!validateWorkNo(user.workNo)) {
@@ -142,6 +142,11 @@ bool UserController::changePassword(int userId, const QString& oldPwd, const QSt
         qWarning() << "[changePassword] 新口令不能与原口令相同";
         return false;
     }
+    QString errorMsg;
+    if (!validatePassword(newPwd, errorMsg)) {
+        qWarning() << "[changePassword] 新口令不合法:" << errorMsg;
+        return false;
+    }
     QString newSalt = AuthController::generateSalt();
     QString newHash = AuthController::hashPassword(newPwd, newSalt);
     return m_dao.updateUserPassword(userId, newHash, newSalt);
@@ -184,6 +189,12 @@ bool UserController::forceChangePassword(int userId, const QString& newPwd) {
 bool UserController::resetPassword(int userId, const QString& newPwd, bool mustChange) {
     User u = m_dao.findUserById(userId);
     if (u.userId == 0) return false;
+    // 重置口令同样受6-12位约束（初始密码123456为6位，可通过校验）
+    QString errorMsg;
+    if (!validatePassword(newPwd, errorMsg)) {
+        qWarning() << "[resetPassword] 新口令不合法:" << errorMsg;
+        return false;
+    }
     QString newSalt = AuthController::generateSalt();
     QString newHash = AuthController::hashPassword(newPwd, newSalt);
     // 先写口令再置标志：updateUserPassword 会清标志，顺序不能反
@@ -236,13 +247,14 @@ bool UserController::hasFaceEnrolled(int userId) {
  */
 
 /**
- * @brief 校验登录账号格式
+ * @brief 校验登录账号格式（新建账户口径）
  * @param username 登录账号
- * @return true=为1~32位纯数字
+ * @return true=为6~12位纯数字（闭区间含边界）
  */
 bool UserController::validateUsername(const QString& username) {
-    // 工号为纯数字（登录账号与数字键盘输入统一），1-32位
-    static QRegularExpression re("^[0-9]{1,32}$");
+    // 新建账户工号为纯数字，6-12位（登录侧防呆用 common::isValidWorkNo 的1-32宽口径，
+    // 存量账户存在不足6位的工号，两者用途不同不能混用）
+    static QRegularExpression re("^[0-9]{6,12}$");
     return re.match(username).hasMatch();
 }
 
@@ -263,10 +275,16 @@ bool UserController::validateWorkNo(const QString& workNo, int excludeUserId) {
  * @brief 校验口令强度
  * @param password 待校验口令
  * @param errorMsg 校验失败原因，校验通过时不修改
- * @return true=符合强度要求
+ * @return true=符合强度要求（长度6~12位，闭区间含边界）
  */
 bool UserController::validatePassword(const QString& password, QString& errorMsg) {
-    if (password.length() < 6) { errorMsg = "密码长度至少6位"; return false; }
-    if (password.length() > 64) { errorMsg = "密码长度不能超过64位"; return false; }
+    if (password.length() < SC::PASSWORD_MIN_LENGTH) {
+        errorMsg = QStringLiteral("密码长度至少%1位").arg(SC::PASSWORD_MIN_LENGTH);
+        return false;
+    }
+    if (password.length() > SC::PASSWORD_MAX_LENGTH) {
+        errorMsg = QStringLiteral("密码长度不能超过%1位").arg(SC::PASSWORD_MAX_LENGTH);
+        return false;
+    }
     return true;
 }

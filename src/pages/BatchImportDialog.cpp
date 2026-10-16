@@ -307,7 +307,7 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     file.write((escapedHeaders.join(",") + "\n").toUtf8());
 
     // 工号自增：查询DB中已存在的最大数字工号，生成5行递增示例数据
-    // 工号规则：纯数字3位补零（001~999，超999自然进位4位）
+    // 工号规则：纯数字6位补零（000001~999999），与新建账户6-12位规则衔接
     // 生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
     QStringList exampleDepartments = {
         QStringLiteral("技术部"), QStringLiteral("维修一部"), QStringLiteral("维修二部"),
@@ -329,8 +329,8 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     // 生成5行递增示例数据
     for (int i = 0; i < 5; ++i) {
         int num = startIdx + i;
-        if (num > 999) break;  // 超过3位数停止
-        QString workNo = QStringLiteral("%1").arg(num, 3, 10, QChar('0'));
+        if (num > 999999) break;  // 超过6位数停止
+        QString workNo = QStringLiteral("%1").arg(num, 6, 10, QChar('0'));
         QString name = (i < exampleNames.size()) ? exampleNames[i] : QStringLiteral("用户%1").arg(num);
         QString dept = (i < exampleDepartments.size()) ? exampleDepartments[i] : QStringLiteral("技术部");
         file.write((workNo + "," + csvEscape(name) + ","
@@ -433,15 +433,15 @@ void BatchImportDialog::onConfirm()
         existingWorkNos.append(u.workNo.trimmed());
     }
 
-    // 工号格式校验正则（与UserController::validateUsername一致）改纯数字
-    static QRegularExpression usernameRe("^[0-9]{1,32}$");
+    // 工号格式校验正则（与UserController::validateUsername一致）：6-12位纯数字
+    static QRegularExpression usernameRe("^[0-9]{6,12}$");
 
     for (const auto& row : m_parsedRows) {
         QString workNo = row.workNo.trimmed();
 
         // 1. 校验工号格式（作为username必须符合格式要求）
         if (!usernameRe.match(workNo).hasMatch()) {
-            importErrors.append(QStringLiteral("第%1行：%2(%3) 工号格式不合法（需1-32位纯数字）")
+            importErrors.append(QStringLiteral("第%1行：%2(%3) 工号格式不合法（需6-12位纯数字）")
                 .arg(row.lineNumber).arg(row.realName).arg(workNo));
             continue;
         }

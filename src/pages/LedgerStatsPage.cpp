@@ -1,11 +1,12 @@
 /**
  * @file LedgerStatsPage.cpp
- * @brief 台账统计页面实现 - UI与逻辑分离：静态布局在LedgerStatsPage.ui，本文件只含动态构建与业务逻辑
+ * @brief 导入导出页面实现 - UI与逻辑分离：静态布局在LedgerStatsPage.ui，本文件只含动态构建与业务逻辑
  * @author 袁燕
  */
 #include "LedgerStatsPage.h"
 #include "ui_LedgerStatsPage.h"
 #include <QTableWidget>  // 统计明细表格
+#include "BatchImportDialog.h"  // 人员批量导入对话框
 #include "utils/StyleHelper.h"
 #include "services/SettingService.h"
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
@@ -16,6 +17,7 @@
 #include <QTimer>
 #include <QVariantMap>
 #include "components/MessageDialog.h"
+#include "common/Constants.h"  // SC::ALERT_*_TYPES 告警类别与分页常量
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
@@ -45,6 +47,17 @@ void LedgerStatsPage::setupUI() {
     m_categoryTable = ui->categoryTable;
     m_deptTable = ui->deptTable;
     connect(m_exportLedgerBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportLedger);
+
+    // 人员批量导入：模板下载 → Excel上传 → 校验 → 批量入库；
+    // 对话框内部自带成功/失败反馈，用户列表回到人员管理页时随页面刷新自动更新
+    connect(ui->importUserBtn, &QPushButton::clicked, this, [this]() {
+        BatchImportDialog dlg(this);
+        dlg.exec();
+    });
+
+    // 系统/操作日志导出：按告警类别取全量数据生成CSV到桌面log文件夹
+    connect(ui->exportOperationLogBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportOperationLog);
+    connect(ui->exportSystemLogBtn, &QPushButton::clicked, this, &LedgerStatsPage::onExportSystemLog);
 
     // 统计卡片行（卡片挂载数字滚动动画属性，运行时构建）
     auto createCard = [&](const QString& labelText, QLabel*& valLabel, const QString& color) -> QWidget* {
@@ -143,7 +156,7 @@ void LedgerStatsPage::onExportLedger() {
     }
 
     QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-    QString fileName = QStringLiteral("台账统计_%1.csv")
+    QString fileName = QStringLiteral("台账导出_%1.csv")
         .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     QString filePath = QDir(desktopPath).filePath(fileName);
 
@@ -212,10 +225,87 @@ QString LedgerStatsPage::generateCSV() {
     return csv;
 }
 
-// 替换为MessageDialog
+// 导出成功提示
 void LedgerStatsPage::showExportSuccess(const QString& path) {
     MessageDialog::showSuccess(this, QStringLiteral("导出成功"),
         QStringLiteral("台账数据已成功导出！\n\n文件位置：\n%1").arg(path));
+}
+
+// ==================== 系统/操作日志导出 ====================
+
+/**
+ * @brief 导出操作日志：按操作告警类别取全量数据生成CSV
+ */
+void LedgerStatsPage::onExportOperationLog() {
+    exportAlertsToCsv(SC::ALERT_OPERATION_TYPES.join(","), QStringLiteral("alert_logs_operation"));
+}
+
+/**
+ * @brief 导出系统日志：按系统告警类别取全量数据生成CSV
+ */
+void LedgerStatsPage::onExportSystemLog() {
+    exportAlertsToCsv(SC::ALERT_SYSTEM_TYPES.join(","), QStringLiteral("alert_logs_system"));
+}
+
+/**
+ * @brief 按告警类别导出日志CSV到桌面log文件夹
+ * @param dbType 逗号分隔的告警类型编码串，限定导出的告警类别范围
+ * @param filePrefix 导出文件名前缀，用于区分操作/系统两类文件
+ */
+void LedgerStatsPage::exportAlertsToCsv(const QString& dbType, const QString& filePrefix) {
+    // 服务端单次大页查询取该类别全部告警
+    SettingService svc;
+    QJsonObject pageResult = svc.getAllAlerts(1, SC::PAGE_SIZE_UNLIMITED, dbType, QString(), QString());
+    QJsonArray list = pageResult["list"].toArray();
+
+    if (list.isEmpty()) {
+        MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("当前没有日志数据可导出"));
+        return;
+    }
+
+    // 保存到桌面log文件夹（不存在则创建）
+    QString logDir = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/log";
+    if (!QDir(logDir).exists()) QDir().mkpath(logDir);
+
+    QString filePath = logDir + "/" + filePrefix + "_" +
+        QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".csv";
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        MessageDialog::showError(this, QStringLiteral("导出失败"),
+            QStringLiteral("无法创建文件: %1").arg(filePath));
+        return;
+    }
+
+    QTextStream stream(&file);
+    // Qt6默认UTF-8，写BOM头确保Excel正确识别中文
+    stream << "\xEF\xBB\xBF";
+
+    // 表头：告警时间,告警类型,告警内容（与告警日志页面三列一致）
+    stream << QStringLiteral("告警时间,告警类型,告警内容\n");
+
+    for (int i = 0; i < list.size(); ++i) {
+        QJsonObject alert = list[i].toObject();
+        QString time = alert["createdAt"].toString();
+        if (time.length() > 19) time = time.left(19);
+
+        auto cell = [](QString text) {
+            // 字段内容含逗号或引号时用引号包裹，保证CSV解析正确
+            if (text.contains(",") || text.contains("\"")) {
+                text.replace("\"", "\"\"");
+                text = "\"" + text + "\"";
+            }
+            return text;
+        };
+
+        stream << cell(time) << ","                        // 告警时间
+               << cell(alert["alertType"].toString()) << ","  // 告警类型
+               << cell(alert["content"].toString()) << "\n";  // 告警内容
+    }
+    file.close();
+
+    MessageDialog::showSuccess(this, QStringLiteral("导出成功"),
+        QStringLiteral("已导出 %1 条日志记录\n文件位置: %2").arg(list.size()).arg(filePath));
 }
 
 // 数字滚动动画：每次从1开始跳转到目标值

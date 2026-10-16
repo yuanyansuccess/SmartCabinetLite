@@ -4,7 +4,7 @@
  * @author 袁燕
  *
  * 完全重写以1:1匹配BS端
- * 布局：双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
+ * 布局：双列网格（网络配置/告警参数/借还设置/备份管理）
  * 顶部工具栏：保存全部设置按钮
  */
 #pragma once
@@ -17,6 +17,7 @@
 #include <QLabel>
 #include <QSlider>
 #include <QSpinBox>
+#include <functional>  // 备份完成回调（std::function）
 
 class QVBoxLayout;
 
@@ -36,7 +37,8 @@ private slots:
     void onSaveAlert();
     void onSaveBorrow();
     void onSaveBackup();
-    void onMachineGroupSelected(int index);  // 下拉选择机组自动保存
+    // 手动备份：立即执行一次数据库导出，不受自动备份开关与备份周期限制
+    void onManualBackupClicked();
 
 private:
     void setupUI();
@@ -56,8 +58,6 @@ private:
     QWidget* createBorrowPanel();
     QWidget* createBackupPanel();
     void buildBackupForm(QVBoxLayout* layout);
-    void buildSystemInfoSection(QVBoxLayout* layout);
-    void buildMachineGroupSection(QVBoxLayout* layout);
     void buildBackupSaveBar(QVBoxLayout* layout);
 
     // 调用系统API设置显示器亮度(0-100)，异步执行不阻塞UI
@@ -66,17 +66,15 @@ private:
     void writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode);
     void applyBrightnessWindows(int percent);
     void applyBrightnessLinux(int percent);
-    // 从系统读取真实系统信息（OS/设备编号/运行时长/磁盘空间/CPU/内存）
-    void refreshSystemInfo();
-    /** 系统信息分项采集（refreshSystemInfo拆解，各方法独立写对应label） */
-    void refreshOsInfo();
-    void refreshDeviceId();
-    void refreshUptime();
-    void refreshDiskSpace();
-    void refreshCpuUsage();
-    void refreshMemoryUsage();
     // 执行数据库自动备份（保存备份设置时触发首次备份+注册定时任务）
     void performDatabaseBackup();
+    /**
+     * @brief 启动一次 mysqldump 导出，异步执行不阻塞界面
+     * @param backupPath 备份文件存放目录（不存在时自动创建）
+     * @param onFinished 完成回调：参数1=true 表示导出成功，参数2=备份文件完整路径（失败为空串）
+     */
+    void startMysqlDumpBackup(const QString& backupPath,
+                              const std::function<void(bool, const QString&)>& onFinished);
     // 跨平台配置有线网卡（Windows用netsh，麒麟用ip/nmcli），仅配置有线网卡
     void applyNetworkConfig(const QString& ip, const QString& mask,
                             const QString& gateway, const QString& dns);
@@ -135,6 +133,7 @@ private:
 
     // 备份管理
     QCheckBox* m_autoBackupCheck = nullptr;
+    QPushButton* m_manualBackupBtn = nullptr;  // 手动备份按钮（立即导出一次数据库）
     // 备份周期为按钮组
     QPushButton* m_backupBtn1 = nullptr;
     QPushButton* m_backupBtn2 = nullptr;
@@ -142,16 +141,6 @@ private:
     int m_backupPeriod = 0;  // 0=每日, 1=每周一, 2=每周日
     QLineEdit* m_backupPathEdit = nullptr;
     QSpinBox* m_cacheHoursSpin = nullptr;
-
-    // 系统信息
-    QLabel* m_versionLabel = nullptr;
-    QLabel* m_osLabel = nullptr;
-    QLabel* m_deviceIdLabel = nullptr;
-    QLabel* m_uptimeLabel = nullptr;
-    QLabel* m_diskLabel = nullptr;
-    // 新增CPU/内存占用显示
-    QLabel* m_cpuLabel = nullptr;
-    QLabel* m_memoryLabel = nullptr;
 
     // 离开页面未保存时提示用户
     void showEvent(QShowEvent* event) override;
@@ -162,9 +151,6 @@ private:
     void loadConfigFromIni();  // 从本地INI文件加载配置到UI
     bool saveConfigToIni();  // 将当前UI值写入本地INI文件，返回是否成功
     bool m_savedFlag = false;     // 是否已点击过保存按钮
-
-    // 当前机组名称配置：下拉选择框
-    QComboBox* m_machineGroupCombo = nullptr;
 
     // ── 设置快照（进入页面时备份，未保存离开时还原）──
     struct SettingsSnapshot {
@@ -180,7 +166,5 @@ private:
         bool autoBackup;
         int backupPeriod, cacheHours;
         QString backupPath;
-        // 机组名称
-        QString machineGroupName;
     } m_snapshot;
 };

@@ -25,7 +25,6 @@
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除
-#include "pages/BatchImportDialog.h"  // 批量导入用户对话框
 #include "components/BaseDialog.h"  // 统一圆角对话框基类
 #include <QVBoxLayout>
 #include <QHBoxLayout>

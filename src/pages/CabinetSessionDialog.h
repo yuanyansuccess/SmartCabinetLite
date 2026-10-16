@@ -20,6 +20,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class QScrollArea;
+class TopBar;
 
 /**
  * @brief 普通用户智能柜会话（全屏模态）
@@ -34,6 +35,10 @@ public:
 
     /// 以全屏方式启动会话并阻塞，会话结束后返回
     void startSession();
+
+signals:
+    /// 会话内顶栏点击"注销"：先结束会话，主窗口收到后执行注销回登录页
+    void logoutRequested();
 
 protected:
     /// 事件过滤器：开柜图标连点3次显示/隐藏演示面板

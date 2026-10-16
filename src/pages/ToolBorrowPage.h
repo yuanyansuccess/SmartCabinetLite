@@ -78,9 +78,6 @@ private slots:
 
 private:
     void setupUI();
-    // 标签页创建
-    QWidget* createBorrowTaskTab();
-    QWidget* createBorrowRecordTab();
     // 数据加载
     void loadTaskTypes();
     void loadRecommendedTools();

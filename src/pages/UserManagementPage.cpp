@@ -22,7 +22,6 @@
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除
-#include "pages/BatchImportDialog.h"  // 批量导入用户对话框
 #include "components/BaseDialog.h"  // 统一圆角对话框基类
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -88,15 +87,8 @@ void UserManagementPage::setupUI() {
     m_searchEdit->installEventFilter(this);
     connect(m_searchKeyboardBtn, &QPushButton::clicked, this, &UserManagementPage::onSearchFieldClicked);
 
-    // 新增/批量导入
+    // 新增用户
     connect(m_addBtn, &QPushButton::clicked, this, &UserManagementPage::onAddUser);
-    connect(ui->importBtn, &QPushButton::clicked, this, [this]() {
-        // 批量导入对话框：模板下载 → Excel上传 → 校验 → 批量入库 → 刷新列表
-        BatchImportDialog dlg(this);
-        if (dlg.exec() == QDialog::Accepted) {
-            loadUsers();  // 导入成功后自动刷新列表
-        }
-    });
 
     // 部门筛选按钮
     connect(m_deptFilterBtn, &QPushButton::clicked, this, &UserManagementPage::onDeptFilterClicked);

@@ -25,7 +25,6 @@
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除
-#include "pages/BatchImportDialog.h"  // 批量导入用户对话框
 #include "components/BaseDialog.h"  // 统一圆角对话框基类
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -73,8 +72,8 @@ void UserManagementPage::createUserDialog() {
     m_dlgRealName->setStyleSheet(inputStyle);
 
     m_dlgWorkNo = new QLineEdit();
-    // 工号改纯数字，点击弹出数字键盘输入
-    m_dlgWorkNo->setPlaceholderText(QStringLiteral("纯数字，如007"));
+    // 新建账户工号为6-12位纯数字，点击弹出数字键盘输入
+    m_dlgWorkNo->setPlaceholderText(QStringLiteral("6-12位数字"));
     m_dlgWorkNo->setReadOnly(true);
     m_dlgWorkNo->setCursor(Qt::PointingHandCursor);
     m_dlgWorkNo->setStyleSheet(inputStyle);
@@ -331,9 +330,9 @@ void UserManagementPage::onSubmitUser() {
         MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请填写姓名和工号"));
         return;
     }
-    // 工号格式校验：登录页与本对话框共用 common::UserInputValidator 的同一套规则
-    if (m_editUserId == 0 && !common::isValidWorkNo(workNo)) {
-        MessageDialog::showError(this, QStringLiteral("提示"), common::workNoInvalidText());
+    // 工号格式校验（仅新增时）：新建账户为6-12位纯数字，与本控制器 createUser 共用同一规则
+    if (m_editUserId == 0 && !common::isValidNewWorkNo(workNo)) {
+        MessageDialog::showError(this, QStringLiteral("提示"), common::newWorkNoInvalidText());
         return;
     }
     // 部门为必填，新增与编辑都校验，避免编辑时被清空或改成不存在的部门
@@ -343,6 +342,10 @@ void UserManagementPage::onSubmitUser() {
     }
     if (m_editUserId != 0 && !password.isEmpty() && password.length() < SC::PASSWORD_MIN_LENGTH) {
         MessageDialog::showError(this, QStringLiteral("提示"), common::passwordTooShortText());
+        return;
+    }
+    if (m_editUserId != 0 && !password.isEmpty() && password.length() > SC::PASSWORD_MAX_LENGTH) {
+        MessageDialog::showError(this, QStringLiteral("提示"), common::passwordTooLongText());
         return;
     }
 

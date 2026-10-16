@@ -87,6 +87,26 @@ void TopBar::setupUI() {
         "margin-left:4px;");
     leftLayout->addWidget(m_pageTitle);
 
+    // "主页"按钮：子页面快速返回功能导航主页（登录页与导航页隐藏，由 MainWindow 控制）
+    m_homeBtn = new QPushButton(QStringLiteral("🏠 主页"));
+    m_homeBtn->setCursor(Qt::PointingHandCursor);
+    m_homeBtn->setFixedHeight(36);
+    m_homeBtn->setVisible(false);
+    m_homeBtn->setStyleSheet(
+        "QPushButton { "
+        "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
+        "  border:none; border-radius:18px; "
+        "  background:transparent; padding:0 18px; "
+        "}"
+        "QPushButton:hover { "
+        "  background:#f0f0f0; color:#333333; "
+        "}"
+        "QPushButton:pressed { "
+        "  background:#e8e8e8; "
+        "}");
+    connect(m_homeBtn, &QPushButton::clicked, this, &TopBar::homeClicked);
+    leftLayout->addWidget(m_homeBtn);
+
     // 软件版本号标签，放在面包屑后面，蓝色徽章风格
     // 版本号从AppConfig读取（非硬编码），用户可在exe同级system.ini中修改
     m_versionLabel = new QLabel();
@@ -166,6 +186,25 @@ void TopBar::setupUI() {
     rightLayout->addLayout(userLayout);
 
     // 小米极简按钮：无边框纯文字，hover时浅色背景胶囊形
+    // 帮助按钮：与注销同款灰色样式，紧邻退出按钮，点击全屏打开操作手册
+    QPushButton* helpBtn = new QPushButton(QStringLiteral("帮助"));
+    helpBtn->setCursor(Qt::PointingHandCursor);
+    helpBtn->setFixedHeight(36);
+    helpBtn->setStyleSheet(
+        "QPushButton { "
+        "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
+        "  border:none; border-radius:18px; "
+        "  background:transparent; padding:0 18px; "
+        "}"
+        "QPushButton:hover { "
+        "  background:#f0f0f0; color:#333333; "
+        "}"
+        "QPushButton:pressed { "
+        "  background:#e8e8e8; "
+        "}");
+    connect(helpBtn, &QPushButton::clicked, this, &TopBar::helpClicked);
+    rightLayout->addWidget(helpBtn);
+
     // 注销按钮：灰色文字，hover浅灰背景
     QPushButton* logoutBtn = new QPushButton(QStringLiteral("注销"));
     logoutBtn->setCursor(Qt::PointingHandCursor);
@@ -309,6 +348,11 @@ void TopBar::updateBatteryStatus() {
 /// 登录页隐藏右侧用户信息区（时间/用户名/退出）
 void TopBar::setUserAreaVisible(bool visible) {
     if (m_rightArea) m_rightArea->setVisible(visible);
+}
+
+/// 控制"主页"按钮显隐（登录页与功能导航主页隐藏，子页面显示）
+void TopBar::setHomeButtonVisible(bool visible) {
+    if (m_homeBtn) m_homeBtn->setVisible(visible);
 }
 
 /// 外部注入版本号显示（页面层负责读配置，组件层只负责显示）

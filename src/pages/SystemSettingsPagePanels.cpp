@@ -1,6 +1,6 @@
 /**
  * @file SystemSettingsPagePanels.cpp
- * @brief 系统设置页 - 各设置面板的界面构建（借还设置/备份管理/系统信息/机组）
+ * @brief 系统设置页 - 各设置面板的界面构建（借还设置/备份管理）
  * @author 袁燕
  *
  * 拆分说明：原 SystemSettingsPage.cpp 达 2500+ 行，新人难以定位。
@@ -15,10 +15,7 @@
 #include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
 #include "services/SettingService.h"
 #include "services/AuthService.h"
-#include "common/AppConfig.h"  // 机组名称配置
-#include "common/DatabaseManager.h"     // DB写入机组配置
-#include "db/RecordDAO.h"               // 校验机组下未归还记录
-#include "db/ToolDAO.h"                 // 加载活跃机组列表
+#include "common/Constants.h"  // SC::BACKUP_PATH 等常量
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -46,8 +43,6 @@
 #include <QFile>  // WMI结果日志记录
 #include <QDateTime>  // 亮度日志时间戳
 #include <QDir>  // 备份目录操作
-#include <QStorageInfo>  // 跨平台磁盘空间读取
-#include <QSysInfo>  // 跨平台系统信息读取
 #include <QRegularExpression>  // 解析os-release
 #include <QFileInfoList>  // 备份文件清理
 
@@ -155,7 +150,7 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     layout->setContentsMargins(20, 10, 20, 10);
 
     auto* titleRow = new QHBoxLayout();
-    auto* title = new QLabel(QStringLiteral("数据备份与系统信息"));
+    auto* title = new QLabel(QStringLiteral("数据备份"));
     title->setStyleSheet(StyleHelper::sectionTitle());
     titleRow->addWidget(title);
     titleRow->addStretch();
@@ -165,8 +160,6 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     layout->addWidget(sep);
 
     buildBackupForm(layout);
-    buildSystemInfoSection(layout);
-    buildMachineGroupSection(layout);
     buildBackupSaveBar(layout);
 
     return panel;
@@ -182,7 +175,22 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     // 统一开关样式：透明背景 22px indicator 选中态蓝色
 
     m_autoBackupCheck = FormFactory::toggle(true);
-    form->addRow(FormFactory::formLabel(QStringLiteral("自动备份")), m_autoBackupCheck);
+    // 手动备份按钮与自动备份开关并排：随时可导出一次数据库，不受开关与周期限制
+    m_manualBackupBtn = new QPushButton(QStringLiteral("手动备份"));
+    m_manualBackupBtn->setStyleSheet(StyleHelper::settingSaveBtn());
+    m_manualBackupBtn->setCursor(Qt::PointingHandCursor);
+    m_manualBackupBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
+    m_manualBackupBtn->setMinimumWidth(120);
+    connect(m_manualBackupBtn, &QPushButton::clicked, this, &SystemSettingsPage::onManualBackupClicked);
+    auto* autoBackupWidget = new QWidget();
+    autoBackupWidget->setStyleSheet("background:transparent;");
+    auto* autoBackupLayout = new QHBoxLayout(autoBackupWidget);
+    autoBackupLayout->setContentsMargins(0, 0, 0, 0);
+    autoBackupLayout->setSpacing(12);
+    autoBackupLayout->addWidget(m_autoBackupCheck);
+    autoBackupLayout->addStretch();
+    autoBackupLayout->addWidget(m_manualBackupBtn);
+    form->addRow(FormFactory::formLabel(QStringLiteral("自动备份")), autoBackupWidget);
 
     // 备份周期按钮组（统一44px高触屏尺寸）
     auto makeBackupBtn = [&](const QString& text, int mode) -> QPushButton* {
@@ -228,113 +236,6 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     layout->addLayout(form);
 }
 
-/** 构建系统信息区：版本/系统/设备编号/运行时长/磁盘/CPU/内存（label成员供refresh()更新） */
-void SystemSettingsPage::buildSystemInfoSection(QVBoxLayout* layout) {
-    auto* sysInfoFrame = new QFrame();
-    sysInfoFrame->setStyleSheet("QFrame{background:transparent;}");
-    auto* sysLayout = new QVBoxLayout(sysInfoFrame);
-    sysLayout->setSpacing(6);
-    sysLayout->setContentsMargins(0, 8, 0, 0);
-
-    auto* sysTitle = new QLabel(QStringLiteral("系统信息"));
-    sysTitle->setStyleSheet(QString("font-size:16px;font-weight:700;color:%1;margin-bottom:6px;").arg(StyleHelper::textColor()));
-    sysLayout->addWidget(sysTitle);
-
-    // value label必须赋值给成员变量供refresh()使用（否则refresh()访问nullptr崩溃）
-    auto createInfoRowEx = [&](const QString& key, const QString& value, QLabel*& valueMember) {
-        auto* row = new QHBoxLayout();
-        row->setContentsMargins(0, 6, 0, 6);  // 行间距避免压扁
-        auto* keyLabel = new QLabel(key);
-        keyLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
-        keyLabel->setFixedWidth(90);
-        keyLabel->setMinimumHeight(22);  // 确保字体不被压扁
-        valueMember = new QLabel(value);
-        valueMember->setStyleSheet("font-size:14px;color:#333;font-weight:600;background:transparent;");
-        valueMember->setMinimumHeight(22);  // 确保字体不被压扁
-        valueMember->setWordWrap(true);  // 长文本换行不截断
-        row->addWidget(keyLabel);
-        row->addWidget(valueMember, 1);
-        return row;
-    };
-
-    // 软件版本从AppConfig读取（不硬编码），与TopBar版本号数据源一致
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("软件版本"),
-        AppConfig::instance().appVersion(), m_versionLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("操作系统"), QStringLiteral("读取中..."), m_osLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("设备编号"), QStringLiteral("读取中..."), m_deviceIdLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("运行时长"), QStringLiteral("读取中..."), m_uptimeLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("磁盘空间"), QStringLiteral("读取中..."), m_diskLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("CPU占用"), QStringLiteral("读取中..."), m_cpuLabel));
-    sysLayout->addLayout(createInfoRowEx(QStringLiteral("内存占用"), QStringLiteral("读取中..."), m_memoryLabel));
-
-    layout->addWidget(sysInfoFrame);
-}
-
-/** 构建本机机组配置区：下拉选择框，从DB加载所有active机组 */
-void SystemSettingsPage::buildMachineGroupSection(QVBoxLayout* layout) {
-    auto* machineGroupFrame = new QFrame();
-    machineGroupFrame->setStyleSheet("QFrame{background:#f8fbff;border:none;border-radius:12px;}");
-    auto* machineGroupLayout = new QVBoxLayout(machineGroupFrame);
-    machineGroupLayout->setSpacing(10);
-    machineGroupLayout->setContentsMargins(16, 14, 16, 14);
-
-    auto* mgTitle = new QLabel(QStringLiteral("本机机组配置"));
-    mgTitle->setStyleSheet("font-size:16px;font-weight:700;color:#1a1a2e;");
-    machineGroupLayout->addWidget(mgTitle);
-
-    auto* mgDesc = new QLabel(QStringLiteral("选择本机所属工程机组，切换后立即生效，工具入库时将自动关联此机组"));
-    mgDesc->setStyleSheet("font-size:14px;color:#888;");
-    mgDesc->setWordWrap(true);
-    machineGroupLayout->addWidget(mgDesc);
-
-    auto* mgInputRow = new QHBoxLayout();
-    mgInputRow->setSpacing(12);
-
-    m_machineGroupCombo = new QComboBox();
-    m_machineGroupCombo->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
-    m_machineGroupCombo->setStyleSheet(QString(
-        "QComboBox{"
-        "  background:white; border:2px solid #e0e0e0; border-radius:12px;"
-        "  padding:0 16px; font-size:16px; font-weight:600; color:#1a1a2e;"
-        "}"
-        "QComboBox:hover{ border-color:#4da3ff; }"
-        "QComboBox::drop-down{"
-        "  subcontrol-origin:padding; subcontrol-position:center right;"
-        "  width:36px; border-left:1px solid #e8ecf0;"
-        "  border-top-right-radius:12px; border-bottom-right-radius:12px;"
-        "}"
-        "QComboBox QAbstractItemView{"
-        "  border:1px solid #e0e0e0; border-radius:10px;"
-        "  font-size:16px; padding:6px; selection-background-color:#4da3ff;"
-        "  selection-color:#fff; outline:none;"
-        "}"
-    ));
-
-    // 加载DB中所有活跃机组到下拉框
-    {
-        db::ToolDAO toolDao;
-        QList<QJsonObject> groups = toolDao.allMachineGroups();
-        int currentGroupId = AppConfig::instance().localMachineGroupId();
-        int selectIdx = -1;
-        int idx = 0;
-        for (const auto& g : groups) {
-            int gid = g["groupId"].toInt();
-            QString gname = g["groupName"].toString();
-            m_machineGroupCombo->addItem(gname, gid);
-            if (gid == currentGroupId) selectIdx = idx;
-            idx++;
-        }
-        if (selectIdx >= 0) m_machineGroupCombo->setCurrentIndex(selectIdx);
-    }
-
-    connect(m_machineGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-        this, &SystemSettingsPage::onMachineGroupSelected);
-    mgInputRow->addWidget(m_machineGroupCombo, 1);
-
-    machineGroupLayout->addLayout(mgInputRow);
-    layout->addWidget(machineGroupFrame);
-}
-
 /** 构建备份设置保存栏（对齐Web端.save-bar） */
 void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
     auto* saveBar = new QFrame();
@@ -351,9 +252,4 @@ void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
 }
 
 // createTaskTypePanel已迁移到SystemMaintenancePage
-
-// ==================== 槽函数 ====================
-// createTaskTypePanel已迁移到SystemMaintenancePage
-
-// ==================== 槽函数 ====================
 

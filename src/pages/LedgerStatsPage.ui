@@ -14,7 +14,7 @@
      <item>
       <widget class="QLabel" name="titleLabel">
        <property name="styleSheet"><string notr="true">font-size:20px;font-weight:700;color:#1a1a2e;</string></property>
-       <property name="text"><string>台账统计</string></property>
+       <property name="text"><string>导入导出</string></property>
       </widget>
      </item>
      <item>
@@ -24,12 +24,39 @@
       </spacer>
      </item>
      <item>
+      <widget class="QPushButton" name="importUserBtn">
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:700;}
+QPushButton:hover{background:#f0f7ff;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>👥 人员批量导入</string></property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="exportLedgerBtn">
        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
        <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:700;}
 QPushButton:hover{background:#f0f7ff;}
 QPushButton:pressed{}</string></property>
        <property name="text"><string>📊 台账导出</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exportOperationLogBtn">
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:700;}
+QPushButton:hover{background:#f0f7ff;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>📝 操作日志导出</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exportSystemLogBtn">
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:700;}
+QPushButton:hover{background:#f0f7ff;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>🚨 系统日志导出</string></property>
       </widget>
      </item>
     </layout>

@@ -1,6 +1,6 @@
 /**
  * @file LedgerStatsPage.h
- * @brief 台账统计页面 - 借还统计、工具使用频率、部门统计
+ * @brief 导入导出页面 - 人员批量导入、台账导出、系统/操作日志导出、借还统计
  * @author 袁燕
  */
 #pragma once
@@ -25,7 +25,9 @@ public:
 private slots:
     void onFilterChanged();
     // 导出功能
-    void onExportLedger();    // 台账导出（生成CSV文件）
+    void onExportLedger();          // 台账导出（生成CSV文件）
+    void onExportOperationLog();    // 操作日志导出（操作告警CSV）
+    void onExportSystemLog();       // 系统日志导出（系统告警CSV）
 
 private:
     void setupUI();
@@ -35,6 +37,10 @@ private:
     // 导出辅助方法
     QString generateCSV();                        // 生成台账CSV内容
     void showExportSuccess(const QString& path);  // 显示导出成功提示
+    /// @brief 按告警类别导出日志CSV到桌面log文件夹
+    /// @param dbType 逗号分隔的告警类型编码串（限定导出范围）
+    /// @param filePrefix 导出文件名前缀，用于区分操作/系统两类文件
+    void exportAlertsToCsv(const QString& dbType, const QString& filePrefix);
 
     Ui::LedgerStatsPage* ui = nullptr;  // 静态布局（LedgerStatsPage.ui）
     QLabel* m_totalBorrowLabel = nullptr;

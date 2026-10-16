@@ -1,6 +1,6 @@
 /**
  * @file SystemSettingsPageBackup.cpp
- * @brief 系统设置-数据库自动备份（mysqldump 导出）
+ * @brief 系统设置-数据库备份（自动备份与手动备份，mysqldump 导出）
  * @author 袁燕
  *
  * 本文件实现上述功能，成员函数声明见 SystemSettingsPage.h。
@@ -49,108 +49,115 @@
 #include <QRegularExpression>  // 解析os-release
 #include <QFileInfoList>  // 备份文件清理
 
-// 执行数据库自动备份
-// 备份策略：
-// 1. 保存备份设置时立即执行一次备份（验证备份路径可用）
-// 2. 根据备份周期（每日/每周一/每周日）计算下次备份时间
-// 3. MainWindow 启动定时器每小时检查一次是否到了备份时间
-// 备份内容：mysqldump 导出的全库 SQL 脚本
-// 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.sql
+/**
+ * @brief 执行一次数据库自动备份（保存备份设置时立即导出，用于验证备份路径可用）
+ */
 void SystemSettingsPage::performDatabaseBackup() {
     auto& cfg = AppConfig::instance();
-    QString backupPath = cfg.backupPath();
-    bool isAutoEnabled = cfg.backupAutoEnabled();
-    int period = cfg.backupPeriod();
 
     // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
     QString logPath = Log::logDirectory() + "/backup.log";
 
+    if (!cfg.backupAutoEnabled()) {
+        Log::appendLog(logPath, QStringLiteral("action=SKIP result=DISABLED detail=auto backup is disabled"));
+        return;
+    }
+
+    startMysqlDumpBackup(cfg.backupPath(), nullptr);
+}
+
+/**
+ * @brief 启动一次 mysqldump 全库导出，异步执行不阻塞界面
+ * @param backupPath 备份文件存放目录，不存在时自动创建
+ * @param onFinished 完成回调：参数1=true 表示导出成功，参数2=备份文件完整路径（失败为空串）
+ */
+void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
+                                              const std::function<void(bool, const QString&)>& onFinished) {
+    // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
+    QString logPath = Log::logDirectory() + "/backup.log";
     auto writeBackupLog = [logPath](const QString& action, const QString& result, const QString& detail) {
         Log::appendLog(logPath, QStringLiteral("action=%1 result=%2 detail=%3")
                                    .arg(action).arg(result).arg(detail));
     };
 
-    if (!isAutoEnabled) {
-        writeBackupLog(QStringLiteral("SKIP"), QStringLiteral("DISABLED"),
-                       QStringLiteral("auto backup is disabled"));
+    // 确保备份目录存在
+    QDir dir;
+    if (!dir.exists(backupPath) && !dir.mkpath(backupPath)) {
+        writeBackupLog(QStringLiteral("CREATE_DIR"), QStringLiteral("FAIL"),
+                       QStringLiteral("cannot create: %1").arg(backupPath));
+        qWarning() << "[Backup] Cannot create backup dir:" << backupPath;
+        if (onFinished) onFinished(false, QString());
         return;
     }
 
-    // 检查备份周期：每日/每周一/每周日
-    QDate today = QDate::currentDate();
-    int dayOfWeek = today.dayOfWeek();  // 1=周一, 7=周日
-    bool shouldBackup = false;
-    QString periodDesc;
-    if (period == 0) {
-        // 每日备份
-        shouldBackup = true;
-        periodDesc = QStringLiteral("每日");
-    } else if (period == 1) {
-        // 每周一备份
-        shouldBackup = (dayOfWeek == 1);
-        periodDesc = QStringLiteral("每周一");
-    } else if (period == 2) {
-        // 每周日备份
-        shouldBackup = (dayOfWeek == 7);
-        periodDesc = QStringLiteral("每周日");
-    }
+    // 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.sql
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString backupFile = backupPath + QDir::separator() +
+                         QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
 
-    // 如果不是备份日，跳过（但保存设置时的首次备份强制执行）
-    // 这里首次保存时强制备份，定时检查时才按周期判断
-
-    // 确保备份目录存在
-    QDir dir;
-    if (!dir.exists(backupPath)) {
-        if (!dir.mkpath(backupPath)) {
-            writeBackupLog(QStringLiteral("CREATE_DIR"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot create: %1").arg(backupPath));
-            qWarning() << "[Backup] Cannot create backup dir:" << backupPath;
+    auto& cfg = AppConfig::instance();
+    auto* proc = new QProcess(this);
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [proc, backupFile, writeBackupLog, onFinished](int exitCode, QProcess::ExitStatus) {
+        QByteArray errOutput = proc->readAllStandardError();
+        proc->deleteLater();
+        if (exitCode == 0) {
+            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("OK"),
+                           QStringLiteral("MySQL dump: %1").arg(backupFile));
+            qInfo() << "[Backup] MySQL backup success:" << backupFile;
+            if (onFinished) onFinished(true, backupFile);
             return;
         }
+        // 导出失败时删除残留文件，避免留下内容不完整的假备份
+        QFile::remove(backupFile);
+        writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
+                       QStringLiteral("mysqldump exitCode=%1").arg(exitCode));
+        qWarning() << "[Backup] MySQL backup failed, exitCode:" << exitCode << errOutput;
+        if (onFinished) onFinished(false, QString());
+    });
+    // 重定向输出到备份文件
+    proc->setStandardOutputFile(backupFile);
+    proc->start("mysqldump", QStringList()
+                << QStringLiteral("-h%1").arg(cfg.dbHost())
+                << QStringLiteral("-u%1").arg(cfg.dbUser())
+                << QStringLiteral("-p%1").arg(cfg.dbPass())
+                << cfg.dbName());
+    if (!proc->waitForStarted(3000)) {
+        QFile::remove(backupFile);
+        writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
+                       QStringLiteral("cannot start mysqldump"));
+        qWarning() << "[Backup] Cannot start mysqldump";
+        proc->deleteLater();
+        if (onFinished) onFinished(false, QString());
     }
+}
 
-    // 生成备份文件名
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString backupFile;
+/**
+ * @brief 手动备份按钮：立即导出一次数据库，成功或失败都弹窗告知结果
+ * 与自动备份的区别：不受"自动备份"开关与备份周期限制，随时可点击
+ */
+void SystemSettingsPage::onManualBackupClicked() {
+    if (!m_manualBackupBtn) return;
 
-    // 本工程为纯 MySQL 架构，备份统一用 mysqldump 导出
-        backupFile = backupPath + QDir::separator() +
-                     QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
-        QString dbName = cfg.dbName();
-        QString dbUser = cfg.dbUser();
-        QString dbPass = cfg.dbPass();
-        QString dbHost = cfg.dbHost();
+    auto& cfg = AppConfig::instance();
+    // 路径优先取界面当前填写值（用户可能改了还没保存），为空时回落到已保存的配置
+    QString backupPath = m_backupPathEdit ? m_backupPathEdit->text().trimmed() : QString();
+    if (backupPath.isEmpty()) backupPath = cfg.backupPath();
 
-        QString dumpCmd = QStringLiteral("mysqldump -h%1 -u%2 -p%3 %4")
-                              .arg(dbHost).arg(dbUser).arg(dbPass).arg(dbName);
+    // 导出期间禁用按钮，防止连点同时启动多个 mysqldump
+    m_manualBackupBtn->setEnabled(false);
+    m_manualBackupBtn->setText(QStringLiteral("正在备份..."));
 
-        auto* proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, backupFile, writeBackupLog](int exitCode, QProcess::ExitStatus) {
-            auto* p = qobject_cast<QProcess*>(sender());
-            if (!p) return;
-            p->deleteLater();
-            if (exitCode == 0) {
-                writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("OK"),
-                               QStringLiteral("MySQL dump: %1").arg(backupFile));
-                qInfo() << "[Backup] MySQL backup success:" << backupFile;
-            } else {
-                writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                               QStringLiteral("mysqldump exitCode=%1").arg(exitCode));
-                qWarning() << "[Backup] MySQL backup failed, exitCode:" << exitCode;
-            }
-        });
-        // 重定向输出到文件
-        proc->setStandardOutputFile(backupFile);
-        proc->start("mysqldump", QStringList()
-                    << QStringLiteral("-h%1").arg(dbHost)
-                    << QStringLiteral("-u%1").arg(dbUser)
-                    << QStringLiteral("-p%1").arg(dbPass)
-                    << dbName);
-        if (!proc->waitForStarted(3000)) {
-            writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                           QStringLiteral("cannot start mysqldump"));
-            qWarning() << "[Backup] Cannot start mysqldump";
-            proc->deleteLater();
+    startMysqlDumpBackup(backupPath, [this](bool ok, const QString& backupFile) {
+        if (!m_manualBackupBtn) return;
+        m_manualBackupBtn->setEnabled(true);
+        m_manualBackupBtn->setText(QStringLiteral("手动备份"));
+        if (ok) {
+            MessageDialog::showSuccess(this, QStringLiteral("备份成功"),
+                                       QStringLiteral("数据库已备份到：\n%1").arg(backupFile));
+        } else {
+            MessageDialog::showError(this, QStringLiteral("备份失败"),
+                                     QStringLiteral("数据库备份未完成，请检查备份路径是否可写、数据库服务是否正常。"));
         }
+    });
 }

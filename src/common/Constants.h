@@ -9,9 +9,7 @@
 
 namespace SC {
 // ── 应用信息 ──
-const QString APP_NAME    = "智能工具柜管理系统";
 const QString APP_VERSION = "V2.00";
-const QString APP_ORG     = "SmartCabinet";
 
 // ── 数据库配置（默认值，运行时可修改） ──
 const QString DB_HOST     = "127.0.0.1";
@@ -37,6 +35,7 @@ const QString DEFAULT_INIT_PASSWORD = "123456";
 
 // ── 口令规则 ──
 const int PASSWORD_MIN_LENGTH = 6;        // 口令最小长度（登录校验与修改口令共用）
+const int PASSWORD_MAX_LENGTH = 12;       // 口令最大长度（设置与修改口令共用，闭区间含边界）
 // 忘记密码刷脸身份验证：最多尝试次数，超过则关闭入口防止暴力试探
 const int FACE_VERIFY_MAX_ATTEMPTS = 3;
 
@@ -100,7 +99,6 @@ const QString FACE_RESULT_ERROR    = "error";     // 识别过程异常
 // ── 告警处理状态 ──
 const QString ALERT_UNHANDLED = "unhandled";     // 待处理
 const QString ALERT_HANDLED   = "handled";       // 已处理
-const QString ALERT_IGNORED   = "ignored";       // 已忽略
 
 // ── 识别方式 全系统统一为视觉识别 ──
 const QString RECOGNITION_VISION = "vision";  // 视觉识别
@@ -110,22 +108,24 @@ const int     TOOL_DOC_MAX_SIZE_MB = 50;  // 文档最大50MB
 // 支持的文档格式（小写比较）
 const QStringList TOOL_DOC_SUFFIXES = { "doc", "docx", "pdf" };
 
-// ── 设备状态 ──
-const QString DEV_ONLINE  = "online";
-const QString DEV_OFFLINE = "offline";
-const QString DEV_ERROR   = "error";
-
 // ── 柜体物理规格（层号/位号上限，SystemMaintenancePage 位置下拉用）──
 const int MAX_CABINET_LAYERS    = 12;  // 工具柜最大层数
 const int MAX_CABINET_POSITIONS = 15;  // 每层最大位数
 
-// ── 告警级别 ──
-const QString ALERT_INFO    = "info";
-const QString ALERT_WARNING = "warning";
-const QString ALERT_ERROR   = "error";
-
 // 告警类型编码（sys_alert_type.type_code）：写告警时经 AlertDAO::findTypeIdByCode 查回 type_id
 const QString ALERT_TYPE_LOGIN_FAIL = "login_fail";  // 登录失败（密码连续错误触发整机锁定）
+
+// ── 告警大类（告警日志页两个入口共用同一页面，按类型编码集合区分显示范围）──
+// 系统告警：设备与系统状态类；操作告警：用户操作行为类。
+// 逾期未还(overdue)本期不展示，不入任何一类（数据库中该类型已停用）。
+const QStringList ALERT_SYSTEM_TYPES = {
+    "mismatch", "missing", "offline", "low_stock", "system", "power",
+    "network_error", "door_open", "stranger", "track_mismatch",
+    "temp_high", "power_low", "sensor_fail", "hw_comm", "hw_fault"
+};
+const QStringList ALERT_OPERATION_TYPES = {
+    "login_fail", "unauthorized"
+};
 
 /// 告警级别显示值→库值 单一映射（历史上 SettingService 与 AlertDAO 各硬编码一份）
 /// "严重/一般/提示"→error/warn/info；传入已是库值（crit/warn/info 等）则原样返回
@@ -140,8 +140,6 @@ inline QString alertLevelCodeFromText(const QString& level)
 // ── 分页 ──
 const int PAGE_SIZE_DEFAULT   = 20;
 const int PAGE_SIZE_UNLIMITED = 9999;   // 取全量数据的虚拟分页大小
-const int PAGE_SIZE_ALERT     = 200;    // 告警列表默认分页
-const int PAGE_SIZE_TOOLS     = 100;    // 工具列表大分页（借用页全量加载）
 
 // ── 触屏优化尺寸 ──
 // 控件高度/圆角/字号统一由 StyleHelper::Token 提供，此处不再重复定义第二套来源
@@ -225,16 +223,9 @@ const int  BORROW_LOCK_TIME        = 5;
 const int  BORROW_FACE_SENSITIVITY = 0;
 
 // ── 人脸识别超时/延迟配置 ──
-const int FACE_LOGIN_TIMEOUT_MS      = 30000;  // 登录人脸识别总超时
-const int FACE_ENROLL_DELAY_MS       = 2000;   // 人脸录入准备延迟
-const int FACE_ENROLL_CLOSE_DELAY_MS = 800;    // 人脸录入成功关闭延迟
-const int FACE_SERVICE_POLL_MS       = 500;    // 人脸服务就绪轮询间隔
-const int FACE_NETWORK_BUFFER_MS     = 1000;   // 网络请求缓冲超时
 const int FACE_RETRY_DELAY_MS        = 500;    // 人脸识别重试延迟
 
 // ── UI延迟配置 ──
-const int UI_KEYBOARD_POPUP_DELAY_MS = 150;    // 软键盘弹出延迟
-const int UI_CAMERA_INIT_DELAY_MS    = 100;    // 摄像头初始化延迟
 const int UI_CPU_STATS_DELAY_MS      = 500;    // CPU统计刷新延迟
 const int UI_LOGIN_FAIL_KEYBOARD_DELAY_MS = 500; // 登录失败后重弹密码键盘延迟
 const int UI_LOCK_COUNTDOWN_MS      = 1000;  // 密码锁定倒计时刷新间隔

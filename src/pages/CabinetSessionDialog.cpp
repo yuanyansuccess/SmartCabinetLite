@@ -10,6 +10,8 @@
 #include "db/TaskTypeDAO.h"
 #include "common/AppConfig.h"
 #include "common/PositionFormatter.h"
+#include "components/TopBar.h"   // 会话顶栏与管理页面共用同一组件
+#include "HelpManualDialog.h"    // 顶栏"帮助"按钮打开内置操作手册
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,6 +24,7 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include <QEventLoop>
+#include <QApplication>
 
 CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* parent)
     : QDialog(parent), m_user(user)
@@ -60,6 +63,31 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
     QVBoxLayout* outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(m_stack);
+
+    // 会话顶栏：与管理员子页面共用 TopBar 组件（页面标题/时钟/用户信息/主页/注销）
+    TopBar* topBar = new TopBar(this);
+    topBar->setFixedHeight(68);
+    topBar->setPageTitle(QStringLiteral("借用归还"));
+    topBar->setUserAreaVisible(true);
+    topBar->setHomeButtonVisible(true);
+    QString topName = m_user["realName"].toString();
+    if (topName.isEmpty()) topName = m_user["name"].toString();
+    topBar->setUserName(topName);
+    topBar->setDepartment(m_user["department"].toString());
+    topBar->setVersionText(AppConfig::instance().appVersion());
+    outer->insertWidget(0, topBar);
+    // 主页=放弃本次会话回功能主页；注销=结束会话并通知主窗口注销回登录页
+    connect(topBar, &TopBar::homeClicked, this, &QDialog::reject);
+    connect(topBar, &TopBar::logoutClicked, this, [this] {
+        emit logoutRequested();
+        reject();
+    });
+    connect(topBar, &TopBar::exitSystemClicked, qApp, &QApplication::quit);
+    connect(topBar, &TopBar::helpClicked, this, [this] {
+        HelpManualDialog manual(this);
+        manual.showFullScreen();
+        manual.exec();
+    });
 
     loadMyTaskTools();  // 先读本机组任务类型在库工具（开柜页面板数据）
     buildOpenPage();

@@ -174,6 +174,10 @@ void ForceChangePasswordDialog::onSubmit() {
         showError(common::passwordTooShortText());
         return;
     }
+    if (newPwd.length() > SC::PASSWORD_MAX_LENGTH) {
+        showError(common::passwordTooLongText());
+        return;
+    }
     if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
         showError(QStringLiteral("不能使用初始密码"));
         return;

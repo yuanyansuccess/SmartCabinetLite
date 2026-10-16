@@ -27,10 +27,6 @@ public:
     // 从借用记录页面跳转时设置待归还记录ID，自动勾选
     void setPendingReturnRecordId(int recordId);
 
-signals:
-  // 返回按钮信号，由父级路由处理
-    void backClicked();
-
 private slots:
     void onSelectAll(bool checked);
     void onReturnSelected();

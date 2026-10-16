@@ -610,7 +610,7 @@ QString UserDAO::generateNextWorkNo()
     // 工号为纯数字格式，数字项在 C++ 侧用正则过滤后取最大值
     // 不依赖数据库特有函数，保证跨版本 MySQL 行为一致
     q.prepare("SELECT work_no FROM sys_user WHERE status != 'deleted'");
-    if (!safeExec(q)) return QStringLiteral("001");
+    if (!safeExec(q)) return QStringLiteral("000001");
     int maxNum = 0;
     QRegularExpression re("^\\d+$");
     while (q.next()) {
@@ -619,7 +619,8 @@ QString UserDAO::generateNextWorkNo()
             maxNum = qMax(maxNum, workNo.toInt());
         }
     }
-    return QString("%1").arg(maxNum + 1, 3, 10, QChar('0'));
+    // 6位补零输出，与新建账户6-12位工号规则衔接（超过6位自然进位）
+    return QString("%1").arg(maxNum + 1, 6, 10, QChar('0'));
 }
 
 } // namespace db

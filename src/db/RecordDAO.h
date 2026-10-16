@@ -48,16 +48,15 @@ public:
                                   const QString& content, const QString& ipAddress = "127.0.0.1");
     // 分页查询指定类型的操作日志（含操作人信息），返回 {list, total}
     QJsonObject findOperationLogsByType(const QString& operationType, int page, int pageSize);
+    // 分页查询全部类型的操作日志（含操作人信息），返回 {list, total}
+    // list 元素含 type 字段（operation_type 原值），展示层据此做中文映射
+    QJsonObject findOperationLogsAll(int page, int pageSize);
     // 统计指定类型的操作日志数量
     int         countOperationLogsByType(const QString& operationType);
     // 入库记录查询（含位置JOIN信息）— 入库记录Tab专用
     // 返回：{list: [{createdAt,content,targetId,realName,workNo,
     // tiCabId,tiCabName,tiLayer,tiPos,mpmCabId,mpmCabName,mpmLayer,mpmPos}], total}
     QJsonObject findCheckinLogs(int page, int pageSize);
-    // 统计某机组下未归还(borrowing/overdue)的借用记录数
-    // 入参：machineGroupId 机组ID
-    // 返回：该机组下所有未归还的借用记录数（关联tool_info.machine_group_id）
-    int         countActiveByMachineGroup(int machineGroupId);
     // 用户首页统计：今日借用/待归还/本月借用
     QJsonObject getUserStats(int userId);
     // 最近借用活动

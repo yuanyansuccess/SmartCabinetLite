@@ -4,17 +4,15 @@
  * @author 袁燕
  *
  * 完全重写以1:1匹配BS端SystemSettings.vue
- * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理+系统信息）
+ * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理）
  * 顶部工具栏：保存全部设置按钮
  */
 
 #include "SystemSettingsPage.h"
 #include "utils/StyleHelper.h"
 #include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
-#include "common/AppConfig.h"  // 机组名称配置
-#include "common/DatabaseManager.h"     // DB写入机组配置
-#include "db/RecordDAO.h"               // 校验机组下未归还记录
-#include "db/ToolDAO.h"                 // 加载活跃机组列表
+#include "common/AppConfig.h"  // 配置读写
+#include "common/Constants.h"  // SC::BACKUP_PATH 等常量
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -42,9 +40,6 @@
 #include <QFile>  // WMI结果日志记录
 #include <QDateTime>  // 亮度日志时间戳
 #include <QDir>  // 备份目录操作
-#include <QStorageInfo>  // 跨平台磁盘空间读取
-#include <QSysInfo>  // 跨平台系统信息读取
-#include <QRegularExpression>  // 解析os-release
 #include <QFileInfoList>  // 备份文件清理
 
 
@@ -116,7 +111,7 @@ void SystemSettingsPage::setupUI() {
     updateTabStyles();
 
     // QStackedWidget切换，去掉滚动（对齐系统维护页面）
-    // 备份面板内容多(表单+系统信息+机组配置)，单独包QScrollArea避免字体压扁
+    // 备份面板内容多，单独包QScrollArea避免字体压扁
     m_stackedWidget = new QStackedWidget();
     m_stackedWidget->addWidget(m_networkPanel = createNetworkPanel());
     m_stackedWidget->addWidget(m_alertPanel = createAlertPanel());
@@ -332,14 +327,8 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     return panel;
 }
 
-// ==================== 借还设置面板 ====================
 void SystemSettingsPage::refresh() {
-    // 软件版本从AppConfig读取，其余系统信息从系统实时读取
-    if (m_versionLabel) {
-        m_versionLabel->setText(QStringLiteral("软件版本: %1").arg(AppConfig::instance().appVersion()));
-    }
-    // 从系统读取真实OS/设备编号/运行时长/磁盘空间
-    refreshSystemInfo();
+    // 备份面板为纯表单配置项，无进入页面时需要动态刷新的数据
 }
 
 /**
@@ -549,8 +538,6 @@ bool SystemSettingsPage::isDirty() {
     if (!m_cacheHoursSpin || m_cacheHoursSpin->value() != m_snapshot.cacheHours) return true;
     if (!m_backupPathEdit || m_backupPathEdit->text() != m_snapshot.backupPath) return true;
 
-    if (!m_machineGroupCombo || m_machineGroupCombo->currentText() != m_snapshot.machineGroupName) return true;
-
     return false;  // 无修改
 }
 
@@ -588,17 +575,6 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_backupPeriod = cfg.backupPeriod(); updateBackupPeriodBtnStyles();
     m_cacheHoursSpin->setValue(cfg.backupCacheHours());
     m_backupPathEdit->setText(cfg.backupPath());
-
-    // 机组名称 从下拉框中选择匹配项
-    int groupId = cfg.localMachineGroupId();
-    if (m_machineGroupCombo && groupId > 0) {
-        for (int i = 0; i < m_machineGroupCombo->count(); i++) {
-            if (m_machineGroupCombo->itemData(i).toInt() == groupId) {
-                m_machineGroupCombo->setCurrentIndex(i);
-                break;
-            }
-        }
-    }
 }
 
 // 将当前UI值全部写入本地INI文件
@@ -672,9 +648,6 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.backupPeriod = m_backupPeriod;
     m_snapshot.cacheHours = m_cacheHoursSpin ? m_cacheHoursSpin->value() : 4;
     m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::BACKUP_PATH;
-
-    // 机组名称
-    m_snapshot.machineGroupName = m_machineGroupCombo ? m_machineGroupCombo->currentText() : QStringLiteral("");
 }
 
 // 还原所有UI控件到快照值
@@ -708,69 +681,6 @@ void SystemSettingsPage::restoreSettings() {
     m_backupPeriod = m_snapshot.backupPeriod; updateBackupPeriodBtnStyles();
     if (m_cacheHoursSpin) m_cacheHoursSpin->setValue(m_snapshot.cacheHours);
     if (m_backupPathEdit) m_backupPathEdit->setText(m_snapshot.backupPath);
-
-    // 机组名称 从下拉框还原
-    if (m_machineGroupCombo) {
-        for (int i = 0; i < m_machineGroupCombo->count(); i++) {
-            if (m_machineGroupCombo->itemText(i) == m_snapshot.machineGroupName) {
-                m_machineGroupCombo->setCurrentIndex(i);
-                break;
-            }
-        }
-    }
-}
-
-// 下拉选择机组自动保存到AppConfig，实时生效
-// 校验：更换机组前，当前机组和目标机组下的工具都必须全部归还完毕
-// 否则不允许更换，防止跨机组借用数据混乱
-void SystemSettingsPage::onMachineGroupSelected(int index) {
-    if (!m_machineGroupCombo || index < 0) return;
-    int groupId = m_machineGroupCombo->currentData().toInt();
-    QString groupName = m_machineGroupCombo->currentText();
-    if (groupId <= 0 || groupName.isEmpty()) return;
-
-    int currentGroupId = AppConfig::instance().localMachineGroupId();
-    // 同一机组无需校验
-    if (groupId == currentGroupId) {
-        m_snapshot.machineGroupName = groupName;
-        return;
-    }
-
-    // 校验当前机组和目标机组下是否有未归还的借用记录
-    db::RecordDAO recDao;
-    int currentActiveCount = recDao.countActiveByMachineGroup(currentGroupId);
-    int targetActiveCount = recDao.countActiveByMachineGroup(groupId);
-
-    if (currentActiveCount > 0 || targetActiveCount > 0) {
-        // 有未归还记录，不允许更换，给出明确提示
-        QString errorMsg = QStringLiteral("机组更换失败！\n\n");
-        if (currentActiveCount > 0) {
-            errorMsg += QStringLiteral("当前机组还有 %1 件工具未归还，请先完成归还。\n").arg(currentActiveCount);
-        }
-        if (targetActiveCount > 0) {
-            errorMsg += QStringLiteral("目标机组「%1」还有 %2 件工具未归还，请先完成归还。\n").arg(groupName).arg(targetActiveCount);
-        }
-        errorMsg += QStringLiteral("\n所有工具归还完毕后才能更换机组配置。");
-        MessageDialog::showError(this, QStringLiteral("机组更换受限"), errorMsg);
-
-        // 还原下拉框到当前机组选项
-        QSignalBlocker blocker(m_machineGroupCombo);  // 阻止信号递归
-        for (int i = 0; i < m_machineGroupCombo->count(); ++i) {
-            if (m_machineGroupCombo->itemData(i).toInt() == currentGroupId) {
-                m_machineGroupCombo->setCurrentIndex(i);
-                break;
-            }
-        }
-        return;
-    }
-
-    // 校验通过，保存新机组配置
-    AppConfig::instance().setLocalMachineGroup(groupId, groupName);
-    AppConfig::instance().save();
-    m_snapshot.machineGroupName = groupName;
-
-    MessageDialog::showSuccess(this, QStringLiteral("机组已更换"),
-        QStringLiteral("本机机组已切换为「%1」，请确保工具柜中的工具与新机组匹配。").arg(groupName));
 }
 
 // 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）

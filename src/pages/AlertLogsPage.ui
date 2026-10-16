@@ -20,26 +20,6 @@
       <spacer name="titleSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property>
        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer>
      </item>
-     <item>
-      <widget class="QLabel" name="alarmIndicator">
-       <property name="minimumSize"><size><width>90</width><height>40</height></size></property>
-       <property name="maximumSize"><size><width>16777215</width><height>40</height></size></property>
-       <property name="styleSheet"><string notr="true">font-size:14px;font-weight:700;padding:8px 18px;border-radius:10px;
-background:#f6ffed;color:#389e0d;</string></property>
-       <property name="text"><string>运行正常</string></property>
-       <property name="alignment"><set>Qt::AlignCenter</set></property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="exportBtn">
-       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-       <property name="styleSheet"><string notr="true">QPushButton{background:#fff;color:#4da3ff;border:2px solid #4da3ff;border-radius:10px;
-padding:10px 22px;font-size:14px;font-weight:700;}
-QPushButton:hover{background:#f0f7ff;}
-QPushButton:pressed{}</string></property>
-       <property name="text"><string>📥 导出日志</string></property>
-      </widget>
-     </item>
     </layout>
    </item>
    <item>
@@ -128,14 +108,9 @@ QPushButton:pressed{}</string></property>
         <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
         <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
         <attribute name="horizontalHeaderStretchLastSection"><bool>false</bool></attribute>
-        <column><property name="text"><string>时间</string></property></column>
-        <column><property name="text"><string>级别</string></property></column>
-        <column><property name="text"><string>类型</string></property></column>
+        <column><property name="text"><string>告警时间</string></property></column>
+        <column><property name="text"><string>告警类型</string></property></column>
         <column><property name="text"><string>告警内容</string></property></column>
-        <column><property name="text"><string>关联信息</string></property></column>
-        <column><property name="text"><string>借用人</string></property></column>
-        <column><property name="text"><string>状态</string></property></column>
-        <column><property name="text"><string>操作</string></property></column>
        </widget>
       </item>
       <item>

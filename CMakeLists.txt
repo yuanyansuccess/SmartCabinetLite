@@ -153,7 +153,6 @@ set(SERVICE_SOURCES
 # UI布局文件（Qt Designer可视化维护，AUTOUIC生成ui_*.h）
 set(PAGE_UIS
     src/pages/LedgerStatsPage.ui
-    src/pages/UserEntryDialog.ui
     src/pages/AlertLogsPage.ui
     src/pages/ToolReturnPage.ui
     src/pages/SystemMaintenancePage.ui
@@ -168,6 +167,7 @@ set(PAGE_SOURCES
     src/pages/LoginPage.cpp
     src/pages/LoginPageUI.cpp
     src/pages/LoginPageFace.cpp
+    src/pages/MenuHomePage.cpp
     src/pages/CabinetSessionDialog.cpp
     src/pages/ForceChangePasswordDialog.cpp
     src/pages/ForgotPasswordDialog.cpp
@@ -176,7 +176,6 @@ set(PAGE_SOURCES
     src/pages/UserManagementPageUserDialog.cpp
     src/pages/UserManagementPageFaceEnroll.cpp
     src/pages/BatchImportDialog.cpp
-    src/pages/UserEntryDialog.cpp
     src/pages/ToolManagementPage.cpp
     src/pages/ToolManagementPageDetail.cpp
     src/pages/ToolManagementPageDocument.cpp
@@ -190,11 +189,11 @@ set(PAGE_SOURCES
     src/pages/ToolCheckoutPageDialog.cpp
     src/pages/LedgerStatsPage.cpp
     src/pages/AlertLogsPage.cpp
+    src/pages/HelpManualDialog.cpp
     src/pages/SystemSettingsPage.cpp
     src/pages/SystemSettingsPagePanels.cpp
     src/pages/SystemSettingsPageNetwork.cpp
     src/pages/SystemSettingsPageDisplay.cpp
-    src/pages/SystemSettingsPageSystemInfo.cpp
     src/pages/SystemSettingsPageBackup.cpp
     src/pages/SystemMaintenancePage.cpp
 )
@@ -266,7 +265,6 @@ set(ALL_HEADERS
     src/common/UserInputValidator.h
     # Model (共享)
     src/model/User.h
-    src/model/Department.h
     src/model/ToolInfo.h
     src/model/ToolCategory.h
     src/model/ToolCabinet.h
@@ -274,7 +272,6 @@ set(ALL_HEADERS
     src/model/ReturnRecord.h
     src/model/AlertLog.h
     src/model/TaskType.h
-    src/model/MachineGroup.h
     # DB (V6.9统一namespace db，合并QJsonObject + 实体类API)
     src/db/BaseDAO.h
     src/db/UserDAO.h
@@ -299,6 +296,7 @@ set(ALL_HEADERS
     src/services/FaceRecognitionService.h
     # Pages (版本B)
     src/pages/LoginPage.h
+    src/pages/MenuHomePage.h
     src/pages/CabinetSessionDialog.h
     src/pages/ForceChangePasswordDialog.h
     src/pages/ForgotPasswordDialog.h
@@ -312,9 +310,9 @@ set(ALL_HEADERS
     src/pages/ToolCheckoutPage.h
     src/pages/LedgerStatsPage.h
     src/pages/AlertLogsPage.h
+    src/pages/HelpManualDialog.h
     src/pages/SystemSettingsPage.h
     src/pages/SystemMaintenancePage.h
-    src/pages/UserEntryDialog.h
     # Utils (版本B)
     src/utils/StyleHelper.h
     # Components (版本A)

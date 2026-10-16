@@ -1,6 +1,6 @@
 /**
  * @file AlertLogsPage.cpp
- * @brief 告警日志页面实现 - UI与逻辑分离：静态布局在AlertLogsPage.ui，本文件只含动态构建与业务逻辑
+ * @brief 告警日志页面实现 - 系统告警与操作告警共用：静态布局在AlertLogsPage.ui，本文件只含动态构建与业务逻辑
  * @author 袁燕
  */
 #include "AlertLogsPage.h"
@@ -8,33 +8,19 @@
 #include <QTableWidget>  // 告警日志表格
 #include "common/Constants.h"
 #include "utils/StyleHelper.h"
-#include "controller/AlertController.h"
 #include "services/SettingService.h"  // 分页列表数据源
-/**
- * @brief 读取全部告警
- */
-#include "services/AlertService.h"    // 告警统计/类型/详情       // 使用SettingService::getAllAlerts()替换getMockAlerts()
+#include "services/AlertService.h"    // 告警类型列表
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"  // 多选筛选组件
-#include "components/SingleSelectFilter.h" // 通用单选筛选组件
-#include "components/BaseDialog.h"         // 统一圆角对话框
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QScrollArea>   // 详情弹窗滚动区域
-#include <QGridLayout>   // 详情弹窗网格布局
-#include "components/MessageDialog.h"
-#include <QDateTime>
 #include <QSet>          // 多选类型全选判断
-#include <QStandardPaths> // 导出日志桌面路径
-#include <QDir>           // 导出日志创建目录
-#include <QFile>          // 导出日志写文件
-#include <QTextStream>    // 导出日志CSV流
 #include <QDebug>
 
 AlertLogsPage::AlertLogsPage(QWidget* parent) : QWidget(parent), ui(new Ui::AlertLogsPage) {
     ui->setupUi(this);  // 静态布局来自AlertLogsPage.ui（Qt Designer可视化维护）
-    setupUI();          // 动态部分：筛选组件、统计卡片、信号槽连接
+    setupUI();          // 动态部分：筛选组件、信号槽连接
 }
 
 AlertLogsPage::~AlertLogsPage() {
@@ -46,29 +32,22 @@ AlertLogsPage::~AlertLogsPage() {
  */
 void AlertLogsPage::setupUI() {
     // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
-    m_alarmIndicator = ui->alarmIndicator;
-    m_exportBtn = ui->exportBtn;
     m_keywordEdit = ui->searchBar->lineEdit();
-    m_keywordEdit->setPlaceholderText(QStringLiteral("搜索工具名称..."));
-    ui->searchBar->setEditPadding(14);  // [等价保留] 本页搜索框内边距历史值14px
+    m_keywordEdit->setPlaceholderText(QStringLiteral("搜索告警内容..."));
+    ui->searchBar->setEditPadding(14);
     m_searchBtn = ui->searchBtn;
     m_resetBtn = ui->resetBtn;
     m_table = ui->table;
     m_paginationBar = ui->paginationBar;
 
-    connect(m_exportBtn, &QPushButton::clicked, this, &AlertLogsPage::onExportLogs);
-
-    // 类型多选筛选（自定义组件，动态创建装入.ui槽位）- 从数据库动态加载，不硬编码
+    // 类型多选筛选（自定义组件，动态创建装入.ui槽位），选项按当前类别过滤
     m_typeFilter = new MultiSelectFilter(QStringLiteral("全部类型"), this);
-    // 初始空选项，loadAlertTypes() 中从数据库填充
+    // 初始空选项，applyCategoryOptions() 中按类别填充
     connect(m_typeFilter, &MultiSelectFilter::selectionChanged, this, &AlertLogsPage::onSearch);
     ui->typeFilterSlotLayout->addWidget(m_typeFilter);
 
-    // 级别筛选：CheckBox样式单选组件
-    m_levelFilter = new SingleSelectFilter(QStringLiteral("全部级别"), this);
-    m_levelFilter->setOptions({QStringLiteral("全部级别"), QStringLiteral("严重"), QStringLiteral("一般"), QStringLiteral("提示")});
-    connect(m_levelFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadAlerts(); });
-    ui->levelFilterSlotLayout->addWidget(m_levelFilter);
+    // 级别筛选槽位不参与本页三列显示，隐藏腾出筛选栏空间
+    ui->levelFilterSlot->setVisible(false);
 
     // 搜索框软键盘按钮
     connect(ui->searchBar->keyboardButton(), &QPushButton::clicked, this, &AlertLogsPage::onSearchFieldClicked);
@@ -76,12 +55,16 @@ void AlertLogsPage::setupUI() {
     connect(m_searchBtn, &QPushButton::clicked, this, &AlertLogsPage::onSearch);
     connect(m_resetBtn, &QPushButton::clicked, this, &AlertLogsPage::onReset);
 
-    // 表格列宽策略（前7列拉伸，操作列固定180px）
-    for (int i = 0; i < 7; i++) {
-        m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
-    m_table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
-    m_table->setColumnWidth(7, 180);
+    // 表格只显示 告警时间/告警类型/告警内容 三列
+    m_table->setColumnCount(3);
+    m_table->setHorizontalHeaderLabels({QStringLiteral("告警时间"),
+                                        QStringLiteral("告警类型"),
+                                        QStringLiteral("告警内容")});
+    // 列宽策略：时间/类型按内容自适应，告警内容列拉伸占满剩余宽度
+    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    m_table->setColumnWidth(0, 190);
+    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->horizontalHeader()->setMinimumSectionSize(60);
 
@@ -89,26 +72,60 @@ void AlertLogsPage::setupUI() {
     connect(m_paginationBar, &PaginationBar::prevClicked, this, &AlertLogsPage::onPrevPage);
     connect(m_paginationBar, &PaginationBar::nextClicked, this, &AlertLogsPage::onNextPage);
 
-    // 告警统计卡片（动态构建装入.ui网格）
-    m_totalCard = createStatCard(QStringLiteral("告警总数"), "0", "#333");
-    m_critCard = createStatCard(QStringLiteral("严重告警"), "0", "#cf1322");  // 高级深红
-    m_warnCard = createStatCard(QStringLiteral("一般告警"), "0", "#fa8c16");
-    m_infoCard = createStatCard(QStringLiteral("提示告警"), "0", "#4da3ff");
-    m_resolvedCard = createStatCard(QStringLiteral("已处理"), "0", "#52c41a");
-
-    ui->cardsGrid->addWidget(m_totalCard, 0, 0);
-    ui->cardsGrid->addWidget(m_critCard, 0, 1);
-    ui->cardsGrid->addWidget(m_warnCard, 0, 2);
-    ui->cardsGrid->addWidget(m_infoCard, 0, 3);
-    ui->cardsGrid->addWidget(m_resolvedCard, 0, 4);
+    // 统计卡片区域不参与本页三列显示，整行隐藏
+    ui->cardsContainer->setVisible(false);
 }
 
 /**
- * @brief 刷新页面数据与统计显示
+ * @brief 注入当前页面显示的告警类别
+ * @param category 类别：System=系统告警，Operation=操作告警
+ * @note 类别切换后标题与类型筛选选项随之更新；列表在下次 refresh() 时按新类别查询
+ */
+void AlertLogsPage::setCategory(Category category) {
+    if (m_category == category && !m_categoryOptionsDirty) return;
+    m_category = category;
+    m_categoryOptionsDirty = true;
+    // 页面标题随类别变化（顶部标题栏与TopBar面包屑双入口语义一致）
+    ui->titleLabel->setText(category == Category::System
+                            ? QStringLiteral("系统告警日志")
+                            : QStringLiteral("操作告警日志"));
+}
+
+/**
+ * @brief 当前类别包含的告警类型编码集合
+ * @return 类别对应的 type_code 列表（单一来源为 SC::ALERT_*_TYPES 常量）
+ */
+QStringList AlertLogsPage::categoryTypeCodes() const {
+    return (m_category == Category::System)
+           ? SC::ALERT_SYSTEM_TYPES
+           : SC::ALERT_OPERATION_TYPES;
+}
+
+/**
+ * @brief 按当前类别重建类型筛选选项：只保留本类别包含的启用类型，默认全选
+ * @note 类别切换后由 refresh() 调用；同类别重复调用会重置用户已选状态，
+ *       故用 m_categoryOptionsDirty 保证一次类别切换只重建一次
+ */
+void AlertLogsPage::applyCategoryOptions() {
+    const QStringList codes = categoryTypeCodes();
+    QStringList typeNames;
+    for (const QString& code : codes) {
+        const QString name = m_typeMap.value(code);
+        if (!name.isEmpty()) typeNames.append(name);
+    }
+    m_typeFilter->setOptions(typeNames);
+    m_typeFilter->selectAll();
+    m_categoryOptionsDirty = false;
+}
+
+/**
+ * @brief 刷新页面数据与筛选选项
  */
 void AlertLogsPage::refresh() {
     // 首次进入时从数据库加载告警类型列表
     if (m_typeMap.isEmpty()) loadAlertTypes();
+    // 类别切换后重建类型筛选选项（只显示本类别类型）
+    if (m_categoryOptionsDirty) applyCategoryOptions();
     loadAlerts();
 }
 
@@ -124,15 +141,17 @@ void AlertLogsPage::onSearch() {
  * @brief 处理重置
  */
 void AlertLogsPage::onReset() {
-    m_typeFilter->selectAll();  // 重置为全选
-    m_levelFilter->reset();     // SingleSelectFilter::reset()
+    m_typeFilter->selectAll();  // 重置为本类别全选
     m_keywordEdit->clear();
     m_currentPage = 1;  // 重置到第1页
     loadAlerts();
 }
 
-/// 构建类型筛选条件：类型多选反查 typeCode，全选或空选时返回空串（不限制类型）
-/// loadAlerts 与 updateStatCards 共用，消除原先两处逐字重复的 13 行筛选构建逻辑
+/**
+ * @brief 构建类型筛选条件：类别约束与用户多选合并
+ * @return 逗号分隔的 type_code 串（传给 DAO 的 IN 查询）；
+ *         用户在本类别内全选或未选择时返回本类别全部类型编码
+ */
 QString AlertLogsPage::buildDbTypeFilter() const {
     QStringList typeNames = m_typeFilter->selectedOptions();
     QStringList dbTypes;
@@ -144,185 +163,58 @@ QString AlertLogsPage::buildDbTypeFilter() const {
     QStringList allTypeNames = m_typeMap.values();
     QSet<QString> selSet(typeNames.begin(), typeNames.end());
     QSet<QString> allSet(allTypeNames.begin(), allTypeNames.end());
-    if (selSet == allSet || selSet.isEmpty()) dbType = "";
+    // 全选/未选时不限定子类型，但仍保留类别约束，防止跨类别告警混入
+    if (selSet == allSet || selSet.isEmpty()) dbType = categoryTypeCodes().join(",");
     return dbType;
 }
 
 /**
- * @brief 加载告警
+ * @brief 加载告警列表（三列：告警时间/告警类型/告警内容）
  */
 void AlertLogsPage::loadAlerts() {
-    // 从数据库sys_alert表JOIN加载真实告警数据，替换硬编码getMockAlerts()
-    // 类型筛选为type_code匹配（从数据库缓存m_typeMap获取）
+    // 从数据库sys_alert表JOIN加载真实告警数据；类型条件已含类别约束
     QString dbType = buildDbTypeFilter();
-    // SingleSelectFilter::selectedIndex() + selectedText() 替换 QComboBox::currentIndex() + currentText()
-    QString levelText = m_levelFilter->selectedIndex() > 0 ? m_levelFilter->selectedText() : "";
     QString keyword = m_keywordEdit->text().trimmed();
 
     SettingService svc;
     // 服务端分页，使用m_currentPage/m_pageSize
-    QJsonObject pageResult = svc.getAllAlerts(m_currentPage, m_pageSize, dbType, levelText, keyword);
+    QJsonObject pageResult = svc.getAllAlerts(m_currentPage, m_pageSize, dbType, QString(), keyword);
     QJsonArray list = pageResult["list"].toArray();
     m_totalRecords = pageResult["total"].toInt();
 
     qInfo() << "[AlertLogsPage] loadAlerts: total=" << m_totalRecords << ", listSize=" << list.size()
-            << ", dbType=" << dbType << ", levelText=" << levelText << ", keyword=" << keyword;
+            << ", dbType=" << dbType << ", keyword=" << keyword;
 
     // 更新分页信息
     int totalPages = (m_totalRecords + m_pageSize - 1) / m_pageSize;
     m_paginationBar->setPageInfo(m_currentPage, totalPages);
     m_paginationBar->setTotalRecords(m_totalRecords);
 
-    // 更新统计卡片（全局统计，不受翻页影响）
-    updateStatCards();
-
-    // 填充表格（7列：时间/级别/类型/告警内容/关联信息/借用人/操作）
+    // 填充表格（3列：告警时间/告警类型/告警内容）
     m_table->setRowCount(list.size());
     for (int i = 0; i < list.size(); ++i) {
         QJsonObject alert = list[i].toObject();
 
-        // 列0：时间
+        // 列0：告警时间
         QString time = alert["createdAt"].toString();
         if (!time.isEmpty() && time.length() > 19) time = time.left(19);
         m_table->setItem(i, 0, new QTableWidgetItem(time));
 
-        // 列1：级别
-        QString level = alert["alertLevel"].toString();
-        QString levelTextDisplay = (level == "error" || level == "crit") ? "严重" : (level == "warn") ? "一般" : "提示";
-        auto* levelItem = new QTableWidgetItem(levelTextDisplay);
-        levelItem->setTextAlignment(Qt::AlignCenter);
-        if (level == "error" || level == "crit") {
-            levelItem->setForeground(QColor("#cf1322"));
-            levelItem->setBackground(QColor("#fff1f0"));
-            QFont levelFont = levelItem->font();
-            levelFont.setBold(true);
-            levelItem->setFont(levelFont);
-        } else if (level == "warn") {
-            levelItem->setForeground(QColor("#d46b08"));
-            levelItem->setBackground(QColor("#fff7e6"));
-        } else {
-            levelItem->setForeground(QColor("#096dd9"));
-            levelItem->setBackground(QColor("#e6f0ff"));
-        }
-        m_table->setItem(i, 1, levelItem);
-
-        // 列2：类型 数据库已返回中文类型名，直接显示
+        // 列1：告警类型 数据库已返回中文类型名，直接显示
         QString type = alert["alertType"].toString();
-        m_table->setItem(i, 2, new QTableWidgetItem(type.isEmpty() ? "--" : type));
+        m_table->setItem(i, 1, new QTableWidgetItem(type.isEmpty() ? "--" : type));
 
-        // 列3：告警内容
-        m_table->setItem(i, 3, new QTableWidgetItem(alert["content"].toString()));
+        // 列2：告警内容
+        m_table->setItem(i, 2, new QTableWidgetItem(alert["content"].toString()));
 
-        // 列4：关联信息（合并关联工具+存放位置）
-        QString toolName = alert["toolName"].toString();
-        if (toolName.isEmpty()) toolName = alert["toolCode"].toString();
-        QString cabinet = alert["cabinetName"].toString();
-        QString position = alert["position"].toString();
-        if (!position.isEmpty() && position != "--") cabinet += "-" + position;
-        QString relatedInfo;
-        if (!toolName.isEmpty() && toolName != "--") relatedInfo = toolName;
-        if (!cabinet.isEmpty() && cabinet != "--") {
-            if (!relatedInfo.isEmpty()) relatedInfo += " | ";
-            relatedInfo += cabinet;
-        }
-        if (relatedInfo.isEmpty()) relatedInfo = "--";
-        m_table->setItem(i, 4, new QTableWidgetItem(relatedInfo));
-
-        // 列5：借用人
-        QString borrower = alert["borrowerName"].toString();
-        if (borrower.isEmpty() || borrower == "--") borrower = "--";
-        auto* borrowerItem = new QTableWidgetItem(borrower);
-        borrowerItem->setForeground(QColor("#1890ff"));
-        QFont borrowerFont = borrowerItem->font();
-        borrowerFont.setBold(true);
-        borrowerItem->setFont(borrowerFont);
-        m_table->setItem(i, 5, borrowerItem);
-
-        // 列6：状态 新增状态列，放在借用人旁边
-        QString status = alert["status"].toString();
-        QString statusText, statusBg, statusColor;
-        if (status == SC::ALERT_UNHANDLED) {
-            statusText = QStringLiteral("未处理"); statusBg = "#fff1f0"; statusColor = "#cf1322";
-        } else if (status == SC::ALERT_HANDLED) {
-            statusText = QStringLiteral("已处理"); statusBg = "#f6ffed"; statusColor = "#389e0d";
-        } else if (status == SC::ALERT_IGNORED) {
-            statusText = QStringLiteral("已忽略"); statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
-        } else {
-            statusText = status.isEmpty() ? QStringLiteral("--") : status; statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
-        }
-        auto* statusItem = new QTableWidgetItem(statusText);
-        statusItem->setTextAlignment(Qt::AlignCenter);
-        QFont statusFont = statusItem->font();
-        statusFont.setBold(true);
-        statusItem->setFont(statusFont);
-        statusItem->setForeground(QColor(statusColor));
-        statusItem->setBackground(QColor(statusBg));
-        m_table->setItem(i, 6, statusItem);
-
-        // 列7：操作（只保留忽略和详情，去掉确认按钮）
-        int alertId = alert["alertId"].toInt();
-        auto* opWidget = new QWidget();
-        opWidget->setStyleSheet("background:transparent;");
-        auto* opLayout = new QHBoxLayout(opWidget);
-        opLayout->setContentsMargins(4, 4, 4, 4);
-        opLayout->setSpacing(6);
-
-        if (status == SC::ALERT_UNHANDLED) {
-            // 未处理告警：显示忽略按钮+详情按钮
-            // 忽略按钮仅管理员可见可操作，普通用户隐藏
-            if (isAdmin()) {
-                auto* ignoreBtn = new QPushButton(QStringLiteral("忽略"));
-                ignoreBtn->setFixedSize(60, 34);
-                ignoreBtn->setStyleSheet("QPushButton{background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;}QPushButton:hover{background:#c0392b;}QPushButton:pressed{background:#a93226;}");
-                ignoreBtn->setCursor(Qt::PointingHandCursor);
-                connect(ignoreBtn, &QPushButton::clicked, this, [this, alertId, i]
-                {
-                    m_table->selectRow(i);
-                    onIgnore(alertId);
-                });
-                opLayout->addWidget(ignoreBtn);
-            }
-        }
-        // 所有状态都显示详情按钮（含已忽略/已处理）
-        {
-            auto* detailBtn = new QPushButton(QStringLiteral("详情"));
-            detailBtn->setFixedSize(60, 34);
-            detailBtn->setStyleSheet("QPushButton{background:#8c8c8c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;}QPushButton:hover{background:#666666;}QPushButton:pressed{background:#4d4d4d;}");
-            detailBtn->setCursor(Qt::PointingHandCursor);
-            connect(detailBtn, &QPushButton::clicked, this, [this, alertId, i] { m_table->selectRow(i); onDetail(alertId); });
-            opLayout->addWidget(detailBtn);
-        }
-        opLayout->addStretch();
-        m_table->setCellWidget(i, 7, opWidget);
-        m_table->setRowHeight(i, 60);
+        m_table->setRowHeight(i, 52);
     }
 }
 
 /**
- * 更新统计卡片（从数据库查询全局统计数据，不受分页影响）
- * 统计受当前筛选条件（类型/级别/关键词）影响，但不限页码
+ * @brief 从数据库加载启用的告警类型，建立 类型编码→类型名 缓存
+ * @note 筛选选项的类别过滤与默认全选由 applyCategoryOptions() 负责，此处只建缓存
  */
-void AlertLogsPage::updateStatCards() {
-    QString dbType = buildDbTypeFilter();
-    QString levelText = m_levelFilter->selectedIndex() > 0 ? m_levelFilter->selectedText() : "";
-    QString keyword = m_keywordEdit->text().trimmed();
-
-    AlertService svc;
-    QJsonObject stats = svc.getAlertStats(dbType, levelText, keyword);
-
-    auto updateCardValue = [](QFrame* card, const QString& value) {
-        if (!card) return;
-        QLabel* vl = card->findChild<QLabel*>();
-        if (vl) vl->setText(value);
-    };
-    updateCardValue(m_totalCard, QString::number(stats["total"].toInt()));
-    updateCardValue(m_critCard,  QString::number(stats["crit"].toInt()));
-    updateCardValue(m_warnCard,  QString::number(stats["warn"].toInt()));
-    updateCardValue(m_infoCard,  QString::number(stats["info"].toInt()));
-    updateCardValue(m_resolvedCard, QString::number(stats["resolved"].toInt()));
-}
-
-// 从数据库加载告警类型列表，填充筛选下拉
 void AlertLogsPage::loadAlertTypes() {
     AlertService svc;
     QJsonArray types = svc.getAlertTypes();
@@ -332,369 +224,10 @@ void AlertLogsPage::loadAlertTypes() {
         return;
     }
     m_typeMap.clear();
-    m_typeLevelMap.clear();
-    QStringList typeNames;
     for (int i = 0; i < types.size(); ++i) {
         QJsonObject t = types[i].toObject();
-        QString code = t["typeCode"].toString();
-        QString name = t["typeName"].toString();
-        QString level = t["alertLevel"].toString();
-        m_typeMap[code] = name;
-        m_typeLevelMap[code] = level;
-        typeNames.append(name);
+        m_typeMap[t["typeCode"].toString()] = t["typeName"].toString();
     }
-    m_typeFilter->setOptions(typeNames);
-    m_typeFilter->selectAll();  // 默认全选
-    qInfo() << "[AlertLogsPage] loadAlertTypes done: typeNames=" << typeNames;
-}
-
-/**
- * @brief 处理确认
- */
-void AlertLogsPage::onAcknowledge(int alertId) {
-  // 通过AlertController替代直接调用db/AlertDAO
-    AlertController ctrl;
-    if (ctrl.markHandled(alertId, SC::ROLE_ADMIN)) {
-        loadAlerts();
-    } else {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("确认失败"));
-    }
-}
-
-/**
- * @brief 处理解决
- */
-void AlertLogsPage::onResolve(int alertId) {
-  // 通过AlertController替代直接调用db/AlertDAO
-    AlertController ctrl;
-    if (ctrl.markHandled(alertId, SC::ROLE_ADMIN)) {
-        MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("告警已处理"));
-        loadAlerts();
-    } else {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("处理失败"));
-    }
-}
-
-// 忽略告警：增加确认对话框，忽略后不可恢复
-void AlertLogsPage::onIgnore(int alertId) {
-    qWarning() << "[AlertLogsPage] onIgnore START: alertId=" << alertId;
-    if (alertId <= 0) {
-        qWarning() << "[AlertLogsPage] onIgnore: invalid alertId=" << alertId;
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("无效的告警ID"));
-        return;
-    }
-    bool confirmed = MessageDialog::showQuestion(this,
-        QStringLiteral("确认忽略"),
-        QStringLiteral("确定要忽略此告警吗？\n忽略后告警状态将变为「已忽略」，记录保留不删除。"));
-    if (!confirmed) {
-        qWarning() << "[AlertLogsPage] onIgnore: user cancelled";
-        return;
-    }
-
-    AlertController ctrl;
-    bool ok = ctrl.markIgnored(alertId, SC::ROLE_ADMIN);
-    qWarning() << "[AlertLogsPage] onIgnore RESULT: ok=" << ok << "alertId=" << alertId;
-    if (ok) {
-        MessageDialog::showSuccess(this, QStringLiteral("操作成功"), QStringLiteral("告警已忽略，状态已更新为「已忽略」"));
-        loadAlerts();  // 重新加载列表，已忽略告警仍显示但状态变为"已忽略"
-    } else {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("操作失败，请重试"));
-    }
-}
-
-/**
- * @brief 处理详情
- */
-void AlertLogsPage::onDetail(int alertId) {
-    AlertService svc;
-    QJsonObject detail = svc.getAlertDetail(alertId);
-    if (detail.isEmpty()) {
-        MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("无法获取告警详情，请稍后重试"));
-        return;
-    }
-    showAlertDetail(detail);
-}
-
-// 告警详情弹窗：显示完整告警信息及处理情况，设计美观、触屏友好
-// BaseDialog统一圆角无边框风格
-void AlertLogsPage::showAlertDetail(const QJsonObject& detail) {
-    auto* dlg = new BaseDialog(this, 560);
-    dlg->setDialogTitle(QStringLiteral("告警详情"));
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-    dlg->setMinimumHeight(480);
-
-    auto* cl = dlg->contentLayout();
-    cl->setSpacing(0);
-
-    // ═══════════════════════════════════════
-    // 标题栏：级别badge + 类型名
-    // ═══════════════════════════════════════
-    QString level = detail["alertLevel"].toString();
-    QString type = detail["alertType"].toString();
-    QString levelText, levelBg, levelColor;
-    if (level == "error" || level == "crit") {
-        levelText = QStringLiteral("严重告警"); levelBg = "#fff1f0"; levelColor = "#cf1322";
-    } else if (level == "warn") {
-        levelText = QStringLiteral("一般告警"); levelBg = "#fff7e6"; levelColor = "#d46b08";
-    } else {
-        levelText = QStringLiteral("提示告警"); levelBg = "#e6f0ff"; levelColor = "#096dd9";
-    }
-
-    auto* badgeRow = new QHBoxLayout();
-    auto* badge = new QLabel(QString("  %1  ").arg(levelText));
-    badge->setStyleSheet(QString(
-        "QLabel{background:%1;color:%2;font-size:15px;font-weight:700;"
-        "border-radius:10px;padding:6px 16px;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;}"
-    ).arg(levelBg, levelColor));
-    badgeRow->addWidget(badge);
-
-    auto* typeLabel = new QLabel(QString(" · %1").arg(type));
-    typeLabel->setStyleSheet("font-size:17px;font-weight:600;color:#333;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;");
-    badgeRow->addWidget(typeLabel);
-    badgeRow->addStretch();
-    cl->addLayout(badgeRow);
-
-    // 分割线
-    auto* divider = new QFrame();
-    divider->setStyleSheet("QFrame{background:#eee;min-height:1px;}");
-    divider->setFixedHeight(1);
-    cl->addWidget(divider);
-    cl->addSpacing(4);
-
-    // ═══════════════════════════════════════
-    // 滚动内容区域
-    // ═══════════════════════════════════════
-    auto* scrollArea = new QScrollArea();
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setStyleSheet("QScrollArea{border:none;background:transparent;}QScrollBar{width:6px;background:transparent;}QScrollBar::handle{background:#d0d0d0;border-radius:3px;}");
-
-    auto* contentWidget = new QWidget();
-    contentWidget->setStyleSheet("background:transparent;");
-    auto* contentLayout = new QVBoxLayout(contentWidget);
-    contentLayout->setContentsMargins(0, 8, 0, 12);
-    contentLayout->setSpacing(0);
-
-    // ── 告警基本信息区域 ──
-    auto* secLabel = new QLabel(QStringLiteral("告警信息"));
-    secLabel->setStyleSheet("font-size:16px;font-weight:700;color:#1a1a2e;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;margin-bottom:12px;");
-    contentLayout->addWidget(secLabel);
-    contentLayout->addSpacing(10);
-
-    auto* infoFrame = new QFrame();
-    infoFrame->setStyleSheet("QFrame{background:#fafbfc;border-radius:12px;}");
-    auto* infoGrid = new QGridLayout(infoFrame);
-    infoGrid->setContentsMargins(14, 14, 14, 14);
-    infoGrid->setSpacing(10);
-
-    auto addInfoRow = [](QGridLayout* grid, int row, const QString& label, const QString& value, const QString& valueColor = "#333") {
-        auto* lb = new QLabel(label);
-        lb->setStyleSheet("font-size:14px;color:#999;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;min-width:60px;");
-        lb->setFixedWidth(70);
-        grid->addWidget(lb, row, 0);
-        auto* vl = new QLabel(value.isEmpty() ? "--" : value);
-        vl->setWordWrap(true);
-        vl->setStyleSheet(QString("font-size:15px;color:%1;font-weight:500;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;").arg(valueColor));
-        grid->addWidget(vl, row, 1);
-    };
-
-    QString createdAt = detail["createdAt"].toString();
-    if (createdAt.length() > 19) createdAt = createdAt.left(19);
-    QString toolInfo = detail["toolName"].toString();
-    if (toolInfo == "--" || toolInfo.isEmpty()) toolInfo = QStringLiteral("未知工具");
-    QString toolCode = detail["toolCode"].toString();
-    if (!toolCode.isEmpty() && toolCode != "--")
-        toolInfo += QString(" (编号:%1)").arg(toolCode);
-    QString location = detail["cabinetName"].toString();
-    QString pos = detail["position"].toString();
-    if (!pos.isEmpty() && pos != "--")
-        location += QString(" · %1").arg(pos);
-
-    addInfoRow(infoGrid, 0, QStringLiteral("发生时间"), createdAt);
-    addInfoRow(infoGrid, 1, QStringLiteral("告警内容"), detail["content"].toString());
-    addInfoRow(infoGrid, 2, QStringLiteral("关联工具"), toolInfo);
-    addInfoRow(infoGrid, 3, QStringLiteral("存放位置"), location);
-    addInfoRow(infoGrid, 4, QStringLiteral("借用人"), detail["borrowerName"].toString(), "#1890ff");
-
-    contentLayout->addWidget(infoFrame);
-
-    // ── 处理情况区域（仅已处理或已忽略时显示）──
-    QString status = detail["status"].toString();
-    if (status == SC::ALERT_HANDLED || status == SC::ALERT_IGNORED) {
-        contentLayout->addSpacing(20);
-
-        auto* handleSecLabel = new QLabel(QStringLiteral("处理情况"));
-        handleSecLabel->setStyleSheet("font-size:16px;font-weight:700;color:#1a1a2e;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;margin-bottom:12px;");
-        contentLayout->addWidget(handleSecLabel);
-        contentLayout->addSpacing(10);
-
-        auto* handleFrame = new QFrame();
-        handleFrame->setStyleSheet("QFrame{background:#fafbfc;border-radius:12px;}");
-        auto* handleGrid = new QGridLayout(handleFrame);
-        handleGrid->setContentsMargins(14, 14, 14, 14);
-        handleGrid->setSpacing(10);
-
-        QString statusText, statusBg, statusColor;
-        if (status == SC::ALERT_HANDLED) {
-            statusText = QStringLiteral("已处理"); statusBg = "#f6ffed"; statusColor = "#389e0d";
-        } else {
-            statusText = QStringLiteral("已忽略"); statusBg = "#f5f5f5"; statusColor = "#8c8c8c";
-        }
-        auto* statusBadgeWidget = new QWidget();
-        auto* statusBadgeLayout = new QHBoxLayout(statusBadgeWidget);
-        statusBadgeLayout->setContentsMargins(0, 0, 0, 0);
-        auto* statusBadge = new QLabel(QString(" %1 ").arg(statusText));
-        statusBadge->setStyleSheet(QString(
-            "QLabel{background:%1;color:%2;font-size:14px;font-weight:700;"
-            "border-radius:8px;padding:4px 14px;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;}"
-        ).arg(statusBg, statusColor));
-        statusBadgeLayout->addWidget(statusBadge);
-        statusBadgeLayout->addStretch();
-
-        {
-            auto* lb0 = new QLabel(QStringLiteral("处理状态"));
-            lb0->setStyleSheet("font-size:14px;color:#999;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;min-width:60px;");
-            lb0->setFixedWidth(70);
-            handleGrid->addWidget(lb0, 0, 0);
-            handleGrid->addWidget(statusBadgeWidget, 0, 1);
-        }
-
-        QString handledAt = detail["handledAt"].toString();
-        if (handledAt.length() > 19) handledAt = handledAt.left(19);
-        addInfoRow(handleGrid, 1, QStringLiteral("处理人"), detail["handlerName"].toString(), "#722ed1");
-        addInfoRow(handleGrid, 2, QStringLiteral("处理时间"), handledAt);
-        QString remark = detail["remark"].toString();
-        if (!remark.isEmpty() && remark != "--")
-            addInfoRow(handleGrid, 3, QStringLiteral("处理备注"), remark, "#666");
-        else
-            addInfoRow(handleGrid, 3, QStringLiteral("处理备注"), QStringLiteral("无"), "#999");
-
-        contentLayout->addWidget(handleFrame);
-    }
-
-    contentLayout->addStretch();
-    scrollArea->setWidget(contentWidget);
-    cl->addWidget(scrollArea, 1);
-
-    // 关闭按钮
-    auto* closeBtn = new QPushButton(QStringLiteral("关闭"));
-    closeBtn->setFixedSize(100, 44);
-    closeBtn->setStyleSheet(
-        "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:16px;font-weight:700;font-family:\"Microsoft YaHei\",\"PingFang SC\",sans-serif;}"
-        "QPushButton:hover{background:#3d8ae0;}"
-    );
-    closeBtn->setCursor(Qt::PointingHandCursor);
-    connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::close);
-
-    auto* btnLayout = dlg->buttonLayout();
-    btnLayout->addStretch();
-    btnLayout->addWidget(closeBtn);
-    btnLayout->addStretch();
-
-    dlg->exec();
-}
-
-// ==================== 辅助函数 ====================
-
-/**
- * 创建统计卡片（匹配Web版样式）
- */
-QFrame* AlertLogsPage::createStatCard(const QString& label, const QString& value, const QString& color) {
-    // 对齐ToolManagementPage统计卡片样式：font-size 32px，高度固定100px
-    //   告警统计卡片与工具管理页面统一视觉风格
-    auto* card = new QFrame();
-    card->setFixedHeight(100);
-    card->setStyleSheet(QString(
-        "QFrame{ background:white; border-radius:14px; }"
-    ));
-
-    auto* layout = new QVBoxLayout(card);
-    layout->setContentsMargins(0, 14, 0, 14);
-    layout->setSpacing(4);
-
-    auto* valueLabel = new QLabel(value);
-    valueLabel->setStyleSheet(QString("font-size:32px;font-weight:700;line-height:1;color:%1;background:transparent;").arg(color));
-    valueLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(valueLabel);
-
-    auto* labelLabel = new QLabel(label);
-    labelLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
-    labelLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(labelLabel);
-
-    return card;
-}
-
-/**
- * 根据当前用户角色应用权限控制
- */
-void AlertLogsPage::applyAdminPermission() {
-    // 当前无角色差异控制项；保留接口供后续权限扩展
-}
-
-/**
- * 导出告警日志到桌面log文件夹(CSV格式)
- */
-void AlertLogsPage::onExportLogs() {
-    // 获取桌面路径，创建log子目录
-    QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-    QString logDir = desktopPath + "/log";
-    QDir dir(logDir);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-
-    int rowCount = m_table->rowCount();
-    if (rowCount == 0) {
-        MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("当前没有告警数据可导出"));
-        return;
-    }
-
-    // 生成带时间戳的文件名
-    QString filePath = logDir + "/alert_logs_" +
-        QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".csv";
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        MessageDialog::showError(this, QStringLiteral("导出失败"),
-            QStringLiteral("无法创建文件: %1").arg(filePath));
-        return;
-    }
-
-    QTextStream stream(&file);
-    // Qt6默认UTF-8，写BOM头确保Excel正确识别中文
-    stream << "\xEF\xBB\xBF";
-
-    // 表头：时间,级别,告警类型,告警内容,关联信息,借用人,状态
-    stream << QStringLiteral("时间,级别,告警类型,告警内容,关联信息,借用人,状态\n");
-
-    // 逐行写数据
-    for (int i = 0; i < rowCount; ++i) {
-        auto cell = [&](int col) {
-            QTableWidgetItem* it = m_table->item(i, col);
-            QString text = it ? it->text() : "";
-            // 字段内容含逗号时用引号包裹
-            if (text.contains(",") || text.contains("\"")) {
-                text.replace("\"", "\"\"");
-                text = "\"" + text + "\"";
-            }
-            return text;
-        };
-
-        stream << cell(0) << ","   // 时间
-               << cell(1) << ","   // 级别
-               << cell(2) << ","   // 告警类型
-               << cell(3) << ","   // 告警内容
-               << cell(4) << ","   // 关联信息
-               << cell(5) << ","   // 借用人
-               << cell(6) << "\n"; // 状态
-        // 列7为操作按钮，不导出
-    }
-
-    file.close();
-
-    MessageDialog::showSuccess(this, QStringLiteral("导出成功"),
-        QStringLiteral("已导出 %1 条告警记录\n文件位置: %2").arg(rowCount).arg(filePath));
 }
 
 // 搜索框点击弹出软键盘

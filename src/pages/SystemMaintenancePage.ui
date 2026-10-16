@@ -86,7 +86,7 @@
          <number>2</number>
         </property>
        </widget>
-      </item>
+       </item>
       <item>
        <spacer name="tabSpacer">
         <property name="orientation">

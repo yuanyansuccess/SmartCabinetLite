@@ -3,5 +3,6 @@
         <file alias="style/global.qss">../styles/global.qss</file>
         <file alias="resources/logo.png">logo.png</file>
         <file alias="resources/icon.png">icon.png</file>
+        <file alias="resources/manual.html">manual.html</file>
     </qresource>
 </RCC>
