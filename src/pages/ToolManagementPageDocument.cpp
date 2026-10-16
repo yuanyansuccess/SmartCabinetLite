@@ -17,6 +17,7 @@
 #include "components/BaseDialog.h"     // 统一圆角对话框
 #include "common/AppConfig.h"          // 读取本机机组ID
 #include "common/Constants.h"          // 识别方式常量
+#include "common/DiskSpaceGuard.h"     // 写入前磁盘容量保护
 #include "db/RecordDAO.h"              // 查询工具的借用记录
 #include <QApplication>                // 屏幕高度自适应
 #include <QVBoxLayout>
@@ -249,6 +250,14 @@ bool ToolManagementPage::onUploadDocument(int toolId) {
     QString docDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                      + "/tool_documents";
     QDir().mkpath(docDir);
+
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的工具文档，用户无感知
+    // 命名规则：14位时间戳_原文件名，通配符 ? 精确匹配时间戳位数，避免误删其他文件
+    DiskGuard::ensureFreePercent(docDir, {
+        QStringLiteral("??????????????_*.doc"),
+        QStringLiteral("??????????????_*.docx"),
+        QStringLiteral("??????????????_*.pdf"),
+    });
 
     // 生成唯一文件名：时间戳_原文件名，避免冲突
     QString destName = QString("%1_%2").arg(

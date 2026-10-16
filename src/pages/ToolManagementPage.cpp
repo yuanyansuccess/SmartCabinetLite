@@ -302,7 +302,7 @@ void ToolManagementPage::loadTools() {
             statusText = QStringLiteral("维护中");
             statusColor = "#999999";
         } else if (t.status == SC::TOOL_PENDING) {               // 新增待入库状态
-            statusText = QStringLiteral("待入库");          // 系统维护新建工具未入库
+            statusText = QStringLiteral("待入库");          // 配置层已建、尚未物理入库
             statusColor = "#1890ff";
         } else {
             statusText = t.status;

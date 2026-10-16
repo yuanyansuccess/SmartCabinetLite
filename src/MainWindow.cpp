@@ -17,13 +17,13 @@
 #include "pages/AlertLogsPage.h"
 #include "pages/HelpManualDialog.h"  // 顶栏"帮助"按钮的全屏操作手册
 #include "pages/SystemSettingsPage.h"
-#include "pages/SystemMaintenancePage.h"  // 系统维护页面
 #include "pages/CabinetSessionDialog.h"  // 普通用户智能柜会话（开柜提示+关柜清单）
 #include "pages/ForceChangePasswordDialog.h"  // 首次登录强制修改初始密码
 #include "pages/RoleSelectDialog.h"  // 管理用户登录身份选择
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"  // 读取锁屏时间/备份配置
 #include "common/DatabaseManager.h"  // 备份检查
+#include "common/DiskSpaceGuard.h"  // 备份前磁盘容量保护
 #include "db/RecordDAO.h"  // 普通用户查询借用明细与操作日志（读直调DAO）
 #include <QScrollArea>
 #include <QFont>
@@ -61,9 +61,8 @@ static const QVector<PageDef>& pageRegistry() {
         {"ledger",      7,  QStringLiteral("导入导出")},
         {"alerts_sys",  8,  QStringLiteral("系统告警")},   // 与操作告警共用 AlertLogsPage，索引相同
         {"alerts_op",   8,  QStringLiteral("操作告警")},
-        {SC::TOOL_MAINTENANCE, 9, QStringLiteral("系统维护")},
-        {"settings",    10, QStringLiteral("系统设置")},
-        {"home",        11, QStringLiteral("功能主页")},
+        {"settings",    9,  QStringLiteral("系统设置")},
+        {"home",        10, QStringLiteral("功能主页")},
     };
     return reg;
 }
@@ -80,7 +79,6 @@ static const QVector<MenuEntry>& adminMenuEntries() {
         {"ledger",   QStringLiteral("📂"),  QStringLiteral("导入导出")},
         {"alerts_sys", QStringLiteral("🚨"), QStringLiteral("系统告警")},
         {"alerts_op",  QStringLiteral("📝"), QStringLiteral("操作告警")},
-        {SC::TOOL_MAINTENANCE, QStringLiteral("🛠️"), QStringLiteral("系统维护")},
         {"settings", QStringLiteral("⚙️"),  QStringLiteral("系统设置")},
     };
     return entries;
@@ -152,10 +150,9 @@ void MainWindow::setupUI() {
     m_ledgerPage    = new LedgerStatsPage();
     m_alertsPage    = new AlertLogsPage();
     m_settingsPage  = new SystemSettingsPage();
-    m_maintenancePage = new SystemMaintenancePage();  // 系统维护
 
     // 移除人脸录入独立页面，人脸录入功能已集成到人员管理页
-    // 索引：0:登录 1:用户管理 2:工具管理 3:借用 4:归还 5:入库 6:出库 7:台账 8:告警 9:系统维护 10:设置 11:功能主页
+    // 索引：0:登录 1:用户管理 2:工具管理 3:借用 4:归还 5:入库 6:出库 7:台账 8:告警 9:设置 10:功能主页
     m_stack->addWidget(m_loginPage);
     m_stack->addWidget(m_userMgmtPage);
     m_stack->addWidget(m_toolMgmtPage);
@@ -165,9 +162,8 @@ void MainWindow::setupUI() {
     m_stack->addWidget(m_checkoutPage);
     m_stack->addWidget(m_ledgerPage);
     m_stack->addWidget(m_alertsPage);
-    m_stack->addWidget(m_maintenancePage);  // 系统维护(索引9)
-    m_stack->addWidget(m_settingsPage);     // 系统设置(索引10)
-    m_stack->addWidget(m_menuHomePage);     // 功能导航主页(索引11)
+    m_stack->addWidget(m_settingsPage);     // 系统设置(索引9)
+    m_stack->addWidget(m_menuHomePage);     // 功能导航主页(索引10)
 
     // 流程过渡遮罩页：登录后强制改密/身份选择等弹窗期间主界面停在本页，
     // 避免弹窗间隙露出背后的登录页（闪现按键页面问题）
@@ -328,7 +324,6 @@ void MainWindow::showPage(const QString& name) {
     }
 
     // 去掉"同页面不刷新"限制，菜单点击时即使同页面也强制refresh
-    // 反馈：系统维护页面切换时不刷新，根因是索引相同直接return
     // 举一反三：所有页面都需要在菜单切换时刷新数据（可能后台数据已变化）
     bool isSamePage = (idx == m_stack->currentIndex());
 
@@ -348,7 +343,6 @@ void MainWindow::showPage(const QString& name) {
                                       : AlertLogsPage::Category::Operation);
             m_alertsPage->refresh();
         }
-        else if (n == SC::TOOL_MAINTENANCE && m_maintenancePage) m_maintenancePage->refresh();
         else if (n == "settings" && m_settingsPage)    m_settingsPage->refresh();
         else if (n == "home")                          refreshMenuCards();
         else qWarning() << "[MainWindow] Unknown page name for refresh:" << n;
@@ -426,7 +420,7 @@ void MainWindow::updateSidebarVisibility() {
         if (canUseAdminPages) {
             show = (id == "tools" || id == "alerts_sys" || id == "alerts_op")
                 || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
-                     || id == SC::TOOL_MAINTENANCE || id == "settings");  // 管理侧可见系统维护
+                     || id == "settings");
         } else {
   // 普通用户仅开放 工具管理
             show = (id == "tools");
@@ -904,6 +898,9 @@ void MainWindow::onBackupCheckTimeout() {
             return;
         }
     }
+
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的备份文件，用户无感知
+    DiskGuard::ensureFreePercent(backupPath, { QStringLiteral("smartcabinet_backup_*.sql") });
 
     // 本工程为纯 MySQL 架构（SQLite 已彻底移除，无回退），备份统一走 mysqldump 导出。
     QString backupFile = backupPath + QDir::separator() +

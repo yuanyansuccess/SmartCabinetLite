@@ -59,7 +59,7 @@ void SystemSettingsPage::setupUI() {
     auto* titleBar = new QHBoxLayout();
     titleBar->setContentsMargins(0, 0, 0, 0);
     titleBar->setSpacing(12);
-    auto* title = new QLabel(QStringLiteral("系统参数配置"));
+    auto* title = new QLabel(QStringLiteral("系统设置"));
     title->setStyleSheet("font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;");  // 20对齐
     titleBar->addWidget(title);
     titleBar->addStretch();
@@ -89,8 +89,8 @@ void SystemSettingsPage::setupUI() {
     tabBar->setContentsMargins(5, 5, 5, 5);
 
     QStringList tabLabels = {QStringLiteral("网络配置"), QStringLiteral("告警参数"),
-                            QStringLiteral("借还设置"), QStringLiteral("备份管理")};
-    // 任务配置已迁移到系统维护页面
+                            QStringLiteral("借还设置"), QStringLiteral("任务配置"),
+                            QStringLiteral("备份管理")};
     m_tabLabels.clear();
     for (int i = 0; i < tabLabels.size(); ++i) {
         auto* tab = new QLabel(tabLabels[i]);
@@ -110,12 +110,14 @@ void SystemSettingsPage::setupUI() {
     m_activeTabIndex = 0;
     updateTabStyles();
 
-    // QStackedWidget切换，去掉滚动（对齐系统维护页面）
+    // QStackedWidget切换，去掉滚动
     // 备份面板内容多，单独包QScrollArea避免字体压扁
     m_stackedWidget = new QStackedWidget();
     m_stackedWidget->addWidget(m_networkPanel = createNetworkPanel());
     m_stackedWidget->addWidget(m_alertPanel = createAlertPanel());
     m_stackedWidget->addWidget(m_borrowPanel = createBorrowPanel());
+    // 任务配置面板：数据来自数据库，面板构造时立即加载
+    m_stackedWidget->addWidget(createTaskConfigPanel());
     // 备份面板内容多，用QScrollArea包裹
     auto* backupScroll = new QScrollArea();
     backupScroll->setWidgetResizable(true);
@@ -328,7 +330,12 @@ QWidget* SystemSettingsPage::createAlertPanel() {
 }
 
 void SystemSettingsPage::refresh() {
-    // 备份面板为纯表单配置项，无进入页面时需要动态刷新的数据
+    // 任务配置面板数据来自数据库：进入页面时刷新任务类型与工具清单，
+    // 保证其他入口（如借用页推荐）改动后本页看到的是最新配置
+    loadTaskTypes();
+    if (m_taskTypeCombo && m_taskTypeCombo->count() > 0) {
+        loadTaskTools(m_taskTypeCombo->currentData().toInt());
+    }
 }
 
 /**

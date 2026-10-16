@@ -18,6 +18,7 @@
 #include <QVariantMap>
 #include "components/MessageDialog.h"
 #include "common/Constants.h"  // SC::ALERT_*_TYPES 告警类别与分页常量
+#include "common/DiskSpaceGuard.h"  // 导出前磁盘容量保护
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
@@ -156,6 +157,10 @@ void LedgerStatsPage::onExportLedger() {
     }
 
     QString desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的台账导出文件，用户无感知
+    DiskGuard::ensureFreePercent(desktopPath, { QStringLiteral("台账导出_*.csv") });
+
     QString fileName = QStringLiteral("台账导出_%1.csv")
         .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     QString filePath = QDir(desktopPath).filePath(fileName);
@@ -266,6 +271,9 @@ void LedgerStatsPage::exportAlertsToCsv(const QString& dbType, const QString& fi
     // 保存到桌面log文件夹（不存在则创建）
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/log";
     if (!QDir(logDir).exists()) QDir().mkpath(logDir);
+
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的导出文件，用户无感知
+    DiskGuard::ensureFreePercent(logDir, { QStringLiteral("alert_logs_*.csv") });
 
     QString filePath = logDir + "/" + filePrefix + "_" +
         QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".csv";

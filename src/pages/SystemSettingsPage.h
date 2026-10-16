@@ -20,6 +20,7 @@
 #include <functional>  // 备份完成回调（std::function）
 
 class QVBoxLayout;
+class QTableWidget;
 
 #include <QList>
 #include <QScrollArea>
@@ -60,6 +61,15 @@ private:
     void buildBackupForm(QVBoxLayout* layout);
     void buildBackupSaveBar(QVBoxLayout* layout);
 
+    // ── 任务配置面板（任务类型与工具推荐数量配置）──
+    QWidget* createTaskConfigPanel();  ///< 构建面板：任务类型下拉+工具表格+保存栏
+    void loadTaskTypes();              ///< 加载任务类型下拉选项
+    void loadTaskTools(int typeId);    ///< 加载指定任务类型已配置的工具清单
+    void saveTaskToolConfig();         ///< 将表格中各工具的推荐数量写回数据库
+    void onAddTaskTool();              ///< 新增任务工具（弹窗：工具类型/工具/推荐数量）
+    void onEditTaskTool(int row);      ///< 修改任务工具推荐数量
+    void onDeleteTaskTool(int row);    ///< 从当前任务类型中移除指定工具
+
     // 调用系统API设置显示器亮度(0-100)，异步执行不阻塞UI
     void applyDisplayBrightness(int percent);
     /** 亮度调整平台分支与日志（applyDisplayBrightness拆解） */
@@ -90,7 +100,12 @@ private:
     QWidget* m_alertPanel = nullptr;
     QWidget* m_borrowPanel = nullptr;
     QWidget* m_backupPanel = nullptr;
-    // 任务配置面板已迁移到SystemMaintenancePage
+
+    // 任务配置面板控件
+    QComboBox* m_taskTypeCombo = nullptr;    ///< 任务类型下拉
+    QTableWidget* m_taskToolTable = nullptr; ///< 任务类型已配置工具表格
+    QPushButton* m_addTaskToolBtn = nullptr; ///< "新增任务工具"按钮
+    QPushButton* m_taskSaveBtn = nullptr;    ///< "保存配置"按钮
 
     // 顶部工具栏按钮
     QPushButton* m_saveAllBtn = nullptr;

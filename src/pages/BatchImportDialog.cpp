@@ -11,6 +11,7 @@
 #include "db/UserDAO.h"
 #include "common/DatabaseManager.h"
 #include "common/Constants.h"
+#include "common/DiskSpaceGuard.h"  // 模板下载前磁盘容量保护
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -291,6 +292,9 @@ void BatchImportDialog::onDownloadTemplate()
  */
 bool BatchImportDialog::generateTemplate(const QString& filePath)
 {
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的导入模板文件，用户无感知
+    DiskGuard::ensureFreePercentForFile(filePath, { QStringLiteral("用户导入模板*.csv") });
+
     QFile file(filePath);
     // 直接以 UTF-8 字节流写入：QTextStream 在中文 Windows 默认 GBK，会产生非 UTF-8 文件
     if (!file.open(QIODevice::WriteOnly)) {

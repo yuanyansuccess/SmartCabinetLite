@@ -250,6 +250,3 @@ void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 }
-
-// createTaskTypePanel已迁移到SystemMaintenancePage
-

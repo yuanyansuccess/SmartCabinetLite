@@ -27,7 +27,6 @@ class ToolCheckoutPage;
 class LedgerStatsPage;
 class AlertLogsPage;
 class SystemSettingsPage;
-class SystemMaintenancePage;  // 系统维护页面
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -104,7 +103,6 @@ private:
     LedgerStatsPage* m_ledgerPage;
     AlertLogsPage* m_alertsPage;
     SystemSettingsPage* m_settingsPage;
-    SystemMaintenancePage* m_maintenancePage = nullptr;  // 系统维护页面
 
     // 自动锁屏定时器（空闲超时自动退出登录）
     QTimer* m_idleTimer = nullptr;

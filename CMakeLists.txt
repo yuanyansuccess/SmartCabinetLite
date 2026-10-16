@@ -93,6 +93,7 @@ endif()
 set(COMMON_SOURCES
     src/common/AppConfig.cpp
     src/common/DatabaseManager.cpp
+    src/common/DiskSpaceGuard.cpp
     src/common/Logger.cpp
 )
 
@@ -155,7 +156,6 @@ set(PAGE_UIS
     src/pages/LedgerStatsPage.ui
     src/pages/AlertLogsPage.ui
     src/pages/ToolReturnPage.ui
-    src/pages/SystemMaintenancePage.ui
     src/pages/ToolCheckoutPage.ui
     src/pages/ToolCheckinPage.ui
     src/pages/ToolManagementPage.ui
@@ -195,7 +195,7 @@ set(PAGE_SOURCES
     src/pages/SystemSettingsPageNetwork.cpp
     src/pages/SystemSettingsPageDisplay.cpp
     src/pages/SystemSettingsPageBackup.cpp
-    src/pages/SystemMaintenancePage.cpp
+    src/pages/SystemSettingsPageTaskConfig.cpp
 )
 
 # 工具类 (版本B)
@@ -261,6 +261,7 @@ set(ALL_HEADERS
     src/common/AppConfig.h
     src/common/DatabaseManager.h
     src/common/Constants.h
+    src/common/DiskSpaceGuard.h
     src/common/PositionFormatter.h
     src/common/UserInputValidator.h
     # Model (共享)
@@ -312,7 +313,6 @@ set(ALL_HEADERS
     src/pages/AlertLogsPage.h
     src/pages/HelpManualDialog.h
     src/pages/SystemSettingsPage.h
-    src/pages/SystemMaintenancePage.h
     # Utils (版本B)
     src/utils/StyleHelper.h
     # Components (版本A)

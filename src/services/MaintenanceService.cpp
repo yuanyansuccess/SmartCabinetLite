@@ -1,6 +1,6 @@
 /**
  * @file MaintenanceService.cpp
- * @brief 系统维护域服务实现
+ * @brief 维护域服务实现
  * @author 袁燕
  */
 #include "MaintenanceService.h"

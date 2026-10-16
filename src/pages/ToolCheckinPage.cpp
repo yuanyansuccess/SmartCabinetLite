@@ -281,7 +281,7 @@ void ToolCheckinPage::onSubmit() {
     // 入库支持多位置：取前N个空闲位置（N=用户选择的入库数量）
     if (m_availablePositions.isEmpty()) {
         MessageDialog::showWarning(this, QStringLiteral("无法入库"),
-            QStringLiteral("该工具在对照关系表中没有空闲位置可供入库。\n请先在「系统维护→工具对照关系」中配置位置。"));
+            QStringLiteral("该工具在对照关系表中没有空闲位置可供入库。\n请联系管理员配置货位后重试。"));
         return;
     }
 

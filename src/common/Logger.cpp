@@ -5,6 +5,8 @@
  */
 #include "Logger.h"
 
+#include "DiskSpaceGuard.h"  // 写日志前的磁盘容量保护
+
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -85,6 +87,10 @@ QString ensureDir() {
 }
 
 void writeLine(const QString& line) {
+    // 磁盘容量保护：日志目录所在磁盘可用比例不足时，先静默清理旧日志再写，
+    // 防止长期运行把磁盘写满（用户无感知）
+    DiskGuard::ensureFreePercentForFile(ensureDir() + QStringLiteral("/app.log"),
+                                        { QStringLiteral("*.log") });
     const QString path = ensureDir() + QStringLiteral("/app_")
         + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd"))
         + QStringLiteral(".log");
@@ -166,6 +172,10 @@ QString logDirectory() { return ensureDir(); }
 
 void appendLog(const QString& filePath, const QString& message) {
     if (filePath.isEmpty()) return;
+
+    // 磁盘容量保护：独立日志文件（backup.log/brightness.log 等）与每日日志同一目录，
+    // 写盘前先静默清理旧日志，用户无感知
+    DiskGuard::ensureFreePercentForFile(filePath, { QStringLiteral("*.log") });
 
     QMutexLocker lock(&g_mutex);
 

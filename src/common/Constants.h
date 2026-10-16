@@ -108,23 +108,20 @@ const int     TOOL_DOC_MAX_SIZE_MB = 50;  // 文档最大50MB
 // 支持的文档格式（小写比较）
 const QStringList TOOL_DOC_SUFFIXES = { "doc", "docx", "pdf" };
 
-// ── 柜体物理规格（层号/位号上限，SystemMaintenancePage 位置下拉用）──
-const int MAX_CABINET_LAYERS    = 12;  // 工具柜最大层数
-const int MAX_CABINET_POSITIONS = 15;  // 每层最大位数
-
 // 告警类型编码（sys_alert_type.type_code）：写告警时经 AlertDAO::findTypeIdByCode 查回 type_id
 const QString ALERT_TYPE_LOGIN_FAIL = "login_fail";  // 登录失败（密码连续错误触发整机锁定）
 
 // ── 告警大类（告警日志页两个入口共用同一页面，按类型编码集合区分显示范围）──
-// 系统告警：设备与系统状态类；操作告警：用户操作行为类。
+// 系统告警：设备与系统状态类；操作告警：用户操作行为类（错放/未授权/登录失败等）。
 // 逾期未还(overdue)本期不展示，不入任何一类（数据库中该类型已停用）。
+// 类型编码须与 sys_alert_type.type_code 一致：货架错放库中编码为 rack_mismatch。
 const QStringList ALERT_SYSTEM_TYPES = {
-    "mismatch", "missing", "offline", "low_stock", "system", "power",
-    "network_error", "door_open", "stranger", "track_mismatch",
+    "missing", "offline", "low_stock", "system", "power",
+    "network_error", "door_open", "stranger",
     "temp_high", "power_low", "sensor_fail", "hw_comm", "hw_fault"
 };
 const QStringList ALERT_OPERATION_TYPES = {
-    "login_fail", "unauthorized"
+    "login_fail", "unauthorized", "mismatch", "rack_mismatch"
 };
 
 /// 告警级别显示值→库值 单一映射（历史上 SettingService 与 AlertDAO 各硬编码一份）
@@ -233,4 +230,13 @@ const bool    BACKUP_AUTO_ENABLED = true;
 const int     BACKUP_PERIOD       = 0;   // 0=每日
 const int     BACKUP_CACHE_HOURS  = 4;
 const QString BACKUP_PATH         = "/mnt/backup";
+
+// ── 磁盘容量保护（导出/备份/日志/文档写入前自动清理，用户无感知，见 DiskSpaceGuard） ──
+// 磁盘可用比例低于该百分比时，先清理目标目录下最旧的文件再执行写操作
+const int DISK_MIN_FREE_PERCENT = 30;
+// 每次清理至少保留的最新文件个数，防止把目录清空（备份目录尤其需要保底）
+const int DISK_KEEP_NEWEST_FILES = 3;
+// 同一目录两次清理的最小间隔(毫秒)：清理后仍不达标的目录，间隔内直接放行不再扫描，
+// 避免日志高频写入时每行都做目录枚举
+const int DISK_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 } // namespace SC

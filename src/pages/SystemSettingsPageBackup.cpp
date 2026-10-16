@@ -16,6 +16,7 @@
 #include "services/AuthService.h"
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
+#include "common/DiskSpaceGuard.h"  // 导出前磁盘容量保护
 #include "common/DatabaseManager.h"     // DB写入机组配置
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -88,6 +89,17 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
         qWarning() << "[Backup] Cannot create backup dir:" << backupPath;
         if (onFinished) onFinished(false, QString());
         return;
+    }
+
+    // 磁盘容量保护：可用比例不足时先静默清理最旧的备份文件，用户无感知
+    DiskGuard::CleanupResult diskGuard = DiskGuard::ensureFreePercent(
+        backupPath, { QStringLiteral("smartcabinet_backup_*.sql") });
+    if (diskGuard.deletedFiles > 0) {
+        writeBackupLog(QStringLiteral("DISK_GUARD"), QStringLiteral("OK"),
+                       QStringLiteral("deleted=%1 freedKB=%2 freePercent=%3")
+                           .arg(diskGuard.deletedFiles)
+                           .arg(diskGuard.freedBytes / 1024)
+                           .arg(diskGuard.freePercent));
     }
 
     // 备份文件命名：smartcabinet_backup_YYYYMMDD_HHMMSS.sql
