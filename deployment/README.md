@@ -65,6 +65,8 @@ apt-get install -y libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 
 
 编译脚本会自动把它复制到部署包的 `bin/tools/face-recognition/`。**离线交付时这个目录必须一并带上**，否则刷脸登录、人脸录入不可用。
 
+> 注意：`node_modules/`（约 292MB 运行依赖）不纳入 git 版本控制；`models/` 自 2026-10-16 起已纳入 git。因此从 git 克隆的纯净仓库里 `tools/face-recognition` 只有源码、缺 `node_modules`。补齐方式见《新人维护与麒麟部署手册》第 9.4.1 / 9.2.1 节：联网机器在该目录下执行 `npm install` 再 `node prune-node-modules.js`；离线 / 柜机则整体拷贝一台已部署机器上的 `tools/face-recognition` 目录最稳妥。
+
 ### 依赖瘦身（打包时自动执行）
 
 `node_modules` 原始体积约 292MB，其中 sourcemap、演示页、构建缓存等非运行期文件占约 195MB。
