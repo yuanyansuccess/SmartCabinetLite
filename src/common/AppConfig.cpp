@@ -59,6 +59,16 @@ AppConfig::~AppConfig() { delete m_settings; }
          */
 QString AppConfig::iniFilePath() const { return m_iniPath; }
 
+qreal AppConfig::uiScale() const {
+    QMutexLocker l(&m_mutex);
+    return m_settings->value("UI/uiScale", 0).toDouble();   // 0=自动识别
+}
+
+void AppConfig::setUiScale(qreal v) {
+    QMutexLocker l(&m_mutex);
+    m_settings->setValue("UI/uiScale", v);
+}
+
 // 首次运行时创建默认INI文件（与执行文件同级）
 // 写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
 // [Qt6兼容] QTextStream::setCodec已移除，QFile::write直接写UTF-8字节流

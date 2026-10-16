@@ -198,6 +198,7 @@ set(PAGE_SOURCES
 # 工具类 (版本B)
 set(UTILS_SOURCES
     src/utils/StyleHelper.cpp
+    src/utils/DeviceProfile.cpp
 )
 
 # 组件层 (版本A的触屏组件)
@@ -311,6 +312,7 @@ set(ALL_HEADERS
     src/pages/SystemSettingsPage.h
     # Utils (版本B)
     src/utils/StyleHelper.h
+    src/utils/DeviceProfile.h
     # Components (版本A)
     src/components/SoftKeyboard.h
     src/components/NumKeypad.h        # [2026-06-26] 独立数字软键盘

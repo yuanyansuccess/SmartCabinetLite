@@ -95,8 +95,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     , m_alertsPage(nullptr), m_settingsPage(nullptr)
 {
     setWindowTitle(QStringLiteral("智能工具柜管理系统"));
-    resize(1280, 800);
-    setMinimumSize(1024, 680);
+    resize(1024, 768);            // 设计基准分辨率（8 寸 1024x768 工控屏）
+    setMinimumSize(640, 480);
     setupUI();
     m_stack->setCurrentIndex(0); // 登录页为首页
     updateSidebarVisibility();

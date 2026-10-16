@@ -18,6 +18,7 @@ SOURCES += \
     src/main.cpp \
     src/MainWindow.cpp \
     src/utils/StyleHelper.cpp \
+    src/utils/DeviceProfile.cpp \
     src/components/FaceCameraWidget.cpp \
     src/components/SoftKeyboard.cpp \
     src/components/CameraCapture.cpp \
@@ -49,6 +50,7 @@ SOURCES += \
 HEADERS += \
     src/MainWindow.h \
     src/utils/StyleHelper.h \
+    src/utils/DeviceProfile.h \
     src/components/FaceCameraWidget.h \
     src/components/CameraCapture.h \
     src/components/SoftKeyboard.h \

@@ -14,9 +14,15 @@
 #include "common/Logger.h"
 #include "components/DeepFaceExtractor.h"
 #include "comm/EdgeService.h"
+#include "utils/DeviceProfile.h"
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
+    // ── 全局 UI 等比缩放（必须在 QApplication 构造之前设置）──
+    // 以 1024x768 为设计基准，按主屏逻辑分辨率自动等比缩放；
+    // 支持 system.ini [UI] uiScale 手动覆盖。设备识别详情见 logDeviceInfo()。
+    DeviceProfile::applyScale(argc, argv);
+
     QApplication app(argc, argv);
 
     // 应用标识必须先设置：Log::install() 内部按 org/app 拼日志目录，
@@ -105,6 +111,7 @@ int main(int argc, char* argv[]) {
     // ── 主窗口 ──
     // 触屏智能柜系统强制全屏模式运行
     MainWindow w;
+    DeviceProfile::logDeviceInfo();   // 主屏已就绪，打印设备识别与缩放信息
     w.showFullScreen();
 
     return app.exec();

@@ -108,6 +108,13 @@ public:
     void    setBackupPath(const QString& v);
 
     // ═══════════════════════════════════════════════
+    // UI 缩放配置（UI节）：>0 时覆盖自动设备识别的等比缩放
+    // 与 DeviceProfile 共用 [UI] uiScale 同一键，语义一致
+    // ═══════════════════════════════════════════════
+    qreal uiScale() const;        // 0=自动识别
+    void  setUiScale(qreal v);
+
+    // ═══════════════════════════════════════════════
     // 通用读写 + 持久化
     // ═══════════════════════════════════════════════
     QString value(const QString& key, const QString& defaultValue = "") const;
