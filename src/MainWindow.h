@@ -23,7 +23,6 @@ class ToolManagementPage;
 class ToolBorrowPage;
 class ToolReturnPage;
 class ToolCheckinPage;
-class ToolCheckoutPage;
 class LedgerStatsPage;
 class AlertLogsPage;
 class SystemSettingsPage;
@@ -99,7 +98,6 @@ private:
     ToolBorrowPage* m_borrowPage;
     ToolReturnPage* m_returnPage;
     ToolCheckinPage* m_checkinPage;
-    ToolCheckoutPage* m_checkoutPage;
     LedgerStatsPage* m_ledgerPage;
     AlertLogsPage* m_alertsPage;
     SystemSettingsPage* m_settingsPage;

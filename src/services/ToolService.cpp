@@ -53,7 +53,7 @@ bool ToolService::checkinTool(const QJsonObject& data) {
             << "入库数量=" << positions.size();
 
     // 遍历所有位置，通过DAO更新映射表status
-    // 只允许pending位置入库，防止已borrowed位置被覆盖
+    // 可入库位置=待入库(pending)或已出库回流(checked_out)，防止在库/借出位置被覆盖
     bool allSuccess = true;
     for (int i = 0; i < positions.size(); ++i) {
         QJsonObject posObj = positions[i].toObject();
@@ -67,8 +67,14 @@ bool ToolService::checkinTool(const QJsonObject& data) {
             continue;
         }
 
-        if (dao.updateMappingByPosition(selectedToolId, cabinetId, layer, position,
-                                         SC::TOOL_IN_STOCK, SC::TOOL_PENDING)) {
+        // 先按待入库位置更新；该位置若为已出库位置（checked_out）同样放行入库
+        bool updated = dao.updateMappingByPosition(selectedToolId, cabinetId, layer, position,
+                                                   SC::TOOL_IN_STOCK, SC::TOOL_PENDING);
+        if (!updated) {
+            updated = dao.updateMappingByPosition(selectedToolId, cabinetId, layer, position,
+                                                  SC::TOOL_IN_STOCK, SC::TOOL_CHECKED_OUT);
+        }
+        if (updated) {
             qInfo() << "[ToolService] checkinTool: 位置" << cabinetId << layer << position
                     << "入库成功，工具" << toolCode;
         } else {
@@ -77,19 +83,18 @@ bool ToolService::checkinTool(const QJsonObject& data) {
         }
     }
 
-    // 入库后更新tool_info状态
-    // 工具入库前若为待入库状态，入库后至少有1个在库位置，tool_info状态置为在库
+    // 入库后同步tool_info状态与数量
+    // 有任一在库位置则工具为在库（覆盖待入库新建与已出库回流两种场景）
     // current_qty=映射表中在库位置数
-    if (existing["status"].toString() == SC::TOOL_PENDING) {
-        QJsonObject updates;
-        updates["status"] = SC::TOOL_IN_STOCK;
-        dao.update(selectedToolId, updates);
-    }
-    // 迁移COUNT查询到ToolDAO::countInStockPositions
     int inStockCount = dao.countInStockPositions(selectedToolId);
-    if (inStockCount >= 0) {
+    {
         QJsonObject updates;
         updates["currentQty"] = inStockCount;
+        QString oldStatus = existing["status"].toString();
+        if (inStockCount > 0 &&
+            (oldStatus == SC::TOOL_PENDING || oldStatus == SC::TOOL_CHECKED_OUT)) {
+            updates["status"] = SC::TOOL_IN_STOCK;
+        }
         dao.update(selectedToolId, updates);
     }
 

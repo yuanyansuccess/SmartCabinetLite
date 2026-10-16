@@ -1,49 +1,31 @@
 /**
  * @file ToolCheckinPage.cpp
- * @brief 工具入库页面实现 - 双Tab(入库管理+入库记录) + 四步对话框流程
+ * @brief 工具出入库页面实现 - 三Tab(出入库管理+入库记录+出库记录) + 单据式出入库
  * @author 袁燕
  *
- * 去掉步骤条，改为对话框引导四步流程
- *   供应商/柜体/层号/位置/工具类型改为下拉选择
- *   四步：清单确认→柜体打开动画→假异常→入库成功
- * 识别方式选择 + 工具文档上传
- * 模仿出库页面风格，增加双Tab：入库管理 + 入库记录
- *   入库成功写sys_operation_log(operation_type='checkin')，记录Tab展示历史
+ * 出入库管理Tab：出入库单以列表逐行添加指令（工具名称 + 类型入库/出库），
+ *   位置由系统按对照关系自动带出；点击确认先开箱，用户按单据取放工具后
+ *   关闭柜门，系统逐项执行并检查，成功项写操作日志，未完成项红字提示。
+ * 入库记录Tab：sys_operation_log(operation_type='checkin') 历史。
+ * 出库记录Tab：sys_operation_log(operation_type='checkout') 历史。
  */
 #include "ToolCheckinPage.h"
 #include "ui_ToolCheckinPage.h"
-#include <QTableWidget>  // 入库记录表格
+#include <QTableWidget>  // 出入库单表格与记录表格
 #include "components/PaginationBar.h"
 #include "utils/StyleHelper.h"
-#include "components/DrawerOpeningDialog.h"
-#include "components/VerifyAlertDialog.h"
-#include "components/ResultDialog.h"
-#include "services/ToolService.h"
 #include "common/AppConfig.h"
-#include "services/AlertService.h"  // 告警闭环写入
-#include "model/AlertLog.h"  // AlertLog实体
 #include "common/Constants.h"
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
-#include "controller/ToolController.h"
+#include "components/MessageDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
-#include <QGridLayout>
 #include <QHeaderView>
-#include "components/MessageDialog.h"
-#include <QGroupBox>
-#include <QTimer>
-#include <QDialog>
-#include <QFrame>
-#include <QFileDialog>
-#include <QStandardPaths>
-#include <QFile>
-#include <QFileInfo>
-#include <QDir>
-#include <QDateTime>
+#include <QComboBox>
+#include <QPushButton>
 #include <QRegularExpression>  // 解析content字段
-#include <QSet>  // 已占用位置集合
+#include <QSet>  // 出库位置查重
 
 ToolCheckinPage::ToolCheckinPage(QWidget* parent) : QWidget(parent), ui(new Ui::ToolCheckinPage) {
     // 静态布局来自ToolCheckinPage.ui（Qt Designer可视化维护）
@@ -56,39 +38,32 @@ ToolCheckinPage::~ToolCheckinPage() {
 }
 
 /**
- * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
+ * @brief 构建页面界面：桥接 .ui 静态布局控件并连接信号槽
  */
 void ToolCheckinPage::setupUI() {
-    // 桥接.ui控件（业务逻辑沿用m_成员，零改动）
+    // 桥接.ui控件（业务逻辑沿用m_成员）
     m_tabWidget = ui->tabWidget;
-    m_categoryCombo = ui->categoryCombo;
-    m_toolSelectCombo = ui->toolSelectCombo;
-    m_qtyCombo = ui->qtyCombo;
-    m_qtyHintLabel = ui->qtyHintLabel;
+    m_orderTable = ui->orderTable;
     m_machineGroupLabel = ui->machineGroupLabel;
     m_errorLabel = ui->errorLabel;
     m_resetBtn = ui->resetBtn;
     m_submitBtn = ui->submitBtn;
     m_recordTable = ui->recordTable;
     m_recordPaginationBar = ui->recordPaginationBar;
+    m_outRecordTable = ui->checkoutRecordTable;
+    m_outRecordPaginationBar = ui->checkoutRecordPaginationBar;
 
-    // 入库数量初始项（选择工具后由loadToolsByCategory重建）
-    m_qtyCombo->addItem(QStringLiteral("请先选择工具"), 0);
-
-    // 保留隐藏字段（入库确认时使用，但不显示给用户，不参与布局）
-    m_toolNameEdit = new QLineEdit(); m_toolNameEdit->setVisible(false);
-    m_toolCodeEdit = new QLineEdit(); m_toolCodeEdit->setVisible(false);
-    m_specEdit = new QLineEdit(); m_specEdit->setVisible(false);
-    m_cabinetCombo = new QComboBox(); m_cabinetCombo->setVisible(false);
-    m_layerCombo = new QComboBox(); m_layerCombo->setVisible(false);
-    m_positionCombo = new QComboBox(); m_positionCombo->setVisible(false);
-
-    // 数据加载
-    loadCategoryOptions();
+    // 机组信息回填
     loadLocalMachineGroup();
-    // 页面初始化时主动加载工具下拉
-    // 不依赖工具类型选择，直接显示对照表中有位置记录的pending工具
-    loadToolsByCategory(0);
+
+    // 出入库单表格列宽：类型/操作固定，工具名称/位置拉伸
+    m_orderTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    m_orderTable->setColumnWidth(0, 120);
+    m_orderTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_orderTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    m_orderTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    m_orderTable->setColumnWidth(3, 100);
+    m_orderTable->verticalHeader()->setMinimumSectionSize(56);
 
     // 入库记录表格列宽：时间/名称/编号/位置Stretch，供应商/操作人Fixed
     m_recordTable->horizontalHeader()->setStretchLastSection(false);
@@ -101,77 +76,35 @@ void ToolCheckinPage::setupUI() {
     }
     m_recordTable->setColumnWidth(4, 120);  // 供应商
     m_recordTable->setColumnWidth(5, 90);   // 操作人
-    m_recordTable->horizontalHeader()->setStretchLastSection(false);
     m_recordTable->verticalHeader()->setMinimumSectionSize(48);
 
+    // 出库记录表格列宽：时间/名称/编号Stretch，操作人Fixed
+    m_outRecordTable->horizontalHeader()->setStretchLastSection(false);
+    for (int i = 0; i < 4; i++) {
+        if (i == 3) {
+            m_outRecordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed);
+        } else {
+            m_outRecordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
+        }
+    }
+    m_outRecordTable->setColumnWidth(3, 90);   // 操作人
+    m_outRecordTable->verticalHeader()->setMinimumSectionSize(48);
+
     // 信号槽连接
-    connect(m_resetBtn, &QPushButton::clicked, this, &ToolCheckinPage::onReset);
+    connect(ui->addInBtn, &QPushButton::clicked, this, &ToolCheckinPage::onAddOrderRow);
+    connect(ui->addOutBtn, &QPushButton::clicked, this, &ToolCheckinPage::onAddOrderRowOut);
+    connect(m_resetBtn, &QPushButton::clicked, this, &ToolCheckinPage::clearOrderTable);
     connect(m_submitBtn, &QPushButton::clicked, this, &ToolCheckinPage::onSubmit);
-    // 工具类型切换 → 加载对应工具列表
-    connect(m_categoryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-        onCategoryChanged();
-    });
-    // 工具选择 → 自动填充工具信息
-    connect(m_toolSelectCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-        onToolSelected();
-    });
-    // 入库数量变化 → 更新提示
-    connect(m_qtyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-        m_selectedCheckinQty = m_qtyCombo->currentData().toInt();
-    });
     connect(m_recordPaginationBar, &PaginationBar::prevClicked, this, &ToolCheckinPage::onRecordPrevPage);
     connect(m_recordPaginationBar, &PaginationBar::nextClicked, this, &ToolCheckinPage::onRecordNextPage);
+    connect(m_outRecordPaginationBar, &PaginationBar::prevClicked, this, &ToolCheckinPage::onOutRecordPrevPage);
+    connect(m_outRecordPaginationBar, &PaginationBar::nextClicked, this, &ToolCheckinPage::onOutRecordNextPage);
     // Tab切换时加载对应数据
     connect(m_tabWidget, &QTabWidget::currentChanged, this, &ToolCheckinPage::onTabChanged);
 }
 
-// 加载工具类型下拉选项（与工具管理页一致，从DB读取）
-void ToolCheckinPage::loadCategoryOptions() {
-    if (!m_categoryCombo) return;
-    m_categoryCombo->clear();
-    m_categoryCombo->addItem(QStringLiteral("请选择工具类型"), 0);
-    // 注意：data必须存categoryId(数字)，存name会导致onCategoryChanged转int为0
-    ToolController ctrl;
-    QList<ToolCategory> cats = ctrl.getCategories();
-    for (const ToolCategory& cat : cats) {
-        m_categoryCombo->addItem(cat.categoryName, cat.categoryId);
-    }
-}
-
-// 加载入库柜体下拉选项（从DB读取 tool_cabinet 表）
-void ToolCheckinPage::loadCabinetOptions() {
-    if (!m_cabinetCombo) return;
-    m_cabinetCombo->clear();
-    m_cabinetCombo->addItem(QStringLiteral("请选择柜体"), 0);
-    ToolController ctrl;
-    QStringList cabs = ctrl.cabinetNames();
-    for (const QString& name : cabs) {
-        m_cabinetCombo->addItem(name, name);
-    }
-    // 如果DB没有柜体数据，提供默认选项
-    if (cabs.isEmpty()) {
-        m_cabinetCombo->addItem(QStringLiteral("A柜"), QStringLiteral("A柜"));
-        m_cabinetCombo->addItem(QStringLiteral("B柜"), QStringLiteral("B柜"));
-        m_cabinetCombo->addItem(QStringLiteral("C柜"), QStringLiteral("C柜"));
-    }
-}
-
 /**
- * @brief 刷新页面数据与统计显示
- */
-void ToolCheckinPage::refresh() {
-    // 刷新时重新加载下拉选项（可能新增了类别/柜体）
-    loadCategoryOptions();
-    loadCabinetOptions();
-    loadLocalMachineGroup();
-    // 主动加载工具下拉（不依赖类型选择）
-    loadToolsByCategory(0);
-    // 切换菜单进入时重置表单数据，避免残留上次输入
-    onReset();
-}
-
-/**
- * @brief 读取本机组信息并回填到界面
+ * @brief 读取本机组信息并回填到界面（机组隔离：出入库仅限本机组工具）
  */
 void ToolCheckinPage::loadLocalMachineGroup() {
     int groupId = AppConfig::instance().localMachineGroupId();
@@ -210,106 +143,376 @@ void ToolCheckinPage::loadLocalMachineGroup() {
 }
 
 /**
- * @brief 处理重置
+ * @brief 刷新页面数据：清空单据并重置到第一个Tab
  */
-void ToolCheckinPage::onReset() {
-    m_toolNameEdit->clear();
-    m_toolCodeEdit->clear();
-    m_specEdit->clear();
-    m_selectedToolId = 0;
-    // 工具选择重置到第一项
-    if (m_toolSelectCombo && m_toolSelectCombo->count() > 0) {
-        m_toolSelectCombo->setCurrentIndex(0);
-    }
-    // 数量下拉重置
-    m_qtyCombo->clear();
-    m_qtyCombo->addItem(QStringLiteral("请先选择工具"), 0);
-    m_selectedCheckinQty = 0;
-    m_availablePositions = QJsonArray();
-    m_qtyHintLabel->setText(QStringLiteral("请先选择工具"));
-    m_cabinetCombo->setCurrentIndex(0);
-    m_layerCombo->setCurrentIndex(0);
-    m_positionCombo->setCurrentIndex(0);
-    m_categoryCombo->setCurrentIndex(0);
-    m_errorLabel->setVisible(false);
+void ToolCheckinPage::refresh() {
+    loadLocalMachineGroup();
+    if (m_tabWidget) m_tabWidget->setCurrentIndex(0);
+    clearOrderTable();
+}
+// ═══════════ 出入库单据 ═══════════
+
+/**
+ * @brief 添加一行入库指令
+ */
+void ToolCheckinPage::onAddOrderRow() {
+    appendOrderRow(QStringLiteral("in"));
 }
 
 /**
- * @brief 校验表单
+ * @brief 添加一行出库指令
  */
-bool ToolCheckinPage::validateForm(QString& errorMsg) {
-    // 入库校验：必须选择工具、选择数量且有空闲位置
-    if (m_selectedToolId <= 0) {
-        errorMsg = QStringLiteral("请选择待入库工具");
-        return false;
+void ToolCheckinPage::onAddOrderRowOut() {
+    appendOrderRow(QStringLiteral("out"));
+}
+
+/**
+ * @brief 向单据表格追加一行指令（默认未选工具，位置列显示待选择）
+ * @param type 行类型："in"=入库 / "out"=出库
+ */
+void ToolCheckinPage::appendOrderRow(const QString& type) {
+    m_errorLabel->setVisible(false);
+    int row = m_orderTable->rowCount();
+    m_orderTable->insertRow(row);
+
+    // 列0：类型下拉（切换时重载该行工具下拉）
+    auto* typeCombo = new QComboBox();
+    typeCombo->addItem(QStringLiteral("入库"), "in");
+    typeCombo->addItem(QStringLiteral("出库"), "out");
+    typeCombo->setCurrentIndex(type == "out" ? 1 : 0);
+    typeCombo->setStyleSheet(StyleHelper::tableComboBox());
+    m_orderTable->setCellWidget(row, 0, typeCombo);
+    connect(typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this, typeCombo]() { reloadToolOptions(rowOfWidget(typeCombo)); });
+
+    // 列1：工具下拉（按类型加载可选工具）
+    auto* toolCombo = new QComboBox();
+    toolCombo->setStyleSheet(StyleHelper::tableComboBox());
+    m_orderTable->setCellWidget(row, 1, toolCombo);
+    connect(toolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this, toolCombo]() { updateRowPosition(rowOfWidget(toolCombo)); });
+
+    // 列2：位置（选工具后自动带出，只读展示）
+    auto* posItem = new QTableWidgetItem(QStringLiteral("--"));
+    posItem->setTextAlignment(Qt::AlignCenter);
+    posItem->setForeground(QColor("#43a047"));
+    m_orderTable->setItem(row, 2, posItem);
+
+    // 列3：删除按钮（点击后按控件反查所在行删除，避免行号漂移）
+    auto* delBtn = new QPushButton(QStringLiteral("删除"));
+    delBtn->setStyleSheet(StyleHelper::tableActionBtn());
+    delBtn->setCursor(Qt::PointingHandCursor);
+    m_orderTable->setCellWidget(row, 3, delBtn);
+    connect(delBtn, &QPushButton::clicked, this, [this, delBtn]() {
+        int r = rowOfWidget(delBtn);
+        if (r >= 0) {
+            m_orderTable->removeRow(r);
+            m_errorLabel->setVisible(false);
+        }
+    });
+
+    m_orderTable->setRowHeight(row, 56);
+    reloadToolOptions(row);
+}
+
+/**
+ * @brief 查找单元格控件所在的行号
+ * @param w 单元格内控件指针
+ * @return 行号；未找到返回 -1
+ */
+int ToolCheckinPage::rowOfWidget(QWidget* w) {
+    if (!w) return -1;
+    for (int r = 0; r < m_orderTable->rowCount(); ++r) {
+        for (int c = 0; c < m_orderTable->columnCount(); ++c) {
+            if (m_orderTable->cellWidget(r, c) == w) return r;
+        }
     }
-    if (m_toolCodeEdit->text().trimmed().isEmpty()) {
-        errorMsg = QStringLiteral("工具编号加载失败，请重新选择工具");
-        return false;
+    return -1;
+}
+/**
+ * @brief 按行类型重载该行工具下拉：入库=待入库工具，出库=在库工具（位置维度）
+ * @param row 目标行号；行号无效时仅清空不报错
+ */
+void ToolCheckinPage::reloadToolOptions(int row) {
+    if (row < 0 || row >= m_orderTable->rowCount()) return;
+    auto* typeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 0));
+    auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
+    if (!typeCombo || !toolCombo) return;
+
+    bool isOut = (typeCombo->currentData().toString() == "out");
+    toolCombo->blockSignals(true);
+    toolCombo->clear();
+    toolCombo->addItem(isOut ? QStringLiteral("请选择在库工具") : QStringLiteral("请选择待入库工具"), 0);
+
+    if (isOut) {
+        // 出库下拉=在库位置明细（位置维度：一条映射记录=一个位置）；按本机组隔离过滤
+        db::ToolDAO toolDao;
+        QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
+        for (int i = 0; i < inStock.size(); ++i) {
+            QJsonObject t = inStock[i].toObject();
+            QString posDisplay = StyleHelper::formatPosition(
+                t["cabinetName"].toString(), t["layer"].toString(), t["position"].toString());
+            QString text = QStringLiteral("%1 - %2（%3）")
+                .arg(t["toolCode"].toString(), t["toolName"].toString(), posDisplay);
+            // data存mappingId（位置唯一标识），出库按位置执行
+            toolCombo->addItem(text, t["mappingId"].toInt());
+        }
+        if (toolCombo->count() <= 1) {
+            toolCombo->addItem(QStringLiteral("暂无在库工具"), -1);
+        }
+    } else {
+        // 入库下拉=对照表中有空闲位置的工具（含已出库工具回流）
+        db::ToolDAO toolDao;
+        QJsonArray pendingTools = toolDao.findPendingTools(0, m_localMachineGroupId);
+        for (int i = 0; i < pendingTools.size(); ++i) {
+            QJsonObject t = pendingTools[i].toObject();
+            int freePosCount = t["freePosCount"].toInt();
+            if (freePosCount <= 0) continue;
+            QString toolStatus = t["status"].toString();
+            QString statusHint;
+            if (toolStatus == SC::TOOL_PENDING) statusHint = QStringLiteral("待入库");
+            else if (toolStatus == SC::TOOL_CHECKED_OUT) statusHint = QStringLiteral("已出库待放回");
+            else statusHint = QStringLiteral("可补位");
+            QString text = QStringLiteral("%1 - %2（%3，可入%4件）")
+                .arg(t["toolCode"].toString(), t["toolName"].toString(), statusHint)
+                .arg(freePosCount);
+            toolCombo->addItem(text, t["toolId"].toInt());
+        }
+        if (toolCombo->count() <= 1) {
+            toolCombo->addItem(QStringLiteral("暂无可入库工具（请先在对照关系中配置位置）"), -1);
+        }
     }
-    if (m_toolNameEdit->text().trimmed().isEmpty()) {
-        errorMsg = QStringLiteral("工具名称加载失败，请重新选择工具");
-        return false;
+    toolCombo->blockSignals(false);
+
+    // 类型切换后位置列清空，等待重新选择工具
+    auto* posItem = m_orderTable->item(row, 2);
+    if (posItem) {
+        posItem->setText(QStringLiteral("--"));
+        posItem->setData(Qt::UserRole, QVariant());
     }
-    if (m_availablePositions.isEmpty()) {
-        errorMsg = QStringLiteral("该工具没有空闲位置可供入库，请先在对照关系中配置位置");
-        return false;
+    updateRowPosition(row);
+}
+
+/**
+ * @brief 行内选择工具后，自动带出位置并显示（一个工具只在一个位置）
+ * @param row 目标行号；行号无效时直接返回
+ */
+void ToolCheckinPage::updateRowPosition(int row) {
+    if (row < 0 || row >= m_orderTable->rowCount()) return;
+    auto* typeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 0));
+    auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
+    auto* posItem = m_orderTable->item(row, 2);
+    if (!typeCombo || !toolCombo || !posItem) return;
+
+    int selectedId = toolCombo->currentData().toInt();
+    if (selectedId <= 0) {
+        posItem->setText(QStringLiteral("--"));
+        posItem->setData(Qt::UserRole, QVariant());
+        return;
     }
-    if (m_selectedCheckinQty <= 0) {
-        errorMsg = QStringLiteral("请选择入库数量");
-        return false;
+
+    if (typeCombo->currentData().toString() == "out") {
+        // 出库：selectedId=mappingId，位置与toolId从在库位置明细实时查询带出
+        db::ToolDAO toolDao;
+        QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
+        for (int i = 0; i < inStock.size(); ++i) {
+            QJsonObject t = inStock[i].toObject();
+            if (t["mappingId"].toInt() == selectedId) {
+                posItem->setText(StyleHelper::formatPosition(
+                    t["cabinetName"].toString(), t["layer"].toString(), t["position"].toString()));
+                posItem->setData(Qt::UserRole, t["toolId"].toInt());
+                return;
+            }
+        }
+        posItem->setText(QStringLiteral("--"));
+        posItem->setData(Qt::UserRole, QVariant());
+    } else {
+        // 入库：selectedId=toolId，显示该工具第一个空闲位置（确认时逐行分配）
+        db::ToolDAO toolDao;
+        QJsonArray positions = toolDao.findPendingPositions(selectedId);
+        if (!positions.isEmpty()) {
+            QJsonObject p = positions[0].toObject();
+            posItem->setText(StyleHelper::formatPosition(
+                p["cabinetName"].toString(), p["layer"].toString(), p["position"].toString()));
+            posItem->setData(Qt::UserRole, selectedId);
+        } else {
+            posItem->setText(QStringLiteral("无空闲位置"));
+            posItem->setData(Qt::UserRole, QVariant());
+        }
     }
-    if (m_selectedCheckinQty > m_availablePositions.size()) {
-        errorMsg = QStringLiteral("入库数量不能超过空闲位置数(%1)").arg(m_availablePositions.size());
-        return false;
+}
+/**
+ * @brief 从单据表格收集全部指令并做行级校验
+ * @param errorMsg 校验失败原因（成功时被清空）
+ * @return 指令列表；校验失败或单据为空时返回空列表
+ */
+QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& errorMsg) {
+    errorMsg.clear();
+    QList<OrderRow> items;
+    if (m_orderTable->rowCount() == 0) {
+        errorMsg = QStringLiteral("请先添加出入库指令");
+        return items;
+    }
+
+    db::ToolDAO toolDao;
+    QSet<int> outMappingIds;    // 出库位置查重
+    QMap<int, bool> toolInOut;  // 工具是否同时出现入库(true)与出库(false)
+
+    for (int row = 0; row < m_orderTable->rowCount(); ++row) {
+        auto* typeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 0));
+        auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
+        if (!typeCombo || !toolCombo) continue;
+
+        QString type = typeCombo->currentData().toString();
+        int selectedId = toolCombo->currentData().toInt();
+        if (selectedId <= 0) {
+            errorMsg = QStringLiteral("第 %1 行请选择工具").arg(row + 1);
+            return QList<OrderRow>();
+        }
+
+        OrderRow item;
+        item.type = type;
+        if (type == "out") {
+            // 出库：selectedId=mappingId，toolId从位置列UserRole取
+            item.mappingId = selectedId;
+            auto* posItem = m_orderTable->item(row, 2);
+            item.toolId = posItem ? posItem->data(Qt::UserRole).toInt() : 0;
+            if (outMappingIds.contains(item.mappingId)) {
+                errorMsg = QStringLiteral("第 %1 行位置重复出库").arg(row + 1);
+                return QList<OrderRow>();
+            }
+            outMappingIds.insert(item.mappingId);
+        } else {
+            item.toolId = selectedId;
+            item.mappingId = 0;
+        }
+
+        // 从库中补全工具基础信息（编号/名称）
+        QJsonObject info = toolDao.findToolBasicInfo(item.toolId);
+        if (info.isEmpty()) {
+            errorMsg = QStringLiteral("第 %1 行工具信息加载失败，请重新选择").arg(row + 1);
+            return QList<OrderRow>();
+        }
+        item.toolCode = info["toolCode"].toString();
+        item.toolName = info["toolName"].toString();
+
+        // 同一工具不允许同时出现入库与出库指令（状态冲突）
+        bool isIn = (type != "out");
+        if (toolInOut.contains(item.toolId) && toolInOut.value(item.toolId) != isIn) {
+            errorMsg = QStringLiteral("工具「%1」不能同时出现在入库和出库指令中").arg(item.toolName);
+            return QList<OrderRow>();
+        }
+        toolInOut.insert(item.toolId, isIn);
+
+        items.append(item);
+    }
+    return items;
+}
+
+/**
+ * @brief 执行前最终核对：入库行实时分配空闲位置，出库行实时核对位置仍在库
+ * @param items 待核对的指令列表（入库行的位置信息会被写回）
+ * @return true=全部通过；失败时通过 MessageDialog 提示原因
+ */
+bool ToolCheckinPage::validateOrderItems(const QList<OrderRow>& items) {
+    db::ToolDAO toolDao;
+
+    // 入库行：按工具实时查询空闲位置，多行同名工具依次占用不同空闲位置
+    QMap<int, QJsonArray> freePositionsByTool;  // toolId -> 实时空闲位置列表
+    QMap<int, int> assignedCountByTool;         // toolId -> 已分配行数
+    for (const OrderRow& it : items) {
+        if (it.type != "in") continue;
+        if (!freePositionsByTool.contains(it.toolId)) {
+            freePositionsByTool[it.toolId] = toolDao.findPendingPositions(it.toolId);
+            assignedCountByTool[it.toolId] = 0;
+        }
+    }
+
+    // 出库行：实时核对位置仍在库（页面打开期间可能被其他操作出库）
+    QJsonArray inStockList = toolDao.findAllInStockPositions(m_localMachineGroupId);
+    QSet<int> validMappingIds;
+    for (int i = 0; i < inStockList.size(); ++i) {
+        validMappingIds.insert(inStockList[i].toObject()["mappingId"].toInt());
+    }
+
+    for (const OrderRow& it : items) {
+        if (it.type == "in") {
+            QJsonArray freePositions = freePositionsByTool.value(it.toolId);
+            int used = assignedCountByTool.value(it.toolId);
+            if (used >= freePositions.size()) {
+                MessageDialog::showWarning(this, QStringLiteral("无法执行"),
+                    QStringLiteral("工具「%1」空闲位置不足（需 %2 个，仅剩 %3 个）\n请减少该工具的入库行数。")
+                        .arg(it.toolName).arg(used + 1).arg(freePositions.size()));
+                return false;
+            }
+            QJsonObject p = freePositions[used].toObject();
+            // 分配结果写回指令（posInfo供执行环节直接使用）
+            OrderRow& mutableItem = const_cast<OrderRow&>(it);
+            mutableItem.posInfo = p;
+            mutableItem.position = StyleHelper::formatPosition(
+                p["cabinetName"].toString(), p["layer"].toString(), p["position"].toString());
+            assignedCountByTool[it.toolId] = used + 1;
+        } else if (!validMappingIds.contains(it.mappingId)) {
+            // 出库位置已不在库（页面打开期间被其他操作出库）
+            MessageDialog::showWarning(this, QStringLiteral("无法执行"),
+                QStringLiteral("工具「%1」的位置已不在库（可能刚被出库），请删除该行后重新添加。")
+                    .arg(it.toolName));
+            return false;
+        }
     }
     return true;
 }
 
 /**
- * @brief 提交入库：校验表单后执行入库
+ * @brief 清空单据并隐藏错误提示
+ */
+void ToolCheckinPage::clearOrderTable() {
+    m_orderTable->setRowCount(0);
+    m_errorLabel->setVisible(false);
+}
+
+/**
+ * @brief 确认出入库：收集校验单据 → 实时核对位置 → 进入开箱环节
  */
 void ToolCheckinPage::onSubmit() {
     QString errorMsg;
-    if (!validateForm(errorMsg)) {
+    QList<OrderRow> items = collectOrderItems(errorMsg);
+    if (!errorMsg.isEmpty()) {
         m_errorLabel->setText(errorMsg);
+        m_errorLabel->setVisible(true);
+        return;
+    }
+    if (items.isEmpty()) {
+        m_errorLabel->setText(QStringLiteral("请先添加出入库指令"));
         m_errorLabel->setVisible(true);
         return;
     }
     m_errorLabel->setVisible(false);
 
-    // 入库支持多位置：取前N个空闲位置（N=用户选择的入库数量）
-    if (m_availablePositions.isEmpty()) {
-        MessageDialog::showWarning(this, QStringLiteral("无法入库"),
-            QStringLiteral("该工具在对照关系表中没有空闲位置可供入库。\n请联系管理员配置货位后重试。"));
-        return;
-    }
+    if (!validateOrderItems(items)) return;
 
-    // 设置第一个位置到隐藏字段（供四步流程中柜体打开等环节使用）
-    QJsonObject firstPos = m_availablePositions[0].toObject();
-    m_cabinetCombo->clear();
-    m_cabinetCombo->addItem(firstPos["cabinetName"].toString(), firstPos["cabinetName"].toString());
-    m_layerCombo->clear();
-    m_layerCombo->addItem(firstPos["layer"].toString(), firstPos["layer"].toString());
-    m_positionCombo->clear();
-    m_positionCombo->addItem(firstPos["position"].toString(), firstPos["position"].toString());
-
-    // 进入四步入库流程：步骤1 入库清单确认
-    showCheckinListDialog();
+    // 进入开箱环节：柜体打开动画 + 单据摘要（用户按单据取放工具）
+    showOrderExecuteDialog(items);
 }
+// ═══════════ 记录相关 ═══════════
 
-// ═══════════ 入库记录相关 ═══════════
-
-// Tab切换时加载对应数据
+/**
+ * @brief Tab切换时加载对应记录：1=入库记录，2=出库记录
+ * @param index 目标Tab索引
+ */
 void ToolCheckinPage::onTabChanged(int index) {
     if (index == 1) {
-        // 切到"入库记录"Tab时加载记录
         m_recordCurrentPage = 1;
         loadCheckinRecords();
+    } else if (index == 2) {
+        m_outRecordCurrentPage = 1;
+        loadCheckoutRecords();
     }
 }
 
-// 加载入库历史记录（通过RecordDAO查询sys_operation_log+位置JOIN）
+/**
+ * @brief 加载入库历史记录（RecordDAO查询 sys_operation_log + 位置JOIN）
+ */
 void ToolCheckinPage::loadCheckinRecords() {
     if (!m_recordTable) return;
 
@@ -348,12 +551,10 @@ void ToolCheckinPage::loadCheckinRecords() {
         QString content = r["content"].toString();
         QString time = r["createdAt"].toString();
 
-        // 列0：入库时间
+        // 列顺序：入库时间(0)/工具名称(1)/工具编号(2)/位置(3)/供应商(4)/操作人(5)
         m_recordTable->setItem(i, 0, new QTableWidgetItem(time));
 
-        // 从content解析工具名/数量/位置/供应商
-        // 新格式："入库工具「工具名」编号[编号]×1件 位置A-01-01"
-        // 兼容旧格式："入库工具「工具名」编号[编号]×数量，供应商：xxx"
+        // 从content解析工具名/供应商
         QString toolName, supplier;
         QRegularExpression re1("入库工具「(.+?)」");
         QRegularExpression re3("供应商：(.+)");
@@ -362,12 +563,7 @@ void ToolCheckinPage::loadCheckinRecords() {
         if (m1.hasMatch()) toolName = m1.captured(1);
         if (m3.hasMatch()) supplier = m3.captured(1);
 
-        // 入库记录6列（去掉数量列，恒为1件无需显示）
-        // 列顺序：入库时间(0)/工具名称(1)/工具编号(2)/位置(3)/供应商(4)/操作人(5)
-
-        // 列1：工具名称
         m_recordTable->setItem(i, 1, new QTableWidgetItem(toolName.isEmpty() ? QStringLiteral("--") : toolName));
-        // 列2：工具编号
         QString toolCode = r["targetId"].toString();
         if (toolCode.isEmpty()) {
             QRegularExpression reCode("编号\\[(.+?)\\]");
@@ -376,10 +572,8 @@ void ToolCheckinPage::loadCheckinRecords() {
         }
         m_recordTable->setItem(i, 2, new QTableWidgetItem(toolCode.isEmpty() ? QStringLiteral("--") : toolCode));
         // 列3：位置（三级优先：content解析→映射表→tool_info）
-        // 新格式支持多位置："位置A-01-01,A-01-02"，用正则匹配全部
         {
             QString posDisplay;
-            // 匹配"位置"关键字后的所有位置（逗号分隔）
             QRegularExpression rePosContent("位置(.+)");
             QRegularExpressionMatch mPosContent = rePosContent.match(content);
             if (mPosContent.hasMatch()) {
@@ -398,9 +592,7 @@ void ToolCheckinPage::loadCheckinRecords() {
             posItem->setTextAlignment(Qt::AlignCenter);
             m_recordTable->setItem(i, 3, posItem);
         }
-        // 列4：供应商
         m_recordTable->setItem(i, 4, new QTableWidgetItem(supplier.isEmpty() ? QStringLiteral("--") : supplier));
-        // 列5：操作人
         QString userName = r["realName"].toString();
         if (userName.isEmpty()) userName = QStringLiteral("--");
         m_recordTable->setItem(i, 5, new QTableWidgetItem(userName));
@@ -409,7 +601,9 @@ void ToolCheckinPage::loadCheckinRecords() {
     }
 }
 
-// 入库记录分页：上一页
+/**
+ * @brief 入库记录分页：上一页
+ */
 void ToolCheckinPage::onRecordPrevPage() {
     if (m_recordCurrentPage > 1) {
         m_recordCurrentPage--;
@@ -417,7 +611,9 @@ void ToolCheckinPage::onRecordPrevPage() {
     }
 }
 
-// 入库记录分页：下一页
+/**
+ * @brief 入库记录分页：下一页
+ */
 void ToolCheckinPage::onRecordNextPage() {
     int totalPages = (m_recordTotalRecords + m_recordPageSize - 1) / m_recordPageSize;
     if (m_recordCurrentPage < totalPages) {
@@ -425,111 +621,75 @@ void ToolCheckinPage::onRecordNextPage() {
         loadCheckinRecords();
     }
 }
+/**
+ * @brief 加载出库历史记录（RecordDAO查询 operation_type='checkout'）
+ */
+void ToolCheckinPage::loadCheckoutRecords() {
+    if (!m_outRecordTable) return;
 
-// ═══════════ 入库流程简化：工具类型→工具选择→位置自动给出 ═══════════
+    db::RecordDAO recDao;
+    QJsonObject result = recDao.findOperationLogsByType(SC::OP_CHECKOUT, m_outRecordCurrentPage, m_outRecordPageSize);
+    int total = result["total"].toInt();
+    QJsonArray records = result["list"].toArray();
 
-// 入库页工具下拉=显示对照表中有空闲位置的工具
-// 核心设计：入库是将工具放到指定位置，工具在映射表中有空闲位置即可入库
-// 映射表status='pending'表示待入库的空闲位置
-void ToolCheckinPage::loadToolsByCategory(int categoryId) {
-    if (!m_toolSelectCombo) return;
-    m_toolSelectCombo->blockSignals(true);
-    m_toolSelectCombo->clear();
-    m_toolSelectCombo->addItem(QStringLiteral("请选择待入库工具"), 0);
+    m_outRecordTotalRecords = total;
 
-    db::ToolDAO toolDao;
-    QJsonArray pendingTools = toolDao.findPendingTools(categoryId, m_localMachineGroupId);
-    for (int i = 0; i < pendingTools.size(); ++i) {
-        QJsonObject t = pendingTools[i].toObject();
-        int freePosCount = t["freePosCount"].toInt();
-        if (freePosCount > 0) {
-            QString toolStatus = t["status"].toString();
-            QString statusHint;
-            if (toolStatus == SC::TOOL_PENDING) statusHint = QStringLiteral("待入库");
-            else if (toolStatus == SC::TOOL_IN_STOCK) statusHint = QStringLiteral("可补位");
-            else if (toolStatus == SC::TOOL_CHECKED_OUT) statusHint = QStringLiteral("可重新入库");
-            else statusHint = toolStatus;
-            QString text = QStringLiteral("%1 - %2（%3，可入库%4件）")
-                .arg(t["toolCode"].toString(), t["toolName"].toString(), statusHint)
-                .arg(freePosCount);
-            m_toolSelectCombo->addItem(text, t["toolId"].toInt());
+    int totalPages = (total + m_outRecordPageSize - 1) / m_outRecordPageSize;
+    if (totalPages < 1) totalPages = 1;
+    if (m_outRecordCurrentPage > totalPages) m_outRecordCurrentPage = totalPages;
+    if (m_outRecordCurrentPage < 1) m_outRecordCurrentPage = 1;
+
+    m_outRecordPaginationBar->setPageInfo(m_outRecordCurrentPage, totalPages);
+    m_outRecordPaginationBar->setTotalRecords(total);
+
+    m_outRecordTable->setRowCount(records.size());
+    for (int i = 0; i < records.size(); ++i) {
+        QJsonObject r = records[i].toObject();
+        QString content = r["content"].toString();
+        QString time = r["createdAt"].toString();
+
+        // 列顺序：出库时间(0)/工具名称(1)/工具编号(2)/操作人(3)
+        m_outRecordTable->setItem(i, 0, new QTableWidgetItem(time));
+
+        // content格式："出库工具「工具名」编号[工具编号]×数量 位置X，原因：原因"
+        QString toolName;
+        QRegularExpression re1("出库工具「(.+?)」");
+        QRegularExpressionMatch m1 = re1.match(content);
+        if (m1.hasMatch()) toolName = m1.captured(1);
+
+        m_outRecordTable->setItem(i, 1, new QTableWidgetItem(toolName.isEmpty() ? QStringLiteral("--") : toolName));
+        QString toolCode = r["toolCode"].toString();
+        if (toolCode.isEmpty()) {
+            QRegularExpression reCode("编号\\[(.+?)\\]");
+            QRegularExpressionMatch mc = reCode.match(content);
+            if (mc.hasMatch()) toolCode = mc.captured(1);
         }
+        m_outRecordTable->setItem(i, 2, new QTableWidgetItem(toolCode.isEmpty() ? QStringLiteral("--") : toolCode));
+        QString userName = r["realName"].toString();
+        if (userName.isEmpty()) userName = QStringLiteral("--");
+        m_outRecordTable->setItem(i, 3, new QTableWidgetItem(userName));
+
+        m_outRecordTable->setRowHeight(i, 48);
     }
-    if (m_toolSelectCombo->count() <= 1) {
-        m_toolSelectCombo->addItem(QStringLiteral("暂无待入库工具（请先在对照关系表中配置位置）"), -1);
-    }
-    m_toolSelectCombo->blockSignals(false);
 }
 
-// generateUniqueToolCode已移除
-// 入库不创建新tool_info记录，不需要生成新编号
-
-// 工具类型切换时刷新工具下拉
-void ToolCheckinPage::onCategoryChanged() {
-    if (!m_categoryCombo) return;
-    int categoryId = m_categoryCombo->currentData().toInt();
-    loadToolsByCategory(categoryId);
-    m_selectedToolId = 0;
+/**
+ * @brief 出库记录分页：上一页
+ */
+void ToolCheckinPage::onOutRecordPrevPage() {
+    if (m_outRecordCurrentPage > 1) {
+        m_outRecordCurrentPage--;
+        loadCheckoutRecords();
+    }
 }
 
-// 选择工具后自动填充信息 + 查找所有空闲位置
-// 入库数量可选1~N，N=空闲位置数
-void ToolCheckinPage::onToolSelected() {
-    if (!m_toolSelectCombo) return;
-    m_selectedToolId = m_toolSelectCombo->currentData().toInt();
-    if (m_selectedToolId <= 0) {
-        m_qtyCombo->clear();
-        m_qtyCombo->addItem(QStringLiteral("请先选择工具"), 0);
-        m_qtyHintLabel->setText(QStringLiteral("请先选择工具"));
-        m_selectedCheckinQty = 0;
-        m_availablePositions = QJsonArray();
-        return;
+/**
+ * @brief 出库记录分页：下一页
+ */
+void ToolCheckinPage::onOutRecordNextPage() {
+    int totalPages = (m_outRecordTotalRecords + m_outRecordPageSize - 1) / m_outRecordPageSize;
+    if (m_outRecordCurrentPage < totalPages) {
+        m_outRecordCurrentPage++;
+        loadCheckoutRecords();
     }
-
-    db::ToolDAO toolDao;
-    QJsonObject info = toolDao.findToolBasicInfo(m_selectedToolId);
-    if (info.isEmpty()) return;
-
-    m_toolNameEdit->setText(info["toolName"].toString());
-    m_toolCodeEdit->setText(info["toolCode"].toString());
-    m_specEdit->setText(info["spec"].toString());
-
-    // 查找此工具在映射表中status='pending'的位置（待入库）
-    m_availablePositions = QJsonArray();
-    QJsonArray positions = toolDao.findPendingPositions(m_selectedToolId);
-    for (int i = 0; i < positions.size(); ++i) {
-        QJsonObject p = positions[i].toObject();
-        QJsonObject posObj;
-        posObj["cabinetName"] = p["cabinetName"].toString();
-        posObj["cabinetCode"] = p["cabinetCode"].toString();
-        posObj["layer"]       = p["layer"].toString();
-        posObj["position"]    = p["position"].toString();
-        posObj["posDisplay"]  = StyleHelper::formatPosition(
-            p["cabinetName"].toString(), p["layer"].toString(), p["position"].toString());
-        posObj["cabinetId"]   = p["cabinetId"].toInt();
-        m_availablePositions.append(posObj);
-    }
-
-    int freePosCount = m_availablePositions.size();
-    // 入库数量下拉：1~空闲位置数
-    m_qtyCombo->blockSignals(true);
-    m_qtyCombo->clear();
-    if (freePosCount <= 0) {
-        m_qtyCombo->addItem(QStringLiteral("无空闲位置"), 0);
-        m_qtyHintLabel->setText(QStringLiteral("该工具没有空闲位置，请先在对照关系中配置"));
-        m_selectedCheckinQty = 0;
-    } else {
-        for (int i = 1; i <= freePosCount; ++i) {
-            m_qtyCombo->addItem(QStringLiteral("%1 件").arg(i), i);
-        }
-        m_qtyCombo->setCurrentIndex(0);  // 默认选1件
-        m_selectedCheckinQty = 1;
-        if (freePosCount == 1) {
-            m_qtyHintLabel->setText(QStringLiteral("入库位置：%1").arg(
-                m_availablePositions[0].toObject()["posDisplay"].toString()));
-        } else {
-            m_qtyHintLabel->setText(QStringLiteral("最多可入库%1件（%1个空闲位置）").arg(freePosCount));
-        }
-    }
-    m_qtyCombo->blockSignals(false);
 }

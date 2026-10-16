@@ -12,7 +12,6 @@
 #include "pages/ToolBorrowPage.h"
 #include "pages/ToolReturnPage.h"
 #include "pages/ToolCheckinPage.h"
-#include "pages/ToolCheckoutPage.h"
 #include "pages/LedgerStatsPage.h"
 #include "pages/AlertLogsPage.h"
 #include "pages/HelpManualDialog.h"  // 顶栏"帮助"按钮的全屏操作手册
@@ -56,13 +55,12 @@ static const QVector<PageDef>& pageRegistry() {
         {"tools",       2,  QStringLiteral("工具管理")},
         {"borrow",      3,  QStringLiteral("工具借用")},
         {"return",      4,  QStringLiteral("工具归还")},
-        {"checkin",     5,  QStringLiteral("工具入库")},
-        {"checkout",    6,  QStringLiteral("工具出库")},
-        {"ledger",      7,  QStringLiteral("导入导出")},
-        {"alerts_sys",  8,  QStringLiteral("系统告警")},   // 与操作告警共用 AlertLogsPage，索引相同
-        {"alerts_op",   8,  QStringLiteral("操作告警")},
-        {"settings",    9,  QStringLiteral("系统设置")},
-        {"home",        10, QStringLiteral("功能主页")},
+        {"checkin",     5,  QStringLiteral("工具出入库")},
+        {"ledger",      6,  QStringLiteral("导入导出")},
+        {"alerts_sys",  7,  QStringLiteral("系统告警")},   // 与操作告警共用 AlertLogsPage，索引相同
+        {"alerts_op",   7,  QStringLiteral("操作告警")},
+        {"settings",    8,  QStringLiteral("系统设置")},
+        {"home",        9,  QStringLiteral("功能主页")},
     };
     return reg;
 }
@@ -74,8 +72,7 @@ static const QVector<MenuEntry>& adminMenuEntries() {
     static const QVector<MenuEntry> entries = {
         {"users",    QStringLiteral("👥"),  QStringLiteral("人员管理")},
         {"tools",    QStringLiteral("🔧"),  QStringLiteral("工具管理")},
-        {"checkin",  QStringLiteral("📦"),  QStringLiteral("工具入库")},
-        {"checkout", QStringLiteral("📋"),  QStringLiteral("工具出库")},
+        {"checkin",  QStringLiteral("📦"),  QStringLiteral("工具出入库")},
         {"ledger",   QStringLiteral("📂"),  QStringLiteral("导入导出")},
         {"alerts_sys", QStringLiteral("🚨"), QStringLiteral("系统告警")},
         {"alerts_op",  QStringLiteral("📝"), QStringLiteral("操作告警")},
@@ -94,7 +91,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     , m_topBar(nullptr), m_stack(nullptr), m_sidebar(nullptr), m_contentArea(nullptr)
     , m_loginPage(nullptr), m_userMgmtPage(nullptr)
     , m_toolMgmtPage(nullptr), m_borrowPage(nullptr), m_returnPage(nullptr)
-    , m_checkinPage(nullptr), m_checkoutPage(nullptr), m_ledgerPage(nullptr)
+    , m_checkinPage(nullptr), m_ledgerPage(nullptr)
     , m_alertsPage(nullptr), m_settingsPage(nullptr)
 {
     setWindowTitle(QStringLiteral("智能工具柜管理系统"));
@@ -146,24 +143,22 @@ void MainWindow::setupUI() {
     m_borrowPage    = new ToolBorrowPage();
     m_returnPage    = new ToolReturnPage();
     m_checkinPage   = new ToolCheckinPage();
-    m_checkoutPage  = new ToolCheckoutPage();
     m_ledgerPage    = new LedgerStatsPage();
     m_alertsPage    = new AlertLogsPage();
     m_settingsPage  = new SystemSettingsPage();
 
-    // 移除人脸录入独立页面，人脸录入功能已集成到人员管理页
-    // 索引：0:登录 1:用户管理 2:工具管理 3:借用 4:归还 5:入库 6:出库 7:台账 8:告警 9:设置 10:功能主页
+    // 人脸录入功能集成在人员管理页
+    // 索引：0:登录 1:用户管理 2:工具管理 3:借用 4:归还 5:出入库 6:台账 7:告警 8:设置 9:功能主页
     m_stack->addWidget(m_loginPage);
     m_stack->addWidget(m_userMgmtPage);
     m_stack->addWidget(m_toolMgmtPage);
     m_stack->addWidget(m_borrowPage);
     m_stack->addWidget(m_returnPage);
     m_stack->addWidget(m_checkinPage);
-    m_stack->addWidget(m_checkoutPage);
     m_stack->addWidget(m_ledgerPage);
     m_stack->addWidget(m_alertsPage);
-    m_stack->addWidget(m_settingsPage);     // 系统设置(索引9)
-    m_stack->addWidget(m_menuHomePage);     // 功能导航主页(索引10)
+    m_stack->addWidget(m_settingsPage);     // 系统设置(索引8)
+    m_stack->addWidget(m_menuHomePage);     // 功能导航主页(索引9)
 
     // 流程过渡遮罩页：登录后强制改密/身份选择等弹窗期间主界面停在本页，
     // 避免弹窗间隙露出背后的登录页（闪现按键页面问题）
@@ -334,7 +329,6 @@ void MainWindow::showPage(const QString& name) {
         else if (n == "borrow" && m_borrowPage)        m_borrowPage->refresh();
         else if (n == "return" && m_returnPage)        m_returnPage->refresh();
         else if (n == "checkin" && m_checkinPage)      m_checkinPage->refresh();
-        else if (n == "checkout" && m_checkoutPage)    m_checkoutPage->refresh();
         else if (n == "ledger" && m_ledgerPage)        m_ledgerPage->refresh();
         // 系统告警/操作告警两个入口共用同一页面实例，按入口名注入类别后刷新
         else if ((n == "alerts_sys" || n == "alerts_op") && m_alertsPage) {
@@ -419,7 +413,7 @@ void MainWindow::updateSidebarVisibility() {
         bool show;
         if (canUseAdminPages) {
             show = (id == "tools" || id == "alerts_sys" || id == "alerts_op")
-                || (id == "users" || id == "checkin" || id == "checkout" || id == "ledger"
+                || (id == "users" || id == "checkin" || id == "ledger"
                      || id == "settings");
         } else {
   // 普通用户仅开放 工具管理
@@ -451,9 +445,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     setCurrentUser(user);
     m_borrowPage->setUser(user);
     m_returnPage->setUser(user);
-    // 出库页面设置当前用户（出库记录写入正确操作人）
-    m_checkoutPage->setUser(user);
-    // 入库页面设置当前用户（入库记录写入正确操作人）
+    // 出入库页面设置当前用户（出入库记录写入正确操作人）
     m_checkinPage->setUser(user);
     // 告警日志页面设置当前用户（忽略按钮权限控制）
     m_alertsPage->setUser(user);

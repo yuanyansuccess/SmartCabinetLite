@@ -62,7 +62,7 @@ bool ToolDAO::updateMappingStatus(int mappingId, const QString& status)
     return true;
 }
 
-// 查找待入库工具（映射表中有status='pending'空闲位置）
+// 查找待入库工具（映射表中有可入库位置：待入库pending或已出库checked_out）
 QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
 {
     QSqlDatabase db = getDb();
@@ -71,22 +71,24 @@ QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
         q.prepare(
             "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, "
             "(SELECT COUNT(*) FROM tool_position_mapping mpm "
-            " WHERE mpm.tool_id=ti.tool_id AND mpm.status='pending') AS free_pos_count "
+            " WHERE mpm.tool_id=ti.tool_id AND mpm.status IN ('pending','checked_out')) AS free_pos_count "
             "FROM tool_info ti "
             "WHERE ti.machine_group_id=? "
             "  AND ti.status IN ('pending','in_stock','checked_out') "
-            "  AND EXISTS (SELECT 1 FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='pending') "
+            "  AND EXISTS (SELECT 1 FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id "
+            "              AND m.status IN ('pending','checked_out')) "
             "ORDER BY ti.tool_name");
         q.addBindValue(machineGroupId);
     } else {
         q.prepare(
             "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, "
             "(SELECT COUNT(*) FROM tool_position_mapping mpm "
-            " WHERE mpm.tool_id=ti.tool_id AND mpm.status='pending') AS free_pos_count "
+            " WHERE mpm.tool_id=ti.tool_id AND mpm.status IN ('pending','checked_out')) AS free_pos_count "
             "FROM tool_info ti "
             "WHERE ti.category_id=? AND ti.machine_group_id=? "
             "  AND ti.status IN ('pending','in_stock','checked_out') "
-            "  AND EXISTS (SELECT 1 FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='pending') "
+            "  AND EXISTS (SELECT 1 FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id "
+            "              AND m.status IN ('pending','checked_out')) "
             "ORDER BY ti.tool_name");
         q.addBindValue(categoryId);
         q.addBindValue(machineGroupId);
@@ -122,7 +124,7 @@ QJsonObject ToolDAO::findToolBasicInfo(int toolId)
     return obj;
 }
 
-// 查找工具的待入库位置（映射表status='pending'）
+// 查找工具的可入库位置（映射表status为pending待入库或checked_out已出库回流）
 QJsonArray ToolDAO::findPendingPositions(int toolId)
 {
     QSqlDatabase db = getDb();
@@ -132,7 +134,7 @@ QJsonArray ToolDAO::findPendingPositions(int toolId)
         "       cb.cabinet_name, cb.cabinet_code "
         "FROM tool_position_mapping mpm "
         "JOIN tool_cabinet cb ON mpm.cabinet_id = cb.cabinet_id "
-        "WHERE mpm.tool_id=? AND mpm.status='pending' "
+        "WHERE mpm.tool_id=? AND mpm.status IN ('pending','checked_out') "
         "ORDER BY cb.cabinet_name, mpm.layer, mpm.position");
     q.addBindValue(toolId);
     safeExec(q);

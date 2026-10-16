@@ -535,7 +535,7 @@ bool SystemSettingsPage::isDirty() {
     if (m_powerAlarmMode != m_snapshot.powerAlarmMode) return true;
     if (!m_autoConfirmCheck || m_autoConfirmCheck->isChecked() != m_snapshot.autoConfirm) return true;
 
-    if (!m_maxBorrowSpin || m_maxBorrowSpin->value() != m_snapshot.maxBorrow) return true;
+    // 借还设置仅检测下方三个控件："单次最大借出数量"没有对应输入控件，不存在用户修改入口，不参与脏数据检测
     if (!m_defaultPeriodSpin || m_defaultPeriodSpin->value() != m_snapshot.defaultPeriod) return true;
     if (!m_returnBufferSpin || m_returnBufferSpin->value() != m_snapshot.returnBuffer) return true;
     if (!m_brightnessSlider || m_brightnessSlider->value() != m_snapshot.brightness) return true;

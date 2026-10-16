@@ -102,7 +102,7 @@ void UserManagementPage::createUserDialog() {
         };
         m_dlgRoleBtn1 = makeRoleBtn(QStringLiteral("普通用户"), 0);
         m_dlgRoleBtn2 = makeRoleBtn(QStringLiteral("管理员"), 1);
-        m_dlgRoleBtn3 = makeRoleBtn(QStringLiteral("管理用户"), 2);
+        m_dlgRoleBtn3 = makeRoleBtn(QStringLiteral("管理+用户"), 2);
     }
     // 初始密码区域
     m_dlgPasswordFrame = new QFrame();

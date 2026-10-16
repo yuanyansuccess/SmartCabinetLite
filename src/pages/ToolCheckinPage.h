@@ -1,28 +1,28 @@
 /**
  * @file ToolCheckinPage.h
- * @brief 工具入库页面 - 双选项卡（入库管理 + 入库记录）+ 四步对话框流程
+ * @brief 工具出入库页面 - 三选项卡（出入库管理 + 入库记录 + 出库记录）
  * @author 袁燕
  *
- * 去掉步骤条流程提示，改为对话框引导四步流程
- *   1. 柜体/层号/位置/工具类型改为下拉选择
- *   2. 确认入库→弹出入库清单对话框
- *   3. 柜体打开动画（三点跳动）
- *   4. 假异常告警提示
- *   5. 入库成功
- * 模仿出库页面风格，增加双Tab结构：入库管理 + 入库记录
- *   入库成功后写sys_operation_log(operation_type='checkin')，入库记录Tab展示历史
+ * 出入库以"单据"方式操作：
+ *   1. 单据列表逐行添加指令，每行仅两项内容：工具名称 + 类型（入库/出库），
+ *      位置由系统按对照关系自动带出（一个工具只在一个位置）
+ *   2. 点击"确认出入库"先进入开箱环节（柜体打开动画 + 单据摘要）
+ *   3. 用户按单据放入/取出工具后关闭柜门，系统逐项执行并检查：
+ *      成功项写入记录（入库写 checkin 日志 / 出库写 checkout 日志），
+ *      未完成项红字提示且不写记录，可重新执行
+ * 入库成功写 sys_operation_log(operation_type='checkin')，出库成功写
+ * sys_operation_log(operation_type='checkout')，两个记录 Tab 分别展示历史。
  */
 #pragma once
 #include <QWidget>
 #include <QDialog>
-#include <QLineEdit>
 #include <QComboBox>
 #include <QPushButton>
 class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QLabel>
 #include <QTabWidget>
 #include <QJsonObject>
-#include <QJsonArray>  // 可用位置列表
+#include <QJsonArray>
 
 class PaginationBar;  // 通用分页栏组件
 
@@ -37,54 +37,54 @@ public:
     void setUser(const QJsonObject& user) { m_user = user; }  // 设置当前登录用户
 
 private slots:
-    void onReset();
-    void onSubmit();
-    void onTabChanged(int index);  // Tab切换时加载数据
-    void onRecordPrevPage();  // 入库记录上一页
-    void onRecordNextPage();  // 入库记录下一页
+    void onAddOrderRow();      // 添加一行入库指令
+    void onAddOrderRowOut();   // 添加一行出库指令
+    void onSubmit();           // 确认出入库：校验单据→开箱→关柜检查
+    void onTabChanged(int index);   // Tab切换时加载数据
+    void onRecordPrevPage();   // 入库记录上一页
+    void onRecordNextPage();   // 入库记录下一页
+    void onOutRecordPrevPage();  // 出库记录上一页
+    void onOutRecordNextPage();  // 出库记录下一页
 
 private:
-    void setupUI();
-    bool validateForm(QString& errorMsg);
-    void loadLocalMachineGroup();
-    void loadCategoryOptions();  // 加载工具类型下拉选项
-    void loadCabinetOptions();  // 加载入库柜体下拉选项
-    void loadToolsByCategory(int categoryId);  // 按工具类型加载对应工具下拉
-    void onCategoryChanged();  // 工具类型切换时刷新工具下拉
-    void onToolSelected();  // 选择工具后自动填充信息
-    void loadCheckinRecords();  // 加载入库历史记录
-    // 移除generateUniqueToolCode：入库不创建新品类，只更新现有工具
+    /// 单据一行指令执行所需的数据（自表格控件收集）
+    struct OrderRow {
+        QString type;        // "in"=入库 / "out"=出库
+        int toolId = 0;      // 工具ID
+        int mappingId = 0;   // 出库行的位置映射ID（入库行为0）
+        QString toolCode;    // 工具编号
+        QString toolName;    // 工具名称
+        QString position;    // 位置展示串（A-01-02）
+        QJsonObject posInfo; // 位置原始信息（cabinetId/layer/position等，入库执行用）
+    };
 
-    // 四步入库流程
-    void showCheckinListDialog();        // 步骤1: 入库清单确认
-    void showCheckinDrawerOpeningDialog(); // 步骤2: 柜体打开中（三点动画）
-    void showCheckinWarningDialog();     // 步骤3: 假异常告警
-    void showCheckinSuccessDialog();     // 步骤4: 入库成功（写DB+记日志）
+    void setupUI();
+    void loadLocalMachineGroup();      // 读取本机组信息回填界面
+    void loadCheckinRecords();         // 加载入库历史记录
+    void loadCheckoutRecords();        // 加载出库历史记录
+
+    // ── 出入库单据 ──
+    void appendOrderRow(const QString& type);            // 向单据表格追加一行
+    void reloadToolOptions(int row);                     // 按行类型重载该行工具下拉
+    void updateRowPosition(int row);                     // 行内选工具后自动带出位置
+    int  rowOfWidget(QWidget* w);                        // 查找单元格控件所在行号
+    QList<OrderRow> collectOrderItems(QString& errorMsg); // 收集并校验单据，失败返回空列表
+    void clearOrderTable();                              // 清空单据
+
+    // ── 确认后的两段式流程 ──
+    bool validateOrderItems(const QList<OrderRow>& items); // 执行前最终校验（位置实时核对）
+    void showOrderExecuteDialog(const QList<OrderRow>& items); // 开箱环节：柜体打开+单据摘要
+    void showCheckResultDialog(const QList<OrderRow>& items);  // 关柜检查：逐项执行并显示结果
 
     // Tab容器
     QTabWidget* m_tabWidget = nullptr;
 
-    // 表单控件
-    QLineEdit* m_toolNameEdit = nullptr;
-    QLineEdit* m_toolCodeEdit = nullptr;
-    QLineEdit* m_specEdit = nullptr;
-    QComboBox* m_qtyCombo = nullptr;    // 入库数量可选1~N，N=空闲位置数
-    QLabel* m_qtyHintLabel = nullptr;  // 入库数量最大提示（空闲位置数）
-    QComboBox* m_cabinetCombo = nullptr;     // 入库柜体下拉
-    QComboBox* m_layerCombo = nullptr;       // 层号下拉
-    QComboBox* m_positionCombo = nullptr;    // 位置下拉
-    QComboBox* m_categoryCombo = nullptr;    // 工具类型下拉
-    // 新增：工具选择下拉（按工具类型关联选择对应工具）
-    QComboBox* m_toolSelectCombo = nullptr;  // 工具选择下拉
-    int m_selectedToolId = 0;                // 当前选中的工具ID
+    // 单据表格
+    QTableWidget* m_orderTable = nullptr;
+
+    // 机组信息
     QLabel* m_machineGroupLabel = nullptr;
     int m_localMachineGroupId = 0;
-
-    // 入库数量可选1~N，N=该工具在对照表中的空闲位置数
-    // 同一工具有多个空闲位置时，用户选择入库数量，每件放到不同位置
-    // 入库位置从映射表选取，一个位置对应一个工具
-    QJsonArray m_availablePositions;
-    int m_selectedCheckinQty = 1;  // 用户选择的入库数量
 
     // 状态
     QLabel* m_errorLabel = nullptr;
@@ -98,7 +98,14 @@ private:
     int m_recordPageSize = 20;
     int m_recordTotalRecords = 0;
 
-    // 当前登录用户信息（用于入库记录操作人）
+    // 出库记录表格 + 分页
+    QTableWidget* m_outRecordTable = nullptr;
+    PaginationBar* m_outRecordPaginationBar = nullptr;  // 通用分页栏
+    int m_outRecordCurrentPage = 1;
+    int m_outRecordPageSize = 20;
+    int m_outRecordTotalRecords = 0;
+
+    // 当前登录用户信息（用于出入库记录操作人）
     QJsonObject m_user;
 
     Ui::ToolCheckinPage* ui = nullptr;  // 静态布局（ToolCheckinPage.ui）

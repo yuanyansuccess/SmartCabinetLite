@@ -156,7 +156,6 @@ set(PAGE_UIS
     src/pages/LedgerStatsPage.ui
     src/pages/AlertLogsPage.ui
     src/pages/ToolReturnPage.ui
-    src/pages/ToolCheckoutPage.ui
     src/pages/ToolCheckinPage.ui
     src/pages/ToolManagementPage.ui
     src/pages/UserManagementPage.ui
@@ -185,8 +184,6 @@ set(PAGE_SOURCES
     src/pages/ToolReturnPage.cpp
     src/pages/ToolCheckinPage.cpp
     src/pages/ToolCheckinPageDialog.cpp
-    src/pages/ToolCheckoutPage.cpp
-    src/pages/ToolCheckoutPageDialog.cpp
     src/pages/LedgerStatsPage.cpp
     src/pages/AlertLogsPage.cpp
     src/pages/HelpManualDialog.cpp
@@ -308,7 +305,6 @@ set(ALL_HEADERS
     src/pages/ToolBorrowPage.h
     src/pages/ToolReturnPage.h
     src/pages/ToolCheckinPage.h
-    src/pages/ToolCheckoutPage.h
     src/pages/LedgerStatsPage.h
     src/pages/AlertLogsPage.h
     src/pages/HelpManualDialog.h

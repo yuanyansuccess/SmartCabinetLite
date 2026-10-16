@@ -43,16 +43,17 @@ CheckoutService::CheckoutResult CheckoutService::executeCheckout(
                 return false;
             }
 
-            // 扣减库存（current_qty 和 total_qty 都减）
-            stepOk = toolDao.updateStock(it.toolId, -it.quantity);
+            // 出库=工具从柜中取出使用（编制库存total_qty不变，放回时恢复）
+            // current_qty=该工具剩余在库位置数；全部取空则工具状态设为checked_out
+            int inStockCount = toolDao.countInStockPositions(it.toolId);
+            QJsonObject qtyUpdates;
+            qtyUpdates["currentQty"] = inStockCount;
+            stepOk = toolDao.update(it.toolId, qtyUpdates);
             if (!stepOk) {
                 failedNames.append(it.toolName.isEmpty() ? it.toolCode : it.toolName);
                 return false;
             }
-
-            // 出库后current_qty=0则状态设为checked_out(已出库)
-            QJsonObject updatedTool = toolDao.findById(it.toolId);
-            if (updatedTool["currentQty"].toInt() <= 0) {
+            if (inStockCount <= 0) {
                 stepOk = toolDao.updateStatus(it.toolId, SC::TOOL_CHECKED_OUT);
             }
             if (!stepOk) {

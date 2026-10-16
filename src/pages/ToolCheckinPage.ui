@@ -24,7 +24,7 @@
       <string notr="true">font-size:20px;font-weight:700;color:#1a1a2e;</string>
      </property>
      <property name="text">
-      <string>工具入库管理</string>
+      <string>工具出入库管理</string>
      </property>
     </widget>
    </item>
@@ -38,7 +38,7 @@ QTabBar::tab:hover { background: #e8f0fe; }</string>
      </property>
      <widget class="QWidget" name="checkinTab">
       <attribute name="title">
-       <string>📥 入库管理</string>
+       <string>🔄 出入库管理</string>
       </attribute>
       <layout class="QVBoxLayout" name="checkinLayout">
        <property name="spacing">
@@ -58,134 +58,34 @@ QTabBar::tab:hover { background: #e8f0fe; }</string>
        </property>
        <item>
         <widget class="QGroupBox" name="panel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
          <property name="styleSheet">
           <string notr="true">QGroupBox{font-size:16px;font-weight:700;color:#1a1a2e;
 border:1px solid #e0e0e0;border-radius:12px;margin-top:10px;padding:16px;}
 QGroupBox::title{padding:0 10px;}</string>
          </property>
          <property name="title">
-          <string>入库单信息</string>
+          <string>出入库单信息</string>
          </property>
          <layout class="QVBoxLayout" name="panelLayout">
           <item>
-           <layout class="QGridLayout" name="formGrid" columnstretch="1,1,1,1">
-            <property name="spacing">
-             <number>12</number>
-            </property>
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="categoryLabel">
-              <property name="styleSheet">
-               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
-              </property>
-              <property name="text">
-               <string>工具类型 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="categoryCombo">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>48</height>
-               </size>
-              </property>
-              <property name="styleSheet">
-               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
-QComboBox:focus { border-color: #4da3ff; }
-QComboBox::drop-down { border: none; width: 36px; }
-QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
-              </property>
-              <property name="editable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QLabel" name="toolSelectLabel">
-              <property name="styleSheet">
-               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
-              </property>
-              <property name="text">
-               <string>对应工具 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="3">
-             <widget class="QComboBox" name="toolSelectCombo">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>48</height>
-               </size>
-              </property>
-              <property name="styleSheet">
-               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
-QComboBox:focus { border-color: #4da3ff; }
-QComboBox::drop-down { border: none; width: 36px; }
-QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="qtyLabel">
-              <property name="styleSheet">
-               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
-              </property>
-              <property name="text">
-               <string>入库数量 &lt;span style='color:#e74c3c'&gt;*&lt;/span&gt;</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QComboBox" name="qtyCombo">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>48</height>
-               </size>
-              </property>
-              <property name="styleSheet">
-               <string notr="true">QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }
-QComboBox:focus { border-color: #4da3ff; }
-QComboBox::drop-down { border: none; width: 36px; }
-QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="2">
-             <widget class="QLabel" name="qtyHintLabel">
-              <property name="styleSheet">
-               <string notr="true">font-size:13px;color:#888;background:transparent;padding-left:6px;</string>
-              </property>
-              <property name="text">
-               <string>请先选择工具</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="2">
+           <layout class="QHBoxLayout" name="machineRow">
+            <item>
              <widget class="QLabel" name="machineGroupTitleLabel">
               <property name="styleSheet">
-               <string notr="true">font-size:16px;font-weight:600;color:#555;</string>
+               <string notr="true">font-size:16px;font-weight:600;color:#555;background:transparent;</string>
               </property>
               <property name="text">
                <string>所属机组</string>
               </property>
              </widget>
             </item>
-            <item row="1" column="3">
+            <item>
              <widget class="QLabel" name="machineGroupLabel">
               <property name="styleSheet">
                <string notr="true">font-size:16px;font-weight:600;color:#4da3ff;
@@ -203,13 +103,125 @@ padding:10px 16px;min-height:48px;</string>
            </layout>
           </item>
           <item>
+           <layout class="QHBoxLayout" name="addRowBtnRow">
+            <property name="spacing">
+             <number>12</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="addInBtn">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+              <property name="cursor">
+               <cursorShape>PointingHandCursor</cursorShape>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 700; min-height: 44px; }
+QPushButton:hover { background: #3d8ae0; }
+QPushButton:pressed { background: #2e7bd6; }</string>
+              </property>
+              <property name="text">
+               <string>+ 添加入库行</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="addOutBtn">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+              <property name="cursor">
+               <cursorShape>PointingHandCursor</cursorShape>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QPushButton { background: #fff; color: #4da3ff; border: 1px solid #4da3ff; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 700; min-height: 44px; }
+QPushButton:hover { background: #e8f0fe; }
+QPushButton:pressed { background: #d6e9ff; }</string>
+              </property>
+              <property name="text">
+               <string>+ 添加出库行</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="addRowSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="orderTable">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>1</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>160</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QTableWidget{font-size:14px;background:white;border:1px solid #f0f0f0;border-radius:10px;outline:none;}
+QTableWidget::item{padding:6px 10px;color:#333;border-bottom:1px solid #f3f3f3;}
+QHeaderView::section{background:#f8f9fb;color:#666;font-weight:600;font-size:14px;padding:8px 10px;border:none;border-bottom:2px solid #f0f0f0;}</string>
+            </property>
+            <property name="selectionBehavior">
+             <enum>QAbstractItemView::SelectRows</enum>
+            </property>
+            <property name="editTriggers">
+             <set>QAbstractItemView::NoEditTriggers</set>
+            </property>
+            <attribute name="verticalHeaderVisible">
+             <bool>false</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>类型</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>工具名称</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>位置（选工具自动带出）</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>操作</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+          <item>
            <widget class="QLabel" name="tipLabel">
             <property name="styleSheet">
              <string notr="true">font-size:14px;color:#1890ff;background:#e6f7ff;border:1px solid #91d5ff;border-radius:10px;padding:12px 16px;</string>
             </property>
             <property name="text">
-             <string>选择工具类型后，从对应工具列表中选择待入库工具。
-入库数量由对照关系表中该工具的空闲位置数决定，位置自动匹配。</string>
+             <string>逐行添加出入库指令：选择类型（入库/出库）与工具名称，位置由系统按对照关系自动带出。
+确认后先开柜，请按单据放入或取出工具；关闭柜门时系统逐项检查并记录。</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -301,7 +313,7 @@ QPushButton:pressed { background: #2e7bd6; }
 QPushButton:disabled { background: #cccccc; color: #888888; }</string>
               </property>
               <property name="text">
-               <string>确认入库</string>
+               <string>确认出入库</string>
               </property>
              </widget>
             </item>
@@ -309,19 +321,6 @@ QPushButton:disabled { background: #cccccc; color: #888888; }</string>
           </item>
          </layout>
         </widget>
-       </item>
-       <item>
-        <spacer name="checkinBottomStretch">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </widget>
@@ -419,6 +418,93 @@ QPushButton:disabled { background: #cccccc; color: #888888; }</string>
       <widget class="PaginationBar" name="recordPaginationBar"/>
      </item>
    </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="checkoutRecordTab">
+      <attribute name="title">
+       <string>📤 出库记录</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="checkoutRecordLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="checkoutRecordTitle">
+         <property name="styleSheet">
+          <string notr="true">font-size:20px;font-weight:bold;color:#1a1a2e;</string>
+         </property>
+         <property name="text">
+          <string>出库历史记录</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="checkoutRecordTable">
+         <property name="selectionBehavior">
+          <enum>QAbstractItemView::SelectRows</enum>
+         </property>
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <attribute name="verticalHeaderVisible">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>出库时间</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具名称</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>工具编号</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>操作人</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="checkoutRecordPageRow">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="PaginationBar" name="checkoutRecordPaginationBar"/>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>

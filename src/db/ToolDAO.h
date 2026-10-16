@@ -126,6 +126,7 @@ public:
     bool        isPositionMappingOccupied(int mappingId);   // 该位置是否已有工具在库/借用
     bool        deletePositionMapping(int mappingId);
     QJsonArray  findAllPositionMappings();                  // 所有对照关系 [{mappingId,toolName,toolCode,cabinetName,layer,position,positionStatus}]
+    QJsonArray  findAllInStockPositions(int machineGroupId); // 在库位置明细（出库下拉用）[{mappingId,toolId,toolCode,toolName,cabinetName,layer,position,posDisplay}]
 
     static ToolInfo fromQuery(const QSqlQuery& q);
 };

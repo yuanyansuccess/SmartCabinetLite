@@ -111,7 +111,7 @@ void UserManagementPage::setupUI() {
     // 角色/状态筛选 - CheckBox样式单选组件（自定义组件装入.ui槽位）
     m_roleFilter = new SingleSelectFilter(QStringLiteral("全部角色"), this);
     m_roleFilter->setOptions({QStringLiteral("全部角色"), QStringLiteral("管理员"),
-                              QStringLiteral("管理用户"), QStringLiteral("普通用户")});
+                              QStringLiteral("管理+用户"), QStringLiteral("普通用户")});
     connect(m_roleFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadUsers(); });
     ui->roleFilterSlotLayout->addWidget(m_roleFilter);
 
@@ -278,7 +278,7 @@ void UserManagementPage::loadUsers() {
     QString role;
     if (roleIdx > 0) {
         if (roleText == QStringLiteral("管理员"))           role = SC::ROLE_ADMIN;
-        else if (roleText == QStringLiteral("管理用户"))    role = SC::ROLE_MANAGER;
+        else if (roleText == QStringLiteral("管理+用户"))    role = SC::ROLE_MANAGER;
         else                                               role = SC::ROLE_USER;
     }
 
@@ -313,7 +313,7 @@ void UserManagementPage::loadUsers() {
         // 三种角色显示：管理员 / 管理用户 / 普通用户
         QString roleText = QStringLiteral("普通用户");
         if (u.role == SC::ROLE_ADMIN)        roleText = QStringLiteral("管理员");
-        else if (u.role == SC::ROLE_MANAGER) roleText = QStringLiteral("管理用户");
+        else if (u.role == SC::ROLE_MANAGER) roleText = QStringLiteral("管理+用户");
         QString statusText = (u.status == SC::USER_ACTIVE) ? QStringLiteral("启用") :
                           (u.status == SC::USER_PENDING) ? QStringLiteral("待激活") :
                           (u.status == SC::USER_DISABLED) ? QStringLiteral("禁用") : QStringLiteral("已锁定");

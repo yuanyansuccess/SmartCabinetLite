@@ -170,6 +170,45 @@ QJsonArray ToolDAO::findAllPositionMappings()
     return arr;
 }
 
+// 在库位置明细（位置维度，出库下拉用）：一条映射记录=一个在库位置
+QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
+{
+    QSqlDatabase db = getDb();
+    QSqlQuery q(db);
+    if (machineGroupId > 0) {
+        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, "
+               "c.cabinet_name, m.layer, m.position "
+               "FROM tool_position_mapping m "
+               "JOIN tool_info t ON m.tool_id=t.tool_id "
+               "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
+               "WHERE m.status='in_stock' AND t.machine_group_id=? "
+               "ORDER BY c.cabinet_name, m.layer, m.position");
+        q.addBindValue(machineGroupId);
+    } else {
+        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, "
+               "c.cabinet_name, m.layer, m.position "
+               "FROM tool_position_mapping m "
+               "JOIN tool_info t ON m.tool_id=t.tool_id "
+               "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
+               "WHERE m.status='in_stock' "
+               "ORDER BY c.cabinet_name, m.layer, m.position");
+    }
+    safeExec(q);
+    QJsonArray arr;
+    while (q.next()) {
+        QJsonObject obj;
+        obj["mappingId"]   = q.value(0).toInt();
+        obj["toolId"]      = q.value(1).toInt();
+        obj["toolCode"]    = q.value(2).toString();
+        obj["toolName"]    = q.value(3).toString();
+        obj["cabinetName"] = q.value(4).toString();
+        obj["layer"]       = q.value(5).toString();
+        obj["position"]    = q.value(6).toString();
+        arr.append(obj);
+    }
+    return arr;
+}
+
 // 按分类名查询category_id，找不到返回-1
 int ToolDAO::findCategoryIdByName(const QString& name)
 {
