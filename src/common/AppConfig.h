@@ -7,6 +7,7 @@
 #include <QString>
 #include <QSettings>
 #include <QMutex>
+#include <QDate>
 
 class AppConfig {
 public:
@@ -99,12 +100,14 @@ public:
     // ═══════════════════════════════════════════════
     bool    backupAutoEnabled() const;
     void    setBackupAutoEnabled(bool v);
-    int     backupPeriod() const;       // 0=每日, 1=每周, 2=每月
+    int     backupPeriod() const;       // 0=每日, 1=每周一, 2=每周日（与UI按钮文字一致）
     void    setBackupPeriod(int v);
     int     backupCacheHours() const;
     void    setBackupCacheHours(int v);
     QString backupPath() const;
     void    setBackupPath(const QString& v);
+    QDate   lastBackupDate() const;       // 上次成功备份日期（自动备份按周期去重用，空=从未备份）
+    void    setLastBackupDate(const QDate& d);
 
     // ═══════════════════════════════════════════════
     // UI 缩放配置（UI节）：>0 时覆盖自动设备识别的等比缩放

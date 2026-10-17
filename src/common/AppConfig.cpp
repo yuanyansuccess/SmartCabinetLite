@@ -126,6 +126,7 @@ void AppConfig::createDefaultIni(const QString& path) {
     content += "period=" + QString::number(SC::BACKUP_PERIOD) + "\n";
     content += "cache_hours=" + QString::number(SC::BACKUP_CACHE_HOURS) + "\n";
     content += "path=" + SC::BACKUP_PATH + "\n";
+    content += "last_backup_date=\n";  // 上次成功备份日期，空=从未备份（自动备份按周期去重用）
 
     // UTF-8 BOM (QSettings IniFormat识别BOM确保中文不乱码)
     file.write("\xEF\xBB\xBF");
@@ -355,6 +356,17 @@ int AppConfig::backupCacheHours() const    { QMutexLocker l(&m_mutex); return m_
  */
 void AppConfig::setBackupCacheHours(int v)         { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/cache_hours", v); }
 QString AppConfig::backupPath() const      { QMutexLocker l(&m_mutex); return m_settings->value("Backup/path",         SC::BACKUP_PATH).toString(); }
+
+QDate AppConfig::lastBackupDate() const {
+    QMutexLocker l(&m_mutex);
+    QString s = m_settings->value("Backup/last_backup_date", "").toString().trimmed();
+    return s.isEmpty() ? QDate() : QDate::fromString(s, "yyyy-MM-dd");
+}
+
+void AppConfig::setLastBackupDate(const QDate& d) {
+    QMutexLocker l(&m_mutex);
+    m_settings->setValue("Backup/last_backup_date", d.toString("yyyy-MM-dd"));
+}
 /**
  * @brief 设置备份路径
  */

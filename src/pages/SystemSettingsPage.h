@@ -76,8 +76,10 @@ private:
     void writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode);
     void applyBrightnessWindows(int percent);
     void applyBrightnessLinux(int percent);
-    // 执行数据库自动备份（保存备份设置时触发首次备份+注册定时任务）
+    // 执行数据库自动备份（保存备份设置时触发首次备份；定时调度也复用此入口）
     void performDatabaseBackup();
+    void initBackupScheduler();   // 启动自动备份定时器（每小时轮询一次）
+    void onBackupTimerTick();     // 定时器超时：按周期判断今天是否应备份
     /**
      * @brief 启动一次 mysqldump 导出，异步执行不阻塞界面
      * @param backupPath 备份文件存放目录（不存在时自动创建）
@@ -85,9 +87,11 @@ private:
      */
     void startMysqlDumpBackup(const QString& backupPath,
                               const std::function<void(bool, const QString&)>& onFinished);
-    // 跨平台配置有线网卡（Windows用netsh，麒麟用ip/nmcli），仅配置有线网卡
+    // 跨平台配置有线网卡（Windows用netsh，麒麟用ip/ethtool/nmcli），仅配置有线网卡
+    // @param speedMode 网口速率：0=1000M自适应，1=100M全双工（麒麟侧通过ethtool/nmcli落地）
     void applyNetworkConfig(const QString& ip, const QString& mask,
-                            const QString& gateway, const QString& dns);
+                            const QString& gateway, const QString& dns,
+                            int speedMode = 0);
     // 获取第一块有线网卡名称（用于网络配置定位）
     QString detectWiredInterfaceName();
 
@@ -155,6 +159,8 @@ private:
     int m_backupPeriod = 0;  // 0=每日, 1=每周一, 2=每周日
     QLineEdit* m_backupPathEdit = nullptr;
     QSpinBox* m_cacheHoursSpin = nullptr;
+    QTimer* m_backupTimer = nullptr;   // 自动备份调度定时器（SystemSettingsPage 常驻，随程序生命周期运行）
+    bool    m_backingUp = false;       // 防止自动/保存触发并发启动多个 mysqldump
 
     // 离开页面未保存时提示用户
     void showEvent(QShowEvent* event) override;

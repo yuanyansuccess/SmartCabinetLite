@@ -27,6 +27,9 @@
 #include <QScrollBar>
 #include <QShowEvent>  // 页面切换还原
 #include <QHideEvent>
+#include <QHostAddress>  // 网络配置IP格式校验
+#include <QTimer>        // 自动备份定时调度
+#include <QDate>         // 自动备份按日期去重
 
 
 /**
@@ -125,6 +128,9 @@ void SystemSettingsPage::setupUI() {
     // 默认显示第一个Tab
     m_activeTabIndex = 0;
     updateTabStyles();
+
+    // 启动自动备份调度（每小时轮询，按设定的周期+上次备份日期判断是否需要备份）
+    initBackupScheduler();
 }
 
 /**
@@ -348,27 +354,63 @@ void SystemSettingsPage::onSaveAll() {
     }
 }
 
+/// 网络配置字段校验辅助（抽成独立函数，便于单元测试，避免在UI回调里堆叠逻辑）
+/// @param s 待校验字符串
+/// @return 是否为合法 IPv4 地址
+static bool isIPv4Address(const QString& s) {
+    if (s.isEmpty()) return false;
+    QHostAddress addr;
+    return addr.setAddress(s) && addr.protocol() == QHostAddress::IPv4Protocol;
+}
+
 /**
  * @brief 处理网络
+ * @note 保存前先做 IP/掩码/网关/DNS 格式校验，避免非法值被写入并应用到系统网卡导致断网
  */
 void SystemSettingsPage::onSaveNetwork() {
+    // 取出并去除首尾空白，统一用于校验/保存/应用
+    const QString ip      = m_ipEdit->text().trimmed();
+    const QString mask    = m_maskEdit->text().trimmed();
+    const QString gateway = m_gatewayEdit->text().trimmed();
+    const QString dns     = m_dnsEdit->text().trimmed();
+
+    if (!isIPv4Address(ip)) {
+        MessageDialog::showError(this, QStringLiteral("格式错误"),
+            QStringLiteral("IP 地址不合法，请检查（示例：192.168.1.100）"));
+        return;
+    }
+    if (!isIPv4Address(mask)) {
+        MessageDialog::showError(this, QStringLiteral("格式错误"),
+            QStringLiteral("子网掩码不合法（示例：255.255.255.0）"));
+        return;
+    }
+    if (!gateway.isEmpty() && !isIPv4Address(gateway)) {
+        MessageDialog::showError(this, QStringLiteral("格式错误"),
+            QStringLiteral("默认网关不合法"));
+        return;
+    }
+    if (!dns.isEmpty() && !isIPv4Address(dns)) {
+        MessageDialog::showError(this, QStringLiteral("格式错误"),
+            QStringLiteral("DNS 服务器不合法"));
+        return;
+    }
+
     // 保存网络配置到本地INI文件
     auto& cfg = AppConfig::instance();
-    cfg.setNetIp(m_ipEdit->text());
-    cfg.setNetMask(m_maskEdit->text());
-    cfg.setNetGateway(m_gatewayEdit->text());
-    cfg.setNetDns(m_dnsEdit->text());
-    cfg.setNetServer(m_serverEdit->text());
+    cfg.setNetIp(ip);
+    cfg.setNetMask(mask);
+    cfg.setNetGateway(gateway);
+    cfg.setNetDns(dns);
+    cfg.setNetServer(m_serverEdit->text().trimmed());
     cfg.setNetSpeedMode(m_speedMode);
     cfg.setNetNetworkMode(m_networkMode);
     cfg.save();
     m_savedFlag = true;
     snapshotSettings();
-    // 保存网络配置后自动应用到系统有线网卡（Windows+麒麟跨平台）
-    applyNetworkConfig(m_ipEdit->text(), m_maskEdit->text(),
-                       m_gatewayEdit->text(), m_dnsEdit->text());
+    // 保存网络配置后自动应用到系统有线网卡（Windows+麒麟跨平台，异步执行）
+    applyNetworkConfig(ip, mask, gateway, dns, m_speedMode);
     MessageDialog::showSuccess(this, QStringLiteral("成功"),
-        QStringLiteral("网络设置已保存并应用到系统有线网卡"));
+        QStringLiteral("网络配置已保存到本地，正在应用到系统网卡（结果将另行提示）"));
 }
 
 /**
@@ -424,6 +466,40 @@ void SystemSettingsPage::onSaveBackup() {
         performDatabaseBackup();
     }
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("备份设置已保存到本地配置文件"));
+}
+
+/// 判断是否应在今天执行一次自动备份（已按"今天是否已备份"去重）
+/// @param period     备份周期：0=每日, 1=每周一, 2=每周日
+/// @param lastBackup 上次成功备份日期（空=从未备份）
+/// @param today      今天日期
+/// @return 今天是否应备份一次
+static bool shouldRunAutoBackup(int period, const QDate& lastBackup, const QDate& today) {
+    if (!today.isValid()) return false;
+    // 今天已经备份过则跳过；空日期视为从未备份，不跳过
+    if (!lastBackup.isNull() && today <= lastBackup) return false;
+    switch (period) {
+    case 1: return today.dayOfWeek() == Qt::Monday;    // 每周一
+    case 2: return today.dayOfWeek() == Qt::Sunday;    // 每周日
+    default: return true;                               // 每日
+    }
+}
+
+void SystemSettingsPage::initBackupScheduler() {
+    if (m_backupTimer) return;
+    m_backupTimer = new QTimer(this);
+    m_backupTimer->setInterval(60 * 60 * 1000);  // 每小时轮询一次
+    connect(m_backupTimer, &QTimer::timeout, this, &SystemSettingsPage::onBackupTimerTick);
+    m_backupTimer->start();
+    // 启动后立即检查一次：捕捉"当天是备份日但程序在备份时间点之后才启动"的场景
+    QTimer::singleShot(0, this, &SystemSettingsPage::onBackupTimerTick);
+}
+
+void SystemSettingsPage::onBackupTimerTick() {
+    auto& cfg = AppConfig::instance();
+    if (!cfg.backupAutoEnabled()) return;
+    const QDate today = QDate::currentDate();
+    if (!shouldRunAutoBackup(cfg.backupPeriod(), cfg.lastBackupDate(), today)) return;
+    performDatabaseBackup();
 }
 
 /**

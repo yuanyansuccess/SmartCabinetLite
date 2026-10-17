@@ -30,6 +30,8 @@
 | Node.js | 16+ | 系统源 `nodejs` 或官网 https://nodejs.org |
 | 中文字体 | 文泉驿 / Noto CJK | 系统源：`apt-get install fonts-wqy-microhei fonts-noto-cjk` |
 | XCB 系统库 | libxcb-* 一系列 | 见下方“必装系统库” |
+| unixODBC 运行时 | `unixodbc` | 系统源：`apt-get install unixodbc unixodbc-dev`（QODBC 连库依赖） |
+| MySQL ODBC 连接器 | `mysql-connector-odbc` | 系统源：`apt-get install mysql-connector-odbc`（提供 `MySQL ODBC 8.0 Unicode Driver`） |
 
 ### x86_64 专用
 | 工具 | 版本/要求 | 获取方式 |
@@ -85,5 +87,51 @@ tar -czvf SmartCabinetLite_Offline.tar.gz deploy-kylin/ debs/ fonts/
 cp scripts/build_kylin.sh deployment/
 cp scripts/build-kylin-arm64.sh deployment/
 ```
+
+## 七、ODBC 驱动注册（连 MySQL 前置，务必在柜机执行）
+
+本程序通过 **QODBC + `MySQL ODBC 8.0 Unicode Driver`** 直连 MySQL（Qt6.5.3 已不含 QMYSQL）。
+编译脚本只负责把 `libqsqlodbc.so` 打进安装包，**不会**在柜机注册 ODBC 驱动名，
+因此目标柜机必须手动完成以下三步，否则启动即连不上库：
+
+```bash
+# 1) 安装 unixODBC 与 MySQL ODBC 连接器
+sudo apt-get install unixodbc unixodbc-dev mysql-connector-odbc
+
+# 2) 注册驱动（驱动名必须与代码 connection string 完全一致）
+sudo myodbc-installer -d -a -n "MySQL ODBC 8.0 Unicode Driver" \
+    -t "Driver=/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so"
+
+# 3) 验证：列出已注册驱动，应能看到 "MySQL ODBC 8.0 Unicode Driver"
+odbcinst -q -d
+```
+
+> ARM64 柜机步骤相同，仅第 2 步的 `.so` 路径改为对应架构（如 `/usr/lib/aarch64-linux-gnu/odbc/libmyodbc8w.so`）。
+
+---
+
+## 八、自动备份机制（系统设置-备份管理面板）
+
+自动备份由程序内定时器驱动，**无需外部 cron**，但依赖柜机上的 `mysqldump` 命令：
+
+1. **前置依赖**：柜机需安装 MySQL 客户端（提供 `mysqldump`）：
+   ```bash
+   sudo apt-get install mysql-client     # 或 mariadb-client（同样提供 mysqldump）
+   ```
+   若未安装，`startMysqlDumpBackup` 启动失败，自动备份会静默写入 `logs/backup.log`（`BACKUP FAIL cannot start mysqldump`），**不弹窗打扰**；手动备份则会弹错误提示。
+
+2. **调度逻辑**：程序启动后启动一个**每小时轮询**的定时器，按以下规则判断今天是否应备份一次：
+   - 周期=每日：今天尚未成功备份过即执行；
+   - 周期=每周一：仅当今天是周一且本周一尚未备份时执行；
+   - 周期=每周日：仅当今天是周日且本周日尚未备份时执行。
+   判定依据为 INI 中 `Backup/last_backup_date`（格式 `yyyy-MM-dd`），备份成功后写入；**当天已备份则跳过，不会重复导出**。程序启动时也会立即检查一次，捕捉“当天是备份日但程序在备份时间点之后才开机”的场景。
+
+3. **并发保护**：自动（定时器）与手动（按钮）/保存触发之间用 `m_backingUp` 标志互斥，避免同时启动多个 `mysqldump`。
+
+4. **磁盘保护**：每次导出前若可用空间不足，`DiskSpaceGuard` 会静默删掉最旧的 `smartcabinet_backup_*.sql`，用户无感知。
+
+5. **备份产物**：`<备份存储路径>/smartcabinet_backup_YYYYMMDD_HHMMSS.sql`（路径在面板设置，默认见 `SC::BACKUP_PATH`）。
+
+> 注意：若柜机在“每周一/每周日”当天关机，则该周备份会跳过（程序仅在运行期间轮询）。如需严格按日历补备，可改用外部 cron 兜底。
 
 作者：袁燕 ｜ 更新日期：2026-09-24

@@ -38,8 +38,18 @@ void SystemSettingsPage::performDatabaseBackup() {
         Log::appendLog(logPath, QStringLiteral("action=SKIP result=DISABLED detail=auto backup is disabled"));
         return;
     }
+    // 防止自动（定时器）/保存触发并发启动多个 mysqldump
+    if (m_backingUp) return;
+    m_backingUp = true;
 
-    startMysqlDumpBackup(cfg.backupPath(), nullptr);
+    // 备份成功后记录"上次备份日期"，供自动备份按周期去重（避免同一天重复导出）
+    startMysqlDumpBackup(cfg.backupPath(), [this](bool ok, const QString&) {
+        m_backingUp = false;
+        if (ok) {
+            AppConfig::instance().setLastBackupDate(QDate::currentDate());
+            AppConfig::instance().save();
+        }
+    });
 }
 
 /**
@@ -125,21 +135,32 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
  */
 void SystemSettingsPage::onManualBackupClicked() {
     if (!m_manualBackupBtn) return;
+    // 与自动备份互斥，避免并发启动多个 mysqldump
+    if (m_backingUp) {
+        MessageDialog::showError(this, QStringLiteral("请稍候"),
+                                 QStringLiteral("正在执行备份（自动或手动），请稍候完成。"));
+        return;
+    }
 
     auto& cfg = AppConfig::instance();
     // 路径优先取界面当前填写值（用户可能改了还没保存），为空时回落到已保存的配置
     QString backupPath = m_backupPathEdit ? m_backupPathEdit->text().trimmed() : QString();
     if (backupPath.isEmpty()) backupPath = cfg.backupPath();
 
+    m_backingUp = true;
     // 导出期间禁用按钮，防止连点同时启动多个 mysqldump
     m_manualBackupBtn->setEnabled(false);
     m_manualBackupBtn->setText(QStringLiteral("正在备份..."));
 
     startMysqlDumpBackup(backupPath, [this](bool ok, const QString& backupFile) {
+        m_backingUp = false;
         if (!m_manualBackupBtn) return;
         m_manualBackupBtn->setEnabled(true);
         m_manualBackupBtn->setText(QStringLiteral("手动备份"));
         if (ok) {
+            // 手动备份成功也刷新“上次备份日期”，避免紧接着的自动备份又重复导出
+            AppConfig::instance().setLastBackupDate(QDate::currentDate());
+            AppConfig::instance().save();
             MessageDialog::showSuccess(this, QStringLiteral("备份成功"),
                                        QStringLiteral("数据库已备份到：\n%1").arg(backupFile));
         } else {
