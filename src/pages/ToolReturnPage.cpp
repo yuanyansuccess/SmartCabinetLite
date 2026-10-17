@@ -34,6 +34,10 @@
 #include "model/AlertLog.h"  // AlertLog实体
 #include "common/Constants.h"
 
+/**
+ * @brief 构造函数，初始化 ToolReturnPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 ToolReturnPage::ToolReturnPage(QWidget* parent) : QWidget(parent), ui(new Ui::ToolReturnPage) {
     ui->setupUi(this);  // 静态布局来自ToolReturnPage.ui（Qt Designer可视化维护）
     setupUI();          // 动态部分：列宽策略、信号槽连接
@@ -44,7 +48,8 @@ ToolReturnPage::~ToolReturnPage() {
 }
 
 /**
- * @brief 设置用户
+ * @brief
+ * @param user 用户对象或用户标识
  */
 void ToolReturnPage::setUser(const QJsonObject& user) {
     m_user = user;
@@ -228,13 +233,17 @@ void ToolReturnPage::loadRecords() {
     }
 }
 
-// 从借用记录跳转时，设置待归还记录ID
+/**
+ * @brief 从借用记录跳转时，设置待归还记录ID
+ * @param recordId 借用/归还记录唯一标识
+ */
 void ToolReturnPage::setPendingReturnRecordId(int recordId) {
     m_pendingReturnRecordId = recordId;
 }
 
 /**
- * @brief 处理全部
+ * @brief
+ * @param checked 复选框/开关是否勾选，true 选中
  */
 void ToolReturnPage::onSelectAll(bool checked) {
     m_checkedRecordIds.clear();
@@ -263,20 +272,7 @@ void ToolReturnPage::onReturnSelected() {
     showReturnConfirmDialog();
 }
 
-/**
- * @brief 处理归还全部
- */
-void ToolReturnPage::onReturnAll() {
-    for (int i = 0; i < m_records.size(); ++i) {
-        QJsonObject r = m_records[i].toObject();
-        m_checkedRecordIds.insert(r["recordId"].toInt());
-    }
-    for (int i = 0; i < m_table->rowCount(); ++i) {
-        auto* cb = qobject_cast<QCheckBox*>(m_table->cellWidget(i, 0));
-        if (cb) cb->setChecked(true);
-    }
-    updateReturnBtn();
-}
+
 
 /**
  * @brief 处理页面
@@ -306,7 +302,9 @@ void ToolReturnPage::updateReturnBtn() {
     m_selectAllBtn->setEnabled(!m_checkedRecordIds.isEmpty());
 }
 
-// ═══════════ 步骤1：归还清单确认对话框 ═══════════
+/**
+ * @brief ═══════════ 步骤1：归还清单确认对话框 ═══════════
+ */
 void ToolReturnPage::showReturnConfirmDialog() {
     // 收集已选归还记录
     QList<QJsonObject> selectedRecords;
@@ -350,7 +348,7 @@ void ToolReturnPage::showReturnConfirmDialog() {
         .arg(m_user["realName"].toString(), m_user["workNo"].toString()));
     userInfo->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 600));
     auto* totalInfo = new QLabel(QStringLiteral("共归还 %1 件工具").arg(totalQty));
-    totalInfo->setStyleSheet("font-size:15px;color:#43a047;font-weight:600;background:transparent;");
+    totalInfo->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#43a047;font-weight:600;background:transparent;");
     infoRow->addWidget(userInfo);
     infoRow->addStretch();
     infoRow->addWidget(totalInfo);
@@ -364,7 +362,9 @@ void ToolReturnPage::showReturnConfirmDialog() {
     dlg->deleteLater();
 }
 
-// ═══════════ 步骤2：抽屉打开中（三点跳动动画） ═══════════
+/**
+ * @brief ═══════════ 步骤2：抽屉打开中（三点跳动动画） ═══════════
+ */
 void ToolReturnPage::showReturnDrawerOpeningDialog() {
     // 宽度加到560，高度根据归还数量动态调整
     QList<QJsonObject> previewRecords;
@@ -400,12 +400,12 @@ void ToolReturnPage::showReturnDrawerOpeningDialog() {
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setStyleSheet(QString(
         "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
-        "  font-family:\"Microsoft YaHei\",sans-serif; font-size:13px; outline:none; }"
+        "  font-family:\"Microsoft YaHei\",sans-serif; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; outline:none; }"
         "QTableWidget::item { padding:8px 12px; color:#333; border:none; "
         "  border-bottom:1px solid #f3f3f3; outline:none; }"
         "QTableWidget::item:selected { background:#e6f0ff; outline:none; }"
         "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; "
-        "  font-size:12px; padding:8px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + "; padding:8px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
     ));
     // 列宽：名称/位置/借用人Stretch均分，数量Fixed窄列
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -456,7 +456,7 @@ void ToolReturnPage::showReturnErrorDialog() {
         "检测到 <b>%1</b> 位置的工具未正确放入柜位，<br/>"
         "可能原因：工具放置位置错误、视觉识别未通过或柜门未完全关闭。<br/><br/>"
         "请重新核对工具后点击确认，系统将完成归还登记。").arg(firstPosition),
-        "font-size:14px;color:#555;line-height:1.7;background:transparent;",
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#555;line-height:1.7;background:transparent;",
         QStringLiteral("取消归还"), QStringLiteral("✓ 确认完成核对"), 160,
         AppConfig::instance().borrowReturnBuffer(), this);
     dlg.setFixedSize(520, 420);
@@ -508,6 +508,10 @@ void ToolReturnPage::executeReturn() {
     }
 }
 
+/**
+ * @brief ToolReturnPage::showReturnSuccessDialog 的业务实现
+ * @param result 处理结果对象
+ */
 void ToolReturnPage::showReturnSuccessDialog(const ReturnService::Result& result) {
     ResultDialog dlg(QStringLiteral("归还成功"), QStringLiteral("✅"),
         QStringLiteral("归还成功！"), QStringLiteral("#43a047"), 16, this);
@@ -522,7 +526,7 @@ void ToolReturnPage::showReturnSuccessDialog(const ReturnService::Result& result
 
     auto* countLabel = new QLabel(QStringLiteral("已成功归还 %1 件工具").arg(result.count));
     countLabel->setAlignment(Qt::AlignCenter);
-    countLabel->setStyleSheet("font-size:16px;font-weight:600;color:#333;");
+    countLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:600;color:#333;");
     detailLayout->addWidget(countLabel);
     dlg.bodyLayout()->addWidget(detailFrame);
 

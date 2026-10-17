@@ -20,35 +20,17 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include "components/MessageDialog.h"
-#include <QApplication>
 #include <QDebug>
 #include <QFrame>
-#include <QGroupBox>
-#include <QCheckBox>
 #include <QSpinBox>
 #include <QSlider>
-#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
-#include <QGridLayout>
-#include <QMouseEvent>
-#include <QScrollBar>
-#include <QFocusEvent>
-#include <QShowEvent>  // 页面切换还原
-#include <QHideEvent>
-#include <QTableWidget>  // 任务类型配置表格
-#include <QHeaderView>  // 表格列宽控制
-#include <QTableWidgetItem>  // 表格单元格
-#include <QProcess>  // 调用PowerShell设置显示器亮度
-#include <QFile>  // WMI结果日志记录
-#include <QDateTime>  // 亮度日志时间戳
-#include <QDir>  // 备份目录操作
-#include <QRegularExpression>  // 解析os-release
-#include <QFileInfoList>  // 备份文件清理
 
 
 /**
- * @brief 创建借用面板
+ * @brief
+ * @return 构建并返回的界面控件，由调用方负责布局到页面
  */
 QWidget* SystemSettingsPage::createBorrowPanel() {
     auto* panel = new QFrame();
@@ -74,13 +56,6 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
     form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
     // 统一开关样式+透明背景 统一22px indicator + 选中态蓝色
-
-    //m_maxBorrowSpin = new QSpinBox();
-    //m_maxBorrowSpin->setRange(1, 20);
-    //m_maxBorrowSpin->setValue(5);
-    //m_maxBorrowSpin->setSuffix(QStringLiteral(" 件"));
-    //m_maxBorrowSpin->setStyleSheet(StyleHelper::settingSpinBox());
-    //form->addRow(FormFactory::formLabel(QStringLiteral("单次最大借出数量")), m_maxBorrowSpin);
 
     m_defaultPeriodSpin = new QSpinBox();
     m_defaultPeriodSpin->setRange(1, 168);
@@ -108,7 +83,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     m_brightnessValueLabel = new QLabel("80%");
     m_brightnessValueLabel->setFixedWidth(40);
     m_brightnessValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    m_brightnessValueLabel->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;").arg(StyleHelper::primaryColor()));
+    m_brightnessValueLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;color:%1;").arg(StyleHelper::primaryColor()));
     connect(m_brightnessSlider, &QSlider::valueChanged, this, [this](int val) {
         m_brightnessValueLabel->setText(QString("%1%").arg(val));
     });
@@ -140,7 +115,10 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     return panel;
 }
 
-// ==================== 备份管理面板 ====================
+/**
+ * @brief ==================== 备份管理面板 ====================
+ * @return 构建并返回的界面控件，由调用方负责布局到页面
+ */
 QWidget* SystemSettingsPage::createBackupPanel() {
     auto* panel = new QFrame();
     panel->setObjectName("backupPanel");
@@ -165,7 +143,10 @@ QWidget* SystemSettingsPage::createBackupPanel() {
     return panel;
 }
 
-/** 构建备份设置表单：自动备份开关/备份周期按钮组/存储路径/断网缓存时长 */
+/**
+ * @brief 构建备份设置表单：自动备份开关/备份周期按钮组/存储路径/断网缓存时长
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     auto* form = new QFormLayout();
     form->setSpacing(8);
@@ -236,7 +217,10 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     layout->addLayout(form);
 }
 
-/** 构建备份设置保存栏（对齐Web端.save-bar） */
+/**
+ * @brief 构建备份设置保存栏（对齐Web端.save-bar）
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {
     auto* saveBar = new QFrame();
     saveBar->setStyleSheet(StyleHelper::saveBarSeparator());

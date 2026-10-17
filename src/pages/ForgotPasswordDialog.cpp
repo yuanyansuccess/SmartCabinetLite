@@ -24,6 +24,10 @@
 // 人脸检测信号每帧触发，这里按固定间隔取一次特征做比对
 static const int kFacePollIntervalMs = 1000;
 
+/**
+ * @brief 构造函数，初始化 ForgotPasswordDialog 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 ForgotPasswordDialog::ForgotPasswordDialog(QWidget* parent)
     : BaseDialog(parent, 560) {
     setDialogTitle(QStringLiteral("忘记密码"));
@@ -34,6 +38,9 @@ ForgotPasswordDialog::~ForgotPasswordDialog() {
     if (m_camera) m_camera->stopCamera();
 }
 
+/**
+ * @brief 构建对话框内容：验证页与设密页、安全键盘、人脸轮询定时器与底部按钮
+ */
 void ForgotPasswordDialog::setupContent() {
     auto* cl = contentLayout();
     cl->setSpacing(12);
@@ -64,6 +71,10 @@ void ForgotPasswordDialog::setupContent() {
     bl->addStretch();
 }
 
+/**
+ * @brief 构建身份验证页：摄像头预览 + 状态提示 + 取消按钮
+ * @return 页面控件
+ */
 QWidget* ForgotPasswordDialog::buildVerifyPage() {
     auto* page = new QWidget();
     auto* vl = new QVBoxLayout(page);
@@ -86,7 +97,7 @@ QWidget* ForgotPasswordDialog::buildVerifyPage() {
     m_verifyError->setAlignment(Qt::AlignCenter);
     m_verifyError->setWordWrap(true);
     m_verifyError->setVisible(false);
-    m_verifyError->setStyleSheet("font-size:14px;color:#e74c3c;background:transparent;");
+    m_verifyError->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#e74c3c;background:transparent;");
     vl->addWidget(m_verifyError);
 
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
@@ -95,7 +106,7 @@ QWidget* ForgotPasswordDialog::buildVerifyPage() {
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}");
     connect(cancelBtn, &QPushButton::clicked, this, &ForgotPasswordDialog::onCancel);
     vl->addWidget(cancelBtn);
@@ -103,6 +114,10 @@ QWidget* ForgotPasswordDialog::buildVerifyPage() {
     return page;
 }
 
+/**
+ * @brief 构建设置新密码页：已验证用户信息 + 两个密码输入行 + 规则提示 + 确认/取消
+ * @return 页面控件
+ */
 QWidget* ForgotPasswordDialog::buildResetPage() {
     auto* page = new QWidget();
     auto* vl = new QVBoxLayout(page);
@@ -120,13 +135,13 @@ QWidget* ForgotPasswordDialog::buildResetPage() {
     vl->addWidget(buildPasswordRow(QStringLiteral("确认密码"), m_confirmPwdEdit));
 
     auto* rule = new QLabel(common::passwordRuleText());
-    rule->setStyleSheet("font-size:13px;color:#999;background:transparent;");
+    rule->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#999;background:transparent;");
     vl->addWidget(rule);
 
     m_resetError = new QLabel();
     m_resetError->setWordWrap(true);
     m_resetError->setVisible(false);
-    m_resetError->setStyleSheet("font-size:14px;color:#e74c3c;background:transparent;padding:4px 0;");
+    m_resetError->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#e74c3c;background:transparent;padding:4px 0;");
     vl->addWidget(m_resetError);
 
     auto* okBtn = new QPushButton(QStringLiteral("确认重置密码"));
@@ -134,7 +149,7 @@ QWidget* ForgotPasswordDialog::buildResetPage() {
     okBtn->setCursor(Qt::PointingHandCursor);
     okBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:16px;font-weight:700;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}");
     connect(okBtn, &QPushButton::clicked, this, &ForgotPasswordDialog::onResetSubmit);
     vl->addWidget(okBtn);
@@ -144,7 +159,7 @@ QWidget* ForgotPasswordDialog::buildResetPage() {
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}");
     connect(cancelBtn, &QPushButton::clicked, this, &ForgotPasswordDialog::onCancel);
     vl->addWidget(cancelBtn);
@@ -152,6 +167,12 @@ QWidget* ForgotPasswordDialog::buildResetPage() {
     return page;
 }
 
+/**
+ * @brief 构建一行密码输入控件（标签 + 只读输入框 + 键盘按钮）
+ * @param label 行标题
+ * @param edit  [出参] 行内输入框指针
+ * @return 整行容器控件
+ */
 QWidget* ForgotPasswordDialog::buildPasswordRow(const QString& label, QLineEdit*& edit) {
     auto* row = new QWidget();
     row->setStyleSheet("background:transparent;");
@@ -178,14 +199,14 @@ QWidget* ForgotPasswordDialog::buildPasswordRow(const QString& label, QLineEdit*
     edit->setReadOnly(true);
     edit->setCursor(Qt::PointingHandCursor);
     edit->setStyleSheet(
-        "QLineEdit{border:none;padding:0;font-size:15px;color:#1a1a2e;background:transparent;}");
+        "QLineEdit{border:none;padding:0;" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#1a1a2e;background:transparent;}");
     fl->addWidget(edit, 1);
 
     auto* kbBtn = new QPushButton(QStringLiteral("⌨"));
     kbBtn->setFixedSize(40, 40);
     kbBtn->setCursor(Qt::PointingHandCursor);
     kbBtn->setStyleSheet(
-        "QPushButton{border:none;border-radius:10px;font-size:20px;background:transparent;color:#666;}"
+        "QPushButton{border:none;border-radius:10px;" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + ";background:transparent;color:#666;}"
         "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}");
     connect(kbBtn, &QPushButton::clicked, this, [this, edit]() { openKeypad(edit); });
     fl->addWidget(kbBtn);
@@ -195,6 +216,10 @@ QWidget* ForgotPasswordDialog::buildPasswordRow(const QString& label, QLineEdit*
     return row;
 }
 
+/**
+ * @brief 弹出安全键盘并绑定到指定输入框
+ * @param edit 目标输入框
+ */
 void ForgotPasswordDialog::openKeypad(QLineEdit* edit) {
     if (!m_keypad || !edit) return;
     m_keypad->setShuffle(true);
@@ -203,24 +228,38 @@ void ForgotPasswordDialog::openKeypad(QLineEdit* edit) {
     m_keypad->show();
 }
 
+/**
+ * @brief 对话框显示时启动摄像头与轮询定时器
+ * @param event 显示事件
+ */
 void ForgotPasswordDialog::showEvent(QShowEvent* event) {
     BaseDialog::showEvent(event);
     if (m_pollTimer && !m_pollTimer->isActive()) m_pollTimer->start();
     if (m_camera) m_camera->startCamera();
 }
 
+/**
+ * @brief 对话框隐藏时停止摄像头与轮询定时器，释放资源
+ * @param event 隐藏事件
+ */
 void ForgotPasswordDialog::hideEvent(QHideEvent* event) {
     if (m_pollTimer) m_pollTimer->stop();
     if (m_camera) m_camera->stopCamera();
     BaseDialog::hideEvent(event);
 }
 
+/**
+ * @brief 轮询人脸检测：检测到人脸且未在比对时，取一次特征执行比对
+ */
 void ForgotPasswordDialog::onPollFace() {
     if (m_verifying || !m_faceSeen) return;
     if (m_pages && m_pages->currentIndex() != 0) return;
     verifyOnce();
 }
 
+/**
+ * @brief 执行一次人脸比对：成功进入设密页，失败累计次数并提示
+ */
 void ForgotPasswordDialog::verifyOnce() {
     if (!m_camera) return;
     m_verifying = true;
@@ -265,6 +304,11 @@ void ForgotPasswordDialog::verifyOnce() {
     }
 }
 
+/**
+ * @brief 切换到设密页并展示已验证用户身份
+ * @param realName 用户姓名
+ * @param workNo 工号
+ */
 void ForgotPasswordDialog::gotoResetPage(const QString& realName, const QString& workNo) {
     if (m_camera) m_camera->stopCamera();
     if (m_pollTimer) m_pollTimer->stop();
@@ -276,6 +320,9 @@ void ForgotPasswordDialog::gotoResetPage(const QString& realName, const QString&
     if (m_pages) m_pages->setCurrentIndex(1);
 }
 
+/**
+ * @brief 新密码提交：校验规则并写库，成功关闭对话框
+ */
 void ForgotPasswordDialog::onResetSubmit() {
     const QString newPwd = m_newPwdEdit ? m_newPwdEdit->text() : QString();
     const QString confirmPwd = m_confirmPwdEdit ? m_confirmPwdEdit->text() : QString();
@@ -315,6 +362,9 @@ void ForgotPasswordDialog::onResetSubmit() {
     accept();
 }
 
+/**
+ * @brief 取消：关闭对话框，标记未重置
+ */
 void ForgotPasswordDialog::onCancel() {
     m_passwordReset = false;
     reject();

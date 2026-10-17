@@ -5,6 +5,7 @@
  */
 #include "SoftKeyboard.h"
 #include "utils/StyleHelper.h"
+#include "utils/PinyinDict.h"
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QApplication>
@@ -16,6 +17,10 @@
 #include <QPropertyAnimation>
 #include <QDebug>
 
+/**
+ * @brief 构造函数，初始化 SoftKeyboard 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 SoftKeyboard::SoftKeyboard(QWidget* parent) : QWidget(parent), m_target(nullptr), m_panel(nullptr) {
 }
 
@@ -56,11 +61,8 @@ void SoftKeyboard::ensurePanel() {
         screenW = qMax(320, screenW);
     }
     m_panel->setFixedWidth(screenW);
-    setupUI();
-    if (m_pendingRebuild) {
-        m_pendingRebuild = false;
-        rebuildKeys();
-    }
+    setupUI();               // 内部已按当前模式构建按键区，无需再次重建
+    m_pendingRebuild = false;
     m_panel->updateGeometry();
     m_panel->hide();
 
@@ -143,6 +145,65 @@ void SoftKeyboard::setupUI() {
     dispLayout->addWidget(m_displayCount);
     m_mainLayout->addWidget(m_displayArea);
 
+    // ═══════ 中文候选条（仅中文模式显示，同款灰底圆角对齐NumKeypad） ═══════
+    m_candBar = new QWidget();
+    m_candBar->setAutoFillBackground(true);
+    m_candBar->setFixedHeight(44);
+    m_candBar->setStyleSheet("background:#f5f6f8; border-bottom:1px solid #e8e8e8;");
+    QHBoxLayout* candLayout = new QHBoxLayout(m_candBar);
+    candLayout->setContentsMargins(12, 4, 12, 4);
+    candLayout->setSpacing(6);
+    m_pinyinLabel = new QLabel();
+    m_pinyinLabel->setStyleSheet(StyleHelper::fontSize(StyleHelper::Token::FontBody)
+        + " color:#888888; background:transparent;");
+    candLayout->addWidget(m_pinyinLabel);
+    candLayout->addStretch();
+
+    // 翻页按钮：候选超过一屏时翻页（上一页 / 下一页）
+    m_prevPageBtn = new QPushButton(QStringLiteral("上页"));
+    m_nextPageBtn = new QPushButton(QStringLiteral("下页"));
+    QString pageBtnStyle =
+        "QPushButton { background:#ffffff; color:#4da3ff; border:1px solid #d0d5dd; "
+        "min-height:34px; max-height:34px; "  // 覆盖全局按钮最小高度，保证与候选条同高
+        "border-radius:10px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) +
+        " font-weight:600; font-family:\"Microsoft YaHei\"; }"
+        "QPushButton:hover { background:#f0f4ff; border-color:#4da3ff; }"
+        "QPushButton:pressed { background:#dce8ff; }"
+        "QPushButton:disabled { background:#f0f0f0; color:#bbbbbb; border-color:#e0e0e0; }";
+    m_prevPageBtn->setFixedSize(40, 36);
+    m_nextPageBtn->setFixedSize(40, 36);
+    m_prevPageBtn->setCursor(Qt::PointingHandCursor);
+    m_nextPageBtn->setCursor(Qt::PointingHandCursor);
+    m_prevPageBtn->setStyleSheet(pageBtnStyle);
+    m_nextPageBtn->setStyleSheet(pageBtnStyle);
+    m_prevPageBtn->setVisible(false);
+    m_nextPageBtn->setVisible(false);
+    connect(m_prevPageBtn, &QPushButton::clicked, this, &SoftKeyboard::onPrevPage);
+    connect(m_nextPageBtn, &QPushButton::clicked, this, &SoftKeyboard::onNextPage);
+
+    for (int i = 0; i < 9; ++i) {
+        QPushButton* b = new QPushButton();
+        b->setVisible(false);
+        b->setMinimumSize(28, 36);
+        b->setFixedHeight(36);      // 与候选条内容高度一致，避免全局按钮最小高度把候选撑出条外
+        b->setMaximumWidth(32);
+        b->setCursor(Qt::PointingHandCursor);
+        b->setStyleSheet(
+            "QPushButton { background:#ffffff; color:#1a1a2e; border:1px solid #d0d5dd; "
+            "min-height:34px; max-height:34px; "  // 覆盖全局按钮最小高度，保证与候选条同高
+            "border-radius:10px; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) +
+            " font-weight:600; font-family:\"Microsoft YaHei\"; }"
+            "QPushButton:hover { background:#f0f4ff; border-color:#4da3ff; }"
+            "QPushButton:pressed { background:#dce8ff; }");
+        connect(b, &QPushButton::clicked, this, [this, i]() { commitCandidate(i); });
+        m_candBtns.append(b);
+        candLayout->addWidget(b);
+    }
+    candLayout->addStretch();
+    candLayout->addWidget(m_prevPageBtn);
+    candLayout->addWidget(m_nextPageBtn);
+    m_mainLayout->addWidget(m_candBar);
+
     // ═══════ 按键区域容器 ═══════
     m_keysArea = new QWidget();
     m_keysArea->setAutoFillBackground(true);
@@ -167,6 +228,10 @@ void SoftKeyboard::setupUI() {
         "QPushButton:pressed { background:#2d7ad0;  }"
         "QPushButton:disabled { background:#c0c0c0; color:#e0e0e0; }");
     connect(m_confirmBtn, &QPushButton::clicked, this, [this]() {
+        // 拼音还没选字就点确认时，先按首候选上屏，避免"输了拼音、搜索关键字仍为空"
+        if (m_keyMode == ModeCn && m_cn.totalCount() > 0) {
+            commitCandidate(0);
+        }
         emit confirmed();
         emit enterPressed();
     });
@@ -176,6 +241,22 @@ void SoftKeyboard::setupUI() {
     m_footerArea->setVisible(false);
 
     rebuildKeys();
+}
+
+/**
+ * @brief 递归清空布局及其嵌套子布局中的控件
+ * @param lay 待清理的布局
+ * @return 无
+ */
+static void clearLayoutDeep(QLayout* lay) {
+    while (QLayoutItem* item = lay->takeAt(0)) {
+        if (QWidget* w = item->widget()) {
+            delete w;
+        } else if (QLayout* child = item->layout()) {
+            clearLayoutDeep(child);  // 行布局内还有按键按钮，必须深入清理
+        }
+        delete item;
+    }
 }
 
 /// 彻底重写键盘布局
@@ -191,14 +272,9 @@ void SoftKeyboard::setupUI() {
 void SoftKeyboard::rebuildKeys() {
     if (!m_keysArea) return;
 
-    // 移除旧按键
-    QLayoutItem* item;
-    QLayout* oldLayout = m_keysArea->layout();
-    if (oldLayout) {
-        while ((item = oldLayout->takeAt(0))) {
-            if (item->widget()) delete item->widget();
-            delete item;
-        }
+    // 移除旧按键：按键放在行布局中，只删外层布局会让按钮残留在按键区并叠加显示
+    if (QLayout* oldLayout = m_keysArea->layout()) {
+        clearLayoutDeep(oldLayout);
         delete oldLayout;
     }
 
@@ -211,6 +287,9 @@ void SoftKeyboard::rebuildKeys() {
     struct KeyDef { QString label; QString input; bool isFn; int span; };
     struct RowDef { QList<KeyDef> keys; };
 
+    // 行4 两种模式定义（符号行 / 中文空格+符号行），须在 rows[] 之前声明
+    RowDef symbolRowEn = {{{",",","},{".",".",false,2},{"/","/",false,2},{"@","@",false,2},{"-","-",false,2}}};
+    RowDef symbolRowCn = {{{"空格"," ",true,0},{",",","},{".",".",false,2},{"/","/",false,2},{"@","@",false,2},{"-","-",false,2}}};
     RowDef rows[] = {
         // 行0: 数字
         {{{"1","1"},{"2","2"},{"3","3"},{"4","4"},{"5","5"},{"6","6"},{"7","7"},{"8","8"},{"9","9"},{"0","0"}}},
@@ -220,8 +299,8 @@ void SoftKeyboard::rebuildKeys() {
         {{{"A","A"},{"S","S"},{"D","D"},{"F","F"},{"G","G"},{"H","H"},{"J","J"},{"K","K"},{"L","L"}}},
         // 行3: Shift + Z-M + 退格
         {{{"Shift","",true,0},{"Z","Z"},{"X","X"},{"C","C"},{"V","V"},{"B","B"},{"N","N"},{"M","M"},{"退格","",true,0}}},
-        // 行4: 符号行 — 去掉空格按钮，符号均分填充
-        {{{",",","},{".",".",false,2},{"/","/",false,2},{"@","@",false,2},{"-","-",false,2}}},
+        // 行4: 英文模式为符号行；中文模式首键改为"空格"(选首候选)，其余符号保留
+        (m_keyMode == ModeCn ? symbolRowCn : symbolRowEn),
     };
 
     // ── 创建单个按键按钮 ──
@@ -261,10 +340,32 @@ void SoftKeyboard::rebuildKeys() {
         // 点击逻辑
         connect(btn, &QPushButton::clicked, this, [this, kd]() {
             if (kd.label == "退格") {
-                doBackspace();
+                if (m_keyMode == ModeCn) backspaceCn(); else doBackspace();
                 emit backspacePressed();
             } else if (kd.label == "Shift") {
-                // Shift暂保持大写模式（后续可扩展大小写切换）
+                // 暂不切换大小写
+            } else if (kd.label == "空格") {
+                commitCandidate(0);  // 选首候选上屏
+            } else if (m_keyMode == ModeCn) {
+                QChar c = kd.input.isEmpty() ? QChar() : kd.input.at(0);
+                if (c.isDigit()) {
+                    int v = kd.input.toInt();
+                    if (m_cn.totalCount() > 0) {
+                        // 有拼音候选时：0 键翻页，1-9 键选当前页对应候选
+                        if (v == 0) onNextPage();
+                        else commitCandidate(v - 1);
+                    } else {
+                        // 无拼音候选时：数字直接上屏，保证同一键盘能输工号/数量
+                        appendChar(kd.input);
+                        emit keyPressed(kd.input);
+                    }
+                } else if (c.isLetter()) {
+                    appendPinyin(kd.input);    // 字母 -> 拼拼音
+                    emit keyPressed(kd.input);
+                } else {
+                    appendChar(kd.input);      // 符号直接上屏
+                    emit keyPressed(kd.input);
+                }
             } else {
                 appendChar(kd.input);
                 emit keyPressed(kd.input);
@@ -285,9 +386,13 @@ void SoftKeyboard::rebuildKeys() {
         keysLayout->addLayout(rowLayout);
     }
     updateDisplay();
+    updateCandidates();
 }
 
-/// 追加字符
+/**
+ * @brief 追加字符
+ * @param ch 本次输入的单个字符
+ */
 void SoftKeyboard::appendChar(const QString& ch) {
     if (!m_target) return;
     QString current = m_target->text();
@@ -305,6 +410,98 @@ void SoftKeyboard::doBackspace() {
     }
 }
 
+// ═══════════ 中文拼音输入 ═══════════
+
+/**
+ * @brief 追加一个拼音字母（交给引擎维护缓冲与页码）
+ * @param ch 本次输入的单个字符
+ */
+void SoftKeyboard::appendPinyin(const QString& ch) {
+    m_cn.inputLetter(ch.isEmpty() ? QChar() : ch.at(0));
+    updateCandidates();
+}
+
+/// 刷新候选条：按模式显隐；走引擎取当前页候选（含单字+词组联想），多页时显示翻页按钮
+void SoftKeyboard::updateCandidates() {
+    if (!m_candBar || m_candBtns.isEmpty()) return;
+    bool cn = (m_keyMode == ModeCn);
+    m_candBar->setVisible(cn);
+    if (!cn) return;
+
+    QString py = m_cn.pinyin();
+    int pages = m_cn.pageCount(9);
+    if (py.isEmpty()) {
+        m_pinyinLabel->setText(QStringLiteral("拼音输入 · 字母拼写，数字直接输入"));
+    } else {
+        // 多页时仅保留简短提示，翻页由上下页按钮承担，避免标签挤压候选按钮
+        QString hint = (pages > 1) ? QStringLiteral(" · 1-9选字")
+                                   : QStringLiteral(" · 1-9/空格选字");
+        m_pinyinLabel->setText(py + hint);
+    }
+
+    QStringList cands = m_cn.candidatesForPage(9);
+    for (int i = 0; i < m_candBtns.size(); ++i) {
+        QPushButton* b = m_candBtns[i];
+        if (i < cands.size()) {
+            b->setVisible(true);
+            b->setText(cands[i]);
+        } else {
+            b->setVisible(false);
+        }
+    }
+
+    // 仅当候选超过一屏（多页）时才显示翻页按钮，并按边界禁用
+    bool multi = (pages > 1);
+    m_prevPageBtn->setVisible(multi);
+    m_nextPageBtn->setVisible(multi);
+    m_prevPageBtn->setEnabled(m_cn.currentPage() > 0);
+    m_nextPageBtn->setEnabled(m_cn.currentPage() < pages - 1);
+}
+
+/**
+ * @brief 上屏当前页第 idx 个候选（0基，可为单字或词组），成功后清空拼音缓冲
+ * @param idx 索引（从 0 开始）
+ */
+void SoftKeyboard::commitCandidate(int idx) {
+    if (!m_target) return;
+    QString text = m_cn.commit(idx, 9);
+    if (text.isEmpty()) return;
+    m_target->setText(m_target->text() + text);
+    m_cn.clear();
+    updateCandidates();
+    updateDisplay();
+}
+
+/// 中文退格：先删拼音缓冲中的字母（引擎内），缓冲空时再删已上屏的最后一个字
+void SoftKeyboard::backspaceCn() {
+    if (!m_target) return;
+    if (m_cn.backspace()) {
+        updateCandidates();
+    } else {
+        QString t = m_target->text();
+        if (!t.isEmpty()) m_target->setText(t.left(t.length() - 1));
+        updateDisplay();
+    }
+}
+
+/// 翻到上一页候选（多页时有效）
+void SoftKeyboard::onPrevPage() {
+    if (m_cn.pageUp()) updateCandidates();
+}
+
+/// 翻到下一页候选（多页时有效）
+void SoftKeyboard::onNextPage() {
+    if (m_cn.pageDown()) updateCandidates();
+}
+
+/**
+ * @brief 姓名输入模式：开启后把常见姓氏候选前置
+ * @param on 是否启用，true 开启 false 关闭
+ */
+void SoftKeyboard::setSurnameMode(bool on) {
+    m_cn.setSurnameMode(on);
+}
+
 /// 更新输入显示区（纯文本模式，无密码圆点逻辑）
 void SoftKeyboard::updateDisplay() {
     if (!m_target || !m_displayLabel || !m_displayCount) return;
@@ -319,6 +516,10 @@ void SoftKeyboard::updateDisplay() {
 
 // ═══════════ 公开API ═══════════
 
+/**
+ * @brief SoftKeyboard::attach 的业务实现
+ * @param target 要绑定的目标对象（如输入控件）
+ */
 void SoftKeyboard::attach(QLineEdit* target) {
     if (m_target) disconnect(m_target, nullptr, this, nullptr);
     m_target = target;
@@ -331,7 +532,9 @@ void SoftKeyboard::attach(QLineEdit* target) {
 }
 
 /**
- * @brief 显示软键盘面板
+ * @brief
+ * @param target 要绑定的目标对象（如输入控件）
+ * @param pos 位置
  */
 void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
     ensurePanel();
@@ -339,7 +542,9 @@ void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
     m_panel->setAutoFillBackground(true);
     this->setVisible(false);
     m_target = target;
+    m_cn.clear();
     updateDisplay();
+    updateCandidates();
 
     if (m_overlay) {
         QScreen* screen = QApplication::primaryScreen();
@@ -365,7 +570,18 @@ void SoftKeyboard::show(QLineEdit* target, const QPoint& pos) {
     m_panel->activateWindow();
     m_panel->adjustSize();
     m_panel->setFixedWidth(screenW);
-    m_panel->move(pos);
+    // 边界检查：中文模式多了候选条、面板更高，防止超出屏幕底部/右侧被裁切
+    QScreen* scr = QApplication::primaryScreen();
+    QPoint p = pos;
+    if (scr) {
+        QRect sg = scr->availableGeometry();
+        if (p.y() + m_panel->height() > sg.bottom())
+            p.setY(qMax(sg.top(), sg.bottom() - m_panel->height()));
+        if (p.x() + m_panel->width() > sg.right())
+            p.setX(qMax(sg.left(), sg.right() - m_panel->width()));
+        if (p.x() < sg.left()) p.setX(sg.left());
+    }
+    m_panel->move(p);
     m_panel->raise();
 }
 
@@ -378,7 +594,9 @@ void SoftKeyboard::show() {
     m_panel->setAttribute(Qt::WA_TranslucentBackground, false);
     m_panel->setAutoFillBackground(true);
     this->setVisible(false);
+    m_cn.clear();
     updateDisplay();
+    updateCandidates();
 
     if (m_overlay) {
         QScreen* screen = QApplication::primaryScreen();
@@ -422,17 +640,41 @@ void SoftKeyboard::show() {
  * @brief 隐藏软键盘面板
  */
 void SoftKeyboard::hide() {
-    // 遮罩层必须close()释放窗口句柄，仅hide()会残留拦截鼠标事件
-    // close()后置nullptr，确保下次show()时ensurePanel()会重建
-    if (m_overlay) { m_overlay->hide(); m_overlay->close(); m_overlay = nullptr; }
-    if (m_panel)   { m_panel->hide();   m_panel->close();   m_panel = nullptr; }
+    // 遮罩与面板必须销毁释放窗口句柄：仅 close() 会让旧面板留在内存中，
+    // 下次 show() 重建时会再追加一套候选按钮，导致刷新落在已关闭的旧按钮上、新面板候选始终空白
+    if (m_overlay) {
+        m_overlay->hide();
+        m_overlay->deleteLater();  // 延迟销毁：避免在按钮点击槽内直接销毁窗口对象
+        m_overlay = nullptr;
+    }
+    if (m_panel) {
+        m_panel->hide();
+        m_panel->deleteLater();
+        m_panel = nullptr;
+    }
+
+    // 子控件随面板销毁，成员指针同步置空，防止后续刷新访问已销毁对象
+    m_mainLayout = nullptr;
+    m_displayArea = nullptr;
+    m_displayLabel = nullptr;
+    m_displayCount = nullptr;
+    m_keysArea = nullptr;
+    m_footerArea = nullptr;
+    m_confirmBtn = nullptr;
+    m_candBar = nullptr;
+    m_pinyinLabel = nullptr;
+    m_candBtns.clear();
+    m_prevPageBtn = nullptr;
+    m_nextPageBtn = nullptr;
 }
 
 /**
- * @brief 设置模式
+ * @brief
+ * @param mode 模式标识
  */
 void SoftKeyboard::setMode(KeyMode mode) {
     m_keyMode = mode;
+    m_cn.clear();  // 切换模式时重置拼音缓冲
     if (m_panel) {
         rebuildKeys();
     } else {
@@ -441,7 +683,8 @@ void SoftKeyboard::setMode(KeyMode mode) {
 }
 
 /**
- * @brief 设置确认文本
+ * @brief
+ * @param text 文本字符串
  */
 void SoftKeyboard::setConfirmText(const QString& text) {
     m_confirmText = text;
@@ -468,7 +711,12 @@ QString SoftKeyboard::currentText() const {
     return m_target ? m_target->text() : QString();
 }
 
-/// 遮罩点击事件拦截 — 点击遮罩区域关闭键盘
+/**
+ * @brief 遮罩点击事件拦截 — 点击遮罩区域关闭键盘
+ * @param obj 被监视的对象
+ * @param event 事件对象，由 Qt 事件系统传入
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool SoftKeyboard::eventFilter(QObject* obj, QEvent* event) {
     if (obj == m_overlay && event->type() == QEvent::MouseButtonPress) {
         emit cancelled();

@@ -9,13 +9,9 @@
 #include "components/PaginationBar.h"
 #include "components/SoftKeyboard.h"
 #include "components/NumKeypad.h"
-#include "components/FaceCameraWidget.h"  // 人脸录入对话框摄像头组件
-#include "components/DeepFaceExtractor.h"  // 人脸方位检测
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
 #include "controller/UserController.h"
-#include "controller/AuthController.h"
-#include <QtNetwork>
 // 重新引入db/UserDAO(仅用于getDistinctDepartments合并数据源)
   // 其他User数据访问仍通过UserController
 #include "db/UserDAO.h"
@@ -27,29 +23,29 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QDialog>
-#include <QFormLayout>
 #include "components/MessageDialog.h"
 #include <QDebug>
-#include <QFrame>
 #include <QPushButton>
-#include <QLabel>
-#include <QMouseEvent>  // eventFilter
 #include <QSet>  // loadDepartments选中状态保留
 #include <QTimer>  // 人脸录入成功延迟关闭
-#include <QDateTime>  // 方位检测时间戳
 #include <functional>  // std::function
 #include "common/Constants.h"
+#include <QFrame>
 
+/**
+ * @brief 构造函数，初始化 UserManagementPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 UserManagementPage::UserManagementPage(QWidget* parent) : QWidget(parent), ui(new Ui::UserManagementPage),
     m_userDialog(nullptr), m_editUserId(0), m_currentPage(1), m_pageSize(20), m_totalRecords(0) {
     // 静态布局来自UserManagementPage.ui（Qt Designer可视化维护）
     ui->setupUi(this);
     setupUI();
-    // 初始化安全软键盘 - confirmed信号仅关闭键盘(attach已处理输入)
+    // 初始化安全软键盘 - attach已负责输入，确认键按用途决定是否立即查询
     m_softKeyboard = new SoftKeyboard(this);
     connect(m_softKeyboard, &SoftKeyboard::confirmed, this, [this]() {
-        // 数字输入已由NumKeypad独立负责，SoftKeyboard仅处理字母/搜索
         m_softKeyboard->hide();
+        if (m_keyboardForSearch) onSearch();  // 搜索框键盘：点"搜索"直接出结果
     });
     connect(m_softKeyboard, &SoftKeyboard::cancelled, this, [this]() {
         m_softKeyboard->hide();
@@ -108,18 +104,12 @@ void UserManagementPage::setupUI() {
     // 部门列表由loadDepartments()动态加载(对齐Web版异步加载策略)
     loadDepartments();
 
-    // 角色/状态筛选 - CheckBox样式单选组件（自定义组件装入.ui槽位）
+    // 角色筛选 - CheckBox样式单选组件（自定义组件装入.ui槽位）
     m_roleFilter = new SingleSelectFilter(QStringLiteral("全部角色"), this);
     m_roleFilter->setOptions({QStringLiteral("全部角色"), QStringLiteral("管理员"),
                               QStringLiteral("管理+用户"), QStringLiteral("普通用户")});
     connect(m_roleFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadUsers(); });
     ui->roleFilterSlotLayout->addWidget(m_roleFilter);
-
-    m_statusFilter = new SingleSelectFilter(QStringLiteral("全部状态"), this);
-    m_statusFilter->setOptions({QStringLiteral("全部状态"), QStringLiteral("启用"), QStringLiteral("待激活"),
-                                QStringLiteral("禁用"), QStringLiteral("已锁定")});
-    connect(m_statusFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { m_currentPage = 1; loadUsers(); });
-    ui->statusFilterSlotLayout->addWidget(m_statusFilter);
 
     // 查询/重置/分页
     connect(m_searchBtn, &QPushButton::clicked, this, &UserManagementPage::onSearch);
@@ -128,14 +118,13 @@ void UserManagementPage::setupUI() {
     connect(m_paginationBar, &PaginationBar::nextClicked, this, &UserManagementPage::onNextPage);
 
     // 表格列宽策略：数据列Stretch均分，操作列Fixed 200px（编辑/禁用·启用 触屏按钮）
-    // 列布局：工号/姓名/部门/角色/人脸录入/状态/操作（共7列）
+    // 列布局：工号/姓名/部门/角色/操作（共5列）
     m_table->horizontalHeader()->setStretchLastSection(false);
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 4; i++) {
         m_table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
     }
-    m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
-    m_table->setColumnWidth(6, 200);
-    m_table->horizontalHeader()->setStretchLastSection(false);
+    m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+    m_table->setColumnWidth(4, 200);
     m_table->horizontalHeader()->setMinimumSectionSize(60);
 }
 
@@ -167,7 +156,6 @@ void UserManagementPage::onReset() {
     // 重置所有筛选条件
     m_searchEdit->clear();
     m_roleFilter->reset();  // SingleSelectFilter::reset()
-    m_statusFilter->reset();  // SingleSelectFilter::reset()
     for (auto& pair : m_deptCheckBoxes) {
         pair.second->setChecked(false);
     }
@@ -176,9 +164,8 @@ void UserManagementPage::onReset() {
     loadUsers();
 }
 
-/** 从DB动态加载部门列表(合并sys_department + sys_user DISTINCT)
- *  确保筛选下拉框与列表显示的部门数据完全一致
- *  delete+recreate弹窗方案(安全)
+/**
+ * @brief delete+recreate弹窗方案(安全) 确保筛选下拉框与列表显示的部门数据完全一致 /** 从DB动态加载部门列表(合并sys_department + sys_user DISTINCT)
  */
 void UserManagementPage::loadDepartments() {
     m_departmentOptions.clear();
@@ -249,13 +236,13 @@ void UserManagementPage::loadDepartments() {
     btnLayout->setSpacing(8);
     auto* clearBtn = new QPushButton(QStringLiteral("清空"));
     clearBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#666;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;}"
+        "QPushButton{background:#fff;color:#666;border:none;border-radius:8px;padding:8px 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";font-weight:600;}"
         "QPushButton:hover{background:#f0f2f5;}"
     );
     connect(clearBtn, &QPushButton::clicked, this, &UserManagementPage::onClearDepts);
     auto* confirmBtn = new QPushButton(QStringLiteral("确定"));
     confirmBtn->setStyleSheet(
-        "QPushButton{background:transparent;color:#4da3ff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;}"
+        "QPushButton{background:transparent;color:#4da3ff;border:none;border-radius:8px;padding:8px 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";font-weight:600;}"
         "QPushButton:hover{background:#f0f2f5;}"
     );
     connect(confirmBtn, &QPushButton::clicked, this, &UserManagementPage::onConfirmDepts);
@@ -282,12 +269,6 @@ void UserManagementPage::loadUsers() {
         else                                               role = SC::ROLE_USER;
     }
 
-    QString statusText = m_statusFilter->selectedText();
-    int statusIdx = m_statusFilter->selectedIndex();
-    QString status = (statusIdx > 0) ?
-        (statusText == QStringLiteral("启用") ? SC::USER_ACTIVE :
-         statusText == QStringLiteral("待激活") ? SC::USER_PENDING :
-         statusText == QStringLiteral("禁用") ? SC::USER_DISABLED : SC::USER_LOCKED) : "";
     // 从部门多选checkbox中收集选中部门，拼成逗号分隔字符串传给API
     QStringList selectedDepts;
     for (auto& pair : m_deptCheckBoxes) {
@@ -297,7 +278,7 @@ void UserManagementPage::loadUsers() {
 
   // 通过UserController替代直接调用db/UserDAO
     UserController ctrl;
-    auto pageResult = ctrl.getUserList(m_currentPage, m_pageSize, kw, dept, status, role);
+    auto pageResult = ctrl.getUserList(m_currentPage, m_pageSize, kw, dept, QString(), role);
     m_totalRecords = pageResult.total;
 
     // 更新分页信息
@@ -305,7 +286,7 @@ void UserManagementPage::loadUsers() {
     m_paginationBar->setPageInfo(m_currentPage, totalPages);
     m_paginationBar->setTotalRecords(m_totalRecords);
 
-    // 填充表格（列：工号/姓名/部门/角色/人脸录入/状态/操作）
+    // 填充表格（列：工号/姓名/部门/角色/操作）
     m_table->setRowCount(pageResult.list.size());
     for (int i = 0; i < pageResult.list.size(); ++i) {
         const User& u = pageResult.list[i];
@@ -314,10 +295,6 @@ void UserManagementPage::loadUsers() {
         QString roleText = QStringLiteral("普通用户");
         if (u.role == SC::ROLE_ADMIN)        roleText = QStringLiteral("管理员");
         else if (u.role == SC::ROLE_MANAGER) roleText = QStringLiteral("管理+用户");
-        QString statusText = (u.status == SC::USER_ACTIVE) ? QStringLiteral("启用") :
-                          (u.status == SC::USER_PENDING) ? QStringLiteral("待激活") :
-                          (u.status == SC::USER_DISABLED) ? QStringLiteral("禁用") : QStringLiteral("已锁定");
-
         m_table->setItem(i, 0, new QTableWidgetItem(u.workNo));  // 工号
         m_table->setItem(i, 1, new QTableWidgetItem(u.realName));  // 姓名
         m_table->setItem(i, 2, new QTableWidgetItem(u.department));  // 部门
@@ -340,63 +317,6 @@ void UserManagementPage::loadUsers() {
         roleItem->setFont(roleFont);
         m_table->setItem(i, 3, roleItem);
 
-        // 人脸录入列：可点击按钮（已录入→查看/清除，未录入→录入）
-        bool faceEnrolled = !u.faceFeature.isEmpty();
-        auto* faceWidget = new QWidget();
-        faceWidget->setStyleSheet("background:transparent;");
-        auto* faceLayout = new QHBoxLayout(faceWidget);
-        faceLayout->setContentsMargins(4, 4, 4, 4);
-        faceLayout->setSpacing(0);
-        faceLayout->setAlignment(Qt::AlignCenter);
-
-        auto* faceBtn = new QPushButton(faceEnrolled ? QStringLiteral("已录入") : QStringLiteral("未录入"));
-        faceBtn->setFixedSize(72, 32);
-        faceBtn->setCursor(Qt::PointingHandCursor);
-        if (faceEnrolled) {
-            faceBtn->setStyleSheet(
-                "QPushButton{background:#f6ffed;color:#389e0d;border:1px solid #b7eb8f;"
-                "border-radius:12px;font-size:13px;font-weight:600;}"
-                "QPushButton:hover{background:#d9f7be;border-color:#52c41a;}"
-                "QPushButton:pressed{background:#b7eb8f;}");
-            connect(faceBtn, &QPushButton::clicked, this, [this, userId, u, i]() {
-                m_table->selectRow(i);
-                onFaceEnrolledClick(userId, u.realName, u.workNo);
-            });
-        } else {
-            faceBtn->setStyleSheet(
-                "QPushButton{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;"
-                "border-radius:12px;font-size:13px;font-weight:600;}"
-                "QPushButton:hover{background:#ffe7ba;border-color:#fa8c16;}"
-                "QPushButton:pressed{background:#ffd591;}");
-            connect(faceBtn, &QPushButton::clicked, this, [this, userId, i]() {
-                m_table->selectRow(i);
-                onFaceEnroll(userId);
-            });
-        }
-        faceLayout->addWidget(faceBtn);
-        m_table->setCellWidget(i, 4, faceWidget);
-
-        // 状态标签仿照设计图：启用(绿)/待激活(灰)/禁用(灰)/已锁定(红)
-        auto* statusItem = new QTableWidgetItem(statusText);
-        statusItem->setTextAlignment(Qt::AlignCenter);
-        if (u.status == SC::USER_ACTIVE) {
-            statusItem->setForeground(QColor("#389e0d"));
-            statusItem->setBackground(QColor("#f6ffed"));
-        } else if (u.status == SC::USER_PENDING) {
-            statusItem->setForeground(QColor("#999999"));
-            statusItem->setBackground(QColor("#f5f5f5"));
-        } else if (u.status == SC::USER_DISABLED) {
-            statusItem->setForeground(QColor("#999999"));
-            statusItem->setBackground(QColor("#f5f5f5"));
-        } else {
-            statusItem->setForeground(QColor(StyleHelper::dangerColor()));
-            statusItem->setBackground(QColor("#fef2f2"));
-        }
-        QFont statusFont = statusItem->font();
-        statusFont.setBold(true);
-        statusItem->setFont(statusFont);
-        m_table->setItem(i, 5, statusItem);
-
         // 按钮加大+间距增大，确保触屏可点、文字完整显示
         auto* opWidget = new QWidget();
         opWidget->setStyleSheet("background:transparent;");
@@ -409,7 +329,7 @@ void UserManagementPage::loadUsers() {
         editLink->setFixedSize(64, 36);
         editLink->setStyleSheet(
             "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:8px;"
-            "font-size:14px;font-weight:700;}"
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
             "QPushButton:hover{background:#3d8ae0;}"
             "QPushButton:pressed{background:#2b6cdf;}"
         );
@@ -424,7 +344,7 @@ void UserManagementPage::loadUsers() {
         QString toggleHoverBg = isActive ? "#c0392b" : "#219a52";
         toggleLink->setStyleSheet(QString(
             "QPushButton{background:%1;color:#fff;border:none;border-radius:8px;"
-            "font-size:14px;font-weight:700;}"
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
             "QPushButton:hover{background:%2;}"
             "QPushButton:pressed{background:%3;}"
         ).arg(toggleBg, toggleHoverBg, isActive ? "#a93226" : "#1e8449"));
@@ -434,7 +354,7 @@ void UserManagementPage::loadUsers() {
         opLayout->addWidget(editLink);
         opLayout->addWidget(toggleLink);
         opLayout->addStretch();
-        m_table->setCellWidget(i, 6, opWidget);
+        m_table->setCellWidget(i, 4, opWidget);
         m_table->setRowHeight(i, 64);  // 64 行高加大，确保36px按钮+8px边距完整显示不裁剪
     }
 }
@@ -479,7 +399,9 @@ void UserManagementPage::onSearchFieldClicked() {
     // 先隐藏数字键盘防止穿透残留
     if (m_numKeypad) m_numKeypad->hide();
     if (m_softKeyboard && m_searchEdit) {
-        m_softKeyboard->setMode(SoftKeyboard::ModeEn);
+        m_keyboardForSearch = true;                          // 确认键=立即查询
+        m_softKeyboard->setMode(SoftKeyboard::ModeCn);       // 搜索姓名以中文为主，默认拼音输入
+        m_softKeyboard->setSurnameMode(false);
         m_softKeyboard->setConfirmText(QStringLiteral("搜索"));
         m_softKeyboard->attach(m_searchEdit);
         m_softKeyboard->show();
@@ -487,11 +409,11 @@ void UserManagementPage::onSearchFieldClicked() {
 }
 
 /**
-         * 事件过滤器：拦截控件与窗口事件并转交专用处理
-         * @param obj 事件来源控件
-         * @param event 事件对象
-         * @return true=事件已被处理
-         */
+ * @brief 事件过滤器：拦截控件与窗口事件并转交专用处理
+ * @param obj 被监视的对象
+ * @param event 事件对象，由 Qt 事件系统传入
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool UserManagementPage::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
         if (obj == m_searchEdit) {
@@ -499,21 +421,43 @@ bool UserManagementPage::eventFilter(QObject* obj, QEvent* event) {
             return true;
         }
         // 工号改纯数字：点击弹出数字键盘（不随机打乱、明文显示）
+        // 仅新增态可录入工号；编辑态工号禁止编辑(setEnabled(false))，点击不应弹出键盘
         if (obj == m_dlgWorkNo) {
+            if (!m_dlgWorkNo->isEnabled()) {
+                return QWidget::eventFilter(obj, event);
+            }
             if (m_softKeyboard) m_softKeyboard->hide();
             if (m_numKeypad) {
                 m_numKeypad->setShuffle(false);
                 m_numKeypad->setShowPassword(true);
                 m_numKeypad->attach(m_dlgWorkNo);
                 m_numKeypad->show();
-            }
-            return true;
-        }
-    }
-    return QWidget::eventFilter(obj, event);
+                }
+                return true;
+                }
+                // 姓名：新增态点击弹出中文软键盘（内置拼音词库），编辑态禁止编辑不弹
+                if (obj == m_dlgRealName) {
+                if (!m_dlgRealName->isEnabled()) {
+                    return QWidget::eventFilter(obj, event);
+                }
+                if (m_numKeypad) m_numKeypad->hide();
+                if (m_softKeyboard && m_dlgRealName) {
+                    m_keyboardForSearch = false;           // 姓名字段：确认键只关闭键盘
+                    m_softKeyboard->setMode(SoftKeyboard::ModeCn);
+                    m_softKeyboard->setSurnameMode(true);  // 姓名字段：常见姓氏候选前置
+                    m_softKeyboard->setConfirmText(QStringLiteral("完成"));
+                    m_softKeyboard->attach(m_dlgRealName);
+                    m_softKeyboard->show();
+                }
+                return true;
+                }
+                }
+                return QWidget::eventFilter(obj, event);
 }
 
-/** 部门筛选按钮点击 */
+/**
+ * @brief 部门筛选按钮点击
+ */
 void UserManagementPage::onDeptFilterClicked() {
     if (m_deptPopup->isVisible()) {
         m_deptPopup->hide();
@@ -525,7 +469,9 @@ void UserManagementPage::onDeptFilterClicked() {
     }
 }
 
-/** 清空部门选择 */
+/**
+ * @brief 清空部门选择
+ */
 void UserManagementPage::onClearDepts() {
     for (auto& pair : m_deptCheckBoxes) {
         pair.second->setChecked(false);
@@ -533,7 +479,9 @@ void UserManagementPage::onClearDepts() {
     m_deptFilterBtn->setText(QStringLiteral("部门筛选"));
 }
 
-/** 确认部门选择 */
+/**
+ * @brief 确认部门选择
+ */
 void UserManagementPage::onConfirmDepts() {
     QStringList selected;
     for (auto& pair : m_deptCheckBoxes) {
@@ -556,12 +504,9 @@ void UserManagementPage::onConfirmDepts() {
 
 /** 禁用/启用用户 */
 
-// ==============================================================
-// 【⑥ 启用/停用切换
-//   状态互斥与二次确认
-// ==============================================================
 /**
- * @brief 处理状态
+ * @brief /** 状态互斥与二次确认 【⑥ 启用/停用切换
+ * @param userId 用户唯一标识 user_id
  */
 void UserManagementPage::onToggleUserStatus(int userId) {
   // 通过UserController替代直接调用db/UserDAO
@@ -595,7 +540,9 @@ void UserManagementPage::onToggleUserStatus(int userId) {
 
 // ==============================================================
 
-// 角色按钮组样式更新 — 44px高统一弹窗内按钮风格
+/**
+ * @brief 角色按钮组样式更新 — 44px高统一弹窗内按钮风格
+ */
 void UserManagementPage::updateRoleBtnStyles() {
     QPushButton* btns[3] = { m_dlgRoleBtn1, m_dlgRoleBtn2, m_dlgRoleBtn3 };
     for (int i = 0; i < 3; ++i) {

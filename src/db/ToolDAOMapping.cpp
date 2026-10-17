@@ -170,13 +170,17 @@ QJsonArray ToolDAO::findAllPositionMappings()
     return arr;
 }
 
-// 在库位置明细（位置维度，出库下拉用）：一条映射记录=一个在库位置
+/**
+ * @brief 在库位置明细（位置维度，出库下拉用）：一条映射记录=一个在库位置
+ * @param machineGroupId 机组编号，用于按机组隔离数据
+ * @return 查询结果数组，每个元素为一个对象
+ */
 QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
     if (machineGroupId > 0) {
-        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, "
+        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, t.spec, "
                "c.cabinet_name, m.layer, m.position "
                "FROM tool_position_mapping m "
                "JOIN tool_info t ON m.tool_id=t.tool_id "
@@ -185,7 +189,7 @@ QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
                "ORDER BY c.cabinet_name, m.layer, m.position");
         q.addBindValue(machineGroupId);
     } else {
-        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, "
+        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, t.spec, "
                "c.cabinet_name, m.layer, m.position "
                "FROM tool_position_mapping m "
                "JOIN tool_info t ON m.tool_id=t.tool_id "
@@ -201,15 +205,20 @@ QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
         obj["toolId"]      = q.value(1).toInt();
         obj["toolCode"]    = q.value(2).toString();
         obj["toolName"]    = q.value(3).toString();
-        obj["cabinetName"] = q.value(4).toString();
-        obj["layer"]       = q.value(5).toString();
-        obj["position"]    = q.value(6).toString();
+        obj["spec"]        = q.value(4).toString();
+        obj["cabinetName"] = q.value(5).toString();
+        obj["layer"]       = q.value(6).toString();
+        obj["position"]    = q.value(7).toString();
         arr.append(obj);
     }
     return arr;
 }
 
-// 按分类名查询category_id，找不到返回-1
+/**
+ * @brief 按分类名查询category_id，找不到返回-1
+ * @param name 名称字符串
+ * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
+ */
 int ToolDAO::findCategoryIdByName(const QString& name)
 {
     if (name.isEmpty()) return -1;
@@ -221,7 +230,11 @@ int ToolDAO::findCategoryIdByName(const QString& name)
     return -1;
 }
 
-// 按柜体名查询cabinet_id，找不到返回-1
+/**
+ * @brief 按柜体名查询cabinet_id，找不到返回-1
+ * @param name 名称字符串
+ * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
+ */
 int ToolDAO::findCabinetIdByName(const QString& name)
 {
     if (name.isEmpty()) return -1;
@@ -233,7 +246,11 @@ int ToolDAO::findCabinetIdByName(const QString& name)
     return -1;
 }
 
-// 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
+/**
+ * @brief 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
+ * @param toolId 工具唯一标识 tool_id
+ * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
+ */
 int ToolDAO::countInStockPositions(int toolId)
 {
     QSqlDatabase db = getDb();
@@ -244,7 +261,11 @@ int ToolDAO::countInStockPositions(int toolId)
     return 0;
 }
 
-// 查询映射表状态（迁移自BorrowService::borrowTool状态校验）
+/**
+ * @brief 查询映射表状态（迁移自BorrowService::borrowTool状态校验）
+ * @param mappingId 位置映射编号
+ * @return 返回生成的字符串（失败时可能为空串）
+ */
 QString ToolDAO::findMappingStatus(int mappingId)
 {
     QSqlDatabase db = getDb();
@@ -255,9 +276,16 @@ QString ToolDAO::findMappingStatus(int mappingId)
     return QString();
 }
 
-// 按位置条件更新映射表状态（原子CAS，防止并发覆盖）
-// 入参：toolId工具ID, cabinetId柜体ID, layer层, position位, newStatus目标状态, expectedStatus期望当前状态
-// 返回：true=更新成功（匹配到1行），false=更新失败（无匹配行或状态已变更）
+/**
+ * @brief 按位置条件更新映射表状态（原子CAS，防止并发覆盖）
+ * @param toolId 工具唯一标识 tool_id
+ * @param cabinetId 柜体编号
+ * @param layer 层号
+ * @param position 位号
+ * @param newStatus 要写入的目标状态值
+ * @param expectedStatus 期望的当前状态值，与库内不一致则更新失败（乐观锁）
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool ToolDAO::updateMappingByPosition(int toolId, int cabinetId, const QString& layer,
                                        const QString& position, const QString& newStatus,
                                        const QString& expectedStatus)

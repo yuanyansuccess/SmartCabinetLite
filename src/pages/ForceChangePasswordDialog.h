@@ -32,7 +32,7 @@ protected:
     void setupContent() override;
 
 private slots:
-    /// 确认修改：校验规则并写库，成功后方可进入系统
+    /// 确认：校验规则并写库，成功后方可进入系统
     void onSubmit();
     /// 退出登录：放弃本次登录，回到登录页
     void onExitLogin();

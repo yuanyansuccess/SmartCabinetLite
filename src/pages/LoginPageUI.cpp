@@ -167,7 +167,8 @@ void LoginPage::setupUI() {
 
 
 /**
- * @brief 初始化左侧面板
+ * @brief
+ * @param layout 布局对象，本函数向其添加构建好的子控件
  */
 void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
@@ -297,7 +298,7 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
     desc->setWordWrap(true);
 
-    desc->setStyleSheet("color:rgba(255,255,255,0.8); font-size:16px; background:transparent; line-height:1.8; margin-bottom:12px;");  // 字号16，行高1.8，视觉下沉更沉稳
+    desc->setStyleSheet("color:rgba(255,255,255,0.8); " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; background:transparent; line-height:1.8; margin-bottom:12px;");  // 字号16，行高1.8，视觉下沉更沉稳
 
     layout->addWidget(desc);
 
@@ -310,7 +311,8 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
 
 /**
- * @brief 初始化右侧面板
+ * @brief
+ * @param layout 布局对象，本函数向其添加构建好的子控件
  */
 void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
@@ -340,6 +342,10 @@ void LoginPage::setupRightPanel(QVBoxLayout* layout) {
 
 /** 构建右侧顶部欢迎文字与副标题 */
 
+/**
+ * @brief LoginPage::buildWelcomeHeader 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
 
     m_welcomeLabel = new QLabel(QStringLiteral("欢迎使用"));
@@ -360,7 +366,7 @@ void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
 
     m_subtitleLabel->setWordWrap(true);
 
-    m_subtitleLabel->setStyleSheet(QString("font-size:15px; color:%1; background:transparent; margin-bottom:28px;")
+    m_subtitleLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:%1; background:transparent; margin-bottom:28px;")
 
         .arg("#999999"));
 
@@ -372,6 +378,10 @@ void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
 
 /** 构建人脸扫描区：摄像头、三态状态圆圈、采集进度与密码登录入口 */
 
+/**
+ * @brief LoginPage::buildFaceScanArea 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
     m_cameraWrap = new QWidget();  // 存为成员变量，切换模式时整体显隐
@@ -536,7 +546,7 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
     m_captureProgress->setAlignment(Qt::AlignCenter);
 
-    m_captureProgress->setStyleSheet(QString("font-size:15px; color:%1; background:transparent; font-weight:600; margin-top:8px;")
+    m_captureProgress->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:%1; background:transparent; font-weight:600; margin-top:8px;")
 
         .arg(StyleHelper::primaryColor()));
 
@@ -552,7 +562,7 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
     m_altLoginHint->setStyleSheet(
 
-        "QPushButton{color:#4da3ff;font-size:14px;border:none;background:transparent;"
+        "QPushButton{color:#4da3ff;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";border:none;background:transparent;"
 
         "text-decoration:none;font-weight:600; margin-top:10px;}"
 
@@ -580,6 +590,10 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
 /** 构建状态指示行：状态圆点+文字（始终可见，Web: .status-line） */
 
+/**
+ * @brief LoginPage::buildStatusRow 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildStatusRow(QVBoxLayout* layout) {
 
     auto* statusRow = new QHBoxLayout();
@@ -624,222 +638,108 @@ void LoginPage::buildStatusRow(QVBoxLayout* layout) {
 
 
 
-/** 构建密码登录区（默认隐藏，复刻Vue版login-form） */
-
+/**
+ * @brief 构建密码登录表单（默认隐藏，复刻Vue版login-form），拆为错误条/凭据字段/操作按钮三段
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildPasswordForm(QVBoxLayout* layout) {
-
     m_passwordForm = new QWidget();
-
     m_passwordForm->setVisible(false);
-
     m_passwordForm->setStyleSheet("background:transparent;");
 
     auto* pfLayout = new QVBoxLayout(m_passwordForm);
-
     pfLayout->setContentsMargins(0, 0, 0, 0);
-
     pfLayout->setSpacing(16);
 
+    // 数字键盘(m_numKeypad)在构造函数创建，点击字段⌨按钮时由对应槽弹出，此处不加入布局
+    buildErrorTip(pfLayout);
+    buildCredentialField(pfLayout, QStringLiteral("工号"), m_usernameEdit,
+                         QStringLiteral("请输入工号（纯数字）"), false, &LoginPage::onUsernameFieldClicked);
+    buildCredentialField(pfLayout, QStringLiteral("密码"), m_passwordEdit,
+                         QStringLiteral("请输入密码"), true, &LoginPage::onPasswordFieldClicked);
+    buildLoginActions(pfLayout);
 
+    layout->addWidget(m_passwordForm);
+}
 
-    // 人脸识别失败/摄像头不可用 提示条 (Web: .form-error-tip)
-
+/**
+ * @brief 登录失败/摄像头不可用提示条（人脸失败或密码锁定警示共用样式，调用方经showFormError设文案）
+ * @param pfLayout 密码表单布局对象
+ */
+void LoginPage::buildErrorTip(QVBoxLayout* pfLayout) {
     m_errorLabel = new QLabel();
-
-    m_errorLabel->setStyleSheet(QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
-
+    m_errorLabel->setStyleSheet(QString("color:%1; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; font-weight:600; background:transparent; margin-bottom:14px;")
         .arg(StyleHelper::dangerColor()));
-
     m_errorLabel->setWordWrap(true);
-
     m_errorLabel->setVisible(false);
-
     pfLayout->addWidget(m_errorLabel);
+}
 
+/**
+ * @brief 单条凭据输入行：标签+圆角输入框+键盘按钮并排，工号与密码两字段结构一致故复用
+ * @param pfLayout     父布局，字段整体追加到此处
+ * @param labelText    字段标签文字（工号/密码）
+ * @param edit         输出参数，回填创建的输入框指针到成员(m_usernameEdit/m_passwordEdit)
+ * @param placeholder  输入框占位提示
+ * @param isPassword   true=密码框（开启回显掩码），false=明文
+ * @param clickedSlot  键盘按钮点击后要触发的槽（onUsernameFieldClicked/onPasswordFieldClicked）
+ */
+void LoginPage::buildCredentialField(QVBoxLayout* pfLayout, const QString& labelText, QLineEdit*& edit,
+                                     const QString& placeholder, bool isPassword, void (LoginPage::*clickedSlot)()) {
+    auto* label = new QLabel(labelText);
+    label->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
+    pfLayout->addWidget(label);
 
-
-    // 工号标签 (Web: .form-label 14px #555)
-
-    auto* unameLabel = new QLabel(QStringLiteral("工号"));
-
-    unameLabel->setStyleSheet(QString("font-size:14px; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
-
-    pfLayout->addWidget(unameLabel);
-
-
-
-    // 用户名输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
-
-    // WA_StyledBackground修复边框圆角渲染，固定高度对齐内部控件
-
-    auto* unameWrap = new QFrame();
-
-    unameWrap->setAttribute(Qt::WA_StyledBackground, true);
-
-    unameWrap->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
-
-    unameWrap->setStyleSheet(
-
+    // 输入框+键盘按钮并排（1:1复刻Web版 .password-input-wrap）
+    auto* wrap = new QFrame();
+    wrap->setAttribute(Qt::WA_StyledBackground, true);
+    wrap->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
+    wrap->setStyleSheet(
         "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
-
         "QFrame:focus-within{border-color:#4da3ff;}");
+    auto* wrapLayout = new QHBoxLayout(wrap);
+    wrapLayout->setContentsMargins(0, 0, 0, 0);
+    wrapLayout->setSpacing(0);
 
-    auto* unameWrapLayout = new QHBoxLayout(unameWrap);
+    edit = new QLineEdit();
+    edit->setPlaceholderText(placeholder);
+    if (isPassword) edit->setEchoMode(QLineEdit::Password);
+    edit->setReadOnly(true);
+    edit->setCursor(Qt::PointingHandCursor);
+    edit->setMinimumHeight(46);
+    edit->setStyleSheet(
+        "QLineEdit{border:none;padding:0 16px;" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";color:#1a1a2e;background:transparent;}");
+    edit->installEventFilter(this);
+    wrapLayout->addWidget(edit, 1);
 
-    unameWrapLayout->setContentsMargins(0, 0, 0, 0);
-
-    unameWrapLayout->setSpacing(0);
-
-
-
-    m_usernameEdit = new QLineEdit();
-
-    m_usernameEdit->setPlaceholderText(QStringLiteral("请输入工号（纯数字）"));
-
-    m_usernameEdit->setReadOnly(true);
-
-    m_usernameEdit->setCursor(Qt::PointingHandCursor);
-
-    m_usernameEdit->setMinimumHeight(46);
-
-    m_usernameEdit->setStyleSheet(
-
-        "QLineEdit{border:none;padding:0 16px;font-size:16px;color:#1a1a2e;background:transparent;}");
-
-    m_usernameEdit->installEventFilter(this);
-
-    unameWrapLayout->addWidget(m_usernameEdit, 1);
-
-
-
-    auto* skbBtn1 = new QPushButton(QStringLiteral("⌨"));
-
-    skbBtn1->setFixedSize(48, 46);
-
-    skbBtn1->setCursor(Qt::PointingHandCursor);
-
-    skbBtn1->setStyleSheet(
-
+    auto* skbBtn = new QPushButton(QStringLiteral("⌨"));
+    skbBtn->setFixedSize(48, 46);
+    skbBtn->setCursor(Qt::PointingHandCursor);
+    skbBtn->setStyleSheet(
         "QPushButton{border:none;border-radius:0 10px 10px 0;"
-
-        "background:#f5f6f8;font-size:22px;color:#666;}"
-
+        "background:#f5f6f8;" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + ";color:#666;}"
         "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}");
+    connect(skbBtn, &QPushButton::clicked, this, clickedSlot);
+    wrapLayout->addWidget(skbBtn);
 
-    connect(skbBtn1, &QPushButton::clicked, this, &LoginPage::onUsernameFieldClicked);
+    pfLayout->addWidget(wrap);
+}
 
-    unameWrapLayout->addWidget(skbBtn1);
-
-
-
-    pfLayout->addWidget(unameWrap);
-
-
-
-    // 密码标签 (Web: .form-label 14px #555)
-
-    auto* pwdLabel = new QLabel(QStringLiteral("密码"));
-
-    pwdLabel->setStyleSheet(QString("font-size:14px; font-weight:600; color:#555555; background:transparent; margin-bottom:6px;"));
-
-    pfLayout->addWidget(pwdLabel);
-
-
-
-    // 密码输入框+键盘按钮并排 (1:1复刻Web版 .password-input-wrap)
-
-    auto* pwdWrap = new QFrame();
-
-    pwdWrap->setAttribute(Qt::WA_StyledBackground, true);
-
-    pwdWrap->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
-
-    pwdWrap->setStyleSheet(
-
-        "QFrame{border:2px solid #e0e0e0;border-radius:12px;background:#fff;}"
-
-        "QFrame:focus-within{border-color:#4da3ff;}");
-
-    auto* pwdWrapLayout = new QHBoxLayout(pwdWrap);
-
-    pwdWrapLayout->setContentsMargins(0, 0, 0, 0);
-
-    pwdWrapLayout->setSpacing(0);
-
-
-
-    m_passwordEdit = new QLineEdit();
-
-    m_passwordEdit->setPlaceholderText(QStringLiteral("请输入密码"));
-
-    m_passwordEdit->setEchoMode(QLineEdit::Password);
-
-    m_passwordEdit->setReadOnly(true);
-
-    m_passwordEdit->setCursor(Qt::PointingHandCursor);
-
-    m_passwordEdit->setMinimumHeight(46);
-
-    m_passwordEdit->setStyleSheet(
-
-        "QLineEdit{border:none;padding:0 16px;font-size:16px;color:#1a1a2e;background:transparent;}");
-
-    m_passwordEdit->installEventFilter(this);
-
-    pwdWrapLayout->addWidget(m_passwordEdit, 1);
-
-
-
-    auto* skbBtn2 = new QPushButton(QStringLiteral("⌨"));
-
-    skbBtn2->setFixedSize(48, 46);
-
-    skbBtn2->setCursor(Qt::PointingHandCursor);
-
-    skbBtn2->setStyleSheet(
-
-        "QPushButton{border:none;border-radius:0 10px 10px 0;"
-
-        "background:#f5f6f8;font-size:22px;color:#666;}"
-
-        "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}");
-
-    connect(skbBtn2, &QPushButton::clicked, this, &LoginPage::onPasswordFieldClicked);
-
-    pwdWrapLayout->addWidget(skbBtn2);
-
-
-
-    pfLayout->addWidget(pwdWrap);
-
-
-
-    // 数字键盘占位 - 构造函数中创建，此处添加到布局
-
-    // 初始隐藏，点击密码框⌨按钮时显示
-
-
-
+/**
+ * @brief 登录/忘记密码/重新刷脸 操作区（登录按钮+自助重置入口+人脸回退链接）
+ * @param pfLayout 密码表单布局对象
+ */
+void LoginPage::buildLoginActions(QVBoxLayout* pfLayout) {
     // 登录按钮 (Web: .login-btn border-radius:10px font-size:17px padding:14px)
-
     m_loginBtn = new QPushButton(QStringLiteral("登  录"));
-
     m_loginBtn->setCursor(Qt::PointingHandCursor);
-
     m_loginBtn->setStyleSheet(
-
         "QPushButton{ background:#4da3ff; color:white; border:none; border-radius:10px;"
-
         "font-size:17px; font-weight:700; padding:14px 0; }"
-
         "QPushButton:hover{ background:#3d8ae0; }"
-
         "QPushButton:pressed{ background:#2d7ad0; }"
-
         "QPushButton:disabled{ background:#a0c4ff; }");
-
     connect(m_loginBtn, &QPushButton::clicked, this, &LoginPage::onPasswordLogin);
-
     pfLayout->addWidget(m_loginBtn);
 
     // 忘记密码入口：密码已遗忘时刷脸验证身份自助重置（触屏目标高度≥48px）
@@ -847,43 +747,31 @@ void LoginPage::buildPasswordForm(QVBoxLayout* layout) {
     m_forgotPwdBtn->setCursor(Qt::PointingHandCursor);
     m_forgotPwdBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_forgotPwdBtn->setStyleSheet(
-        "QPushButton{color:#666;font-size:15px;border:none;background:transparent;font-weight:600;}"
+        "QPushButton{color:#666;" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";border:none;background:transparent;font-weight:600;}"
         "QPushButton:hover{color:#4da3ff;}");
     connect(m_forgotPwdBtn, &QPushButton::clicked, this, &LoginPage::onForgotPassword);
     pfLayout->addWidget(m_forgotPwdBtn, 0, Qt::AlignHCenter);
 
-
-
     // 重新人脸识别链接 (Web: .retry-link 14px)
-
     m_tryFaceBtn = new QPushButton(QStringLiteral("🔄 重新尝试人脸识别"));
-
     m_tryFaceBtn->setStyleSheet(
-
-        "QPushButton{color:#4da3ff;font-size:14px;border:none;background:transparent;"
-
+        "QPushButton{color:#4da3ff;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";border:none;background:transparent;"
         "text-decoration:underline;font-weight:600; margin-top:14px;}"
-
         "QPushButton:hover{color:#3d8ae0;}");
-
     m_tryFaceBtn->setCursor(Qt::PointingHandCursor);
-
     m_tryFaceBtn->setVisible(false);
-
     connect(m_tryFaceBtn, &QPushButton::clicked, this, &LoginPage::onTryFaceAgain);
-
     pfLayout->addWidget(m_tryFaceBtn);
-
-
-
-    layout->addWidget(m_passwordForm);
-
 }
 
 
 
 /** 构建成功信息卡片（Web: .info-box，默认隐藏） */
 
+/**
+ * @brief LoginPage::buildSuccessCard 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
     m_successBox = new QWidget();
@@ -936,7 +824,7 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
         labelWidget->setFixedWidth(110);
 
-        labelWidget->setStyleSheet("font-size:15px; color:#555555; font-weight:600; background:transparent;");
+        labelWidget->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:#555555; font-weight:600; background:transparent;");
 
 
 
@@ -944,7 +832,7 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
         storage->setWordWrap(true);
 
-        storage->setStyleSheet("font-size:15px; color:#1a1a2e; font-weight:600; background:transparent;");
+        storage->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:#1a1a2e; font-weight:600; background:transparent;");
 
 
 
@@ -988,9 +876,9 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
     simLabel->setFixedWidth(110);
 
-    simLabel->setStyleSheet("font-size:14px; color:#888888; font-weight:500; background:transparent;");
+    simLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
 
-    m_successSimilarity->setStyleSheet("font-size:14px; color:#888888; font-weight:500; background:transparent;");
+    m_successSimilarity->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
 
     simLayout->addWidget(simLabel);
 
@@ -1018,7 +906,7 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
     successMsg->setAlignment(Qt::AlignCenter);
 
-    successMsg->setStyleSheet("font-size:16px; color:#166534; font-weight:700;"
+    successMsg->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; color:#166534; font-weight:700;"
 
                                "background:transparent; padding-top:6px;");
 
@@ -1034,6 +922,10 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
 /** 构建陌生人警告卡片（Web: .stranger-box，默认隐藏） */
 
+/**
+ * @brief LoginPage::buildStrangerCard 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     m_strangerBox = new QWidget();
@@ -1086,7 +978,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     strMsg->setWordWrap(true);
 
-    strMsg->setStyleSheet("font-size:15px; color:#d48806; font-weight:700;"
+    strMsg->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:#d48806; font-weight:700;"
 
                           "padding-top:8px; margin-top:8px; border-top:1px solid #ffd591; background:transparent;");
 
@@ -1150,6 +1042,9 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
 /** 构建右上角悬浮退出按钮（半透明圆形，不抢登录画面视觉焦点） */
 
+/**
+ * @brief LoginPage::buildExitButton 的业务实现
+ */
 void LoginPage::buildExitButton() {
 
     m_exitBtn = new QPushButton(QStringLiteral("✕"), this);
@@ -1162,7 +1057,7 @@ void LoginPage::buildExitButton() {
 
         "QPushButton{"
 
-        "  font-size:20px; font-weight:700; color:rgba(255,255,255,0.6);"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + "; font-weight:700; color:rgba(255,255,255,0.6);"
 
         "  background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.2);"
 
@@ -1200,13 +1095,17 @@ void LoginPage::buildExitButton() {
 
 /** 构建底部版权行（Web: .login-footer 13px #cccccc） */
 
+/**
+ * @brief LoginPage::buildCopyright 的业务实现
+ * @param layout 布局对象，本函数向其添加构建好的子控件
+ */
 void LoginPage::buildCopyright(QVBoxLayout* layout) {
 
     auto* copyright = new QLabel(QStringLiteral("成都成飞电子科技有限公司 © 2026"));
 
     copyright->setAlignment(Qt::AlignCenter);
 
-    copyright->setStyleSheet("font-size:13px; color:#cccccc; background:transparent; margin-top:16px;");
+    copyright->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; color:#cccccc; background:transparent; margin-top:16px;");
 
     layout->addWidget(copyright);
 
@@ -1231,7 +1130,8 @@ void LoginPage::buildCopyright(QVBoxLayout* layout) {
 // ==============================================================
 
 /**
- * @brief 设置状态状态点
+ * @brief
+ * @param colorStyle 状态指示点的配色样式标识
  */
 void LoginPage::setStatusDot(const QString& colorStyle) {
 

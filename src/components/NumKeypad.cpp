@@ -4,9 +4,8 @@
  * @author 袁燕
  * @date 2026-06-26
  *
- * 初始创建：从SoftKeyboard中独立纯数字键盘，QPainter自绘。
- * 改用顶层Popup窗口方案（参考SoftKeyboard）：
- *   show()时将NumKeypad加入m_panel布局，hide()时移回页面所属。
+ * 从SoftKeyboard中独立出的纯数字键盘，采用QPainter自绘 + 顶层Popup弹窗方案（参考SoftKeyboard）：
+ *   show()时将NumKeypad加入m_panel布局，hide()时移回页面所属，
  *   彻底解决父布局空间不足导致的裁剪问题。
  */
 #include "NumKeypad.h"
@@ -23,6 +22,10 @@
 
 // ═══════════ 构造/析构 ═══════════
 
+/**
+ * @brief 构造函数，初始化 NumKeypad 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 NumKeypad::NumKeypad(QWidget* parent)
     : QWidget(parent)
     , m_ownerWidget(parent)  // 保存原始父窗口
@@ -39,7 +42,8 @@ NumKeypad::NumKeypad(QWidget* parent)
     }
     setFixedWidth(screenW);
 
-    m_keys = {"7","8","9","4","5","6","1","2","3",".","0","⌫"};
+    // 按键共11个：前三行9个数字，第四行「0」与退格键（不提供小数点）
+    m_keys = {"7","8","9","4","5","6","1","2","3","0","⌫"};
 }
 
 NumKeypad::~NumKeypad()
@@ -54,6 +58,9 @@ NumKeypad::~NumKeypad()
 
 // ═══════════ 顶层面板确保（参考SoftKeyboard） ═══════════
 
+/**
+ * @brief NumKeypad::ensurePanel 的业务实现
+ */
 void NumKeypad::ensurePanel()
 {
     if (m_panel) return;
@@ -91,6 +98,9 @@ void NumKeypad::ensurePanel()
 
 // ═══════════ 显示/隐藏 ═══════════
 
+/**
+ * @brief NumKeypad::show 的业务实现
+ */
 void NumKeypad::show()
 {
     ensurePanel();
@@ -179,6 +189,10 @@ void NumKeypad::hide()
 
 // ═══════════ 公开API ═══════════
 
+/**
+ * @brief NumKeypad::attach 的业务实现
+ * @param target 要绑定的目标对象（如输入控件）
+ */
 void NumKeypad::attach(QLineEdit* target)
 {
     m_target = target;
@@ -193,7 +207,7 @@ void NumKeypad::setShuffle(bool enable)
     if (m_shuffle == enable) return;
     m_shuffle = enable;
     if (m_shuffle) shuffleKeys();
-    else           m_keys = {"7","8","9","4","5","6","1","2","3",".","0","⌫"};
+    else           m_keys = {"7","8","9","4","5","6","1","2","3","0","⌫"};
     recalcKeyRects();
     update();
 }
@@ -228,6 +242,9 @@ void NumKeypad::clear()
 
 // ═══════════ Fisher-Yates 随机打乱 ═══════════
 
+/**
+ * @brief NumKeypad::shuffleKeys 的业务实现
+ */
 void NumKeypad::shuffleKeys()
 {
     QStringList digits = {"1","2","3","4","5","6","7","8","9","0"};
@@ -237,21 +254,32 @@ void NumKeypad::shuffleKeys()
     }
     m_keys.clear();
     for (int i = 0; i < 9; ++i) m_keys << digits[i];
-    m_keys << digits[9] << "." << "⌫";
+    m_keys << digits[9] << "⌫";
 }
 
 // ═══════════ 按键文本 ═══════════
 
+/**
+ * @brief NumKeypad::keyText 的业务实现
+ * @param row 表格行号（从 0 开始）
+ * @param col 表格列号（从 0 开始）
+ * @return 返回生成的字符串（失败时可能为空串）
+ */
 QString NumKeypad::keyText(int row, int col) const
 {
-    static const int layout[4][3] = { {0,1,2}, {3,4,5}, {6,7,8}, {9,10,11} };
+    // 前三行每行三个数字键，第四行为「0」与退格键（第三格空缺）
+    static const int layout[4][3] = { {0,1,2}, {3,4,5}, {6,7,8}, {9,10,-1} };
     if (row < 0 || row > 3 || col < 0 || col > 2) return QString();
     int idx = layout[row][col];
-    return (idx < m_keys.size()) ? m_keys[idx] : QString();
+    if (idx < 0 || idx >= m_keys.size()) return QString();
+    return m_keys[idx];
 }
 
 // ═══════════ 布局计算 ═══════════
 
+/**
+ * @brief NumKeypad::recalcKeyRects 的业务实现
+ */
 void NumKeypad::recalcKeyRects()
 {
     m_keyRects.clear();
@@ -262,7 +290,8 @@ void NumKeypad::recalcKeyRects()
     qreal availW = w - m_padLeft - m_padRight;
     qreal colW = (availW - 2 * m_keySpacing) / 3.0;
 
-    for (int row = 0; row < 4; ++row) {
+    // 前三行：每行三个数字键
+    for (int row = 0; row < 3; ++row) {
         for (int col = 0; col < 3; ++col) {
             KeyRect kr;
             kr.row = row; kr.col = col;
@@ -273,6 +302,19 @@ void NumKeypad::recalcKeyRects()
                 colW, m_keyH);
             m_keyRects.append(kr);
         }
+    }
+
+    // 第四行：只有「0」与退格键，两键各占半行宽度
+    qreal lastW = (availW - m_keySpacing) / 2.0;
+    for (int col = 0; col < 2; ++col) {
+        KeyRect kr;
+        kr.row = 3; kr.col = col;
+        kr.text = keyText(3, col);
+        kr.rect = QRectF(
+            m_padLeft + col * (lastW + m_keySpacing),
+            y + 3 * (m_keyH + m_keySpacing),
+            lastW, m_keyH);
+        m_keyRects.append(kr);
     }
 }
 
@@ -292,6 +334,10 @@ void NumKeypad::resizeEvent(QResizeEvent* event)
 
 // ═══════════ 鼠标事件 ═══════════
 
+/**
+ * @brief NumKeypad::mouseMoveEvent 的业务实现
+ * @param event 事件对象，由 Qt 事件系统传入
+ */
 void NumKeypad::mouseMoveEvent(QMouseEvent* event)
 {
     QPointF pos = event->position();
@@ -383,6 +429,10 @@ void NumKeypad::mouseReleaseEvent(QMouseEvent* event)
 
 // ═══════════ 输入处理 ═══════════
 
+/**
+ * @brief NumKeypad::appendChar 的业务实现
+ * @param ch 本次输入的单个字符
+ */
 void NumKeypad::appendChar(const QString& ch)
 {
     if (!m_target) return;
@@ -403,6 +453,10 @@ void NumKeypad::doBackspace()
 
 // ═══════════ QPainter 自绘 ═══════════
 
+/**
+ * @brief NumKeypad::paintEvent 的业务实现
+ * @param QPaintEvent 参数 QPaintEvent（类型与取值约束见函数签名）
+ */
 void NumKeypad::paintEvent(QPaintEvent*)
 {
     QPainter p(this);

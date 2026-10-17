@@ -46,7 +46,7 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     if (expectedReturnTime.isEmpty()) { r.message = "预计归还时间不能为空"; return r; }
 
     // 检查预计归还时间是否大于当前时间
-    QDateTime expected = QDateTime::fromString(expectedReturnTime, "yyyy-MM-dd HH:mm:ss");
+    QDateTime expected = QDateTime::fromString(expectedReturnTime, SC::TIMESTAMP_FORMAT);
     if (!expected.isValid()) { r.message = "预计归还时间格式错误"; return r; }
     if (expected <= QDateTime::currentDateTime()) { r.message = "预计归还时间必须晚于当前时间"; return r; }
 

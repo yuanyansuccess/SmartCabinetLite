@@ -15,6 +15,13 @@
 #include <QFrame>
 #include <QPushButton>
 
+/**
+ * @brief 构造函数，初始化 ForceChangePasswordDialog 对象并连接信号槽
+ * @param userId 用户唯一标识 user_id
+ * @param realName 用户真实姓名
+ * @param requireOldPassword 是否要求先校验旧密码
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 ForceChangePasswordDialog::ForceChangePasswordDialog(int userId, const QString& realName,
                                                      bool requireOldPassword, QWidget* parent)
     : BaseDialog(parent, 520)
@@ -28,6 +35,9 @@ ForceChangePasswordDialog::ForceChangePasswordDialog(int userId, const QString& 
 
 ForceChangePasswordDialog::~ForceChangePasswordDialog() = default;
 
+/**
+ * @brief 构建对话框内容：说明文案、密码输入行、规则提示、安全键盘与底部按钮
+ */
 void ForceChangePasswordDialog::setupContent() {
     auto* cl = contentLayout();
     cl->setSpacing(12);
@@ -54,14 +64,14 @@ void ForceChangePasswordDialog::setupContent() {
 
     // 规则提示：一行说清，规则与文案统一取自 common::UserInputValidator
     auto* rule = new QLabel(common::passwordRuleText());
-    rule->setStyleSheet("font-size:13px;color:#999;background:transparent;");
+    rule->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#999;background:transparent;");
     cl->addWidget(rule);
 
     // 内联错误提示（提交时显示具体原因）
     m_errorLabel = new QLabel();
     m_errorLabel->setWordWrap(true);
     m_errorLabel->setVisible(false);
-    m_errorLabel->setStyleSheet("font-size:14px;color:#e74c3c;background:transparent;padding:4px 0;");
+    m_errorLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#e74c3c;background:transparent;padding:4px 0;");
     cl->addWidget(m_errorLabel);
 
     // 安全键盘：随机键位，隐藏明文
@@ -85,7 +95,7 @@ void ForceChangePasswordDialog::setupContent() {
     exitBtn->setCursor(Qt::PointingHandCursor);
     exitBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}");
     connect(exitBtn, &QPushButton::clicked, this, &ForceChangePasswordDialog::onExitLogin);
 
@@ -95,7 +105,7 @@ void ForceChangePasswordDialog::setupContent() {
     okBtn->setCursor(Qt::PointingHandCursor);
     okBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:16px;font-weight:700;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}");
     connect(okBtn, &QPushButton::clicked, this, &ForceChangePasswordDialog::onSubmit);
 
@@ -103,6 +113,12 @@ void ForceChangePasswordDialog::setupContent() {
     bl->addWidget(okBtn);
 }
 
+/**
+ * @brief 构建一行密码输入控件（标签 + 只读输入框 + 键盘按钮）
+ * @param label 行标题（当前密码/新密码/确认新密码）
+ * @param edit  [出参] 行内输入框指针，供提交时读取文本
+ * @return 整行容器控件
+ */
 QWidget* ForceChangePasswordDialog::buildPasswordRow(const QString& label, QLineEdit*& edit) {
     auto* row = new QWidget();
     row->setStyleSheet("background:transparent;");
@@ -129,14 +145,14 @@ QWidget* ForceChangePasswordDialog::buildPasswordRow(const QString& label, QLine
     edit->setReadOnly(true);  // 只允许安全键盘输入，防止物理键盘窥视
     edit->setCursor(Qt::PointingHandCursor);
     edit->setStyleSheet(
-        "QLineEdit{border:none;padding:0;font-size:15px;color:#1a1a2e;background:transparent;}");
+        "QLineEdit{border:none;padding:0;" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#1a1a2e;background:transparent;}");
     fl->addWidget(edit, 1);
 
     auto* kbBtn = new QPushButton(QStringLiteral("⌨"));
     kbBtn->setFixedSize(40, 40);
     kbBtn->setCursor(Qt::PointingHandCursor);
     kbBtn->setStyleSheet(
-        "QPushButton{border:none;border-radius:10px;font-size:20px;background:transparent;color:#666;}"
+        "QPushButton{border:none;border-radius:10px;" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + ";background:transparent;color:#666;}"
         "QPushButton:hover{background:#e6f0ff;color:#4da3ff;}");
     connect(kbBtn, &QPushButton::clicked, this, [this, edit]() { openKeypad(edit); });
     fl->addWidget(kbBtn);
@@ -146,6 +162,10 @@ QWidget* ForceChangePasswordDialog::buildPasswordRow(const QString& label, QLine
     return row;
 }
 
+/**
+ * @brief 弹出安全键盘并绑定到指定输入框
+ * @param edit 目标输入框
+ */
 void ForceChangePasswordDialog::openKeypad(QLineEdit* edit) {
     if (!m_keypad || !edit) return;
     m_keypad->setShuffle(true);
@@ -154,6 +174,9 @@ void ForceChangePasswordDialog::openKeypad(QLineEdit* edit) {
     m_keypad->show();
 }
 
+/**
+ * @brief 提交：校验密码规则并写库，成功则关闭对话框进入系统
+ */
 void ForceChangePasswordDialog::onSubmit() {
     const QString oldPwd = m_oldPwdEdit ? m_oldPwdEdit->text() : QString();
     const QString newPwd = m_newPwdEdit ? m_newPwdEdit->text() : QString();
@@ -202,6 +225,9 @@ void ForceChangePasswordDialog::onSubmit() {
     accept();
 }
 
+/**
+ * @brief 退出登录：拒绝对话框，由主窗口收到 reject 后执行注销回到登录页
+ */
 void ForceChangePasswordDialog::onExitLogin() {
     // 拒绝登录：由主窗口收到 reject 后执行注销回到登录页
     reject();

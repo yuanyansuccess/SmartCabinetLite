@@ -18,6 +18,10 @@
 #include <windows.h>  // GetSystemPowerStatus 电池状态
 #endif
 
+/**
+ * @brief 构造函数，初始化 TopBar 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     setupUI();
     m_clockTimer = new QTimer(this);
@@ -44,13 +48,13 @@ void TopBar::setupUI() {
         "TopBar { background:#ffffff; border-bottom:2px solid #e8ecf1; }");
 
     QHBoxLayout* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(28, 0, 28, 0);  // 28 微调边距
+    layout->setContentsMargins(16, 0, 16, 0);  // 16 收窄边距，防1024宽下右侧文字被挤断
     layout->setSpacing(0);
     layout->setAlignment(Qt::AlignVCenter);
 
     // ── 左侧：品牌区 ──
     QHBoxLayout* leftLayout = new QHBoxLayout();
-    leftLayout->setSpacing(16);
+    leftLayout->setSpacing(10);
 
     // Logo图标 替换为成飞电子公司Logo
     QLabel* logoIcon = new QLabel();
@@ -77,7 +81,7 @@ void TopBar::setupUI() {
     QLabel* brandTitle = new QLabel(QStringLiteral("智能工具柜管理系统"));
     brandTitle->setStyleSheet(
         "color:#1a1a2e; " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight:bold; "
-        "letter-spacing:2px; background:transparent;");
+        "letter-spacing:0px; background:transparent;");
     leftLayout->addWidget(brandTitle);
 
     // 面包屑
@@ -96,7 +100,7 @@ void TopBar::setupUI() {
         "QPushButton { "
         "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
         "  border:none; border-radius:18px; "
-        "  background:transparent; padding:0 18px; "
+        "  background:transparent; padding:0 10px; "
         "}"
         "QPushButton:hover { "
         "  background:#f0f0f0; color:#333333; "
@@ -128,7 +132,7 @@ void TopBar::setupUI() {
     m_rightArea->setStyleSheet("background:transparent;");
     QHBoxLayout* rightLayout = new QHBoxLayout(m_rightArea);
     rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(24);  // 增加间距，呼吸感更好
+    rightLayout->setSpacing(10);  // 10 收窄间距，防1024宽下时钟/角色/品牌被挤断
 
     // 电池电量+网络状态指示器 — 小米极简美学
     // 设计理念：小图标+文字，淡色不抢眼，状态变化时颜色提醒
@@ -194,7 +198,7 @@ void TopBar::setupUI() {
         "QPushButton { "
         "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
         "  border:none; border-radius:18px; "
-        "  background:transparent; padding:0 18px; "
+        "  background:transparent; padding:0 10px; "
         "}"
         "QPushButton:hover { "
         "  background:#f0f0f0; color:#333333; "
@@ -213,7 +217,7 @@ void TopBar::setupUI() {
         "QPushButton { "
         "  color:#666666; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:500; "
         "  border:none; border-radius:18px; "
-        "  background:transparent; padding:0 18px; "
+        "  background:transparent; padding:0 10px; "
         "}"
         "QPushButton:hover { "
         "  background:#f0f0f0; color:#333333; "
@@ -232,7 +236,7 @@ void TopBar::setupUI() {
         "QPushButton { "
         "  color:#e74c3c; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:600; "
         "  border:none; border-radius:18px; "
-        "  background:transparent; padding:0 18px; "
+        "  background:transparent; padding:0 10px; "
         "}"
         "QPushButton:hover { "
         "  background:#e74c3c; color:#ffffff; "
@@ -247,7 +251,8 @@ void TopBar::setupUI() {
 }
 
 /**
- * @brief 设置用户名称
+ * @brief
+ * @param name 名称字符串
  */
 void TopBar::setUserName(const QString& name) {
     m_userNameLabel->setText(name);
@@ -259,14 +264,16 @@ void TopBar::setUserName(const QString& name) {
 }
 
 /**
- * @brief 设置部门
+ * @brief
+ * @param dept 部门名称
  */
 void TopBar::setDepartment(const QString& dept) {
     m_userDeptLabel->setText(dept);
 }
 
 /**
- * @brief 设置页面标题
+ * @brief
+ * @param title 标题文本
  */
 void TopBar::setPageTitle(const QString& title) {
     if (title.isEmpty()) {
@@ -280,9 +287,9 @@ void TopBar::setPageTitle(const QString& title) {
  * @brief 刷新顶栏时钟与日期显示
  */
 void TopBar::updateClock() {
-    // 显示格式：2026-06-21 19:01:05
+    // 显示格式：10-16 22:33（去掉年份与秒，避免1024宽顶栏下被挤断）
     m_clockLabel->setText(
-        QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+        QDateTime::currentDateTime().toString("MM-dd HH:mm"));
 }
 
 /// 更新电池电量显示（跨平台：Windows API + 麒麟sysfs）
@@ -345,17 +352,26 @@ void TopBar::updateBatteryStatus() {
         "padding:4px 10px; border-radius:14px;").arg(color));
 }
 
-/// 登录页隐藏右侧用户信息区（时间/用户名/退出）
+/**
+ * @brief 登录页隐藏右侧用户信息区（时间/用户名/退出）
+ * @param visible 是否可见，true 显示 false 隐藏
+ */
 void TopBar::setUserAreaVisible(bool visible) {
     if (m_rightArea) m_rightArea->setVisible(visible);
 }
 
-/// 控制"主页"按钮显隐（登录页与功能导航主页隐藏，子页面显示）
+/**
+ * @brief 控制"主页"按钮显隐（登录页与功能导航主页隐藏，子页面显示）
+ * @param visible 是否可见，true 显示 false 隐藏
+ */
 void TopBar::setHomeButtonVisible(bool visible) {
     if (m_homeBtn) m_homeBtn->setVisible(visible);
 }
 
-/// 外部注入版本号显示（页面层负责读配置，组件层只负责显示）
+/**
+ * @brief 外部注入版本号显示（页面层负责读配置，组件层只负责显示）
+ * @param version 版本文本
+ */
 void TopBar::setVersionText(const QString& version) {
     if (!m_versionLabel) return;
     m_versionLabel->setText(version);

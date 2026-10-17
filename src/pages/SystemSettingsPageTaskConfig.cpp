@@ -10,6 +10,7 @@
 #include "utils/StyleHelper.h"
 #include "components/BaseDialog.h"
 #include "components/MessageDialog.h"
+#include "components/NumKeypad.h"
 #include "db/ToolDAO.h"
 #include "services/MaintenanceService.h"
 #include <QVBoxLayout>
@@ -21,7 +22,6 @@
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QComboBox>
-#include <QSpinBox>
 #include <QLineEdit>
 
 /**
@@ -37,12 +37,12 @@ QWidget* SystemSettingsPage::createTaskConfigPanel() {
     layout->setContentsMargins(20, 16, 20, 16);
 
     auto* title = new QLabel(QStringLiteral("任务类型-工具数量配置"));
-    title->setStyleSheet("font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:4px;background:transparent;");
+    title->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:700;color:#1a1a2e;margin-bottom:4px;background:transparent;");
     layout->addWidget(title);
 
     auto* desc = new QLabel(QStringLiteral(
         "为每种任务类型配置对应的工具及推荐借用数量。借用时选择任务类型将自动推荐此处配置的工具和数量。"));
-    desc->setStyleSheet("font-size:13px;color:#888;background:transparent;");
+    desc->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#888;background:transparent;");
     desc->setWordWrap(true);
     layout->addWidget(desc);
 
@@ -50,7 +50,7 @@ QWidget* SystemSettingsPage::createTaskConfigPanel() {
     auto* typeRow = new QHBoxLayout();
     auto* typeLabel = new QLabel(QStringLiteral("任务类型："));
     typeLabel->setFixedWidth(80);
-    typeLabel->setStyleSheet("font-size:15px;font-weight:600;color:#333;background:transparent;");
+    typeLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;color:#333;background:transparent;");
     m_taskTypeCombo = new QComboBox();
     m_taskTypeCombo->setMinimumHeight(StyleHelper::Token::ControlHeight);
     m_taskTypeCombo->setStyleSheet(
@@ -75,9 +75,9 @@ QWidget* SystemSettingsPage::createTaskConfigPanel() {
     // 工具清单表格：列宽策略前3列拉伸，推荐数量/操作列固定
     m_taskToolTable = new QTableWidget();
     m_taskToolTable->setStyleSheet(
-        "QTableWidget{font-size:14px;background:white;border:1px solid #f0f0f0;border-radius:10px;outline:none;}\n"
+        "QTableWidget{" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";background:white;border:1px solid #f0f0f0;border-radius:10px;outline:none;}\n"
         "QTableWidget::item{padding:6px 10px;color:#333;border-bottom:1px solid #f3f3f3;}\n"
-        "QHeaderView::section{background:#f8f9fb;color:#666;font-weight:600;font-size:14px;padding:8px 10px;border:none;border-bottom:2px solid #f0f0f0;}");
+        "QHeaderView::section{background:#f8f9fb;color:#666;font-weight:600;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";padding:8px 10px;border:none;border-bottom:2px solid #f0f0f0;}");
     m_taskToolTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_taskToolTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_taskToolTable->verticalHeader()->setVisible(false);
@@ -171,13 +171,13 @@ void SystemSettingsPage::loadTaskTools(int typeId) {
 
         auto* editBtn = new QPushButton(QStringLiteral("修改"));
         editBtn->setFixedSize(60, 40);  // 60x40小米标准
-        editBtn->setStyleSheet("QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;}QPushButton:hover{background:#3d8ae0;}");
+        editBtn->setStyleSheet("QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:600;}QPushButton:hover{background:#3d8ae0;}");
         editBtn->setCursor(Qt::PointingHandCursor);
         connect(editBtn, &QPushButton::clicked, this, [this, row] { onEditTaskTool(row); });
 
         auto* delBtn = new QPushButton(QStringLiteral("删除"));
         delBtn->setFixedSize(60, 40);
-        delBtn->setStyleSheet("QPushButton{background:#e74c3c;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;}QPushButton:hover{background:#c0392b;}");
+        delBtn->setStyleSheet("QPushButton{background:#e74c3c;color:#fff;border:none;border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:600;}QPushButton:hover{background:#c0392b;}");
         delBtn->setCursor(Qt::PointingHandCursor);
         connect(delBtn, &QPushButton::clicked, this, [this, row] { onDeleteTaskTool(row); });
 
@@ -256,18 +256,46 @@ void SystemSettingsPage::onAddTaskTool() {
     toolRow->addWidget(toolCombo, 1);
     cl->addLayout(toolRow);
 
-    // 推荐数量
+    // 推荐数量：只读输入框 + 键盘按钮，点击弹出数字键盘（触屏友好，替代步进SpinBox）
     auto* qtyRow = new QHBoxLayout();
+    qtyRow->setSpacing(8);
     auto* qtyLabel = new QLabel(QStringLiteral("推荐数量:"));
     qtyLabel->setFixedWidth(80);
     qtyLabel->setStyleSheet(StyleHelper::labelText());
-    auto* qtySpin = new QSpinBox();
-    qtySpin->setRange(1, 99);
-    qtySpin->setValue(1);
-    qtySpin->setStyleSheet("QSpinBox{font-size:15px;padding:4px 8px;border:1px solid #e0e0e0;border-radius:8px;min-height:36px;}");
+
+    auto* qtyEdit = new QLineEdit(QStringLiteral("1"));
+    qtyEdit->setReadOnly(true);
+    qtyEdit->setAlignment(Qt::AlignCenter);
+    qtyEdit->setCursor(Qt::PointingHandCursor);
+    qtyEdit->setFixedWidth(120);
+    qtyEdit->setStyleSheet("QLineEdit{" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + ";padding:6px 10px;border:1px solid #e0e0e0;border-radius:8px;min-height:40px;color:#1a1a2e;background:#ffffff;}");
     qtyRow->addWidget(qtyLabel);
-    qtyRow->addWidget(qtySpin, 1);
+    qtyRow->addWidget(qtyEdit);
+
+    auto* qtyKbBtn = new QPushButton(QStringLiteral("⌨"));
+    qtyKbBtn->setFixedSize(48, 48);
+    qtyKbBtn->setCursor(Qt::PointingHandCursor);
+    qtyKbBtn->setStyleSheet("QPushButton{border:1px solid #e0e0e0;border-radius:8px;" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + ";background:#f5f6f8;color:#4da3ff;}QPushButton:hover{background:#e6f0ff;}");
+    qtyRow->addWidget(qtyKbBtn);
     cl->addLayout(qtyRow);
+
+    // 数字键盘：点击输入框或键盘按钮弹出，输入结果回填 qtyEdit（限定1~99）
+    auto* qtyKeypad = new NumKeypad(&dlg);
+    qtyKeypad->setShowPassword(true);
+    qtyKeypad->setShuffle(false);
+    connect(qtyKeypad, &NumKeypad::confirmed, this, [qtyKeypad, qtyEdit]() {
+        bool ok = false;
+        int qty = qtyEdit->text().toInt(&ok);
+        if (!ok || qty < 1) qty = 1;
+        if (qty > 99) qty = 99;
+        qtyEdit->setText(QString::number(qty));
+        qtyKeypad->hide();
+    });
+    connect(qtyKeypad, &NumKeypad::cancelled, this, [qtyKeypad]() { qtyKeypad->hide(); });
+    connect(qtyKbBtn, &QPushButton::clicked, this, [qtyKeypad, qtyEdit]() {
+        qtyKeypad->attach(qtyEdit);
+        qtyKeypad->show();
+    });
 
     // 加载工具类型
     db::ToolDAO toolDao;
@@ -308,13 +336,15 @@ void SystemSettingsPage::onAddTaskTool() {
     btnLayout->addWidget(confirmBtn);
 
     connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-    connect(confirmBtn, &QPushButton::clicked, this, [this, &dlg, typeId, toolCombo, qtySpin]() {
+    connect(confirmBtn, &QPushButton::clicked, this, [this, &dlg, typeId, toolCombo, qtyEdit]() {
         int toolId = toolCombo->currentData().toInt();
         if (toolId <= 0) {
             MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("请选择工具"));
             return;
         }
-        int qty = qtySpin->value();
+        int qty = qtyEdit->text().toInt();
+        if (qty < 1) qty = 1;
+        if (qty > 99) qty = 99;
 
         db::ToolDAO dao;
         // 检查是否已存在
@@ -365,18 +395,46 @@ void SystemSettingsPage::onEditTaskTool(int row) {
     infoRow->addWidget(infoValue, 1);
     cl->addLayout(infoRow);
 
-    // 推荐数量
+    // 推荐数量：只读输入框 + 键盘按钮，点击弹出数字键盘（触屏友好，替代步进SpinBox）
     auto* qtyRow = new QHBoxLayout();
+    qtyRow->setSpacing(8);
     auto* qtyLabel = new QLabel(QStringLiteral("推荐数量:"));
     qtyLabel->setFixedWidth(80);
     qtyLabel->setStyleSheet(StyleHelper::labelText());
-    auto* qtySpin = new QSpinBox();
-    qtySpin->setRange(1, 99);
-    qtySpin->setValue(currentQty);
-    qtySpin->setStyleSheet("QSpinBox{font-size:15px;padding:4px 8px;border:1px solid #e0e0e0;border-radius:8px;min-height:36px;}");
+
+    auto* qtyEdit = new QLineEdit(QString::number(currentQty));
+    qtyEdit->setReadOnly(true);
+    qtyEdit->setAlignment(Qt::AlignCenter);
+    qtyEdit->setCursor(Qt::PointingHandCursor);
+    qtyEdit->setFixedWidth(120);
+    qtyEdit->setStyleSheet("QLineEdit{" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + ";padding:6px 10px;border:1px solid #e0e0e0;border-radius:8px;min-height:40px;color:#1a1a2e;background:#ffffff;}");
     qtyRow->addWidget(qtyLabel);
-    qtyRow->addWidget(qtySpin, 1);
+    qtyRow->addWidget(qtyEdit);
+
+    auto* qtyKbBtn = new QPushButton(QStringLiteral("⌨"));
+    qtyKbBtn->setFixedSize(48, 48);
+    qtyKbBtn->setCursor(Qt::PointingHandCursor);
+    qtyKbBtn->setStyleSheet("QPushButton{border:1px solid #e0e0e0;border-radius:8px;" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + ";background:#f5f6f8;color:#4da3ff;}QPushButton:hover{background:#e6f0ff;}");
+    qtyRow->addWidget(qtyKbBtn);
     cl->addLayout(qtyRow);
+
+    // 数字键盘：点击键盘按钮弹出，输入结果回填 qtyEdit（限定1~99）
+    auto* qtyKeypad = new NumKeypad(&dlg);
+    qtyKeypad->setShowPassword(true);
+    qtyKeypad->setShuffle(false);
+    connect(qtyKeypad, &NumKeypad::confirmed, this, [qtyKeypad, qtyEdit]() {
+        bool ok = false;
+        int qty = qtyEdit->text().toInt(&ok);
+        if (!ok || qty < 1) qty = 1;
+        if (qty > 99) qty = 99;
+        qtyEdit->setText(QString::number(qty));
+        qtyKeypad->hide();
+    });
+    connect(qtyKeypad, &NumKeypad::cancelled, this, [qtyKeypad]() { qtyKeypad->hide(); });
+    connect(qtyKbBtn, &QPushButton::clicked, this, [qtyKeypad, qtyEdit]() {
+        qtyKeypad->attach(qtyEdit);
+        qtyKeypad->show();
+    });
 
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
     cancelBtn->setStyleSheet(StyleHelper::buttonDefault());
@@ -392,8 +450,10 @@ void SystemSettingsPage::onEditTaskTool(int row) {
     btnLayout->addWidget(confirmBtn);
 
     connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-    connect(confirmBtn, &QPushButton::clicked, this, [this, &dlg, typeId, toolId, qtySpin]() {
-        int qty = qtySpin->value();
+    connect(confirmBtn, &QPushButton::clicked, this, [this, &dlg, typeId, toolId, qtyEdit]() {
+        int qty = qtyEdit->text().toInt();
+        if (qty < 1) qty = 1;
+        if (qty > 99) qty = 99;
         db::ToolDAO dao;
         if (dao.updateTaskTypeToolQty(typeId, toolId, qty)) {
             MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("任务工具已修改"));
@@ -423,7 +483,7 @@ void SystemSettingsPage::onDeleteTaskTool(int row) {
 
     db::ToolDAO toolDao;
     if (toolDao.deleteTaskTypeTool(typeId, toolId)) {
-        MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("任务工具已删除"));
+        MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("任务工具已移除"));
         loadTaskTools(typeId);
     } else {
         MessageDialog::showError(this, QStringLiteral("失败"), QStringLiteral("删除失败，请检查数据库连接"));

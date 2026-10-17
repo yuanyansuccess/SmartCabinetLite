@@ -39,6 +39,7 @@ public:
 private slots:
     void onAddOrderRow();      // 添加一行入库指令
     void onAddOrderRowOut();   // 添加一行出库指令
+    void onBatchImportInRows();// 一键导入入库行：批量勾选待入库工具，一次生成多条入库指令
     void onSubmit();           // 确认出入库：校验单据→开箱→关柜检查
     void onTabChanged(int index);   // Tab切换时加载数据
     void onRecordPrevPage();   // 入库记录上一页
@@ -65,6 +66,7 @@ private:
 
     // ── 出入库单据 ──
     void appendOrderRow(const QString& type);            // 向单据表格追加一行
+    void appendInRowForTool(int toolId);                 // 追加一行入库指令并预选指定工具
     void reloadToolOptions(int row);                     // 按行类型重载该行工具下拉
     void updateRowPosition(int row);                     // 行内选工具后自动带出位置
     int  rowOfWidget(QWidget* w);                        // 查找单元格控件所在行号

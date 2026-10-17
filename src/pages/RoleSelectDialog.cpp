@@ -12,6 +12,11 @@
 #include <QKeyEvent>
 #include <QDebug>
 
+/**
+ * @brief 构造函数，初始化 RoleSelectDialog 对象并连接信号槽
+ * @param realName 用户真实姓名
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 RoleSelectDialog::RoleSelectDialog(const QString& realName, QWidget* parent)
     : BaseDialog(parent, 520)
     , m_realName(realName) {
@@ -38,6 +43,9 @@ void RoleSelectDialog::keyPressEvent(QKeyEvent* event)
     BaseDialog::keyPressEvent(event);
 }
 
+/**
+ * @brief RoleSelectDialog::setupContent 的业务实现
+ */
 void RoleSelectDialog::setupContent() {
     auto* cl = contentLayout();
     cl->setSpacing(16);
@@ -71,7 +79,7 @@ void RoleSelectDialog::setupContent() {
         auto* titleLbl = new QLabel(QStringLiteral("%1  %2").arg(icon, title));
         titleLbl->setStyleSheet("font-size:19px;font-weight:700;color:#1a1a2e;background:transparent;");
         auto* descLbl = new QLabel(desc);
-        descLbl->setStyleSheet("font-size:14px;color:#888;background:transparent;");
+        descLbl->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#888;background:transparent;");
         descLbl->setWordWrap(true);   // 宽度不足时换行，保证说明完整可读
 
         vbox->addWidget(titleLbl);
@@ -113,7 +121,7 @@ void RoleSelectDialog::setupContent() {
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}");
     connect(cancelBtn, &QPushButton::clicked, this, [this]() {
         // 与身份按钮同冷却：防止残留连点误触"退出登录"造成弹窗一闪而过

@@ -52,7 +52,10 @@ struct ToolDetailCtx {
     db::RecordDAO recDao;     // 操作记录查询（Tab1最后操作与Tab2记录共用）
 };
 
-/** 工具详情 — 统一BaseDialog圆角风格，Tab选项卡式（详情/操作记录/文档） */
+/**
+ * @brief 工具详情 — 统一BaseDialog圆角风格，Tab选项卡式（详情/操作记录/文档）
+ * @param toolInfo 工具信息对象
+ */
 void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     ToolDetailCtx ctx;
     ctx.t = resolveToolInfo(toolInfo);
@@ -73,7 +76,11 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     finalizeDetailDialog(ctx);
 }
 
-/** 补全工具数据：getToolById取基础字段，位置信息以映射表（位置维度查询）为权威覆盖 */
+/**
+ * @brief 补全工具数据：getToolById取基础字段，位置信息以映射表（位置维度查询）为权威覆盖
+ * @param toolInfo 工具信息对象
+ * @return 解析得到的工具信息结构
+ */
 ToolInfo ToolManagementPage::resolveToolInfo(const ToolInfo& toolInfo) {
     ToolController ctrl;
     // toolInfo来自findAllTools位置维度查询，含位置；getToolById补全其他字段
@@ -91,13 +98,17 @@ ToolInfo ToolManagementPage::resolveToolInfo(const ToolInfo& toolInfo) {
     return t;
 }
 
-/** 构建对话框顶部标题区：工具名称 + 状态标签 + 分隔线 */
+/**
+ * @brief 构建对话框顶部标题区：工具名称 + 状态标签 + 分隔线
+ * @param cl 内容标签控件指针
+ * @param t 承载文本内容的控件指针
+ */
 void ToolManagementPage::buildDetailHeader(QVBoxLayout* cl, const ToolInfo& t) {
     auto* headerRow = new QHBoxLayout();
     headerRow->setSpacing(16);
 
     auto* nameLabel = new QLabel(t.toolName.isEmpty() ? QStringLiteral("未命名工具") : t.toolName);
-    nameLabel->setStyleSheet("font-size:22px;font-weight:700;color:#1a1a2e;background:transparent;");
+    nameLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + ";font-weight:700;color:#1a1a2e;background:transparent;");
     headerRow->addWidget(nameLabel);
 
     QString statusText = SC::toolStatusText(t.status, true);   // [等价保留] 本页borrowed历史文案"已借用"
@@ -107,7 +118,7 @@ void ToolManagementPage::buildDetailHeader(QVBoxLayout* cl, const ToolInfo& t) {
     statusLabel->setAlignment(Qt::AlignCenter);
     statusLabel->setFixedSize(72, 30);
     statusLabel->setStyleSheet(QString(
-        "QLabel{background:%1;color:#fff;border-radius:8px;font-size:14px;font-weight:700;}"
+        "QLabel{background:%1;color:#fff;border-radius:8px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
     ).arg(statusBg));
     headerRow->addWidget(statusLabel);
     headerRow->addStretch();
@@ -120,7 +131,10 @@ void ToolManagementPage::buildDetailHeader(QVBoxLayout* cl, const ToolInfo& t) {
     cl->addWidget(divider);
 }
 
-/** 创建详情对话框TabWidget（统一样式） */
+/**
+ * @brief 创建详情对话框TabWidget（统一样式）
+ * @return 构建并返回的分页控件，由调用方负责布局
+ */
 QTabWidget* ToolManagementPage::createDetailTabWidget() {
     auto* tabWidget = new QTabWidget();
     tabWidget->setStyleSheet(QString(
@@ -134,7 +148,10 @@ QTabWidget* ToolManagementPage::createDetailTabWidget() {
     return tabWidget;
 }
 
-/** 构建Tab1工具详情：信息卡片网格（基础字段+最近出入库操作） */
+/**
+ * @brief 构建Tab1工具详情：信息卡片网格（基础字段+最近出入库操作）
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
     const ToolInfo& t = ctx.t;
 
@@ -310,7 +327,11 @@ QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ct
     return allRecords;
 }
 
-/** 填充操作记录表格：操作人/操作时间/操作类型/任务类型/状态 */
+/**
+ * @brief 填充操作记录表格：操作人/操作时间/操作类型/任务类型/状态
+ * @param recordTable 记录表格控件
+ * @param allRecords 全部记录列表
+ */
 void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<QJsonObject>& allRecords) {
     recordTable->setColumnCount(5);
     recordTable->setHorizontalHeaderLabels({
@@ -369,7 +390,7 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
         typeLabel->setAlignment(Qt::AlignCenter);
         typeLabel->setFixedSize(64, 26);
         typeLabel->setStyleSheet(QString(
-            "QLabel{background:%1;color:#fff;border-radius:6px;font-size:12px;font-weight:600;}"
+            "QLabel{background:%1;color:#fff;border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;}"
         ).arg(typeColor));
         recordTable->setCellWidget(i, 2, typeLabel);
 
@@ -406,7 +427,10 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
     }
 }
 
-/** 构建Tab2操作记录：综合借用/入库/出库记录表格 */
+/**
+ * @brief 构建Tab2操作记录：综合借用/入库/出库记录表格
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void ToolManagementPage::buildOperationRecordTab(ToolDetailCtx& ctx) {
     auto* recordTab = new QWidget();
     auto* recordLayout = new QVBoxLayout(recordTab);
@@ -418,7 +442,7 @@ void ToolManagementPage::buildOperationRecordTab(ToolDetailCtx& ctx) {
     if (allRecords.isEmpty()) {
         auto* emptyLabel = new QLabel(QStringLiteral("暂无操作记录"));
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet("font-size:14px;color:#999;padding:40px;background:transparent;");
+        emptyLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#999;padding:40px;background:transparent;");
         recordLayout->addWidget(emptyLabel);
         recordLayout->addStretch();
     } else {
@@ -438,7 +462,10 @@ void ToolManagementPage::buildOperationRecordTab(ToolDetailCtx& ctx) {
     ctx.tabWidget->addTab(recordTab, QStringLiteral("📝 操作记录"));
 }
 
-/** 详情对话框收尾：文档Tab、自适应尺寸、关闭按钮与模态执行 */
+/**
+ * @brief 详情对话框收尾：文档Tab、自适应尺寸、关闭按钮与模态执行
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void ToolManagementPage::finalizeDetailDialog(ToolDetailCtx& ctx) {
     // Tab3: 工具文档 下载+在线浏览
     QWidget* docTab = createDocumentTab(ctx.t.toolId, ctx.t.documentPath);
@@ -460,7 +487,7 @@ void ToolManagementPage::finalizeDetailDialog(ToolDetailCtx& ctx) {
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
         "QPushButton{background:#f0f0f0;color:#555;border:1px solid #ddd;border-radius:12px;"
-        "font-size:16px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:600;}"
         "QPushButton:hover{background:#e0e0e0;}"
     );
     connect(closeBtn, &QPushButton::clicked, ctx.dlg, &QDialog::accept);

@@ -38,6 +38,10 @@
 #include "common/Constants.h"
 #include "common/UserInputValidator.h"  // 工号与密码校验规则及提示文案
 
+/**
+ * @brief 构造函数，初始化 LoginPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_faceCamera(nullptr) {
     // 暗蓝渐变背景 (复刻Vue版) stop0.4对齐Vue版40%断点
@@ -163,7 +167,7 @@ void LoginPage::onPasswordFieldClicked() {
  */
 void LoginPage::showFormError(const QString& text) {
     m_errorLabel->setStyleSheet(
-        QString("color:%1; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;")
+        QString("color:%1; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; font-weight:600; background:transparent; margin-bottom:14px;")
             .arg(StyleHelper::dangerColor()));
     m_errorLabel->setText(text);
     m_errorLabel->setVisible(true);
@@ -176,7 +180,7 @@ void LoginPage::showFormError(const QString& text) {
  */
 void LoginPage::showFormNotice(const QString& text) {
     m_errorLabel->setStyleSheet(
-        "color:#389e0d; font-size:15px; font-weight:600; background:transparent; margin-bottom:14px;");
+        "color:#389e0d; " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; font-weight:600; background:transparent; margin-bottom:14px;");
     m_errorLabel->setText(text);
     m_errorLabel->setVisible(true);
 }
@@ -353,7 +357,9 @@ void LoginPage::clearAllForms() {
     m_verifyStartMs = 0;
 }
 
-/** 切换到密码登录 */
+/**
+ * @brief 切换到密码登录
+ */
 void LoginPage::switchToPasswordLogin() {
     // 先置密码模式标志：切换后异步在途的人脸采集回调仍会到达，
     // 必须让所有回调改写界面状态的路径失效（onFaceCaptured/setScanStatus等均有此判断）
@@ -383,7 +389,9 @@ void LoginPage::onTryFaceAgain() {
     }
 }
 
-/** 重新尝试人脸识别 */
+/**
+ * @brief 重新尝试人脸识别
+ */
 void LoginPage::retryFace() {
     // 用户主动点击重试 → 清除注销抑制，立即恢复识别
     m_logoutSuppressed = false;
@@ -401,15 +409,10 @@ void LoginPage::retryFace() {
 }
 
 
-// ==============================================================
-// 【⑥ 页面生命周期事件与辅助
-//   窗口显示/尺寸变化、退出系统、状态枚举与结果映射
-// ==============================================================
-// 退出系统 - 小米风格二次确认弹窗
-// 设计理念：触屏设备无窗口关闭按钮，需明确退出入口
-// 退出前弹窗确认防止误触（小米极简风格）
-// 退出按钮跟随窗口右上角
-// 窗口首次显示后再定位退出按钮：构造期宽度尚未确定，须按实际宽度计算避免定位错误
+/**
+ * @brief 窗口首次显示后再定位退出按钮：构造期宽度尚未确定，须按实际宽度计算避免定位错误 退出按钮跟随窗口右上角 退出前弹窗确认防止误触（小米极简风格） 设计理念：触屏设备无窗口关闭按钮，需明确退出入口 退出系统 - 小米风格二次确认弹窗 窗口显示/尺寸变化、退出系统、状态枚举与结果映射 【⑥ 页面生命周期事件与辅助
+ * @param event 事件对象，由 Qt 事件系统传入
+ */
 void LoginPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     // 回到登录页且识别未运行（注销/自动锁屏后）→ 自动恢复人脸识别，避免摄像头停着不工作
@@ -453,12 +456,12 @@ void LoginPage::onExitSystem() {
 
     auto* titleLabel = new QLabel(QStringLiteral("确认退出系统？"));
     titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size:20px; font-weight:700; color:#1a1a2e; background:transparent;");
+    titleLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + "; font-weight:700; color:#1a1a2e; background:transparent;");
     layout->addWidget(titleLabel);
 
     auto* descLabel = new QLabel(QStringLiteral("退出后将关闭整个应用程序"));
     descLabel->setAlignment(Qt::AlignCenter);
-    descLabel->setStyleSheet("font-size:14px; color:#888888; background:transparent;");
+    descLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; background:transparent;");
     layout->addWidget(descLabel);
 
     layout->addStretch();
@@ -471,7 +474,7 @@ void LoginPage::onExitSystem() {
     cancelBtn->setMinimumWidth(120);
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
-        "QPushButton{font-size:16px; font-weight:500; color:#666666;"
+        "QPushButton{" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; font-weight:500; color:#666666;"
         "background:#f0f0f0; border:none; border-radius:22px; padding:10px 24px;}"
         "QPushButton:hover{background:#e6e6e6;}"
         "QPushButton:pressed{background:#d9d9d9;}");
@@ -482,7 +485,7 @@ void LoginPage::onExitSystem() {
     confirmBtn->setMinimumWidth(120);
     confirmBtn->setCursor(Qt::PointingHandCursor);
     confirmBtn->setStyleSheet(
-        "QPushButton{font-size:16px; font-weight:600; color:#ffffff;"
+        "QPushButton{" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; font-weight:600; color:#ffffff;"
         "background:#ff4d4f; border:none; border-radius:22px; padding:10px 24px;}"
         "QPushButton:hover{background:#e84448;}"
         "QPushButton:pressed{background:#d13b3f;}");
@@ -499,21 +502,27 @@ void LoginPage::onExitSystem() {
     delete dlg;
 }
 
-/** 处理陌生人确认 → 切换密码登录 */
+/**
+ * @brief 处理陌生人确认 → 切换密码登录
+ */
 void LoginPage::handleStrangerConfirm() {
     qDebug() << "[LoginPage] Stranger confirmed, switching to password login";
     m_strangerBox->setVisible(false);
     switchToPasswordLogin();
 }
 
-/** 停止状态圆点闪烁 */
+/**
+ * @brief 停止状态圆点闪烁
+ */
 void LoginPage::stopDotBlink() {
     if (m_dotBlinkTimer) {
         m_dotBlinkTimer->stop();
     }
 }
 
-/** [保留] MOC生成代码引用的空方法 */
+/**
+ * @brief [保留] MOC生成代码引用的空方法
+ */
 void LoginPage::retryFaceTimeout() {}
 
 /**
@@ -537,7 +546,8 @@ QString LoginPage::faceResultName(FaceResult result) {
 }
 
 /**
- * @brief 设置人脸结果
+ * @brief
+ * @param state 参数 state（类型与取值约束见函数签名）
  */
 void LoginPage::setFaceResult(FaceResult state) {
     m_faceResult = state;
@@ -566,11 +576,11 @@ void LoginPage::setFaceResult(FaceResult state) {
 }
 
 /**
-         * 事件过滤器：拦截控件与窗口事件并转交专用处理
-         * @param obj 事件来源控件
-         * @param event 事件对象
-         * @return true=事件已被处理，不再继续传递
-         */
+ * @brief 事件过滤器：拦截控件与窗口事件并转交专用处理
+ * @param obj 被监视的对象
+ * @param event 事件对象，由 Qt 事件系统传入
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool LoginPage::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
         if (obj == m_usernameEdit) {

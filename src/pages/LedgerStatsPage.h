@@ -10,6 +10,7 @@
 #include <QLabel>
 class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QPushButton>
+#include <QResizeEvent>
 
 class SingleSelectFilter;
 
@@ -41,6 +42,9 @@ private:
     /// @param dbType 逗号分隔的告警类型编码串（限定导出范围）
     /// @param filePrefix 导出文件名前缀，用于区分操作/系统两类文件
     void exportAlertsToCsv(const QString& dbType, const QString& filePrefix);
+
+    void updateExportButtonSize();                  // 4个导出按钮按首页菜单尺寸重算
+    void resizeEvent(QResizeEvent* event) override;  // 窗口尺寸变化时自适应按钮尺寸
 
     Ui::LedgerStatsPage* ui = nullptr;  // 静态布局（LedgerStatsPage.ui）
     QLabel* m_totalBorrowLabel = nullptr;

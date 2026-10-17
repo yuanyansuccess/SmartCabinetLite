@@ -100,7 +100,7 @@ signals:
     void errorOccurred(QString message);
     /// 距离状态变化（true=过远需靠近）。仅在状态翻转时发出，避免每帧通知
     void faceTooFarChanged(bool tooFar);
-    // 新增：人脸检测状态变化
+    // 人脸检测状态变化
     void faceDetectionChanged(bool detected, double confidence);
     void borderGlowChanged();
 

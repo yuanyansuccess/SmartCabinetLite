@@ -114,7 +114,7 @@ public:
                 // "yyyy-MM-dd HH:mm:ss"），到不了 QDateTime 分支，这里统一转成 ISO 8601，
                 // 保证本函数输出只有一种日期格式，调用方解析方式固定。
                 const QString text = v.toString();
-                const QDateTime dt = QDateTime::fromString(text, "yyyy-MM-dd HH:mm:ss");
+                const QDateTime dt = QDateTime::fromString(text, SC::TIMESTAMP_FORMAT);
                 obj[rec.fieldName(i)] = dt.isValid() ? dt.toString(Qt::ISODate) : text;
                 break;
             }

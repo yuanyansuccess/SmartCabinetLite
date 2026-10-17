@@ -52,7 +52,7 @@ public:
     // 3. maxEuclideanDist 0.80（欧氏距离第二道防线）
     // 同人低质量帧（0.9403~0.96）在 0.96 门槛下会被拒，由多帧取最优与重试兜回；
     // 原 margin 0.15 相对差距判定已废弃：相像的两人与本人帧差距仅约 0.012，
-    // margin 会把真人误拒（日志 #565 实证），改为第二名绝对值判定。
+    // margin 会把真人误拒（日志 #565 实证），以第二名绝对值判定代替 margin 相对差距判定。
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,

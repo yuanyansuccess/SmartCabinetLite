@@ -11,6 +11,9 @@ namespace SC {
 // ── 应用信息 ──
 const QString APP_VERSION = "V2.00";
 
+// ── 通用格式（时间/正则等单一来源，避免重复字面量漂移） ──
+const QString TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss";  // 数据库与界面统一使用的时间戳格式
+
 // ── 数据库配置（默认值，运行时可修改） ──
 const QString DB_HOST     = "127.0.0.1";
 const int     DB_PORT     = 3306;
@@ -25,9 +28,7 @@ const QString ROLE_USER    = "user";     // 普通用户：登录后进功能选
 
 // ── 用户状态（值与页面实际写入/播种数据一致，新人勿另造值） ──
 const QString USER_ACTIVE   = "active";
-const QString USER_PENDING  = "pending";
 const QString USER_DISABLED = "disabled";  // 禁用（UserManagementPage启用/禁用切换写入值）
-const QString USER_LOCKED   = "locked";    // 已锁定
 const QString USER_DELETED  = "deleted";
 
 // ── 新用户初始密码（批量导入/新建用户统一来源，修改此处即可全局生效）──
@@ -185,12 +186,12 @@ const double FACE_MIN_CONFIDENCE = 0.75;
 const double FACE_DUPLICATE_SIMILARITY = 0.95;
 
 // ── 统计卡片尺寸 ──
-const int STAT_CARD_HEIGHT      = 100;  // 卡片高度
-const int STAT_CARD_ICON_SIZE   = 56;   // 图标尺寸
-const int STAT_CARD_ICON_RADIUS = 14;   // 图标圆角
-const int STAT_CARD_SPACING     = 14;   // 卡片内边距间距
-const int STAT_CARD_ICON_FONT   = 28;   // 图标字体大小（emoji）
-const int STAT_CARD_VALUE_FONT  = 32;   // 数值字体大小
+const int STAT_CARD_HEIGHT      = 140;  // 卡片高度
+const int STAT_CARD_ICON_SIZE   = 80;   // 图标尺寸
+const int STAT_CARD_ICON_RADIUS = 20;   // 图标圆角
+const int STAT_CARD_SPACING     = 18;   // 卡片内边距间距
+const int STAT_CARD_ICON_FONT   = 40;   // 图标字体大小（emoji）
+const int STAT_CARD_VALUE_FONT  = 46;   // 数值字体大小
 
 // ── 网络配置默认值 ──
 const QString NET_IP            = "192.168.1.100";

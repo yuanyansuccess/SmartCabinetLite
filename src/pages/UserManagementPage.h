@@ -51,6 +51,8 @@ private slots:
     void onToggleUserStatus(int userId);  // 禁用/启用用户
     /** 编辑对话框内一键重置口令为初始密码 */
     void onResetPwdInDialog();
+    /** 编辑对话框内人脸录入/查看：未录入打开采集流程，已录入打开查看与清除 */
+    void onFaceEnrollInDialog();
     /** 搜索框点击→弹出用户名软键盘(对齐登录页) */
     void onSearchFieldClicked();
     // 更新角色按钮组样式
@@ -91,7 +93,6 @@ private:
     QDialog* m_deptPopup = nullptr;  // QFrame→QDialog修复checkbox选不中问题
     QList<QPair<QString, QCheckBox*>> m_deptCheckBoxes;  // 部门复选框列表
     SingleSelectFilter* m_roleFilter;  // CheckBox样式单选组件
-    SingleSelectFilter* m_statusFilter;  // CheckBox样式单选组件
     QPushButton* m_searchBtn;
     QPushButton* m_resetBtn;
     QPushButton* m_addBtn;
@@ -113,6 +114,8 @@ private:
     QFrame* m_dlgPasswordFrame = nullptr;  // 密码输入框容器(含⌨按钮)
     QWidget* m_dlgPasswordRow = nullptr;   // 密码整行容器（新增与编辑均隐藏：口令不经过管理员代设）
     QPushButton* m_dlgResetPwdBtn = nullptr;  // 编辑态显示的一键重置口令按钮
+    QPushButton* m_dlgFaceBtn = nullptr;      // 编辑态的人脸录入/查看按钮
+    bool m_dlgFaceEnrolled = false;           // 当前编辑用户是否已录入人脸
     QLineEdit* m_dlgWorkNo = nullptr;
     // 角色为按钮组（3选1：普通用户/管理用户/管理员，风格统一）
     QPushButton* m_dlgRoleBtn1 = nullptr;  // 普通用户
@@ -125,6 +128,7 @@ private:
 
     // 字母软键盘(搜索/用户名输入)
     SoftKeyboard* m_softKeyboard = nullptr;
+    bool m_keyboardForSearch = false;  // true=当前键盘服务于搜索框，确认键触发查询
 
     // 独立数字键盘 - 嵌入弹窗中，零穿透
     NumKeypad* m_numKeypad = nullptr;

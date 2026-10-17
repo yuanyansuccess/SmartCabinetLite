@@ -14,6 +14,7 @@
 
 class QLabel;
 class QGridLayout;
+class QResizeEvent;
 
 class MenuHomePage : public QWidget {
     Q_OBJECT
@@ -39,13 +40,16 @@ signals:
 private:
     void buildBaseUI();       ///< 构建欢迎语/卡片容器/告警提示等静态骨架
     void rebuildCards();      ///< 按 m_cards 数据重建卡片按钮网格
-    static QString cardStyle();  ///< 卡片按钮统一样式（白底大圆角，hover主色描边）
+    QSize computeCardSize() const;       ///< 按页面可用宽计算卡片尺寸(保持240:225比例)
+    void resizeEvent(QResizeEvent* event) override;  ///< 宽度变化时重算卡片尺寸
+    static QString cardStyle(int w, int h);  ///< 卡片按钮统一样式(w/h为尺寸约束)
 
     QLabel* m_welcomeLabel = nullptr;    // "您好，×××"
     QLabel* m_hintLabel = nullptr;       // 副标题"请选择您要进行的操作"
     QWidget* m_cardArea = nullptr;       // 卡片网格容器（水平居中包裹）
     QGridLayout* m_cardGrid = nullptr;   // 卡片网格（4列）
     QList<MenuCard> m_cards;             // 当前卡片数据（setCards暂存，重建时使用）
+    QSize m_cardSize;                    // 当前卡片尺寸(用于resize去抖，避免无谓重建)
 };
 
 #endif // MENUHOMEPAGE_H

@@ -36,12 +36,10 @@ public:
     // 分类/柜体管理
     QList<ToolCategory> getCategories();
     QStringList categoryNames();
-    QStringList cabinetNames();
 
     // 统计与机组管理
     QJsonObject getToolStats();
     QList<QJsonObject> getMachineGroups();
-    QJsonObject getMachineGroupById(int groupId);
 
 private:
     db::ToolDAO   m_toolDao;

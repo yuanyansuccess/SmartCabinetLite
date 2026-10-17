@@ -13,6 +13,8 @@
 #include "ui_ToolCheckinPage.h"
 #include <QTableWidget>  // 出入库单表格与记录表格
 #include "components/PaginationBar.h"
+#include "components/BaseDialog.h"  // 一键导入入库行弹窗容器
+#include <QCheckBox>  // 一键导入入库行勾选框
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"
 #include "common/Constants.h"
@@ -27,6 +29,10 @@
 #include <QRegularExpression>  // 解析content字段
 #include <QSet>  // 出库位置查重
 
+/**
+ * @brief 构造函数，初始化 ToolCheckinPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 ToolCheckinPage::ToolCheckinPage(QWidget* parent) : QWidget(parent), ui(new Ui::ToolCheckinPage) {
     // 静态布局来自ToolCheckinPage.ui（Qt Designer可视化维护）
     ui->setupUi(this);
@@ -56,13 +62,15 @@ void ToolCheckinPage::setupUI() {
     // 机组信息回填
     loadLocalMachineGroup();
 
-    // 出入库单表格列宽：类型/操作固定，工具名称/位置拉伸
+    // 出入库单表格列宽：类型/规格/操作固定，工具名称/位置拉伸
     m_orderTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
-    m_orderTable->setColumnWidth(0, 120);
+    m_orderTable->setColumnWidth(0, 110);   // 类型
     m_orderTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_orderTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    m_orderTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
-    m_orderTable->setColumnWidth(3, 100);
+    m_orderTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    m_orderTable->setColumnWidth(2, 150);   // 规格（选工具后自动带出）
+    m_orderTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    m_orderTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+    m_orderTable->setColumnWidth(4, 90);    // 操作
     m_orderTable->verticalHeader()->setMinimumSectionSize(56);
 
     // 入库记录表格列宽：时间/名称/编号/位置Stretch，供应商/操作人Fixed
@@ -93,6 +101,7 @@ void ToolCheckinPage::setupUI() {
     // 信号槽连接
     connect(ui->addInBtn, &QPushButton::clicked, this, &ToolCheckinPage::onAddOrderRow);
     connect(ui->addOutBtn, &QPushButton::clicked, this, &ToolCheckinPage::onAddOrderRowOut);
+    connect(ui->batchImportInBtn, &QPushButton::clicked, this, &ToolCheckinPage::onBatchImportInRows);
     connect(m_resetBtn, &QPushButton::clicked, this, &ToolCheckinPage::clearOrderTable);
     connect(m_submitBtn, &QPushButton::clicked, this, &ToolCheckinPage::onSubmit);
     connect(m_recordPaginationBar, &PaginationBar::prevClicked, this, &ToolCheckinPage::onRecordPrevPage);
@@ -111,8 +120,8 @@ void ToolCheckinPage::loadLocalMachineGroup() {
     if (groupId <= 0) {
         m_machineGroupLabel->setText(QStringLiteral("未配置（请在系统设置中配置本机机组）"));
         m_machineGroupLabel->setStyleSheet(QString(
-            "font-size:16px;color:#e67e22;background:#fff3e0;"
-            "border:1px solid #ffcc80;border-radius:10px;padding:10px 16px;min-height:48px;"
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#e67e22;background:#fff3e0;"
+            "border:1px solid #ffcc80;border-radius:10px;padding:8px 14px;"
         ));
         m_localMachineGroupId = 0;
         return;
@@ -123,8 +132,8 @@ void ToolCheckinPage::loadLocalMachineGroup() {
     if (mg.isEmpty() || mg["groupName"].toString().isEmpty()) {
         m_machineGroupLabel->setText(QStringLiteral("机组ID %1 不存在于数据库中").arg(groupId));
         m_machineGroupLabel->setStyleSheet(QString(
-            "font-size:16px;color:#e74c3c;background:#fdecea;"
-            "border:1px solid #f5c6cb;border-radius:10px;padding:10px 16px;min-height:48px;"
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#e74c3c;background:#fdecea;"
+            "border:1px solid #f5c6cb;border-radius:10px;padding:8px 14px;"
         ));
         m_localMachineGroupId = 0;
         return;
@@ -137,8 +146,8 @@ void ToolCheckinPage::loadLocalMachineGroup() {
     if (!deptName.isEmpty()) displayText += QStringLiteral("（%1）").arg(deptName);
     m_machineGroupLabel->setText(displayText);
     m_machineGroupLabel->setStyleSheet(QString(
-        "font-size:16px;font-weight:600;color:%1;"
-        "background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:10px 16px;min-height:48px;"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;color:%1;"
+        "background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:8px 14px;"
     ).arg(StyleHelper::primaryColor()));
 }
 
@@ -167,6 +176,171 @@ void ToolCheckinPage::onAddOrderRowOut() {
 }
 
 /**
+ * @brief 追加一行入库指令并预选指定工具（供一键导入入库行调用）
+ * @param toolId 待入库工具ID；该工具不在下拉选项中时该行保持未选状态
+ */
+void ToolCheckinPage::appendInRowForTool(int toolId) {
+    appendOrderRow(QStringLiteral("in"));
+    int row = m_orderTable->rowCount() - 1;
+    auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
+    if (!toolCombo) return;
+    int idx = toolCombo->findData(toolId);
+    // 选中后触发 currentIndexChanged → 自动带出位置与规格
+    if (idx >= 0) toolCombo->setCurrentIndex(idx);
+}
+
+/**
+ * @brief 一键导入入库行：列出全部待入库工具供勾选，确认后一次生成多条入库指令
+ * @note 工具来源与"入库下拉"同源（findPendingTools，仅取有空闲位置的），
+ *       默认全选，支持全选/全不选，逐条调用 appendInRowForTool 生成入库行
+ */
+void ToolCheckinPage::onBatchImportInRows() {
+    m_errorLabel->setVisible(false);
+
+    db::ToolDAO toolDao;
+    QJsonArray pendingTools = toolDao.findPendingTools(0, m_localMachineGroupId);
+    QList<QJsonObject> tools;
+    for (int i = 0; i < pendingTools.size(); ++i) {
+        QJsonObject t = pendingTools[i].toObject();
+        if (t["freePosCount"].toInt() <= 0) continue;
+        tools.append(t);
+    }
+    if (tools.isEmpty()) {
+        MessageDialog::showWarning(this, QStringLiteral("无法导入"),
+            QStringLiteral("暂无可入库工具（请先在对照关系中配置位置）"));
+        return;
+    }
+
+    BaseDialog dlg(this, 620);
+    dlg.setDialogTitle(QStringLiteral("一键导入入库行"));
+    auto* cl = dlg.contentLayout();
+
+    auto* tip = new QLabel(QStringLiteral(
+        "勾选需要入库的工具（默认全选），确认后按列表顺序逐条生成入库行。"));
+    tip->setWordWrap(true);
+    tip->setStyleSheet(QStringLiteral(
+        "font-size:14px;color:#1890ff;background:#e6f7ff;"
+        "border:1px solid #91d5ff;border-radius:10px;padding:10px 14px;"));
+    cl->addWidget(tip);
+
+    auto* table = new QTableWidget();
+    table->setColumnCount(4);
+    table->setHorizontalHeaderLabels(QStringList()
+        << QStringLiteral("选择") << QStringLiteral("工具（编号 - 名称）")
+        << QStringLiteral("规格") << QStringLiteral("可入"));
+    table->setRowCount(tools.size());
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->verticalHeader()->setVisible(false);
+    table->setMinimumHeight(300);
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    table->setColumnWidth(0, 60);    // 选择
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    table->setColumnWidth(2, 150);   // 规格
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    table->setColumnWidth(3, 70);    // 可入数量
+
+    QList<QCheckBox*> checkBoxes;    // 与 tools 同序
+    for (int i = 0; i < tools.size(); ++i) {
+        const QJsonObject& t = tools[i];
+
+        // 列0：勾选框（居中）
+        auto* cbWrap = new QWidget();
+        auto* cbLayout = new QHBoxLayout(cbWrap);
+        cbLayout->setContentsMargins(0, 0, 0, 0);
+        cbLayout->setAlignment(Qt::AlignCenter);
+        auto* cb = new QCheckBox();
+        cb->setChecked(true);        // 默认全选，真正做到"一键"
+        cb->setCursor(Qt::PointingHandCursor);
+        cbLayout->addWidget(cb);
+        table->setCellWidget(i, 0, cbWrap);
+        checkBoxes.append(cb);
+
+        // 列1：编号 - 名称
+        table->setItem(i, 1, new QTableWidgetItem(QStringLiteral("%1 - %2")
+            .arg(t["toolCode"].toString(), t["toolName"].toString())));
+
+        // 列2：规格
+        auto* specItem = new QTableWidgetItem(
+            t["spec"].toString().isEmpty() ? QStringLiteral("--") : t["spec"].toString());
+        specItem->setTextAlignment(Qt::AlignCenter);
+        table->setItem(i, 2, specItem);
+
+        // 列3：可入数量
+        auto* cntItem = new QTableWidgetItem(QString::number(t["freePosCount"].toInt()));
+        cntItem->setTextAlignment(Qt::AlignCenter);
+        table->setItem(i, 3, cntItem);
+
+        table->setRowHeight(i, 48);
+    }
+    cl->addWidget(table, 1);
+
+    // 全选 / 全不选
+    auto* selRow = new QHBoxLayout();
+    auto* selAllBtn = new QPushButton(QStringLiteral("全选"));
+    auto* selNoneBtn = new QPushButton(QStringLiteral("全不选"));
+    for (auto* b : { selAllBtn, selNoneBtn }) {
+        b->setCursor(Qt::PointingHandCursor);
+        b->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
+        b->setStyleSheet(QStringLiteral(
+            "QPushButton{background:#fff;color:#4da3ff;border:1px solid #4da3ff;"
+            "border-radius:10px;font-size:14px;font-weight:600;padding:0 18px;}"
+            "QPushButton:hover{background:#e8f0fe;}"));
+    }
+    connect(selAllBtn, &QPushButton::clicked, this, [&checkBoxes]() {
+        for (auto* cb : checkBoxes) cb->setChecked(true);
+    });
+    connect(selNoneBtn, &QPushButton::clicked, this, [&checkBoxes]() {
+        for (auto* cb : checkBoxes) cb->setChecked(false);
+    });
+    selRow->addWidget(selAllBtn);
+    selRow->addWidget(selNoneBtn);
+    selRow->addStretch();
+    cl->addLayout(selRow);
+
+    // 底部按钮
+    auto* bl = dlg.buttonLayout();
+    auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
+    cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
+    cancelBtn->setMinimumWidth(100);
+    cancelBtn->setCursor(Qt::PointingHandCursor);
+    cancelBtn->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
+        "font-size:15px;font-weight:600;}"
+        "QPushButton:hover{background:#f5f5f5;}"));
+    connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    auto* okBtn = new QPushButton(QStringLiteral("确认导入"));
+    okBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
+    okBtn->setMinimumWidth(100);
+    okBtn->setCursor(Qt::PointingHandCursor);
+    okBtn->setStyleSheet(QStringLiteral(
+        "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
+        "font-size:16px;font-weight:700;}"
+        "QPushButton:hover{background:#3d8ae0;}"));
+
+    bl->addWidget(cancelBtn);
+    bl->addWidget(okBtn);
+
+    connect(okBtn, &QPushButton::clicked, &dlg, [this, &dlg, &checkBoxes, &tools]() {
+        QList<int> picked;
+        for (int i = 0; i < checkBoxes.size() && i < tools.size(); ++i) {
+            if (checkBoxes[i]->isChecked()) picked.append(tools[i]["toolId"].toInt());
+        }
+        if (picked.isEmpty()) {
+            MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("请至少勾选一个工具"));
+            return;
+        }
+        for (int toolId : picked) appendInRowForTool(toolId);
+        dlg.accept();
+    });
+
+    dlg.adjustSize();  // 按内容重算高度
+    dlg.exec();
+}
+
+/**
  * @brief 向单据表格追加一行指令（默认未选工具，位置列显示待选择）
  * @param type 行类型："in"=入库 / "out"=出库
  */
@@ -192,17 +366,23 @@ void ToolCheckinPage::appendOrderRow(const QString& type) {
     connect(toolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
         [this, toolCombo]() { updateRowPosition(rowOfWidget(toolCombo)); });
 
-    // 列2：位置（选工具后自动带出，只读展示）
+    // 列2：规格（选工具后自动带出，只读展示）
+    auto* specItem = new QTableWidgetItem(QStringLiteral("--"));
+    specItem->setTextAlignment(Qt::AlignCenter);
+    specItem->setForeground(QColor("#666666"));
+    m_orderTable->setItem(row, 2, specItem);
+
+    // 列3：位置（选工具后自动带出，只读展示）
     auto* posItem = new QTableWidgetItem(QStringLiteral("--"));
     posItem->setTextAlignment(Qt::AlignCenter);
     posItem->setForeground(QColor("#43a047"));
-    m_orderTable->setItem(row, 2, posItem);
+    m_orderTable->setItem(row, 3, posItem);
 
-    // 列3：删除按钮（点击后按控件反查所在行删除，避免行号漂移）
+    // 列4：删除按钮（点击后按控件反查所在行删除，避免行号漂移）
     auto* delBtn = new QPushButton(QStringLiteral("删除"));
     delBtn->setStyleSheet(StyleHelper::tableActionBtn());
     delBtn->setCursor(Qt::PointingHandCursor);
-    m_orderTable->setCellWidget(row, 3, delBtn);
+    m_orderTable->setCellWidget(row, 4, delBtn);
     connect(delBtn, &QPushButton::clicked, this, [this, delBtn]() {
         int r = rowOfWidget(delBtn);
         if (r >= 0) {
@@ -223,8 +403,8 @@ void ToolCheckinPage::appendOrderRow(const QString& type) {
 int ToolCheckinPage::rowOfWidget(QWidget* w) {
     if (!w) return -1;
     for (int r = 0; r < m_orderTable->rowCount(); ++r) {
-        for (int c = 0; c < m_orderTable->columnCount(); ++c) {
-            if (m_orderTable->cellWidget(r, c) == w) return r;
+        for (int col = 0; col < m_orderTable->columnCount(); ++col) {
+            if (m_orderTable->cellWidget(r, col) == w) return r;
         }
     }
     return -1;
@@ -250,12 +430,13 @@ void ToolCheckinPage::reloadToolOptions(int row) {
         QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
         for (int i = 0; i < inStock.size(); ++i) {
             QJsonObject t = inStock[i].toObject();
-            QString posDisplay = StyleHelper::formatPosition(
-                t["cabinetName"].toString(), t["layer"].toString(), t["position"].toString());
-            QString text = QStringLiteral("%1 - %2（%3）")
-                .arg(t["toolCode"].toString(), t["toolName"].toString(), posDisplay);
+            // 下拉只显示"编号 - 名称"：具体位置在选中后由位置列自动带出，名称里不再重复
+            QString text = QStringLiteral("%1 - %2")
+                .arg(t["toolCode"].toString(), t["toolName"].toString());
             // data存mappingId（位置唯一标识），出库按位置执行
             toolCombo->addItem(text, t["mappingId"].toInt());
+            // 规格随下拉项带出（Qt::UserRole+1），选工具时无需再查库
+            toolCombo->setItemData(toolCombo->count() - 1, t["spec"].toString(), Qt::UserRole + 1);
         }
         if (toolCombo->count() <= 1) {
             toolCombo->addItem(QStringLiteral("暂无在库工具"), -1);
@@ -277,6 +458,8 @@ void ToolCheckinPage::reloadToolOptions(int row) {
                 .arg(t["toolCode"].toString(), t["toolName"].toString(), statusHint)
                 .arg(freePosCount);
             toolCombo->addItem(text, t["toolId"].toInt());
+            // 规格随下拉项带出（Qt::UserRole+1），选工具时无需再查库
+            toolCombo->setItemData(toolCombo->count() - 1, t["spec"].toString(), Qt::UserRole + 1);
         }
         if (toolCombo->count() <= 1) {
             toolCombo->addItem(QStringLiteral("暂无可入库工具（请先在对照关系中配置位置）"), -1);
@@ -284,8 +467,10 @@ void ToolCheckinPage::reloadToolOptions(int row) {
     }
     toolCombo->blockSignals(false);
 
-    // 类型切换后位置列清空，等待重新选择工具
-    auto* posItem = m_orderTable->item(row, 2);
+    // 类型切换后规格/位置列清空，等待重新选择工具
+    auto* specItem = m_orderTable->item(row, 2);
+    if (specItem) specItem->setText(QStringLiteral("--"));
+    auto* posItem = m_orderTable->item(row, 3);
     if (posItem) {
         posItem->setText(QStringLiteral("--"));
         posItem->setData(Qt::UserRole, QVariant());
@@ -301,15 +486,20 @@ void ToolCheckinPage::updateRowPosition(int row) {
     if (row < 0 || row >= m_orderTable->rowCount()) return;
     auto* typeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 0));
     auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
-    auto* posItem = m_orderTable->item(row, 2);
-    if (!typeCombo || !toolCombo || !posItem) return;
+    auto* specItem = m_orderTable->item(row, 2);
+    auto* posItem = m_orderTable->item(row, 3);
+    if (!typeCombo || !toolCombo || !specItem || !posItem) return;
 
     int selectedId = toolCombo->currentData().toInt();
     if (selectedId <= 0) {
+        specItem->setText(QStringLiteral("--"));
         posItem->setText(QStringLiteral("--"));
         posItem->setData(Qt::UserRole, QVariant());
         return;
     }
+    // 规格随所选工具自动带出（下拉项已附带，无需逐行查库）
+    const QString spec = toolCombo->itemData(toolCombo->currentIndex(), Qt::UserRole + 1).toString();
+    specItem->setText(spec.isEmpty() ? QStringLiteral("--") : spec);
 
     if (typeCombo->currentData().toString() == "out") {
         // 出库：selectedId=mappingId，位置与toolId从在库位置明细实时查询带出
@@ -375,7 +565,7 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
         if (type == "out") {
             // 出库：selectedId=mappingId，toolId从位置列UserRole取
             item.mappingId = selectedId;
-            auto* posItem = m_orderTable->item(row, 2);
+            auto* posItem = m_orderTable->item(row, 3);
             item.toolId = posItem ? posItem->data(Qt::UserRole).toInt() : 0;
             if (outMappingIds.contains(item.mappingId)) {
                 errorMsg = QStringLiteral("第 %1 行位置重复出库").arg(row + 1);

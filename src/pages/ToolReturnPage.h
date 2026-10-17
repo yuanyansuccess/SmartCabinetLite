@@ -30,7 +30,6 @@ public:
 private slots:
     void onSelectAll(bool checked);
     void onReturnSelected();
-    void onReturnAll();
     void onPrevPage();  // 上一页
     void onNextPage();  // 下一页
 
@@ -50,7 +49,7 @@ private:
   // 用户信息条（横向布局对齐ToolBorrowPage）
     QLabel* m_userNameLabel;           // 归还人
     QLabel* m_workNoLabel;             // 工号
-    QLabel* m_deptLabel = nullptr;     // 所属机组（V1.00.10新增）
+    QLabel* m_deptLabel = nullptr;     // 所属机组
     QLabel* m_dateLabel;               // 日期
 
     // 提示栏

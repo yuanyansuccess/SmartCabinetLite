@@ -124,9 +124,6 @@ set(DAO_SOURCES)
 
 # [V1.00.9.1 架构修复] 添加controller层（统一通过controller访问业务逻辑） —— 作者：袁燕
 set(CONTROLLER_SOURCES
-    src/controller/AlertController.cpp
-    src/controller/AuthController.cpp
-    src/controller/SettingController.cpp
     src/controller/ToolController.cpp
     src/controller/UserController.cpp
 )
@@ -179,6 +176,7 @@ set(PAGE_SOURCES
     src/pages/ToolManagementPageDetail.cpp
     src/pages/ToolManagementPageDocument.cpp
     src/pages/ToolManagementPageToolForm.cpp
+    src/pages/ToolListDialog.cpp
     src/pages/ToolBorrowPage.cpp
     src/pages/ToolBorrowPageFlow.cpp
     src/pages/ToolReturnPage.cpp
@@ -199,6 +197,8 @@ set(PAGE_SOURCES
 set(UTILS_SOURCES
     src/utils/StyleHelper.cpp
     src/utils/DeviceProfile.cpp
+    src/utils/PinyinDict.cpp        # [2026-10-17] 内置全量常用字拼音静态词库
+    src/utils/PinyinInput.cpp        # [2026-10-17] 拼音输入引擎（与界面解耦的纯逻辑层）
 )
 
 # 组件层 (版本A的触屏组件)
@@ -281,9 +281,6 @@ set(ALL_HEADERS
     src/db/TaskTypeDAO.h
     src/db/DepartmentDAO.h
     # Controller (版本A)
-    src/controller/AlertController.h
-    src/controller/AuthController.h
-    src/controller/SettingController.h
     src/controller/ToolController.h
     src/controller/UserController.h
     # Services (版本B)
@@ -293,6 +290,9 @@ set(ALL_HEADERS
     src/services/ReturnService.h
     src/services/SettingService.h
     src/services/FaceRecognitionService.h
+    src/services/AlertService.h
+    src/services/CheckoutService.h
+    src/services/MaintenanceService.h
     # Pages (版本B)
     src/pages/LoginPage.h
     src/pages/MenuHomePage.h
@@ -303,6 +303,7 @@ set(ALL_HEADERS
     src/pages/UserManagementPage.h
     src/pages/BatchImportDialog.h      # [2026-06-26] 批量导入用户对话框
     src/pages/ToolManagementPage.h
+    src/pages/ToolListDialog.h
     src/pages/ToolBorrowPage.h
     src/pages/ToolReturnPage.h
     src/pages/ToolCheckinPage.h
@@ -313,6 +314,10 @@ set(ALL_HEADERS
     # Utils (版本B)
     src/utils/StyleHelper.h
     src/utils/DeviceProfile.h
+    src/utils/PinyinDict.h          # [2026-10-17] 拼音词库接口
+    src/utils/PinyinInput.h         # [2026-10-17] 拼音输入引擎接口
+    src/utils/PinyinDictData.h      # [2026-10-17] 拼音词库数据（自动生成）
+    src/utils/PinyinPhraseData.h    # [2026-10-17] 拼音词组联想数据（自动生成）
     # Components (版本A)
     src/components/SoftKeyboard.h
     src/components/NumKeypad.h        # [2026-06-26] 独立数字软键盘
@@ -383,7 +388,10 @@ if(WIN32)
         #   VC++ 运行时安装包(vc_redist)由 scripts/prune_runtime.ps1 在交付前删除，
         #   msvcp140 等运行时 DLL 必须保留，柜机未必预装 VC 运行库。
         add_custom_command(TARGET QtSmartCabinet POST_BUILD
-            COMMAND ${WINDEPLOYQT} --no-translations --no-opengl-sw $<TARGET_FILE:QtSmartCabinet>
+            # --no-system-d3d-compiler：D3Dcompiler_47.dll 由 Windows 系统目录
+            #   (System32) 提供，无需随包部署；本机 build 目录对该文件名写入被
+            #   ACL 拒绝导致 POST_BUILD 误报失败，跳过部署不影响程序运行。
+            COMMAND ${WINDEPLOYQT} --no-translations --no-opengl-sw --no-system-d3d-compiler $<TARGET_FILE:QtSmartCabinet>
             COMMENT "Deploying Qt runtime libraries..."
         )
     endif()

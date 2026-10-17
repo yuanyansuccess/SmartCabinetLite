@@ -59,9 +59,3 @@ QJsonArray SettingService::getDepartments() {
         arr.append(name);
     return arr;
 }
-
-// 批量保存配置到 system_config 表（事务在 ConfigDAO 内）
-bool SettingService::saveConfig(const QJsonObject& config) {
-    ConfigDAO dao;
-    return dao.saveBatch(config);
-}

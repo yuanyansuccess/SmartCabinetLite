@@ -8,7 +8,6 @@
 
 #include "UserManagementPage.h"
 #include "ui_UserManagementPage.h"
-#include <QTableWidget>  // 用户列表表格
 #include "components/PaginationBar.h"
 #include "components/SoftKeyboard.h"
 #include "components/NumKeypad.h"
@@ -17,8 +16,6 @@
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
 #include "controller/UserController.h"
-#include "controller/AuthController.h"
-#include <QtNetwork>
 // 重新引入db/UserDAO(仅用于getDistinctDepartments合并数据源)
   // 其他User数据访问仍通过UserController
 #include "db/UserDAO.h"
@@ -28,20 +25,18 @@
 #include "components/BaseDialog.h"  // 统一圆角对话框基类
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QHeaderView>
 #include <QDialog>
-#include <QFormLayout>
 #include "components/MessageDialog.h"
 #include <QDebug>
 #include <QFrame>
 #include <QPushButton>
 #include <QLabel>
-#include <QMouseEvent>  // eventFilter
 #include <QSet>  // loadDepartments选中状态保留
 #include <QTimer>  // 人脸录入成功延迟关闭
 #include <QDateTime>  // 方位检测时间戳
 #include <functional>  // std::function
 #include "common/Constants.h"
+#include <QtNetwork>
 
 // 【⑦ 人脸录入（5方位引导采集）
 //   ★核心：录入对话框、方位检测、特征保存；改录入流程看本区
@@ -114,7 +109,8 @@ struct FaceEnrollCtx {
 };
 
 /**
- * @brief 处理人脸
+ * @brief
+ * @param userId 用户唯一标识 user_id
  */
 void UserManagementPage::onFaceEnroll(int userId) {
     UserController ctrl;
@@ -153,7 +149,11 @@ void UserManagementPage::onFaceEnroll(int userId) {
     dlg->deleteLater();
 }
 
-/** 构建录入对话框头部：说明文字与用户信息行 */
+/**
+ * @brief 构建录入对话框头部：说明文字与用户信息行
+ * @param user 用户对象或用户标识
+ * @param cl 内容标签控件指针
+ */
 void UserManagementPage::buildFaceEnrollHeader(const User& user, QVBoxLayout* cl) {
     // 说明文字
     auto* descLabel = new QLabel(QStringLiteral("请正对摄像头\n一张脸只能录入一个账户"));
@@ -167,11 +167,11 @@ void UserManagementPage::buildFaceEnrollHeader(const User& user, QVBoxLayout* cl
     avatar->setFixedSize(44, 44);
     avatar->setAlignment(Qt::AlignCenter);
     avatar->setStyleSheet(
-        "background:#4da3ff;color:white;border-radius:22px;font-size:20px;font-weight:700;");
+        "background:#4da3ff;color:white;border-radius:22px;" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + ";font-weight:700;");
     auto* nameCol = new QVBoxLayout();
     nameCol->setSpacing(2);
     auto* nameLbl = new QLabel(user.realName);
-    nameLbl->setStyleSheet("font-size:16px;font-weight:700;color:#333;background:transparent;");
+    nameLbl->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:700;color:#333;background:transparent;");
     auto* metaLbl = new QLabel(QString("%1  %2").arg(user.workNo, user.department));
     metaLbl->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontSmall, StyleHelper::textMuted()));
     nameCol->addWidget(nameLbl);
@@ -182,7 +182,11 @@ void UserManagementPage::buildFaceEnrollHeader(const User& user, QVBoxLayout* cl
     cl->addLayout(infoRow);
 }
 
-/** 构建录入对话框主体：摄像头、方位提示、指令提示与状态提示 */
+/**
+ * @brief 构建录入对话框主体：摄像头、方位提示、指令提示与状态提示
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ * @param cl 内容标签控件指针
+ */
 void UserManagementPage::buildFaceEnrollBody(FaceEnrollCtx& ctx, QVBoxLayout* cl) {
     // 摄像头组件：降低阈值+减少稳定帧数，支持偏侧脸自动采集
     auto* camera = new FaceCameraWidget();
@@ -207,19 +211,22 @@ void UserManagementPage::buildFaceEnrollBody(FaceEnrollCtx& ctx, QVBoxLayout* cl
     auto* instructionLabel = new QLabel(QStringLiteral("点击「开始录入」启动摄像头"));
     instructionLabel->setAlignment(Qt::AlignCenter);
     instructionLabel->setWordWrap(true);
-    instructionLabel->setStyleSheet("font-size:15px;color:#666;padding:4px 0;background:transparent;");
+    instructionLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#666;padding:4px 0;background:transparent;");
     cl->addWidget(instructionLabel);
     ctx.instructionLabel = instructionLabel;
 
     // 状态提示
     auto* statusLabel = new QLabel("");
     statusLabel->setAlignment(Qt::AlignCenter);
-    statusLabel->setStyleSheet("font-size:14px;color:#4da3ff;background:transparent;");
+    statusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#4da3ff;background:transparent;");
     cl->addWidget(statusLabel);
     ctx.statusLabel = statusLabel;
 }
 
-/** 构建录入对话框按钮区：开始录入/确认保存/取消 */
+/**
+ * @brief 构建录入对话框按钮区：开始录入/确认保存/取消
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     // 按钮区（通过 BaseDialog::buttonLayout()）
     auto* bl = ctx.dlg->buttonLayout();
@@ -233,7 +240,7 @@ void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     startBtn->setCursor(Qt::PointingHandCursor);
     startBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:white;border:none;border-radius:12px;"
-        "font-size:15px;font-weight:700;padding:0 28px;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;padding:0 28px;}"
         "QPushButton:hover{background:#3d8ae0;}");
 
     auto* confirmBtn = new QPushButton(QStringLiteral("确认保存"));
@@ -242,7 +249,7 @@ void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     confirmBtn->setCursor(Qt::PointingHandCursor);
     confirmBtn->setStyleSheet(
         "QPushButton{background:#27ae60;color:white;border:none;border-radius:12px;"
-        "font-size:15px;font-weight:700;padding:0 28px;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;padding:0 28px;}"
         "QPushButton:hover{background:#219a52;}");
 
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
@@ -250,7 +257,7 @@ void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     cancelBtn->setCursor(Qt::PointingHandCursor);
     cancelBtn->setStyleSheet(
         "QPushButton{background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;padding:0 24px;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;padding:0 24px;}"
         "QPushButton:hover{background:#e8e8e8;}");
     connect(cancelBtn, &QPushButton::clicked, ctx.dlg, &QDialog::reject);
 
@@ -264,7 +271,10 @@ void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     ctx.cancelBtn = cancelBtn;
 }
 
-/** 连接人脸录入状态机全部信号（5方位检测引导采集流程） */
+/**
+ * @brief 连接人脸录入状态机全部信号（5方位检测引导采集流程）
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
     auto* dlg = ctx.dlg;
     auto* camera = ctx.camera;
@@ -279,7 +289,7 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
     ctx.doCapture = [&ctx]() {
         ctx.instructionLabel->setText(QStringLiteral("正在采集..."));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;font-weight:bold;color:#4da3ff;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:bold;color:#4da3ff;padding:4px 0;background:transparent;");
         ctx.camera->captureNow();
     };
 
@@ -326,7 +336,7 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
 
         ctx.instructionLabel->setText(QStringLiteral("正在检测方位识别服务..."));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;font-weight:bold;color:#4da3ff;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:bold;color:#4da3ff;padding:4px 0;background:transparent;");
         ctx.directionLabel->setText(QStringLiteral("初始化"));
         ctx.directionLabel->setStyleSheet(StyleHelper::postureBadge());
 
@@ -394,7 +404,10 @@ void UserManagementPage::connectFaceEnrollFlow(FaceEnrollCtx& ctx) {
     connect(dlg, &QDialog::finished, camera, [&ctx]() { ctx.camera->stopCamera(); });
 }
 
-/** 方位检测定时器回调 — 异步POST /posture，HTTP响应交给onFacePostureReply处理 */
+/**
+ * @brief 方位检测定时器回调 — 异步POST /posture，HTTP响应交给onFacePostureReply处理
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void UserManagementPage::onFacePostureTick(FaceEnrollCtx& ctx) {
     if (!ctx.isCapturing) { ctx.postureTimer->stop(); return; }
     if (ctx.simpleMode) { ctx.postureTimer->stop(); return; }
@@ -405,7 +418,7 @@ void UserManagementPage::onFacePostureTick(FaceEnrollCtx& ctx) {
     if (elapsed > 30000) {
         ctx.instructionLabel->setText(QStringLiteral("⚠ 方位超时，将采集当前帧作为兜底"));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;font-weight:bold;color:#ff4d4f;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:bold;color:#ff4d4f;padding:4px 0;background:transparent;");
         ctx.postureTimer->stop();
         QTimer::singleShot(100, ctx.dlg, [&ctx]() { ctx.doCapture(); });
         return;
@@ -439,7 +452,11 @@ void UserManagementPage::onFacePostureTick(FaceEnrollCtx& ctx) {
         [this, &ctx, reply]() { onFacePostureReply(ctx, reply); });
 }
 
-/** 方位检测HTTP响应处理 — 方位匹配判断与界面引导 */
+/**
+ * @brief 方位检测HTTP响应处理 — 方位匹配判断与界面引导
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ * @param reply 服务端返回的响应对象
+ */
 void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* reply) {
     ctx.postureRequestPending = false;
     reply->deleteLater();
@@ -470,7 +487,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         if (ctx.postureHttpFailCount >= 15) {
             ctx.instructionLabel->setText(QStringLiteral("⚠ 方位识别服务异常，切换简易模式..."));
             ctx.instructionLabel->setStyleSheet(
-                "font-size:15px;color:#fa8c16;padding:4px 0;background:transparent;");
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#fa8c16;padding:4px 0;background:transparent;");
             ctx.simpleMode = true;
             ctx.postureTimer->stop();
             ctx.simpleTimer->start(1000);
@@ -501,7 +518,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         // 倒计时只在方位徽标上显示，指令区不再重复同一数字
         ctx.instructionLabel->setText(QStringLiteral("保持不动"));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;font-weight:bold;color:#389e0d;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:bold;color:#389e0d;padding:4px 0;background:transparent;");
 
         if (ctx.postureMatchCount >= 2 && stayMs >= 300) {
             ctx.postureTimer->stop();
@@ -529,14 +546,18 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
     }
 }
 
-/** 采集结果回调 — 记录最佳特征并进入下一个方位或完成 */
+/**
+ * @brief 采集结果回调 — 记录最佳特征并进入下一个方位或完成
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ * @param confidence 人脸匹配置信度（0~1）
+ */
 void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidence) {
     if (!ctx.isCapturing) return;
     QString descriptor = ctx.camera->getLastDescriptor();
     if (descriptor.isEmpty()) {
         ctx.instructionLabel->setText(QStringLiteral("⚠ 特征提取失败，稍后自动重试..."));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;color:#fa8c16;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#fa8c16;padding:4px 0;background:transparent;");
         ctx.camera->reset();
         if (ctx.simpleMode) {
             ctx.simpleTimer->start(1500);
@@ -582,7 +603,7 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
             ctx.instructionLabel->setText(QStringLiteral("✅ 第 %1/5 帧采集成功\n下一个【%2】— 3秒后自动采集\n%3")
                 .arg(ctx.captureCount).arg(next.name).arg(next.instruction));
             ctx.instructionLabel->setStyleSheet(
-                "font-size:15px;color:#389e0d;padding:4px 0;background:transparent;");
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#389e0d;padding:4px 0;background:transparent;");
             ctx.simpleTimer->start(3000);
         } else {
             ctx.directionLabel->setText(QStringLiteral("【 %1 】").arg(next.name));
@@ -590,7 +611,7 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
             ctx.instructionLabel->setText(QStringLiteral("✅ 第 %1/5 帧采集成功\n请准备【%2】\n%3")
                 .arg(ctx.captureCount).arg(next.name).arg(next.instruction));
             ctx.instructionLabel->setStyleSheet(
-                "font-size:15px;color:#389e0d;padding:4px 0;background:transparent;");
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#389e0d;padding:4px 0;background:transparent;");
             ctx.postureStartTime = QDateTime::currentMSecsSinceEpoch();
             ctx.postureMatchCount = 0;
             ctx.postureFirstMatchTime = 0;
@@ -609,11 +630,14 @@ void UserManagementPage::onFaceCaptureReady(FaceEnrollCtx& ctx, double confidenc
         ctx.confirmBtn->setEnabled(true);
         ctx.instructionLabel->setText(QStringLiteral("采集完成\n请点击「确认保存」"));
         ctx.instructionLabel->setStyleSheet(
-            "font-size:15px;font-weight:600;color:#389e0d;padding:4px 0;background:transparent;");
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;color:#389e0d;padding:4px 0;background:transparent;");
     }
 }
 
-/** 确认保存 — 先查重（同一张脸不允许挂到第二个账户），通过后写入数据库 */
+/**
+ * @brief 确认保存 — 先查重（同一张脸不允许挂到第二个账户），通过后写入数据库
+ * @param ctx 上下文对象，承载当前页面/对话框的临时状态
+ */
 void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
     if (ctx.bestDescriptor.isEmpty() || ctx.userId <= 0) return;
     ctx.confirmBtn->setEnabled(false);
@@ -624,7 +648,7 @@ void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
     const FaceRecognitionService::EnrollFaceResult result = svc.enrollFaceChecked(ctx.userId, ctx.bestDescriptor);
     if (result.success) {
         ctx.statusLabel->setText(QStringLiteral("人脸特征采集成功！"));
-        ctx.statusLabel->setStyleSheet("font-size:15px;font-weight:700;color:#389e0d;background:transparent;");
+        ctx.statusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#389e0d;background:transparent;");
         ctx.camera->stopCamera();
         refresh();
         QTimer::singleShot(800, ctx.dlg, &QDialog::accept);
@@ -632,7 +656,7 @@ void UserManagementPage::onFaceConfirmSave(FaceEnrollCtx& ctx) {
         showFaceDuplicateHint(ctx, result.duplicate.ownerText(), result.duplicate.similarity);
     } else {
         ctx.statusLabel->setText(QStringLiteral("人脸录入失败，请重试"));
-        ctx.statusLabel->setStyleSheet("font-size:15px;font-weight:700;color:#ff4d4f;background:transparent;");
+        ctx.statusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#ff4d4f;background:transparent;");
         ctx.confirmBtn->setEnabled(true);
     }
 }
@@ -666,10 +690,10 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
     ctx.instructionLabel->setText(
         QStringLiteral("该人脸已录入到「%1」\n若站错人，请重新采集\n若确需替换，请联系管理员清除对方人脸").arg(ownerText));
     ctx.instructionLabel->setStyleSheet(
-        "font-size:15px;font-weight:700;color:#ff4d4f;padding:4px 0;background:transparent;");
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#ff4d4f;padding:4px 0;background:transparent;");
     ctx.statusLabel->setText(QStringLiteral("未保存：人脸重复"));
     ctx.statusLabel->setStyleSheet(
-        "font-size:15px;font-weight:700;color:#ff4d4f;background:transparent;");
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#ff4d4f;background:transparent;");
 
     // 相似度只进日志：现场只需知道"这张脸已经属于谁"，不需要算法数值
     qDebug() << "[UserManagement] 人脸查重命中, owner=" << ownerText
@@ -680,12 +704,11 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */
 
-// ==============================================================
-// 【⑧ 已录入用户的人脸查看与清除
-//   查看/重新录入/清除人脸
-// ==============================================================
 /**
- * @brief 处理人脸
+ * @brief /** 查看/重新录入/清除人脸 【⑧ 已录入用户的人脸查看与清除
+ * @param userId 用户唯一标识 user_id
+ * @param realName 用户真实姓名
+ * @param workNo 工号字符串
  */
 void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName, const QString& workNo) {
     UserController ctrl;
@@ -712,7 +735,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
     auto* nameCol = new QVBoxLayout();
     nameCol->setSpacing(4);
     auto* nameLbl = new QLabel(realName);
-    nameLbl->setStyleSheet("font-size:18px;font-weight:700;color:#333;background:transparent;");
+    nameLbl->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + ";font-weight:700;color:#333;background:transparent;");
     auto* metaLbl = new QLabel(QString("%1  %2").arg(workNo, user.department));
     metaLbl->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontBody, StyleHelper::textMuted()));
     nameCol->addWidget(nameLbl);
@@ -737,7 +760,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
     statusIcon->setStyleSheet("font-size:36px;color:#52c41a;font-weight:bold;background:transparent;");
     auto* statusText = new QLabel(QStringLiteral("人脸特征已录入"));
     statusText->setAlignment(Qt::AlignCenter);
-    statusText->setStyleSheet("font-size:16px;font-weight:600;color:#389e0d;background:transparent;");
+    statusText->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:600;color:#389e0d;background:transparent;");
     auto* statusHint = new QLabel(QStringLiteral("可刷脸登录"));
     statusHint->setAlignment(Qt::AlignCenter);
     statusHint->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontSmall, StyleHelper::textMuted()));
@@ -761,7 +784,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
     clearBtn->setCursor(Qt::PointingHandCursor);
     clearBtn->setStyleSheet(
         "QPushButton{background:#ff4d4f;color:white;border:none;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#e04343;}");
 
     auto* closeBtn = new QPushButton(QStringLiteral("关闭"));
@@ -770,7 +793,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
         "QPushButton{background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#e8e8e8;}");
     connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::reject);
 

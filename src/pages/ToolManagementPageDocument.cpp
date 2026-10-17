@@ -41,10 +41,12 @@
 #include <QDir>                // 创建文档存储目录
 #include <QTimer>              // 上传后延迟重新打开详情对话框
 
-// 构建详情对话框的工具文档Tab
-// 输入: toolId - 工具ID(预留,可用于后续文档替换), docPath - 文档本地路径
-// 输出: QWidget* - 文档Tab页面，含下载/在线浏览按钮
-// 功能: 无文档时显示上传提示；有文档时显示文件信息+下载+在线浏览按钮
+/**
+ * @brief 功能: 无文档时显示上传提示；有文档时显示文件信息+下载+在线浏览按钮 输出: QWidget* - 文档Tab页面，含下载/在线浏览按钮 输入: toolId - 工具ID(预留,可用于后续文档替换), docPath - 文档本地路径 构建详情对话框的工具文档Tab
+ * @param toolId 工具唯一标识 tool_id
+ * @param docPath 文档在磁盘上的路径
+ * @return 构建并返回的界面控件，由调用方负责布局到页面
+ */
 QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPath) {
     Q_UNUSED(toolId);  // 预留：后续可用于文档替换/删除功能
     auto* tab = new QWidget();
@@ -69,12 +71,12 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
 
         auto* tipLabel = new QLabel(QStringLiteral("该工具暂未上传文档"));
         tipLabel->setAlignment(Qt::AlignCenter);
-        tipLabel->setStyleSheet("font-size:16px;color:#999;font-weight:600;background:transparent;");
+        tipLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";color:#999;font-weight:600;background:transparent;");
         emptyLayout->addWidget(tipLabel);
 
         auto* subLabel = new QLabel(QStringLiteral("支持 doc / docx / pdf 格式，单个文件不超过 50MB"));
         subLabel->setAlignment(Qt::AlignCenter);
-        subLabel->setStyleSheet("font-size:13px;color:#bbb;background:transparent;");
+        subLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#bbb;background:transparent;");
         subLabel->setWordWrap(true);
         emptyLayout->addWidget(subLabel);
 
@@ -202,7 +204,7 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
     auto* tipLabel = new QLabel(QStringLiteral(
         "💡 在线浏览将调用系统默认程序打开文档；下载文档可另存到指定位置"
     ));
-    tipLabel->setStyleSheet("font-size:12px;color:#bbb;padding:8px 4px;background:transparent;");
+    tipLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";color:#bbb;padding:8px 4px;background:transparent;");
     tipLabel->setWordWrap(true);
     layout->addWidget(tipLabel);
 
@@ -210,11 +212,11 @@ QWidget* ToolManagementPage::createDocumentTab(int toolId, const QString& docPat
     return tab;
 }
 
-// 详情页上传工具文档
-// 输入: toolId - 工具ID
-// 输出: bool - true=上传成功, false=用户取消或失败
-// 功能: 选文件→校验格式大小→复制到AppData→更新DB document_path
-//  校验规则与入库页完全一致，保证一致性
+/**
+ * @brief 校验规则与入库页完全一致，保证一致性 功能: 选文件→校验格式大小→复制到AppData→更新DB document_path 输出: bool - true=上传成功, false=用户取消或失败 输入: toolId - 工具ID 详情页上传工具文档
+ * @param toolId 工具唯一标识 tool_id
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool ToolManagementPage::onUploadDocument(int toolId) {
     // 文件过滤器：Word文档 + PDF（与入库页一致）
     QString filter = QStringLiteral(

@@ -25,21 +25,6 @@
       <spacer name="toolbarSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property>
        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer>
      </item>
-     <item>
-      <layout class="QHBoxLayout" name="actionsLayout">
-       <property name="spacing"><number>12</number></property>
-       <item>
-        <widget class="QPushButton" name="addBtn">
-         <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-         <property name="styleSheet"><string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;
-padding:10px 22px;font-size:14px;font-weight:700;}
-QPushButton:hover{background:#3d8ae0;}
-QPushButton:pressed{}</string></property>
-         <property name="text"><string>＋ 新增人员</string></property>
-        </widget>
-       </item>
-      </layout>
-     </item>
     </layout>
    </item>
    <item>
@@ -50,6 +35,18 @@ QPushButton:pressed{}</string></property>
          <property name="minimumSize"><size><width>320</width><height>48</height></size></property>
          <property name="maximumSize"><size><width>320</width><height>48</height></size></property>
         </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="searchBtn">
+       <property name="minimumSize"><size><width>96</width><height>48</height></size></property>
+       <property name="maximumSize"><size><width>96</width><height>48</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#3d8ae0;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>查询</string></property>
+      </widget>
      </item>
      <item>
       <widget class="QFrame" name="deptFilterWrap">
@@ -85,28 +82,6 @@ QPushButton:hover{background:#f5f7fa;}</string></property>
       </widget>
      </item>
      <item>
-      <widget class="QWidget" name="statusFilterSlot">
-       <layout class="QHBoxLayout" name="statusFilterSlotLayout">
-        <property name="leftMargin"><number>0</number></property>
-        <property name="topMargin"><number>0</number></property>
-        <property name="rightMargin"><number>0</number></property>
-        <property name="bottomMargin"><number>0</number></property>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="searchBtn">
-       <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
-       <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
-       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-       <property name="styleSheet"><string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;
-padding:0 24px;font-size:16px;font-weight:700;}
-QPushButton:hover{background:#3d8ae0;}
-QPushButton:pressed{}</string></property>
-       <property name="text"><string>查询</string></property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="resetBtn">
        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
@@ -116,6 +91,18 @@ padding:0 24px;font-size:16px;font-weight:700;}
 QPushButton:hover{background:#f0f7ff;}
 QPushButton:pressed{}</string></property>
        <property name="text"><string>重置</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="addBtn">
+       <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="styleSheet"><string notr="true">QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;
+padding:0 24px;font-size:16px;font-weight:700;}
+QPushButton:hover{background:#3d8ae0;}
+QPushButton:pressed{}</string></property>
+       <property name="text"><string>＋ 新增人员</string></property>
       </widget>
      </item>
      <item>
@@ -143,8 +130,6 @@ QPushButton:pressed{}</string></property>
         <column><property name="text"><string>姓名</string></property></column>
         <column><property name="text"><string>部门</string></property></column>
         <column><property name="text"><string>角色</string></property></column>
-        <column><property name="text"><string>人脸录入</string></property></column>
-        <column><property name="text"><string>状态</string></property></column>
         <column><property name="text"><string>操作</string></property></column>
        </widget>
       </item>

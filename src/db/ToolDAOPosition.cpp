@@ -48,7 +48,12 @@ QJsonArray ToolDAO::findInStockPositions(int toolId, int limit)
     return arr;
 }
 
-// 更新映射表status（checked_out/pending/in_stock等）
+/**
+ * @brief 更新映射表status（checked_out/pending/in_stock等）
+ * @param mappingId 位置映射编号
+ * @param status 状态值
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool ToolDAO::updateMappingStatus(int mappingId, const QString& status)
 {
     QSqlDatabase db = getDb();
@@ -62,14 +67,19 @@ bool ToolDAO::updateMappingStatus(int mappingId, const QString& status)
     return true;
 }
 
-// 查找待入库工具（映射表中有可入库位置：待入库pending或已出库checked_out）
+/**
+ * @brief 查找待入库工具（映射表中有可入库位置：待入库pending或已出库checked_out）
+ * @param categoryId 工具品类编号
+ * @param machineGroupId 机组编号，用于按机组隔离数据
+ * @return 查询结果数组，每个元素为一个对象
+ */
 QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
     if (categoryId <= 0) {
         q.prepare(
-            "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, "
+            "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, ti.spec, "
             "(SELECT COUNT(*) FROM tool_position_mapping mpm "
             " WHERE mpm.tool_id=ti.tool_id AND mpm.status IN ('pending','checked_out')) AS free_pos_count "
             "FROM tool_info ti "
@@ -81,7 +91,7 @@ QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
         q.addBindValue(machineGroupId);
     } else {
         q.prepare(
-            "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, "
+            "SELECT ti.tool_id, ti.tool_code, ti.tool_name, ti.status, ti.spec, "
             "(SELECT COUNT(*) FROM tool_position_mapping mpm "
             " WHERE mpm.tool_id=ti.tool_id AND mpm.status IN ('pending','checked_out')) AS free_pos_count "
             "FROM tool_info ti "
@@ -101,13 +111,18 @@ QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
         obj["toolCode"]      = q.value(1).toString();
         obj["toolName"]      = q.value(2).toString();
         obj["status"]        = q.value(3).toString();
-        obj["freePosCount"]  = q.value(4).toInt();
+        obj["spec"]          = q.value(4).toString();
+        obj["freePosCount"]  = q.value(5).toInt();
         arr.append(obj);
     }
     return arr;
 }
 
-// 查找工具基本信息
+/**
+ * @brief 查找工具基本信息
+ * @param toolId 工具唯一标识 tool_id
+ * @return 单个结果对象
+ */
 QJsonObject ToolDAO::findToolBasicInfo(int toolId)
 {
     QSqlDatabase db = getDb();
@@ -124,7 +139,11 @@ QJsonObject ToolDAO::findToolBasicInfo(int toolId)
     return obj;
 }
 
-// 查找工具的可入库位置（映射表status为pending待入库或checked_out已出库回流）
+/**
+ * @brief 查找工具的可入库位置（映射表status为pending待入库或checked_out已出库回流）
+ * @param toolId 工具唯一标识 tool_id
+ * @return 查询结果数组，每个元素为一个对象
+ */
 QJsonArray ToolDAO::findPendingPositions(int toolId)
 {
     QSqlDatabase db = getDb();

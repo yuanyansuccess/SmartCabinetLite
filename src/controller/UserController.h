@@ -22,20 +22,15 @@ public:
     User        getUserById(int userId);
     int         createUser(const User& user, const QString& password);
     bool        updateUser(const User& user);
-    bool        deleteUser(int userId);
     bool        setUserStatus(int userId, const QString& status);
     bool        changePassword(int userId, const QString& oldPwd, const QString& newPwd);
     /// 首次登录强制改密：初始口令是公开默认值，校验原口令无意义，故不校验原口令
     bool        forceChangePassword(int userId, const QString& newPwd);
     bool        resetPassword(int userId, const QString& newPwd, bool mustChange = true);
-    bool        enrollFace(int userId, const QString& faceFeature);
-    bool        deleteFace(int userId);
-    bool        hasFaceEnrolled(int userId);
 
 signals:
     void userCreated(int userId);
     void userUpdated(int userId);
-    void userDeleted(int userId);
     void userStatusChanged(int userId, const QString& oldStatus, const QString& newStatus);
     void faceEnrolled(int userId);
 

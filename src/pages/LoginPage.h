@@ -105,7 +105,15 @@ private:
     void buildWelcomeHeader(QVBoxLayout* layout);
     void buildFaceScanArea(QVBoxLayout* layout);
     void buildStatusRow(QVBoxLayout* layout);
+    /** 构建密码登录表单：拆为错误条/凭据字段/操作按钮，降低单函数规模 */
     void buildPasswordForm(QVBoxLayout* layout);
+    /** 登录失败/摄像头不可用提示条（人脸失败或锁定文案共用样式入口） */
+    void buildErrorTip(QVBoxLayout* pfLayout);
+    /** 单条凭据输入行（工号或密码）：标签+圆角输入框+键盘按钮，两字段复用消除重复 */
+    void buildCredentialField(QVBoxLayout* pfLayout, const QString& labelText, QLineEdit*& edit,
+                              const QString& placeholder, bool isPassword, void (LoginPage::*clickedSlot)());
+    /** 登录/忘记密码/重新刷脸 操作区 */
+    void buildLoginActions(QVBoxLayout* pfLayout);
     void buildSuccessCard(QVBoxLayout* layout);
     void buildStrangerCard(QVBoxLayout* layout);
     void buildExitButton();
@@ -244,5 +252,5 @@ private:
     // 待登录用户(识别成功后暂存)
     QJsonObject m_pendingUser;
     bool m_hasCamera = true;
-    bool m_destroying = false;  // 析构标记，防止析构期间信号触发访问已删除对象
+    bool m_destroying = false;  // 析构标记，防止析构期间信号触发访问已释放对象
 };

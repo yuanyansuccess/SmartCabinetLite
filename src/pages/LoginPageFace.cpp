@@ -413,7 +413,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
     } else if (result.isStranger) {
         QJsonObject resp;
         resp["isStranger"] = true;
-        resp["timestamp"] = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        resp["timestamp"] = QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT);
         resp["strangerId"] = "UNKNOWN";
         resp["clientIp"] = QStringLiteral("本地终端");
         handleFaceStranger(resp);
@@ -455,7 +455,7 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     m_successName->setText(realName);
     m_successWorkNo->setText(workNo);
     m_successDept->setText(department);
-    m_successTime->setText(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+    m_successTime->setText(QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT));
     m_successSimilarity->setText(QString("%1%").arg(QString::number(similarityPct, 'f', 1)));
     m_subtitleLabel->setText(QStringLiteral("身份验证通过"));
     setScanStatus(QStringLiteral("识别成功"), 2);
@@ -503,7 +503,7 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
     m_altLoginHint->setVisible(false);
     m_strangerBox->setVisible(true);
     m_strangerTime->setText(QStringLiteral("检测时间: %1")
-        .arg(resp["timestamp"].toString(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))));
+        .arg(resp["timestamp"].toString(QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT))));
     m_strangerIdLabel->setText(QStringLiteral("陌生人ID: %1").arg(resp["strangerId"].toString()));
     m_strangerIpLabel->setText(QStringLiteral("IP地址: %1").arg(resp["clientIp"].toString("本地终端")));
     m_subtitleLabel->setText(QStringLiteral("陌生人警报"));

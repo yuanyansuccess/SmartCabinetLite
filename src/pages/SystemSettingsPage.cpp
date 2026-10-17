@@ -3,7 +3,7 @@
  * @brief 系统设置页面实现 - 1:1复刻BS端SystemSettings.vue
  * @author 袁燕
  *
- * 完全重写以1:1匹配BS端SystemSettings.vue
+ * 实现系统设置页各项设置功能，与 BS 端功能对齐
  * 布局：选项卡+双列网格（网络配置/告警参数/借还设置/备份管理）
  * 顶部工具栏：保存全部设置按钮
  */
@@ -17,32 +17,22 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include "components/MessageDialog.h"
-#include <QApplication>
 #include <QDebug>
 #include <QFrame>
-#include <QGroupBox>
-#include <QCheckBox>
 #include <QSpinBox>
 #include <QSlider>
 #include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
-#include <QGridLayout>
-#include <QMouseEvent>
 #include <QScrollBar>
-#include <QFocusEvent>
 #include <QShowEvent>  // 页面切换还原
 #include <QHideEvent>
-#include <QTableWidget>  // 任务类型配置表格
-#include <QHeaderView>  // 表格列宽控制
-#include <QTableWidgetItem>  // 表格单元格
-#include <QProcess>  // 调用PowerShell设置显示器亮度
-#include <QFile>  // WMI结果日志记录
-#include <QDateTime>  // 亮度日志时间戳
-#include <QDir>  // 备份目录操作
-#include <QFileInfoList>  // 备份文件清理
 
 
+/**
+ * @brief 构造函数，初始化 SystemSettingsPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 SystemSettingsPage::SystemSettingsPage(QWidget* parent) : QWidget(parent) {
     setupUI();
 }
@@ -60,7 +50,7 @@ void SystemSettingsPage::setupUI() {
     titleBar->setContentsMargins(0, 0, 0, 0);
     titleBar->setSpacing(12);
     auto* title = new QLabel(QStringLiteral("系统设置"));
-    title->setStyleSheet("font-size:20px;font-weight:700;color:#1a1a2e;background:transparent;");  // 20对齐
+    title->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + ";font-weight:700;color:#1a1a2e;background:transparent;");  // 20对齐
     titleBar->addWidget(title);
     titleBar->addStretch();
 
@@ -68,7 +58,7 @@ void SystemSettingsPage::setupUI() {
     m_saveAllBtn = new QPushButton(QStringLiteral("保存全部设置"));
     m_saveAllBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:10px;"
-        "padding:10px 22px;font-size:14px;font-weight:700;}"
+        "padding:10px 22px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}"
         "QPushButton:pressed{background:#2e7bd6;}"
     );
@@ -145,7 +135,7 @@ void SystemSettingsPage::updateTabStyles() {
     for (int i = 0; i < m_tabLabels.size(); ++i) {
         if (i == m_activeTabIndex) {
             m_tabLabels[i]->setStyleSheet(
-                QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
+                QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
                         "color:%1;background:#fff;min-height:44px;"
                         "border-bottom:3px solid %1;")
                 .arg(StyleHelper::primaryColor()));
@@ -155,7 +145,10 @@ void SystemSettingsPage::updateTabStyles() {
     }
 }
 
-// switchTab（QStackedWidget切换）
+/**
+ * @brief switchTab（QStackedWidget切换）
+ * @param index 索引编号
+ */
 void SystemSettingsPage::switchTab(int index) {
     if (index < 0 || index >= m_tabLabels.size()) return;
     m_activeTabIndex = index;
@@ -166,11 +159,11 @@ void SystemSettingsPage::switchTab(int index) {
 }
 
 /**
-         * 事件过滤器：拦截控件与窗口事件并转交专用处理
-         * @param obj 事件来源控件
-         * @param event 事件对象
-         * @return true=事件已被处理
-         */
+ * @brief 事件过滤器：拦截控件与窗口事件并转交专用处理
+ * @param watched 参数 watched（类型与取值约束见函数签名）
+ * @param event 事件对象，由 Qt 事件系统传入
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
     // 简化：Tab点击切换QStackedWidget + Hover效果，去掉滚动和焦点高亮
     if (event->type() == QEvent::MouseButtonPress) {
@@ -184,7 +177,7 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
         for (int i = 0; i < m_tabLabels.size(); ++i) {
             if (watched == m_tabLabels[i] && i != m_activeTabIndex) {
                 m_tabLabels[i]->setStyleSheet(
-                    QString("font-size:15px;font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
+                    QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;padding:10px 24px;border-radius:10px 10px 0 0;"
                             "color:%1;background:#e8f0fe;min-height:44px;")
                         .arg(StyleHelper::primaryColor())
                 );
@@ -205,7 +198,10 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
 // ==================== 网络配置面板 ====================
 // 小米工程师优化：标签36px高/form 8px间距/面板24,12边距，紧凑美观大气
 
-// ==================== 告警参数面板 ====================
+/**
+ * @brief ==================== 告警参数面板 ====================
+ * @return 构建并返回的界面控件，由调用方负责布局到页面
+ */
 QWidget* SystemSettingsPage::createAlertPanel() {
     auto* panel = new QFrame();
     panel->setObjectName("alertPanel");
@@ -241,7 +237,7 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     m_buzzerValueLabel = new QLabel("85dB");
     m_buzzerValueLabel->setFixedWidth(40);
     m_buzzerValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    m_buzzerValueLabel->setStyleSheet(QString("font-size:14px;font-weight:700;color:%1;").arg(StyleHelper::primaryColor()));
+    m_buzzerValueLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;color:%1;").arg(StyleHelper::primaryColor()));
     connect(m_buzzerSlider, &QSlider::valueChanged, this, [this](int val) {
         m_buzzerValueLabel->setText(QString("%1dB").arg(val));
     });
@@ -329,6 +325,9 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     return panel;
 }
 
+/**
+ * @brief SystemSettingsPage::refresh 的业务实现
+ */
 void SystemSettingsPage::refresh() {
     // 任务配置面板数据来自数据库：进入页面时刷新任务类型与工具清单，
     // 保证其他入口（如借用页推荐）改动后本页看到的是最新配置
@@ -397,8 +396,6 @@ void SystemSettingsPage::onSaveAlert() {
 void SystemSettingsPage::onSaveBorrow() {
     // 保存借还配置到本地INI文件
     auto& cfg = AppConfig::instance();
-    // m_maxBorrowSpin创建已注释，空守卫防崩溃
-    if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
     cfg.setBorrowBrightness(m_brightnessSlider->value());
@@ -429,7 +426,9 @@ void SystemSettingsPage::onSaveBackup() {
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("备份设置已保存到本地配置文件"));
 }
 
-// 断电告警方式按钮组样式更新 — 44px高统一风格
+/**
+ * @brief 断电告警方式按钮组样式更新 — 44px高统一风格
+ */
 void SystemSettingsPage::updatePowerAlarmBtnStyles() {
     QPushButton* btns[3] = { m_powerAlarmBtn1, m_powerAlarmBtn2, m_powerAlarmBtn3 };
     for (int i = 0; i < 3; ++i) {
@@ -444,7 +443,9 @@ void SystemSettingsPage::updatePowerAlarmBtnStyles() {
     }
 }
 
-// 网口速率按钮组样式更新 — 44px高统一风格
+/**
+ * @brief 网口速率按钮组样式更新 — 44px高统一风格
+ */
 void SystemSettingsPage::updateSpeedBtnStyles() {
     QPushButton* btns[2] = { m_speedBtn1, m_speedBtn2 };
     for (int i = 0; i < 2; ++i) {
@@ -459,7 +460,9 @@ void SystemSettingsPage::updateSpeedBtnStyles() {
     }
 }
 
-// 组网模式按钮组样式更新 — 44px高统一风格
+/**
+ * @brief 组网模式按钮组样式更新 — 44px高统一风格
+ */
 void SystemSettingsPage::updateModeBtnStyles() {
     QPushButton* btns[2] = { m_modeBtn1, m_modeBtn2 };
     for (int i = 0; i < 2; ++i) {
@@ -474,7 +477,9 @@ void SystemSettingsPage::updateModeBtnStyles() {
     }
 }
 
-// 备份周期按钮组样式更新 — 44px高统一风格
+/**
+ * @brief 备份周期按钮组样式更新 — 44px高统一风格
+ */
 void SystemSettingsPage::updateBackupPeriodBtnStyles() {
     QPushButton* btns[3] = { m_backupBtn1, m_backupBtn2, m_backupBtn3 };
     for (int i = 0; i < 3; ++i) {
@@ -489,7 +494,10 @@ void SystemSettingsPage::updateBackupPeriodBtnStyles() {
     }
 }
 
-// 进入页面时从INI文件加载配置，然后备份快照
+/**
+ * @brief 进入页面时从INI文件加载配置，然后备份快照
+ * @param event 事件对象，由 Qt 事件系统传入
+ */
 void SystemSettingsPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     m_savedFlag = false;
@@ -497,8 +505,10 @@ void SystemSettingsPage::showEvent(QShowEvent* event) {
     snapshotSettings();      // 再备份快照
 }
 
-// 离开页面时检测脏数据 → 弹窗询问是否保存
-// 替换QMessageBox为统一MessageDialog::showDirtyConfirm（风格统一+无取消按钮）
+/**
+ * @brief 替换QMessageBox为统一MessageDialog::showDirtyConfirm（风格统一+无取消按钮） 离开页面时检测脏数据 → 弹窗询问是否保存
+ * @param event 事件对象，由 Qt 事件系统传入
+ */
 void SystemSettingsPage::hideEvent(QHideEvent* event) {
     if (!m_savedFlag && isDirty()) {
         // 有未保存修改 → 弹窗询问（保存 / 不保存，无取消按钮）
@@ -517,7 +527,10 @@ void SystemSettingsPage::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
 }
 
-// 检测UI当前值是否与快照不同
+/**
+ * @brief 检测UI当前值是否与快照不同
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool SystemSettingsPage::isDirty() {
     if (!m_ipEdit || m_ipEdit->text() != m_snapshot.ip) return true;
     if (!m_maskEdit || m_maskEdit->text() != m_snapshot.mask) return true;
@@ -548,7 +561,9 @@ bool SystemSettingsPage::isDirty() {
     return false;  // 无修改
 }
 
-// 从本地INI文件加载配置到UI控件
+/**
+ * @brief 从本地INI文件加载配置到UI控件
+ */
 void SystemSettingsPage::loadConfigFromIni() {
     auto& cfg = AppConfig::instance();
 
@@ -571,8 +586,6 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_autoConfirmCheck->setChecked(cfg.alertAutoConfirm());
 
     // 借还设置
-    // m_maxBorrowSpin创建已注释(功能删除)，必须空守卫防崩溃
-    if (m_maxBorrowSpin) m_maxBorrowSpin->setValue(cfg.borrowMaxCount());
     m_defaultPeriodSpin->setValue(cfg.borrowDefaultPeriod());
     m_returnBufferSpin->setValue(cfg.borrowReturnBuffer());
     m_brightnessSlider->setValue(cfg.borrowBrightness());
@@ -584,7 +597,10 @@ void SystemSettingsPage::loadConfigFromIni() {
     m_backupPathEdit->setText(cfg.backupPath());
 }
 
-// 将当前UI值全部写入本地INI文件
+/**
+ * @brief 将当前UI值全部写入本地INI文件
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool SystemSettingsPage::saveConfigToIni() {
     auto& cfg = AppConfig::instance();
 
@@ -607,8 +623,6 @@ bool SystemSettingsPage::saveConfigToIni() {
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
 
     // 借还设置
-    // m_maxBorrowSpin创建已注释，空守卫防崩溃
-    if (m_maxBorrowSpin) cfg.setBorrowMaxCount(m_maxBorrowSpin->value());
     cfg.setBorrowDefaultPeriod(m_defaultPeriodSpin->value());
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
     cfg.setBorrowBrightness(m_brightnessSlider->value());
@@ -624,7 +638,9 @@ bool SystemSettingsPage::saveConfigToIni() {
     return true;
 }
 
-// 备份当前所有UI控件的值到快照
+/**
+ * @brief 备份当前所有UI控件的值到快照
+ */
 void SystemSettingsPage::snapshotSettings() {
     // 网络配置
     m_snapshot.ip = m_ipEdit ? m_ipEdit->text() : "";
@@ -645,7 +661,6 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.autoConfirm = m_autoConfirmCheck ? m_autoConfirmCheck->isChecked() : true;
 
     // 借还设置
-    m_snapshot.maxBorrow = m_maxBorrowSpin ? m_maxBorrowSpin->value() : 5;
     m_snapshot.defaultPeriod = m_defaultPeriodSpin ? m_defaultPeriodSpin->value() : 48;
     m_snapshot.returnBuffer = m_returnBufferSpin ? m_returnBufferSpin->value() : 30;
     m_snapshot.brightness = m_brightnessSlider ? m_brightnessSlider->value() : 80;
@@ -657,7 +672,9 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::BACKUP_PATH;
 }
 
-// 还原所有UI控件到快照值
+/**
+ * @brief 还原所有UI控件到快照值
+ */
 void SystemSettingsPage::restoreSettings() {
     // 网络配置
     if (m_ipEdit) m_ipEdit->setText(m_snapshot.ip);
@@ -678,7 +695,6 @@ void SystemSettingsPage::restoreSettings() {
     if (m_autoConfirmCheck) m_autoConfirmCheck->setChecked(m_snapshot.autoConfirm);
 
     // 借还设置
-    if (m_maxBorrowSpin) m_maxBorrowSpin->setValue(m_snapshot.maxBorrow);
     if (m_defaultPeriodSpin) m_defaultPeriodSpin->setValue(m_snapshot.defaultPeriod);
     if (m_returnBufferSpin) m_returnBufferSpin->setValue(m_snapshot.returnBuffer);
     if (m_brightnessSlider) m_brightnessSlider->setValue(m_snapshot.brightness);

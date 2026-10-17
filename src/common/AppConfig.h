@@ -81,7 +81,6 @@ public:
     // 借还配置（Borrow节）
     // ═══════════════════════════════════════════════
     int  borrowMaxCount() const;        // 最大借用数
-    void setBorrowMaxCount(int v);
     int  borrowDefaultPeriod() const;   // 默认借用期限(小时)
     void setBorrowDefaultPeriod(int v);
     int  borrowReturnBuffer() const;    // 归还缓冲时间(分钟)

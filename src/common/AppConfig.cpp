@@ -305,10 +305,6 @@ void AppConfig::setAlertAutoConfirm(bool v)       { QMutexLocker l(&m_mutex); m_
 // 借还配置
 // ═══════════════════════════════════════════════
 int AppConfig::borrowMaxCount() const       { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/max_count",         SC::BORROW_MAX_COUNT).toInt(); }
-/**
- * @brief 设置最大借用数
- */
-void AppConfig::setBorrowMaxCount(int v)              { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/max_count", v); }
 int AppConfig::borrowDefaultPeriod() const  { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/default_period",    SC::BORROW_DEFAULT_PERIOD).toInt(); }
 /**
  * @brief 设置借用默认周期

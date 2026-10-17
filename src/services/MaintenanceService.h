@@ -15,12 +15,4 @@ class MaintenanceService {
 public:
     /// 调整任务类型下某工具的关联数量
     bool updateTaskTypeToolQty(int typeId, int toolId, int qty);
-    /// 新建工具（含全部字段）
-    bool createTool(const QJsonObject& tool);
-    /// 更新工具（含全部字段）
-    bool updateTool(int toolId, const QJsonObject& updates);
-    /// 删除工具及其关联的位置映射记录
-    bool deleteTool(int toolId);
-    /// 删除位置对照关系（位置已占用时拒绝）
-    bool removePositionMapping(int mappingId);
 };

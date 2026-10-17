@@ -23,6 +23,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QFormLayout>
+#include <QComboBox>               // 表单分类下拉框
 #include <QRegularExpression>     // 位置格式化提取数字
 #include "components/MessageDialog.h"
 #include <QDebug>
@@ -53,7 +54,7 @@ void ToolManagementPage::onAddTool() {
         auto* cl = m_toolDialog->contentLayout();
         cl->setSpacing(12);
 
-        QString labelStyle = QString("font-size:16px;font-weight:bold;color:%1;background:transparent;").arg(StyleHelper::textColor());
+        QString labelStyle = QString("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:bold;color:%1;background:transparent;").arg(StyleHelper::textColor());
         auto makeLabel = [&](const QString& text) {
             auto* l = new QLabel(text);
             l->setStyleSheet(labelStyle);
@@ -118,7 +119,8 @@ void ToolManagementPage::onAddTool() {
 }
 
 /**
- * @brief 处理编辑框工具
+ * @brief
+ * @param toolId 工具唯一标识 tool_id
  */
 void ToolManagementPage::onEditTool(int toolId) {
     m_editToolId = toolId;
@@ -136,14 +138,14 @@ void ToolManagementPage::onEditTool(int toolId) {
 }
 
 /**
- * @brief 处理工具
+ * @brief
+ * @param toolId 工具唯一标识 tool_id
  */
 void ToolManagementPage::onDeleteTool(int toolId) {
     if (!MessageDialog::showQuestion(this, QStringLiteral("确认删除"),
         QStringLiteral("确定要删除该工具吗？"))) return;
     ToolController ctrl;
     if (ctrl.deleteTool(toolId)) {
-        loadTools();
         loadStats();  // 刷新统计
     } else {
         MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("删除失败"));
@@ -179,6 +181,6 @@ void ToolManagementPage::onSubmitTool() {
         info.toolId = m_editToolId;
         ok = ctrl.updateTool(info);
     }
-    if (ok) { m_toolDialog->accept(); loadTools(); loadStats(); }
+    if (ok) { m_toolDialog->accept(); loadStats(); }
     else { MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("保存失败")); }
 }

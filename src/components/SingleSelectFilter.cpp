@@ -12,6 +12,11 @@
 #include <QFrame>
 #include <QMouseEvent>
 
+/**
+ * @brief 构造函数，初始化 SingleSelectFilter 对象并连接信号槽
+ * @param placeholder 占位提示文本
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 SingleSelectFilter::SingleSelectFilter(const QString& placeholder, QWidget* parent)
     : QWidget(parent), m_placeholder(placeholder)
 {
@@ -112,6 +117,19 @@ void SingleSelectFilter::setPlaceholderText(const QString& text) {
 void SingleSelectFilter::reset() {
     m_selectedIndex = 0;
     m_filterBtn->setText(m_placeholder);
+}
+
+/**
+ * @brief 设置当前选中项
+ * @param index 选项序号，0 表示第一项"全部"；越界时按 0 处理
+ * @note 只更新按钮文案与弹出面板勾选状态，不发射 selectionChanged，
+ *       便于调用方在初始化阶段预置筛选值时不触发重复查询
+ */
+void SingleSelectFilter::setSelectedIndex(int index) {
+    if (index < 0 || index >= m_options.size()) index = 0;
+    m_selectedIndex = index;
+    updateButtonText();
+    if (!m_options.isEmpty()) rebuildPopup();
 }
 
 /**

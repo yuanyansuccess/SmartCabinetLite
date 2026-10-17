@@ -22,36 +22,17 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include "components/MessageDialog.h"
-#include <QApplication>
 #include <QDebug>
 #include <QFrame>
-#include <QGroupBox>
-#include <QCheckBox>
-#include <QSpinBox>
-#include <QSlider>
-#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
-#include <QGridLayout>
-#include <QMouseEvent>
-#include <QScrollBar>
-#include <QFocusEvent>
-#include <QShowEvent>  // 页面切换还原
-#include <QHideEvent>
-#include <QTableWidget>  // 任务类型配置表格
-#include <QHeaderView>  // 表格列宽控制
-#include <QTableWidgetItem>  // 表格单元格
 #include <QProcess>  // 调用PowerShell设置显示器亮度
-#include <QFile>  // WMI结果日志记录
-#include <QDateTime>  // 亮度日志时间戳
-#include <QDir>  // 备份目录操作
-#include <QStorageInfo>  // 跨平台磁盘空间读取
-#include <QSysInfo>  // 跨平台系统信息读取
 #include <QRegularExpression>  // 解析os-release
-#include <QFileInfoList>  // 备份文件清理
+#include <QComboBox>
 
 /**
- * @brief 创建网络面板
+ * @brief
+ * @return 构建并返回的界面控件，由调用方负责布局到页面
  */
 QWidget* SystemSettingsPage::createNetworkPanel() {
     auto* panel = new QFrame();
@@ -64,7 +45,7 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     // 标题不占满宽度，左对齐+主色底边细线分隔
     auto* titleRow = new QHBoxLayout();
     auto* title = new QLabel(QStringLiteral("网络参数配置"));
-    // 标题样式调整：去掉padding-bottom，减小font-size
+    // 标题样式：无padding-bottom，font-size略小
     title->setStyleSheet(StyleHelper::sectionTitle());
     titleRow->addWidget(title);
     titleRow->addStretch();
@@ -79,10 +60,6 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     form->setContentsMargins(0, 0, 0, 0);
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);  // 表单字段自动扩展
     form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);  // 标签右对齐
-    QString labelStyle = QString("font-size:14px;font-weight:600;color:%1;background:transparent;").arg(StyleHelper::textColor());  // 14
-    auto makeLabel = [&](const QString& text) {
-        auto* l = new QLabel(text); l->setStyleSheet(labelStyle); l->setMinimumHeight(36); l->setFixedWidth(100); return l;  // 限宽100px，防止标签列过宽
-    };
 
     // 使用Web端小尺寸settingLineEdit：14px/38px高
     m_ipEdit = new QLineEdit(SC::NET_IP);
@@ -183,10 +160,10 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     return panel;
 }
 
-// 获取第一块有线网卡名称
-// Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡
-// 麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡
-// 返回网卡名称用于后续网络配置命令定位
+/**
+ * @brief 返回网卡名称用于后续网络配置命令定位 麒麟: 用 ip -o link show 获取，过滤掉 lo/wlan/docker/br/veth 等虚拟/无线网卡 Windows: 用 netsh interface show interface 获取，过滤掉 Loopback/虚拟网卡 获取第一块有线网卡名称
+ * @return 返回生成的字符串（失败时可能为空串）
+ */
 QString SystemSettingsPage::detectWiredInterfaceName() {
     QString ifName;
 
@@ -250,10 +227,13 @@ QString SystemSettingsPage::detectWiredInterfaceName() {
     return ifName;
 }
 
-// 跨平台配置有线网卡
-// Windows: netsh interface ip set address/dns（需管理员权限）
-// 麒麟: ip addr add + ip route add + resolvconf（需root）
-// 异步执行，失败静默处理并记录日志
+/**
+ * @brief 异步执行，失败静默处理并记录日志 麒麟: ip addr add + ip route add + resolvconf（需root） Windows: netsh interface ip set address/dns（需管理员权限） 跨平台配置有线网卡
+ * @param ip IP 地址
+ * @param mask 子网掩码
+ * @param gateway 网关地址
+ * @param dns DNS 服务器地址
+ */
 void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& mask,
                                             const QString& gateway, const QString& dns) {
     // 基础校验：IP不能为空

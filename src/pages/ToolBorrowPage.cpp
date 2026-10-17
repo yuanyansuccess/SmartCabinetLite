@@ -15,7 +15,6 @@
 #include "common/AppConfig.h"       // 获取本机机组ID
 #include "common/Constants.h"       // 分页常量
 #include "services/AlertService.h"    // 告警闭环写入
-#include "model/AlertLog.h"         // AlertLog实体
 #include "db/ToolDAO.h"            // 查询机组名称和位置映射
 #include "components/SoftKeyboard.h"
 // 通过BorrowService访问数据
@@ -25,20 +24,16 @@
 #include "components/MessageDialog.h"
 #include <QDateTime>
 #include <QScrollArea>
-#include <QFrame>
 #include <QDebug>
-#include <QTabWidget>
 #include <QCheckBox>
-#include <QDateTimeEdit>
 #include <QSet>  // 任务类型默认勾选
-#include <QSpinBox>  // 数量选择
-#include <QStyle>  // style()->unpolish/polish 刷新QSS属性
-#include <QPropertyAnimation>
-#include <QGraphicsOpacityEffect>
 #include <QTimer>  // 勾选跳页延迟重建，避免信号回调中销毁widget
-#include <QApplication>  // 退出系统
-#include <QCoreApplication>  // QCoreApplication::quit
+#include <QFrame>
 
+/**
+ * @brief 构造函数，初始化 ToolBorrowPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 ToolBorrowPage::ToolBorrowPage(QWidget* parent) : QWidget(parent), ui(new Ui::ToolBorrowPage) {
     // 静态布局来自ToolBorrowPage.ui（Qt Designer可视化维护）
     ui->setupUi(this);
@@ -50,7 +45,8 @@ ToolBorrowPage::~ToolBorrowPage() {
 }
 
 /**
- * @brief 设置用户
+ * @brief
+ * @param user 用户对象或用户标识
  */
 void ToolBorrowPage::setUser(const QJsonObject& user) {
     m_user = user;
@@ -128,15 +124,15 @@ void ToolBorrowPage::setupUI() {
     m_taskTypePopup->setStyleSheet(
         "QDialog{ background:white; border:2px solid #e0e0e0; border-radius:12px; }"
         "QLineEdit{ height:48px; padding:0 16px; border:none; border-bottom:1px solid #f0f0f0;"
-        "  font-size:16px; color:#333; background:transparent; }"
-        "QCheckBox{ font-size:16px; padding:14px 18px; color:#333; font-weight:500; spacing:12px; "
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; color:#333; background:transparent; }"
+        "QCheckBox{ " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; padding:14px 18px; color:#333; font-weight:500; spacing:12px; "
         "  border-bottom:1px solid #f7f7f7; }"
         "QCheckBox:hover{ background:#f8fbff; }"
         "QCheckBox::indicator{ width:22px; height:22px; border-radius:4px; "
         "  border:2px solid #d0d0d0; background:white; }"
         "QCheckBox::indicator:hover{ border-color:#4da3ff; }"
         "QCheckBox::indicator:checked{ background:#4da3ff; border-color:#4da3ff; }"
-        "QPushButton{ min-height:48px; font-size:16px; border-radius:10px; }"
+        "QPushButton{ min-height:48px; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; border-radius:10px; }"
     );
     m_taskTypePopup->hide();
 
@@ -146,7 +142,7 @@ void ToolBorrowPage::setupUI() {
 
     m_taskTypeSearch = new QLineEdit();
     m_taskTypeSearch->setPlaceholderText(QStringLiteral("搜索任务类型..."));
-    m_taskTypeSearch->setStyleSheet("QLineEdit{ height:48px; padding:0 12px; border:none; border-bottom:1px solid #eee; font-size:16px; }");
+    m_taskTypeSearch->setStyleSheet("QLineEdit{ height:48px; padding:0 12px; border:none; border-bottom:1px solid #eee; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; }");
     connect(m_taskTypeSearch, &QLineEdit::textChanged, this, &ToolBorrowPage::onFilterTaskTypes);
     popupLayout->addWidget(m_taskTypeSearch);
 
@@ -170,7 +166,7 @@ void ToolBorrowPage::setupUI() {
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
     cancelBtn->setStyleSheet(
         "QPushButton{ background:#fff; color:#666; border:1px solid #d9d9d9; min-height:44px; "
-        "font-size:16px; font-weight:600; border-radius:10px; }"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; font-weight:600; border-radius:10px; }"
         "QPushButton:hover{ background:#f5f5f5; border-color:#aaa; }"
     );
     cancelBtn->setCursor(Qt::PointingHandCursor);
@@ -187,7 +183,7 @@ void ToolBorrowPage::setupUI() {
     auto* confirmBtn = new QPushButton(QStringLiteral("确定"));
     confirmBtn->setStyleSheet(
         "QPushButton{ background:#4da3ff;color:white;border:none;min-height:44px; "
-        "font-size:16px;font-weight:600;border-radius:10px; }"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + ";font-weight:600;border-radius:10px; }"
         "QPushButton:hover{ background:#3d8ae0; }"
         "QPushButton:pressed{ background:#2e7ad6; }"
     );
@@ -285,7 +281,7 @@ void ToolBorrowPage::loadTaskTypes() {
         auto* checkBox = new QCheckBox(typeName);
         checkBox->setProperty("typeId", typeId);
         checkBox->setProperty("typeCode", typeCode);  // 存储typeCode用于流水号
-        checkBox->setStyleSheet("font-size:16px; padding:8px;");
+        checkBox->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; padding:8px;");
         // 默认不勾选
         if (defaultCheckedIds.contains(typeId)) {
             checkBox->setChecked(true);
@@ -385,12 +381,9 @@ void ToolBorrowPage::loadAllTools() {
     refreshAllToolTable();
 }
 
-// 刷新全部工具表格：推荐工具排最前面 + "已添加"标记
-// 添加服务端分页
-// 8列布局 + 库存totalQty/currentQty + 状态列 + 操作列
-// 客户端全量加载+排序+分页，支持已选工具自动跳首页
-// 拆分：查DB+缓存 → rebuildToolTableFromCache（排序+分页+填充）
-//   勾选跳页时用rebuildToolTableFromCache不查DB，效率高
+/**
+ * @brief 勾选跳页时用rebuildToolTableFromCache不查DB，效率高 拆分：查DB+缓存 → rebuildToolTableFromCache（排序+分页+填充） 客户端全量加载+排序+分页，支持已选工具自动跳首页 8列布局 + 库存totalQty/currentQty + 状态列 + 操作列 添加服务端分页 刷新全部工具表格：推荐工具排最前面 + "已添加"标记
+ */
 void ToolBorrowPage::refreshAllToolTable() {
     // 一次性加载本机组全部在库工具，缓存供后续跳页使用
     BorrowService svc;
@@ -401,8 +394,9 @@ void ToolBorrowPage::refreshAllToolTable() {
     rebuildToolTableFromCache();
 }
 
-// 从缓存重建工具表格 — 不查DB，仅排序+分页+填充行
-//   供勾选/添加按钮跳页使用，O(n)排序效率
+/**
+ * @brief 供勾选/添加按钮跳页使用，O(n)排序效率 从缓存重建工具表格 — 不查DB，仅排序+分页+填充行
+ */
 void ToolBorrowPage::rebuildToolTableFromCache() {
     // 性能优化：禁用重绘+信号阻塞，避免重建过程中频繁刷新
     m_allToolTable->setUpdatesEnabled(false);
@@ -508,11 +502,11 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         qtyCombo->setCurrentIndex(isSelected ? (savedQty - 1) : 0);
         qtyCombo->setStyleSheet(QString(
             "QComboBox{border:1px solid #d9d9d9;border-radius:8px;padding:6px 12px;"
-            "font-size:14px;min-height:36px;min-width:90px;background:white;color:#333;font-weight:500;}"
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";min-height:36px;min-width:90px;background:white;color:#333;font-weight:500;}"
             "QComboBox:hover{border-color:#4da3ff;}"
             "QComboBox::drop-down{width:24px;border:none;}"
             "QComboBox QAbstractItemView{background:#fff;border:1px solid #d9d9d9;"
-            "selection-background-color:#4da3ff;selection-color:#fff;font-size:14px;padding:4px;}"
+            "selection-background-color:#4da3ff;selection-color:#fff;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";padding:4px;}"
         ));
         // 数量变化时更新选中列表
         connect(qtyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -623,7 +617,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
                 opBtn->setEnabled(false);
                 opBtn->setStyleSheet(
                     "QPushButton{background:#e6f4ff;color:#4da3ff;border:1px solid #91caff;"
-                    "border-radius:6px;font-size:12px;font-weight:600;padding:5px 12px;}"
+                    "border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
                     "QPushButton:disabled{color:#91caff;}"
                 );
             } else {
@@ -632,7 +626,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
                 opBtn->setCursor(Qt::PointingHandCursor);
                 opBtn->setStyleSheet(
                     "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:6px;"
-                    "font-size:12px;font-weight:600;padding:5px 12px;}"
+                    "" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
                     "QPushButton:hover{background:#3d8ae0;}"
                     "QPushButton:pressed{background:#2e7ad6;}"
                 );
@@ -745,7 +739,7 @@ void ToolBorrowPage::loadBorrowRecords() {
             returnBtn->setEnabled(false);
             returnBtn->setStyleSheet(
                 "QPushButton{background:#d9d9d9;color:#bfbfbf;border:none;border-radius:8px;"
-                "font-size:14px;font-weight:700;}"
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
                 "QPushButton:disabled{background:#d9d9d9;color:#bfbfbf;}"
             );
         } else {
@@ -753,7 +747,7 @@ void ToolBorrowPage::loadBorrowRecords() {
             // 颜色对齐人员管理编辑按钮#4da3ff
             returnBtn->setStyleSheet(
                 "QPushButton{background:#4da3ff;color:white;border:none;border-radius:8px;"
-                "font-size:14px;font-weight:700;}"
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"
                 "QPushButton:hover{background:#3d8ae0;}"
                 "QPushButton:pressed{background:#2e7ad6;}"
             );
@@ -768,13 +762,17 @@ void ToolBorrowPage::loadBorrowRecords() {
     }
 }
 
-// 恢复表格重绘和信号
+/**
+ * @brief 恢复表格重绘和信号
+ */
 void ToolBorrowPage::onTaskTypeChanged() {
     loadRecommendedTools();
 }
 
 /**
- * @brief 处理工具选中
+ * @brief
+ * @param row 表格行号（从 0 开始）
+ * @param col 表格列号（从 0 开始）
  */
 void ToolBorrowPage::onToolSelected(int row, int col) {
     // 由checkbox处理选择
@@ -810,7 +808,9 @@ void ToolBorrowPage::onTaskTypeBtnClicked() {
     }
 }
 
-/** 过滤任务类型 */
+/**
+ * @brief 过滤任务类型
+ */
 void ToolBorrowPage::onFilterTaskTypes() {
     QString keyword = m_taskTypeSearch->text().trimmed().toLower();
     // 显示/隐藏任务类型复选框
@@ -820,7 +820,9 @@ void ToolBorrowPage::onFilterTaskTypes() {
     }
 }
 
-/** 确认任务类型选择 */
+/**
+ * @brief 确认任务类型选择
+ */
 void ToolBorrowPage::onConfirmTaskTypes() {
     m_selectedTypeIds.clear();
     m_selectedTypeNames.clear();
@@ -866,7 +868,9 @@ void ToolBorrowPage::onConfirmTaskTypes() {
 }
 
 
-// 全部工具表分页
+/**
+ * @brief 全部工具表分页
+ */
 void ToolBorrowPage::onToolPrevPage() {
     if (m_toolCurrentPage > 1) {
         m_toolCurrentPage--;
@@ -885,7 +889,9 @@ void ToolBorrowPage::onToolNextPage() {
     }
 }
 
-// 借用记录表分页
+/**
+ * @brief 借用记录表分页
+ */
 void ToolBorrowPage::onRecordPrevPage() {
     if (m_recordCurrentPage > 1) {
         m_recordCurrentPage--;

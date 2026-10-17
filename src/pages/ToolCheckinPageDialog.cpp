@@ -50,9 +50,9 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
     orderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     orderTable->setStyleSheet(QString(
         "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
-        "  font-size:14px; outline:none; }"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; outline:none; }"
         "QTableWidget::item { padding:6px 10px; border:none; outline:none; }"
-        "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; font-size:13px; padding:8px; border:none; }"
+        "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; padding:8px; border:none; }"
     ));
     orderTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     orderTable->setColumnWidth(0, 80);
@@ -175,9 +175,9 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
     resultTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     resultTable->setStyleSheet(QString(
         "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
-        "  font-size:14px; outline:none; }"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; outline:none; }"
         "QTableWidget::item { padding:6px 10px; border:none; outline:none; }"
-        "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; font-size:13px; padding:8px; border:none; }"
+        "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; padding:8px; border:none; }"
     ));
     resultTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     resultTable->setColumnWidth(0, 70);
@@ -206,7 +206,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
 
     if (!allSuccess) {
         auto* tipLabel = new QLabel(QStringLiteral("未完成项未写入记录，可重新添加指令后再次执行"));
-        tipLabel->setStyleSheet("font-size:13px;color:#999;background:transparent;");
+        tipLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#999;background:transparent;");
         tipLabel->setAlignment(Qt::AlignCenter);
         dlg.bodyLayout()->addWidget(tipLabel);
     }

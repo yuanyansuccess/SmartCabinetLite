@@ -3,7 +3,7 @@
  * @brief 系统设置页面 - 1:1复刻BS端SystemSettings.vue
  * @author 袁燕
  *
- * 完全重写以1:1匹配BS端
+ * 实现系统设置页各项设置功能，与 BS 端功能对齐
  * 布局：双列网格（网络配置/告警参数/借还设置/备份管理）
  * 顶部工具栏：保存全部设置按钮
  */
@@ -140,7 +140,6 @@ private:
     QCheckBox* m_autoConfirmCheck = nullptr;
 
     // 借还设置
-    QSpinBox* m_maxBorrowSpin = nullptr;
     QSpinBox* m_defaultPeriodSpin = nullptr;
     QSpinBox* m_returnBufferSpin = nullptr;
     QSlider* m_brightnessSlider = nullptr;
@@ -176,7 +175,7 @@ private:
         int buzzerVol, overdueHours, doorTimeoutSec, powerAlarmMode;
         bool ledAlert, visionAlert, autoConfirm;
         // 借还设置
-        int maxBorrow, defaultPeriod, returnBuffer, brightness;
+        int defaultPeriod, returnBuffer, brightness;
         // 备份管理
         bool autoBackup;
         int backupPeriod, cacheHours;

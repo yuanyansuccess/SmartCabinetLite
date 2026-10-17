@@ -19,7 +19,6 @@ class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QLabel>
 #include <QList>
 #include <QTabWidget>
-#include <QDateTimeEdit>
 #include <QCheckBox>
 #include <QFrame>
 #include <QVBoxLayout>
@@ -32,7 +31,7 @@ class SoftKeyboard;
 // 选中的工具信息结构
 // 按工具种类选中，借用时自动分配位置
 // 加回mappingId，展开清单时保存具体位置ID
-// 根因：V2.12去掉mappingId后，executeBorrow重新查"第一个in_stock位置"，
+// 根因：若丢失mappingId，executeBorrow会重新查"第一个in_stock位置"，
 // 可能与展开分配的位置不匹配→借用记录mappingId与实际借用的位置不一致
 struct SelectedToolInfo {
     int toolId = 0;

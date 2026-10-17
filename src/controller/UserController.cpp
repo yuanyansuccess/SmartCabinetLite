@@ -4,7 +4,7 @@
  * @author 袁燕
  */
 #include "UserController.h"
-#include "controller/AuthController.h"
+#include "services/AuthService.h"  // 口令加盐哈希工具（与登录链路共用同一实现）
 #include "db/DepartmentDAO.h"  // 从 dao/ 迁移到 db/
 #include "services/FaceRecognitionService.h"  // 人脸录入统一入口（内含查重）
 #include "common/Constants.h"
@@ -64,8 +64,8 @@ int UserController::createUser(const User& user, const QString& password) {
     }
 
     User u = user;
-    u.passwordSalt = AuthController::generateSalt();
-    u.passwordHash = AuthController::hashPassword(password, u.passwordSalt);
+    u.passwordSalt = AuthService::generateSalt();
+    u.passwordHash = AuthService::hashPassword(password, u.passwordSalt);
     // 保留调用方传入的status，不强制覆盖（批量导入需支持"禁用"状态）
     if (u.status.isEmpty()) u.status = SC::USER_ACTIVE;
 
@@ -95,19 +95,6 @@ bool UserController::updateUser(const User& user) {
 }
 
 /**
- * @brief 逻辑删除用户：状态置为 deleted
- * @param userId 用户ID
- * @return true=删除成功；false=目标为管理员账号，不允许删除
- */
-bool UserController::deleteUser(int userId) {
-    User u = m_dao.findUserById(userId);
-    if (u.role == SC::ROLE_ADMIN) return false; // 不可删除admin
-    bool ok = m_dao.deleteUserById(userId);
-    if (ok) emit userDeleted(userId);
-    return ok;
-}
-
-/**
  * @brief 切换用户启用/禁用状态
  * @param userId 用户ID
  * @param status 目标状态，取 SC::USER_* 常量
@@ -132,7 +119,7 @@ bool UserController::setUserStatus(int userId, const QString& status) {
 bool UserController::changePassword(int userId, const QString& oldPwd, const QString& newPwd) {
     User u = m_dao.findUserById(userId);
     if (u.userId == 0) return false;
-    if (!AuthController::verifyPassword(oldPwd, u.passwordHash, u.passwordSalt)) return false;
+    if (!AuthService::verifyPassword(oldPwd, u.passwordHash, u.passwordSalt)) return false;
     // 初始口令安全期：用户自设新口令不允许继续使用默认初始口令
     if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
         qWarning() << "[changePassword] 新口令不能是初始口令";
@@ -147,8 +134,8 @@ bool UserController::changePassword(int userId, const QString& oldPwd, const QSt
         qWarning() << "[changePassword] 新口令不合法:" << errorMsg;
         return false;
     }
-    QString newSalt = AuthController::generateSalt();
-    QString newHash = AuthController::hashPassword(newPwd, newSalt);
+    QString newSalt = AuthService::generateSalt();
+    QString newHash = AuthService::hashPassword(newPwd, newSalt);
     return m_dao.updateUserPassword(userId, newHash, newSalt);
 }
 
@@ -173,8 +160,8 @@ bool UserController::forceChangePassword(int userId, const QString& newPwd) {
         qWarning() << "[forceChangePassword] 密码不合法:" << errorMsg;
         return false;
     }
-    QString newSalt = AuthController::generateSalt();
-    QString newHash = AuthController::hashPassword(newPwd, newSalt);
+    QString newSalt = AuthService::generateSalt();
+    QString newHash = AuthService::hashPassword(newPwd, newSalt);
     return m_dao.updateUserPassword(userId, newHash, newSalt);
 }
 
@@ -195,46 +182,14 @@ bool UserController::resetPassword(int userId, const QString& newPwd, bool mustC
         qWarning() << "[resetPassword] 新口令不合法:" << errorMsg;
         return false;
     }
-    QString newSalt = AuthController::generateSalt();
-    QString newHash = AuthController::hashPassword(newPwd, newSalt);
+    QString newSalt = AuthService::generateSalt();
+    QString newHash = AuthService::hashPassword(newPwd, newSalt);
     // 先写口令再置标志：updateUserPassword 会清标志，顺序不能反
     if (!m_dao.updateUserPassword(userId, newHash, newSalt)) return false;
     if (mustChange) m_dao.setMustChangePwd(userId, 1);
     return true;
 }
 
-/**
- * @brief 为用户录入人脸特征
- * @param userId 用户ID
- * @param faceFeature 128维特征串（逗号分隔）
- * @return true=录入成功
- * @note 走 services/FaceRecognitionService::enrollFaceChecked 统一入口，录入前必查重：
- *       同一张脸已挂在其他账户时拒绝写入，避免绕过页面直连数据库造成重复录入。
- */
-bool UserController::enrollFace(int userId, const QString& faceFeature) {
-    FaceRecognitionService faceSvc;
-    bool ok = faceSvc.enrollFaceChecked(userId, faceFeature).success;
-    if (ok) emit faceEnrolled(userId);
-    return ok;
-}
-
-/**
- * @brief 清除用户人脸特征
- * @param userId 用户ID
- * @return true=清除成功
- */
-bool UserController::deleteFace(int userId) {
-    return m_dao.updateFaceFeature(userId, "");
-}
-
-/**
- * @brief 判断用户是否已录入人脸
- * @param userId 用户ID
- * @return true=已录入
- */
-bool UserController::hasFaceEnrolled(int userId) {
-    return !m_dao.findUserById(userId).faceFeature.isEmpty();
-}
 
 /**
  * @brief 查询全部部门名称

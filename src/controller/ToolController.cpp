@@ -82,20 +82,12 @@ QList<ToolCategory> ToolController::getCategories() { return m_toolDao.allCatego
  * @return 分类名称列表
  */
 QStringList ToolController::categoryNames() { return m_toolDao.allCategoryNames(); }
-/**
- * @brief 查询全部柜体名称
- * @return 柜体名称列表
- */
-QStringList ToolController::cabinetNames()  { return m_toolDao.allCabinetNames(); }
 
 // 统计数据
 QJsonObject ToolController::getToolStats() { return m_toolDao.getToolStats(); }
 
 // 工程机组列表
 QList<QJsonObject> ToolController::getMachineGroups() { return m_toolDao.allMachineGroups(); }
-
-// 机组详情
-QJsonObject ToolController::getMachineGroupById(int groupId) { return m_toolDao.getMachineGroupById(groupId); }
 
 /**
  * @brief 校验工具编号是否合法且未被占用

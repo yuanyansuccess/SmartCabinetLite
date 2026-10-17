@@ -230,13 +230,14 @@ void AlertLogsPage::loadAlertTypes() {
     }
 }
 
-// 搜索框点击弹出软键盘
+// 搜索框点击弹出拼音软键盘（告警内容以中文为主，数字/编号可直接输入）
 void AlertLogsPage::onSearchFieldClicked() {
     if (!m_softKeyboard) {
         m_softKeyboard = new SoftKeyboard(this);
-        m_softKeyboard->setMode(SoftKeyboard::ModeEn);
+        m_softKeyboard->setMode(SoftKeyboard::ModeCn);
         connect(m_softKeyboard, &SoftKeyboard::confirmed, this, [this]() {
             m_softKeyboard->hide();
+            onSearch();  // 键盘"搜索"确认键直接出结果
         });
     }
     QPoint pos = m_keywordEdit->mapToGlobal(QPoint(0, m_keywordEdit->height() + 4));

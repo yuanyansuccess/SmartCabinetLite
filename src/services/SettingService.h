@@ -19,6 +19,4 @@ public:
                             const QString& keyword = "");  // 返回QJsonObject含total
     QJsonObject getLedgerStats();
     QJsonArray getDepartments();
-
-    bool saveConfig(const QJsonObject& config);                  // 批量保存配置
 };

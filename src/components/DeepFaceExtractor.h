@@ -3,12 +3,8 @@
  * @brief 深度学习人脸特征提取器 — 通过HTTP调用常驻face-server.js服务
  * @author 袁燕
  *
- * 性能优化：从"每次启动node进程"改为"常驻HTTP服务"
- *   原方案：每次captureNow()启动node进程加载模型 → 2-3s/次 × 3帧 = 9s
- *   新方案：Qt启动时拉起face-server.js常驻 → 模型只加载一次 → 每次请求<300ms
- *   提速：9s → 1s（约9倍）
- *
- * 新增detectPosture方法：只检测方位不提取特征，用于录入页方位引导
+ * 通过HTTP调用常驻face-server.js服务提取特征：Qt启动时拉起服务（模型只加载一次），每次请求<300ms。
+ * detectPosture方法只检测方位不提取特征，用于录入页方位引导。
  *
  * 工作流程：
  *   1. ensureServerRunning() 检查face-server.js是否在运行，未运行则启动
@@ -21,7 +17,6 @@
 #include <QImage>
 #include <QVector>
 #include <QPointF>
-#include <QtNetwork>
 
 class DeepFaceExtractor : public QObject {
     Q_OBJECT
@@ -88,8 +83,7 @@ public:
     static void shutdownServer();
 
     /**
-     * @brief QImage转base64 JPEG（extract和detectPosture共用）
-     *        改为public，供UserManagementPage异步调用
+     * @brief QImage转base64 JPEG（extract和detectPosture共用），供UserManagementPage异步调用
      */
     static QByteArray imageToBase64Jpeg(const QImage& image);
 

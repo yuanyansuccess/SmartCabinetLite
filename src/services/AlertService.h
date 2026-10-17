@@ -21,13 +21,6 @@ public:
 
     // ── 读路径（自SettingService迁移，告警域查询统一入口） ──
 
-    /// 单条告警详情（含处理人信息）
-    QJsonObject getAlertDetail(int alertId);
-    /// 告警统计（按类型/级别/关键词筛选）
-    QJsonObject getAlertStats(const QString& type, const QString& level, const QString& keyword);
     /// 所有启用的告警类型（筛选下拉）
     QJsonArray getAlertTypes();
-
-    /// 未处理告警数（普通用户入口页"存在告警"提示的显隐依据，查询失败返回0）
-    int unhandledCount();
 };

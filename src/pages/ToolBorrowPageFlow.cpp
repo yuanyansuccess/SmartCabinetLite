@@ -31,17 +31,7 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QDebug>
-#include <QTabWidget>
-#include <QCheckBox>
-#include <QDateTimeEdit>
-#include <QSet>  // 任务类型默认勾选
-#include <QSpinBox>  // 数量选择
-#include <QStyle>  // style()->unpolish/polish 刷新QSS属性
-#include <QPropertyAnimation>
-#include <QGraphicsOpacityEffect>
 #include <QTimer>  // 勾选跳页延迟重建，避免信号回调中销毁widget
-#include <QApplication>  // 退出系统
-#include <QCoreApplication>  // QCoreApplication::quit
 
 /**
  * @brief 处理确认
@@ -89,7 +79,7 @@ void ToolBorrowPage::onBorrowConfirm() {
     int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
     if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;
     m_pendingReturnTime = QDateTime::currentDateTime().addSecs(defaultPeriodHours * 3600)
-                              .toString("yyyy-MM-dd HH:mm:ss");
+                              .toString(SC::TIMESTAMP_FORMAT);
     // 校验借用总数量不超过系统设置的单次最大借出数量
     int maxBorrow = AppConfig::instance().borrowMaxCount();
     if (maxBorrow <= 0) maxBorrow = 5;  // 兜底默认值
@@ -151,6 +141,9 @@ void ToolBorrowPage::onBorrowConfirm() {
 
  */
 
+/**
+ * @brief ToolBorrowPage::showBorrowConfirmDialog 的业务实现
+ */
 void ToolBorrowPage::showBorrowConfirmDialog() {
     FlowDialogs::Setup setup;
     setup.windowTitle = QStringLiteral("确认借用");
@@ -182,7 +175,7 @@ void ToolBorrowPage::showBorrowConfirmDialog() {
         .arg(m_user["realName"].toString(), m_user["workNo"].toString()));
     userInfo->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 600));
     auto* retInfo = new QLabel(QStringLiteral("预计归还：%1").arg(m_pendingReturnTime));
-    retInfo->setStyleSheet("font-size:15px;color:#f57c00;font-weight:600;background:transparent;");
+    retInfo->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#f57c00;font-weight:600;background:transparent;");
     infoRow->addWidget(userInfo);
     infoRow->addStretch();
     infoRow->addWidget(retInfo);
@@ -213,6 +206,9 @@ void ToolBorrowPage::showBorrowConfirmDialog() {
 
  */
 
+/**
+ * @brief ToolBorrowPage::showBorrowDrawerOpeningDialog 的业务实现
+ */
 void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
     // 根据借用工具数量动态调整高度，确保列表完整显示
     // 用展开清单显示，每行1件1位置
@@ -236,12 +232,12 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
         table->setSelectionBehavior(QAbstractItemView::SelectRows);
         table->setStyleSheet(QString(
             "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
-            "  font-family:\"Microsoft YaHei\",sans-serif; font-size:13px; outline:none; }"
+            "  font-family:\"Microsoft YaHei\",sans-serif; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; outline:none; }"
             "QTableWidget::item { padding:8px 12px; color:#333; border:none; "
             "  border-bottom:1px solid #f3f3f3; outline:none; }"
             "QTableWidget::item:selected { background:#e6f0ff; outline:none; }"
             "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; "
-            "  font-size:12px; padding:8px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
+            "  " + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + "; padding:8px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
         ));
         // 列宽：名称Stretch，编号Stretch，位置Stretch，数量Fixed窄列
         table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -277,6 +273,9 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
 
  */
 
+/**
+ * @brief ToolBorrowPage::showToolVerifyDialog 的业务实现
+ */
 void ToolBorrowPage::showToolVerifyDialog() {
     // 右上角倒计时+左下角忽略+告警入库+退出系统
     // 展开清单取首个位置展示
@@ -287,7 +286,7 @@ void ToolBorrowPage::showToolVerifyDialog() {
         "检测到 <b>%1</b> 位置的工具视觉识别与清单不符，<br/>"
         "可能原因：误取相邻柜位工具、标签损坏或柜位错位。<br/><br/>"
         "请重新核对工具后点击确认，系统将完成借用登记。").arg(firstPosition),
-        "font-size:14px;color:#555;line-height:1.7;background:transparent;",
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#555;line-height:1.7;background:transparent;",
         QStringLiteral("取消借用"), QStringLiteral("✓ 确认完成核对"), 160,
         AppConfig::instance().borrowReturnBuffer(), this);
     dlg.setFixedSize(520, 420);
@@ -328,6 +327,9 @@ void ToolBorrowPage::showToolVerifyDialog() {
 
  */
 
+/**
+ * @brief ToolBorrowPage::executeBorrow 的业务实现
+ */
 void ToolBorrowPage::executeBorrow() {
     BorrowService svc;
     // successTools存QPair<名称,数量>，成功对话框按件数显示
@@ -393,16 +395,16 @@ void ToolBorrowPage::executeBorrow() {
         // 显示实际借用数量，而非恒定的m_pendingQuantity
         for (const auto& tool : successTools) {
             auto* toolInfo = new QLabel(QStringLiteral("✓ %1  ×%2件").arg(tool.first).arg(tool.second));
-            toolInfo->setStyleSheet("font-size:15px;font-weight:600;color:#333;");
+            toolInfo->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;color:#333;");
             detailLayout->addWidget(toolInfo);
         }
         if (!failTools.isEmpty()) {
             auto* failTitle = new QLabel(QStringLiteral("以下工具借用失败："));
-            failTitle->setStyleSheet("font-size:14px;color:#e53935;font-weight:600;margin-top:8px;");
+            failTitle->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#e53935;font-weight:600;margin-top:8px;");
             detailLayout->addWidget(failTitle);
             for (const auto& fail : failTools) {
                 auto* failInfo = new QLabel(QStringLiteral("✗ %1").arg(fail));
-                failInfo->setStyleSheet("font-size:13px;color:#e53935;");
+                failInfo->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#e53935;");
                 detailLayout->addWidget(failInfo);
             }
         }
@@ -412,7 +414,7 @@ void ToolBorrowPage::executeBorrow() {
         // 确定按钮 — 缩小按钮尺寸，44px，18px字体→15px，去掉过大padding
         successDlg.addFinishButtonCentered(QStringLiteral("知道了"), QString(
             "QPushButton{ background:#43a047;color:white;border:none;border-radius:10px;"
-            "padding:8px 28px;font-size:15px;font-weight:600;min-height:44px;}"
+            "padding:8px 28px;" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;min-height:44px;}"
             "QPushButton:hover{background:#388e3c;}"
             "QPushButton:pressed{background:#2e7d32;}"
         ));

@@ -565,7 +565,7 @@ int RecordDAO::insertOperationLog(int userId, const QString& operationType,
     q.bindValue(":tgtId", targetId);
     q.bindValue(":content", content);
     q.bindValue(":ip", ipAddress);
-    q.bindValue(":time", QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+    q.bindValue(":time", QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT));
     if (!safeExec(q)) {
         return -1;
     }

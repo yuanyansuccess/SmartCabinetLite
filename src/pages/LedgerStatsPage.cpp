@@ -12,6 +12,8 @@
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
+#include <QSpacerItem>
 #include <QHeaderView>
 #include <QFrame>
 #include <QTimer>
@@ -30,6 +32,10 @@
 #endif
 #include <QDebug>
 
+/**
+ * @brief 构造函数，初始化 LedgerStatsPage 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 LedgerStatsPage::LedgerStatsPage(QWidget* parent) : QWidget(parent), ui(new Ui::LedgerStatsPage) {
     ui->setupUi(this);  // 静态布局来自LedgerStatsPage.ui（Qt Designer可视化维护）
     setupUI();          // 动态部分：统计卡片、筛选组件、信号槽连接
@@ -69,7 +75,7 @@ void LedgerStatsPage::setupUI() {
         cl->setContentsMargins(20, 14, 20, 14);
         cl->setSpacing(6);
         auto* ll = new QLabel(labelText);
-        ll->setStyleSheet(QString("font-size:14px;color:%1;background:transparent;").arg(StyleHelper::textSecondary()));
+        ll->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:%1;background:transparent;").arg(StyleHelper::textSecondary()));
         valLabel = new QLabel("--");
         valLabel->setStyleSheet(QString("font-size:28px;font-weight:bold;color:%1;background:transparent;").arg(color));
         cl->addWidget(ll);
@@ -94,6 +100,95 @@ void LedgerStatsPage::setupUI() {
     m_periodFilter->setOptions({QStringLiteral("本月"), QStringLiteral("本季度"), QStringLiteral("本年度"), QStringLiteral("全部")});
     connect(m_periodFilter, &SingleSelectFilter::selectionChanged, this, [this](const QString&) { onFilterChanged(); });
     ui->filterSlotLayout->addWidget(m_periodFilter);
+
+    // 统计区块暂时隐藏：导入导出页只保留标题栏与导出/导入按钮。
+    // 控件仍保留（loadStats 继续刷新数据不影响），后续如需恢复删除以下 setVisible(false) 即可。
+    ui->cardsContainer->setVisible(false);   // 统计卡片行（总借用/归还/借用中/逾期）
+    ui->filterLabel->setVisible(false);      // "统计周期"标签
+    ui->filterSlot->setVisible(false);       // 统计周期筛选组件槽位
+    ui->catTitle->setVisible(false);         // "工具分类统计"标题
+    ui->categoryTable->setVisible(false);    // 工具分类统计表
+    ui->deptTitle->setVisible(false);        // "部门借用统计"标题
+    ui->deptTable->setVisible(false);        // 部门借用统计表
+
+    // ── 4个导出/导入按钮：尺寸、样式与首页菜单卡片一致，整体在页面居中 ──
+    // 从标题栏移除按钮（标题栏仅留"导入导出"标题），改为下方居中网格
+    ui->titleBar->removeWidget(ui->importUserBtn);
+    ui->titleBar->removeWidget(ui->exportLedgerBtn);
+    ui->titleBar->removeWidget(ui->exportOperationLogBtn);
+    ui->titleBar->removeWidget(ui->exportSystemLogBtn);
+
+    // 图标在上、文字在下，与首页菜单卡片视觉一致
+    ui->importUserBtn->setText(QStringLiteral("👥\n人员批量导入"));
+    ui->exportLedgerBtn->setText(QStringLiteral("📊\n台账导出"));
+    ui->exportOperationLogBtn->setText(QStringLiteral("📝\n操作日志导出"));
+    ui->exportSystemLogBtn->setText(QStringLiteral("🚨\n系统日志导出"));
+
+    // 1行4列网格，列间距24，整体水平居中
+    auto* grid = new QGridLayout();
+    grid->setSpacing(24);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->addWidget(ui->importUserBtn, 0, 0);
+    grid->addWidget(ui->exportLedgerBtn, 0, 1);
+    grid->addWidget(ui->exportOperationLogBtn, 0, 2);
+    grid->addWidget(ui->exportSystemLogBtn, 0, 3);
+
+    auto* centerWrap = new QWidget(this);
+    auto* ch = new QHBoxLayout(centerWrap);
+    ch->setContentsMargins(0, 0, 0, 0);
+    ch->addStretch(1);
+    ch->addLayout(grid);
+    ch->addStretch(1);
+
+    // 插入主布局：上下弹性 spacer 将按钮组垂直居中
+    auto* ml = ui->mainLayout;
+    ml->insertItem(1, new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    ml->insertWidget(2, centerWrap);
+    ml->insertItem(3, new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
+
+    // 应用与首页一致的卡片尺寸（窗口尺寸变化时由 resizeEvent 自适应）
+    updateExportButtonSize();
+}
+
+/**
+ * @brief LedgerStatsPage::updateExportButtonSize 的业务实现
+ */
+void LedgerStatsPage::updateExportButtonSize()
+{
+    // 与首页菜单卡片一致：4列、左右边距60、列间距24，约束[150,240]，保持240:225比例
+    constexpr int columns = 4, sideMargin = 60, spacing = 24;
+    const int available = qMax(0, this->width() - sideMargin * 2 - spacing * (columns - 1));
+    const int w = qBound(150, available / columns, 240);
+    const int h = qRound(w * 225.0 / 240.0);
+
+    const QString qss = QString(
+        "QPushButton { background:%1; border:1px solid #e8ecf1; border-radius:%2px;"
+        "  font-size:26px; font-weight:700; color:%3;"
+        "  min-width:%4px; max-width:%4px; min-height:%5px; max-height:%5px; }"
+        "QPushButton:hover { border-color:%6; background:#f8fbff; }"
+        "QPushButton:pressed { background:#e8f2ff; }"
+    ).arg(StyleHelper::whiteColor())
+     .arg(StyleHelper::Token::RadiusLarge)
+     .arg(StyleHelper::textColor())
+     .arg(w).arg(h)
+     .arg(StyleHelper::primaryColor());
+
+    for (auto* b : { ui->importUserBtn, ui->exportLedgerBtn,
+                     ui->exportOperationLogBtn, ui->exportSystemLogBtn }) {
+        b->setStyleSheet(qss);
+        b->setFixedSize(w, h);
+    }
+}
+
+/**
+ * @brief LedgerStatsPage::resizeEvent 的业务实现
+ * @param event 事件对象，由 Qt 事件系统传入
+ */
+void LedgerStatsPage::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    if (!ui) return;
+    updateExportButtonSize();
 }
 
 /**
@@ -146,9 +241,9 @@ void LedgerStatsPage::loadStats() {
     }
 }
 
-// 台账导出：生成CSV文件并保存到桌面
-// CSV 以 UTF-8 BOM 字节流写入：QTextStream 默认跟随系统 GBK，
-// BOM 与内容编码不一致会导致 Excel 打开乱码。
+/**
+ * @brief BOM 与内容编码不一致会导致 Excel 打开乱码。 CSV 以 UTF-8 BOM 字节流写入：QTextStream 默认跟随系统 GBK， 台账导出：生成CSV文件并保存到桌面
+ */
 void LedgerStatsPage::onExportLedger() {
     QString csv = generateCSV();
     if (csv.isEmpty()) {
@@ -180,7 +275,10 @@ void LedgerStatsPage::onExportLedger() {
     showExportSuccess(filePath);
 }
 
-// 生成台账CSV内容
+/**
+ * @brief 生成台账CSV内容
+ * @return 返回生成的字符串（失败时可能为空串）
+ */
 QString LedgerStatsPage::generateCSV() {
     SettingService svc;
     QJsonObject stats = svc.getLedgerStats();
@@ -224,13 +322,16 @@ QString LedgerStatsPage::generateCSV() {
 
     // 导出信息
     ts << QStringLiteral("\n=== 导出信息 ===\n");
-    ts << QStringLiteral("导出时间,%1\n").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+    ts << QStringLiteral("导出时间,%1\n").arg(QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT));
     ts << QStringLiteral("统计周期,%1\n").arg(m_periodFilter ? m_periodFilter->selectedText() : QStringLiteral("全部"));
 
     return csv;
 }
 
-// 导出成功提示
+/**
+ * @brief 导出成功提示
+ * @param path 文件路径
+ */
 void LedgerStatsPage::showExportSuccess(const QString& path) {
     MessageDialog::showSuccess(this, QStringLiteral("导出成功"),
         QStringLiteral("台账数据已成功导出！\n\n文件位置：\n%1").arg(path));
@@ -316,7 +417,11 @@ void LedgerStatsPage::exportAlertsToCsv(const QString& dbType, const QString& fi
         QStringLiteral("已导出 %1 条日志记录\n文件位置: %2").arg(list.size()).arg(filePath));
 }
 
-// 数字滚动动画：每次从1开始跳转到目标值
+/**
+ * @brief 数字滚动动画：每次从1开始跳转到目标值
+ * @param label 参数 label（类型与取值约束见函数签名）
+ * @param targetValue 参数 targetValue（类型与取值约束见函数签名）
+ */
 void LedgerStatsPage::setStatValue(QLabel* label, int targetValue) {
     if (!label) return;
 

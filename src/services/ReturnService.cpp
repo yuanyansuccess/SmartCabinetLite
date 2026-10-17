@@ -31,7 +31,7 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
 
     RecordDAO recDao; 
     ToolDAO toolDao;
-    QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    QString now = QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT);
     QString condition = returnInfo["condition"].toString("正常"); // 工具状态：正常/损坏/丢失
     QString remark = returnInfo["remark"].toString("");
     QStringList failedNames;
@@ -52,7 +52,7 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
         // 计算是否超期
         bool isOverdue = false;
         if (!expectedReturnTime.isEmpty()) {
-            QDateTime expected = QDateTime::fromString(expectedReturnTime, "yyyy-MM-dd HH:mm:ss");
+            QDateTime expected = QDateTime::fromString(expectedReturnTime, SC::TIMESTAMP_FORMAT);
             QDateTime current = QDateTime::currentDateTime();
             if (current > expected) {
                 isOverdue = true;

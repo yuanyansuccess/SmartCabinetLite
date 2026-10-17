@@ -3,10 +3,7 @@
  * @brief 深度学习人脸特征提取器实现 — HTTP调用常驻face-server.js
  * @author 袁燕
  *
- * 性能优化：从"每次启动node进程"改为"HTTP调用常驻服务"
- *   原方案：QProcess启动node extract-feature.js → 加载模型2-3s/次
- *   新方案：ensureServerRunning()启动face-server.js常驻 → HTTP POST /extract
- *   提速：2-3s → <300ms（约10倍）
+ * 通过HTTP调用常驻face-server.js服务提取特征：服务随Qt启动拉起（模型只加载一次），每次请求<300ms。
  *
  * 实现原理：
  *   1. ensureServerRunning() 检查face-server.js健康状态，未运行则后台启动
@@ -37,6 +34,10 @@ namespace {
 std::atomic<bool> g_serverReady{false};
 }
 
+/**
+ * @brief 构造函数，初始化 DeepFaceExtractor 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 DeepFaceExtractor::DeepFaceExtractor(QObject* parent) : QObject(parent) {}
 
 /**
@@ -410,8 +411,11 @@ bool DeepFaceExtractor::extract(const QImage& image,
     return true;
 }
 
-// QImage转base64 JPEG（extract和detectPosture共用）
-// 分辨率缩放到320px避免大图传输，质量75平衡速度与清晰度
+/**
+ * @brief 分辨率缩放到320px避免大图传输，质量75平衡速度与清晰度 QImage转base64 JPEG（extract和detectPosture共用）
+ * @param image 待处理的图像
+ * @return 返回 JPEG 编码后的图像数据
+ */
 QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
     QImage scaledImg = image;
     if (image.width() > 320 || image.height() > 320) {
@@ -426,8 +430,14 @@ QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
     return jpegBytes.toBase64();
 }
 
-// 人脸方位检测：调用face-server.js的/posture接口
-// 比/extract快（不提取128维特征），用于录入页实时方位引导
+/**
+ * @brief 比/extract快（不提取128维特征），用于录入页实时方位引导 人脸方位检测：调用face-server.js的/posture接口
+ * @param image 待处理的图像
+ * @param outYaw 输出参数，接收检测得到的水平偏转角度
+ * @param outPitch 输出参数，接收检测得到的俯仰角度
+ * @param outMessage 输出参数，接收检测结论文本
+ * @return 操作是否成功（true=成功，false=失败）
+ */
 bool DeepFaceExtractor::detectPosture(const QImage& image,
                                        double& outYaw,
                                        double& outPitch,

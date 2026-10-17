@@ -30,6 +30,9 @@ public:
     /// 设置占位文本
     void setPlaceholderText(const QString& text);
 
+    /// 直接指定当前选中项（用于按外部条件预置筛选值，不触发 selectionChanged）
+    void setSelectedIndex(int index);
+
     /// 重置为默认（选中第一项"全部"）
     void reset();
 

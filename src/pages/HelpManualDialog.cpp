@@ -1,3 +1,4 @@
+#include "utils/StyleHelper.h"
 /**
  * @file HelpManualDialog.cpp
  * @brief 操作手册对话框实现 — 全屏窗口 + QTextBrowser 加载qrc内置HTML手册
@@ -15,6 +16,10 @@
 #include <QTextBrowser>
 #include <QFile>
 
+/**
+ * @brief 构造函数，初始化 HelpManualDialog 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 HelpManualDialog::HelpManualDialog(QWidget* parent) : QDialog(parent) {
     setupUI();
 }
@@ -40,7 +45,7 @@ void HelpManualDialog::setupUI() {
     topLayout->setContentsMargins(28, 0, 20, 0);
 
     auto* titleLabel = new QLabel(QStringLiteral("智能工具柜管理系统 · 操作手册"));
-    titleLabel->setStyleSheet("color:#ffffff; font-size:22px; font-weight:bold; background:transparent;");
+    titleLabel->setStyleSheet("color:#ffffff; " + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + "; font-weight:bold; background:transparent;");
     topLayout->addWidget(titleLabel);
     topLayout->addStretch();
 
@@ -50,7 +55,7 @@ void HelpManualDialog::setupUI() {
     m_closeBtn->setFixedSize(120, 48);
     m_closeBtn->setStyleSheet(
         "QPushButton { background:transparent; color:#ffffff; border:2px solid #4a4a6e;"
-        "  border-radius:12px; font-size:18px; font-weight:600; }"
+        "  border-radius:12px; " + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + "; font-weight:600; }"
         "QPushButton:hover { background:#4da3ff; border-color:#4da3ff; }"
         "QPushButton:pressed { background:#3d8ae0; }");
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::accept);

@@ -17,37 +17,9 @@
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
 #include "common/DatabaseManager.h"     // DB写入机组配置
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QFormLayout>
 #include "components/MessageDialog.h"
-#include <QApplication>
 #include <QDebug>
-#include <QFrame>
-#include <QGroupBox>
-#include <QCheckBox>
-#include <QSpinBox>
-#include <QSlider>
-#include <QComboBox>
-#include <QLabel>
-#include <QPushButton>
-#include <QGridLayout>
-#include <QMouseEvent>
-#include <QScrollBar>
-#include <QFocusEvent>
-#include <QShowEvent>  // 页面切换还原
-#include <QHideEvent>
-#include <QTableWidget>  // 任务类型配置表格
-#include <QHeaderView>  // 表格列宽控制
-#include <QTableWidgetItem>  // 表格单元格
 #include <QProcess>  // 调用PowerShell设置显示器亮度
-#include <QFile>  // WMI结果日志记录
-#include <QDateTime>  // 亮度日志时间戳
-#include <QDir>  // 备份目录操作
-#include <QStorageInfo>  // 跨平台磁盘空间读取
-#include <QSysInfo>  // 跨平台系统信息读取
-#include <QRegularExpression>  // 解析os-release
-#include <QFileInfoList>  // 备份文件清理
 
 /**
  * @brief 应用显示亮度

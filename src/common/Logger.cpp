@@ -4,6 +4,7 @@
  * @author 袁燕
  */
 #include "Logger.h"
+#include "common/Constants.h"  // SC::TIMESTAMP_FORMAT 时间戳统一格式
 
 #include "DiskSpaceGuard.h"  // 写日志前的磁盘容量保护
 
@@ -15,10 +16,10 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QProcessEnvironment>
-#include <QStandardPaths>
 #include <QTextStream>
 #include <QtGlobal>
 #include <QtLogging>
+#include <QStandardPaths>
 
 namespace Log {
 namespace {
@@ -187,7 +188,7 @@ void appendLog(const QString& filePath, const QString& message) {
     if (!f.open(QIODevice::Append | QIODevice::Text)) return;
     QTextStream ts(&f);
     ts.setEncoding(QStringConverter::Utf8);
-    ts << QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+    ts << QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT)
        << QLatin1Char(' ') << message << '\n';
     f.close();
 }

@@ -132,6 +132,10 @@ const QMap<QString, QString> BatchImportDialog::STATUS_MAP = {
     {QStringLiteral("禁用"), SC::USER_DISABLED}
 };
 
+/**
+ * @brief 构造函数，初始化 BatchImportDialog 对象并连接信号槽
+ * @param parent 父对象指针，作为 Qt 对象树父节点接管所有权
+ */
 BatchImportDialog::BatchImportDialog(QWidget* parent)
     : BaseDialog(parent, 520)
 {
@@ -156,7 +160,7 @@ void BatchImportDialog::setupContent()
     cl->addWidget(step1Label);
 
     auto* step1Hint = new QLabel(QStringLiteral("请先下载模板，按格式填写人员信息后保存。\n支持 Excel / WPS 打开编辑，保存为 .xlsx 或 .csv 格式均可。"));
-    step1Hint->setStyleSheet("font-size:13px;color:#888;background:transparent;padding-bottom:2px;");
+    step1Hint->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#888;background:transparent;padding-bottom:2px;");
     step1Hint->setWordWrap(true);
     cl->addWidget(step1Hint);
 
@@ -165,7 +169,7 @@ void BatchImportDialog::setupContent()
     downloadBtn->setCursor(Qt::PointingHandCursor);
     downloadBtn->setStyleSheet(
         "QPushButton{background:#e8f5e9;color:#2e7d32;border:2px solid #4caf50;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#c8e6c9;}"
         "QPushButton:pressed{}"
     );
@@ -192,7 +196,7 @@ void BatchImportDialog::setupContent()
     m_filePathEdit->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     m_filePathEdit->setStyleSheet(
         "QLineEdit{padding:0 14px;border:2px solid #e0e0e0;border-radius:12px;"
-        "font-size:14px;background:#fafafa;color:#333;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";background:#fafafa;color:#333;}"
     );
 
     auto* selectFileBtn = new QPushButton(QStringLiteral("选择文件"));
@@ -201,7 +205,7 @@ void BatchImportDialog::setupContent()
     selectFileBtn->setCursor(Qt::PointingHandCursor);
     selectFileBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#3d8ae0;}"
     );
     connect(selectFileBtn, &QPushButton::clicked, this, &BatchImportDialog::onSelectFile);
@@ -211,7 +215,7 @@ void BatchImportDialog::setupContent()
     cl->addLayout(fileRow);
 
     m_fileStatusLabel = new QLabel();
-    m_fileStatusLabel->setStyleSheet("font-size:12px;color:#999;background:transparent;");
+    m_fileStatusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";color:#999;background:transparent;");
     m_fileStatusLabel->setWordWrap(true);
     cl->addWidget(m_fileStatusLabel);
 
@@ -230,7 +234,7 @@ void BatchImportDialog::setupContent()
     m_cancelBtn->setCursor(Qt::PointingHandCursor);
     m_cancelBtn->setStyleSheet(
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}"
     );
     connect(m_cancelBtn, &QPushButton::clicked, this, &BatchImportDialog::onCancel);
@@ -242,7 +246,7 @@ void BatchImportDialog::setupContent()
     m_confirmBtn->setEnabled(false);
     m_confirmBtn->setStyleSheet(
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:15px;font-weight:700;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}"
         "QPushButton:disabled{background:#c0c0c0;color:#fff;}"
     );
@@ -252,6 +256,9 @@ void BatchImportDialog::setupContent()
     bl->addWidget(m_confirmBtn);
 }
 
+/**
+ * @brief BatchImportDialog::onDownloadTemplate 的业务实现
+ */
 void BatchImportDialog::onDownloadTemplate()
 {
     QString defaultPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)
@@ -267,7 +274,7 @@ void BatchImportDialog::onDownloadTemplate()
     if (filePath.isEmpty()) return;
 
     if (generateTemplate(filePath)) {
-        m_fileStatusLabel->setStyleSheet("font-size:13px;color:#2e7d32;font-weight:600;background:transparent;");
+        m_fileStatusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#2e7d32;font-weight:600;background:transparent;");
         m_fileStatusLabel->setText(QStringLiteral("模板已下载到：%1\n(可用Excel/WPS打开编辑，编辑后保存为.xlsx或.csv均可导入)")
             .arg(filePath));
 
@@ -347,7 +354,10 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     return true;
 }
 
-// 查询DB中最大数字工号，返回下一个可用工号（001~999），委托UserDAO执行
+/**
+ * @brief 查询DB中最大数字工号，返回下一个可用工号（001~999），委托UserDAO执行
+ * @return 返回生成的字符串（失败时可能为空串）
+ */
 QString BatchImportDialog::generateNextWorkNo() const
 {
     db::UserDAO userDao;
@@ -372,7 +382,7 @@ void BatchImportDialog::onSelectFile()
     m_filePathEdit->setText(filePath);
 
     QFileInfo fi(filePath);
-    m_fileStatusLabel->setStyleSheet("font-size:13px;color:#1565c0;font-weight:600;background:transparent;");
+    m_fileStatusLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#1565c0;font-weight:600;background:transparent;");
     m_fileStatusLabel->setText(QStringLiteral("已选择：%1 (%2 KB)").arg(fi.fileName()).arg(fi.size() / 1024));
 
     m_confirmBtn->setEnabled(true);
@@ -523,8 +533,9 @@ void BatchImportDialog::onCancel()
 }
 
 /**
- * @brief 校验导入文件的表头字段是否完整
- * @return 缺失的字段名列表；全部齐全时返回空列表
+ * @brief
+ * @param headers 表头字段列表
+ * @return 操作是否成功（true=成功，false=失败）
  */
 bool BatchImportDialog::validateHeaders(const QStringList& headers)
 {
@@ -545,7 +556,9 @@ bool BatchImportDialog::validateHeaders(const QStringList& headers)
 }
 
 /**
- * @brief 校验行
+ * @brief
+ * @param row 表格行号（从 0 开始）
+ * @return 返回生成的字符串（失败时可能为空串）
  */
 QString BatchImportDialog::validateRow(const ImportRow& row)
 {
@@ -570,7 +583,9 @@ QString BatchImportDialog::validateRow(const ImportRow& row)
 }
 
 /**
- * @brief 解析表格
+ * @brief
+ * @param filePath 待读取的文件完整路径
+ * @return 导入结果（含是否成功与错误信息）
  */
 ImportResult BatchImportDialog::parseExcel(const QString& filePath)
 {
