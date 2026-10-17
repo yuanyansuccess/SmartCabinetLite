@@ -235,7 +235,8 @@ QString SystemSettingsPage::detectWiredInterfaceName() {
  * @param dns DNS 服务器地址
  */
 void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& mask,
-                                            const QString& gateway, const QString& dns) {
+                                            const QString& gateway, const QString& dns,
+                                            int speedMode) {
     // 基础校验：IP不能为空
     if (ip.isEmpty() || ip == "0.0.0.0") {
         qWarning() << "[Network] Invalid IP address:" << ip;
@@ -250,12 +251,19 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
                                    .arg(action).arg(result).arg(detail));
     };
 
+    // 网卡应用失败时统一向用户弹窗（异步回调中使用，避免静默失败）
+    auto notifyFail = [this](const QString& detail) {
+        MessageDialog::showError(this, QStringLiteral("网络应用失败"),
+            QStringLiteral("配置已保存到本地，但应用到系统网卡失败：%1\n请以管理员/root 权限运行，或检查网卡名称。").arg(detail));
+    };
+
     // 检测有线网卡名称
     QString ifName = detectWiredInterfaceName();
     if (ifName.isEmpty()) {
         writeNetLog(QStringLiteral("DETECT"), QStringLiteral("FAIL"),
                     QStringLiteral("no wired interface found"));
         qWarning() << "[Network] Cannot apply config: no wired interface detected";
+        notifyFail(QStringLiteral("未检测到有线网卡"));
         return;
     }
 
@@ -283,18 +291,19 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
     }
 
     writeNetLog(QStringLiteral("DETECT"), QStringLiteral("OK"),
-                QStringLiteral("interface=%1 ip=%2/%3 gw=%4 dns=%5")
-                    .arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns));
+                QStringLiteral("interface=%1 ip=%2/%3 gw=%4 dns=%5 speed=%6")
+                    .arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns).arg(speedMode));
 
 #ifdef Q_OS_WIN
     // ═══════════ Windows: netsh 配置IP/DNS/Gateway ═══════════
     // netsh interface ip set address name="<ifName>" static <ip> <mask> <gateway> 1
     // netsh interface ip set dns name="<ifName>" static <dns> primary
+    // 注：Windows 下网口速率由网卡驱动自适应，本程序不强制（强制速率需 devcon/PowerShell，风险较高）
 
     // 异步执行IP配置
     auto* ipProc = new QProcess(this);
     connect(ipProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, ifName, dns, writeNetLog](int exitCode, QProcess::ExitStatus) {
+            this, [this, ifName, dns, writeNetLog, notifyFail](int exitCode, QProcess::ExitStatus) {
         auto* p = qobject_cast<QProcess*>(sender());
         if (!p) return;
         p->deleteLater();
@@ -307,7 +316,7 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
             // IP配置成功后，配置DNS
             auto* dnsProc = new QProcess(this);
             connect(dnsProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                    this, [this, ifName, dns, writeNetLog](int exitCodeDns, QProcess::ExitStatus) {
+                    this, [this, ifName, dns, writeNetLog, notifyFail](int exitCodeDns, QProcess::ExitStatus) {
                 auto* pd = qobject_cast<QProcess*>(sender());
                 if (!pd) return;
                 pd->deleteLater();
@@ -319,6 +328,7 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
                     writeNetLog(QStringLiteral("SET_DNS"), QStringLiteral("FAIL"),
                                 QStringLiteral("exitCode=%1").arg(exitCodeDns));
                     qWarning() << "[Network] DNS config failed, exitCode:" << exitCodeDns;
+                    notifyFail(QStringLiteral("DNS 配置失败（exitCode=%1）").arg(exitCodeDns));
                 }
             });
             dnsProc->start("netsh", QStringList() << "interface" << "ip" << "set" << "dns"
@@ -327,11 +337,13 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
             if (!dnsProc->waitForStarted(3000)) {
                 qWarning() << "[Network] Failed to start DNS config";
                 dnsProc->deleteLater();
+                notifyFail(QStringLiteral("无法启动 DNS 配置进程"));
             }
         } else {
             writeNetLog(QStringLiteral("SET_IP"), QStringLiteral("FAIL"),
                         QStringLiteral("exitCode=%1").arg(exitCode));
             qWarning() << "[Network] IP config failed, exitCode:" << exitCode;
+            notifyFail(QStringLiteral("IP/网关配置失败（exitCode=%1）").arg(exitCode));
         }
     });
 
@@ -343,17 +355,14 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
         writeNetLog(QStringLiteral("SET_IP"), QStringLiteral("START_FAILED"),
                     QStringLiteral("cannot start netsh"));
         ipProc->deleteLater();
+        notifyFail(QStringLiteral("无法启动 IP 配置进程（netsh）"));
     }
 
 #else
-    // ═══════════ 麒麟Linux: ip + resolvconf 配置IP/DNS/Gateway ═══════════
-    // ip addr flush dev <ifName>
-    // ip addr add <ip>/<prefix> dev <ifName>
-    // ip route add default via <gateway> dev <ifName>
-    // echo "nameserver <dns>" > /etc/resolv.conf
-
-    // 用 sh 脚本一次性执行所有网络配置命令（需root，通过pkexec提权）
-    // 如果pkexec不可用则直接用sh（可能因权限不足失败，记录日志）
+    // ═══════════ 麒麟Linux: ip + ethtool + nmcli 配置IP/DNS/Gateway/速率 ═══════════
+    // ip addr flush/add、ip route、/etc/resolv.conf：即时生效
+    // ethtool：即时设置速率/双工
+    // nmcli：持久化到 NetworkManager（连接名可能不等于接口名，需先按接口名查 con-name）
     QString netScript = QStringLiteral(
         "# 网络配置脚本 - 仅配置有线网卡 %1\n"
         "IFACE=\"%1\"\n"
@@ -361,6 +370,11 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
         "PREFIX=%3\n"
         "GW=\"%4\"\n"
         "DNS=\"%5\"\n"
+        "SPEED=%6\n"
+        "# 按接口名定位 NetworkManager 连接名（con-name 不一定等于接口名）\n"
+        "CONN=$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null | awk -F: -v dev=\"$IFACE\" '$2==dev{print $1; exit}')\n"
+        "[ -z \"$CONN\" ] && CONN=$(nmcli -t -f NAME,DEVICE con show 2>/dev/null | awk -F: -v dev=\"$IFACE\" '$2==dev{print $1; exit}')\n"
+        "[ -z \"$CONN\" ] && CONN=\"$IFACE\"\n"
         "# 清除旧IP配置\n"
         "ip addr flush dev $IFACE 2>/dev/null\n"
         "# 设置新IP\n"
@@ -376,20 +390,31 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
         "else "
         "  echo \"nameserver $DNS\" > /etc/resolv.conf 2>/dev/null; "
         "fi\n"
-        "# 麒麟系统持久化网络配置（写入netplan或NetworkManager）\n"
+        "# 网口速率配置：1=100M全双工(关闭自协商)，0=1000M自适应(开启自协商)，ethtool即时生效\n"
+        "if [ \"$SPEED\" = \"1\" ]; then "
+        "  ethtool -s $IFACE speed 100 duplex full autoneg off 2>/dev/null; "
+        "else "
+        "  ethtool -s $IFACE autoneg on 2>/dev/null; "
+        "fi\n"
+        "# 麒麟系统持久化网络配置（写入NetworkManager）\n"
         "if command -v nmcli >/dev/null 2>&1; then "
-        "  nmcli con modify $IFACE ipv4.addresses $IP/$PREFIX 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.gateway $GW 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.dns $DNS 2>/dev/null; "
-        "  nmcli con modify $IFACE ipv4.method manual 2>/dev/null; "
-        "  nmcli con up $IFACE 2>/dev/null; "
+        "  nmcli con modify \"$CONN\" ipv4.addresses $IP/$PREFIX 2>/dev/null; "
+        "  nmcli con modify \"$CONN\" ipv4.gateway $GW 2>/dev/null; "
+        "  nmcli con modify \"$CONN\" ipv4.dns $DNS 2>/dev/null; "
+        "  nmcli con modify \"$CONN\" ipv4.method manual 2>/dev/null; "
+        "  if [ \"$SPEED\" = \"1\" ]; then "
+        "    nmcli con modify \"$CONN\" 802-3-ethernet.auto-negotiate no 802-3-ethernet.speed 100 802-3-ethernet.duplex full 2>/dev/null; "
+        "  else "
+        "    nmcli con modify \"$CONN\" 802-3-ethernet.auto-negotiate yes 2>/dev/null; "
+        "  fi; "
+        "  nmcli con up \"$CONN\" 2>/dev/null; "
         "fi\n"
         "echo 'NETWORK_CONFIG_OK'\n"
-    ).arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns);
+    ).arg(ifName).arg(ip).arg(prefixLen).arg(gateway).arg(dns).arg(speedMode);
 
     auto* netProc = new QProcess(this);
     connect(netProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, ifName, writeNetLog](int exitCode, QProcess::ExitStatus) {
+            this, [this, ifName, writeNetLog, notifyFail](int exitCode, QProcess::ExitStatus) {
         auto* p = qobject_cast<QProcess*>(sender());
         if (!p) return;
         QString output = p->readAllStandardOutput().trimmed();
@@ -403,18 +428,19 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
             writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("FAIL"),
                         QStringLiteral("exitCode=%1 output=%2").arg(exitCode).arg(output));
             qWarning() << "[Network] Network config failed, exitCode:" << exitCode << "output:" << output;
+            notifyFail(QStringLiteral("麒麟网卡配置失败（exitCode=%1）").arg(exitCode));
         }
     });
 
     // 优先尝试 pkexec 提权（麒麟系统polkit已集成）
-    // 如果pkexec不可用则直接用sh（可能因权限不足失败，记录日志）
+    // 如果pkexec不可用则直接用sh（可能因权限不足失败，记录日志并弹窗）
     netProc->start("pkexec", QStringList() << "sh" << "-c" << netScript);
     if (!netProc->waitForStarted(3000)) {
         // pkexec不可用，降级用sh直接执行（可能因权限不足失败）
         netProc->deleteLater();
         auto* shProc = new QProcess(this);
         connect(shProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [ifName, writeNetLog](int exitCode, QProcess::ExitStatus) {
+                this, [this, ifName, writeNetLog, notifyFail](int exitCode, QProcess::ExitStatus) {
             auto* p = qobject_cast<QProcess*>(sender());
             if (!p) return;
             QString output = p->readAllStandardOutput().trimmed();
@@ -427,6 +453,7 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
                 writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("FAIL"),
                             QStringLiteral("exitCode=%1 output=%2 (no root)").arg(exitCode).arg(output));
                 qWarning() << "[Network] Network config failed (no root), exitCode:" << exitCode;
+                notifyFail(QStringLiteral("麒麟网卡配置失败（无 root 权限，exitCode=%1）").arg(exitCode));
             }
         });
         shProc->start("sh", QStringList() << "-c" << netScript);
@@ -435,6 +462,7 @@ void SystemSettingsPage::applyNetworkConfig(const QString& ip, const QString& ma
             writeNetLog(QStringLiteral("SET_NETWORK"), QStringLiteral("START_FAILED"),
                         QStringLiteral("cannot start sh"));
             shProc->deleteLater();
+            notifyFail(QStringLiteral("无法启动网络配置脚本"));
         }
     }
 #endif

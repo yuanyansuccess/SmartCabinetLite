@@ -13,7 +13,7 @@ BUILD_DIR="${PROJECT_DIR}/build-kylin"
 INSTALL_DIR="${PROJECT_DIR}/deploy-kylin"
 
 # Qt环境（根据实际安装路径调整）
-export QT_DIR="/opt/Qt/5.15.2/gcc_64"  # 麒麟系统Qt安装路径
+export QT_DIR="/opt/Qt/6.5.3/gcc_64"  # 麒麟x86_64系统Qt6.5.3安装路径（与 README 一致）
 export PATH="${QT_DIR}/bin:${PATH}"
 export LD_LIBRARY_PATH="${QT_DIR}/lib:${LD_LIBRARY_PATH}"
 
@@ -131,12 +131,27 @@ mkdir -p "${INSTALL_DIR}/lib"
 mkdir -p "${INSTALL_DIR}/plugins/sqldrivers"
 mkdir -p "${INSTALL_DIR}/plugins/platforms"
 
-# 复制MySQL驱动
-if [ -f "${QT_DIR}/plugins/sqldrivers/libqsqlmysql.so" ]; then
-    cp "${QT_DIR}/plugins/sqldrivers/libqsqlmysql.so" "${INSTALL_DIR}/plugins/sqldrivers/"
-    echo "已复制MySQL驱动"
+# 复制SQL驱动（QODBC 为主：本程序经 QODBC + "MySQL ODBC 8.0 Unicode Driver" 连库；
+#   Qt6.5.3 不自带 QMYSQL，必须带 libqsqlodbc.so。直接复制整个 sqldrivers 目录，避免遗漏）
+if [ -d "${QT_DIR}/plugins/sqldrivers" ]; then
+    cp -r "${QT_DIR}/plugins/sqldrivers/." "${INSTALL_DIR}/plugins/sqldrivers/"
+    echo "已复制SQL驱动（含 libqsqlodbc.so）"
 else
-    echo "警告：MySQL驱动未找到"
+    echo "警告：SQL驱动目录未找到: ${QT_DIR}/plugins/sqldrivers"
+fi
+
+# ── 目标柜机 ODBC 前置依赖自检（unixODBC + MySQL ODBC 连接器）──
+# 程序通过 QODBC 连 MySQL，柜机必须：
+#   1) 安装 unixODBC:        sudo apt-get install unixodbc unixodbc-dev
+#   2) 安装 MySQL ODBC 连接器: sudo apt-get install mysql-connector-odbc
+#   3) 注册驱动名（须与代码 connection string 中 DRIVER={MySQL ODBC 8.0 Unicode Driver} 完全一致）：
+#      sudo myodbc-installer -d -a -n "MySQL ODBC 8.0 Unicode Driver" \
+#          -t "Driver=/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so"
+#      或手动写入 /etc/odbcinst.ini 的 [MySQL ODBC 8.0 Unicode Driver] 段
+if ! ldconfig -p | grep -q "libodbc"; then
+    echo "警告：未检测到 unixODBC 运行时库，部署前请先在目标柜机执行: sudo apt-get install unixodbc"
+else
+    echo "unixODBC 运行时库已存在"
 fi
 
 # 复制平台插件

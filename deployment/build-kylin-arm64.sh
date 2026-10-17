@@ -152,6 +152,15 @@ cp -r "$QT_HOME/plugins/styles" "$INSTALL_DIR/plugins/" 2>/dev/null || true
 cp -r "$QT_HOME/plugins/sqldrivers" "$INSTALL_DIR/plugins/" 2>/dev/null || true
 cp -r "$QT_HOME/plugins/imageformats" "$INSTALL_DIR/plugins/" 2>/dev/null || true
 
+# ── 目标柜机 ODBC 前置依赖自检（unixODBC + MySQL ODBC 连接器）──
+# 程序通过 QODBC 连 MySQL，柜机必须安装 unixODBC 与 mysql-connector-odbc，
+# 并注册驱动名 "MySQL ODBC 8.0 Unicode Driver"（详见 deployment/README.md 第七节）。
+if ! ldconfig -p | grep -q "libodbc"; then
+    echo -e "${YELLOW}警告：未检测到 unixODBC 运行时库，部署前请先在目标柜机执行: sudo apt-get install unixodbc${NC}"
+else
+    echo -e "${GREEN}unixODBC 运行时库已存在${NC}"
+fi
+
 # 复制Qt核心库
 mkdir -p "$INSTALL_DIR/lib"
 cp "$QT_HOME/lib/libQt6Core.so.6" "$INSTALL_DIR/lib/" 2>/dev/null || true

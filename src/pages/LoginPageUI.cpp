@@ -214,11 +214,7 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
         QString logoPath = QCoreApplication::applicationDirPath() + "/resources/logo.png";
 
-        if (!QFile::exists(logoPath)) {
-
-            logoPath = "D:/CFDZ/smartCabinet/trunk/QtSmartCabinet/resources/logo.png";
-
-        }
+        // 找不到则回落到下方文字占位（"成飞电子"），不再硬编码开发机 Windows 路径
 
         if (QFile::exists(logoPath)) {
 

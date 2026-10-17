@@ -9,6 +9,7 @@
 #include <QFile>
 #include <QIcon>
 #include <QStyleFactory>
+#include <QMessageBox>
 #include "common/AppConfig.h"
 #include "common/DatabaseManager.h"
 #include "common/Logger.h"
@@ -52,7 +53,16 @@ int main(int argc, char* argv[]) {
     AppConfig& cfg = AppConfig::instance();
     DatabaseManager& db = DatabaseManager::instance();
     if (!db.initialize(cfg.dbHost(), cfg.dbPort(), cfg.dbName(), cfg.dbUser(), cfg.dbPass())) {
-        qCritical("FATAL: Database initialization failed completely, exiting");
+        qCritical("FATAL: Database initialization failed completely");
+        QString detail = db.lastError();
+        if (detail.isEmpty()) {
+            detail = QStringLiteral(
+                "无法连接数据库（%1:%2/%3）。\n请确认：1) MySQL 服务已启动；"
+                "2) 已安装 unixODBC 与 MySQL ODBC 8.0 Unicode Driver；"
+                "3) 该驱动已在 /etc/odbcinst.ini 注册。")
+                .arg(cfg.dbHost()).arg(cfg.dbPort()).arg(cfg.dbName());
+        }
+        QMessageBox::critical(nullptr, QStringLiteral("数据库初始化失败"), detail);
         return 1;
     }
     qInfo() << "Database initialized successfully, connected:" << db.isConnected();
