@@ -19,13 +19,6 @@ namespace db {
 
 class ToolDAO : public BaseDAO {
 public:
-    ToolDAO() = default;
-
-    // ═══════════════════════════════════════════════
-    // QJsonObject API（Service层使用）
-    // ═══════════════════════════════════════════════
-    QJsonObject findAll(const QString& keyword, const QString& category,
-                        const QString& status, int cabinetId, int page, int pageSize,
                         int machineGroupId = 0);
     // 位置维度查询：每个在库位置一行（同一工具多位置分行显示）
     // 入参：keyword关键字, category类别, status映射表status, cabinetId柜体, page页码, pageSize每页, machineGroupId机组
@@ -39,12 +32,8 @@ public:
     // 返回：QJsonObject含list(QJsonArray)和total，每项含toolId/toolName/toolCode/availableQty等
     QJsonObject findAllInStockByTool(const QString& keyword, const QString& category,
                                       int page, int pageSize, int machineGroupId = 0);
-    QJsonObject findById(int toolId);
-    QJsonObject findByCode(const QString& code);
     int         insert(const QJsonObject& toolInfo);
-    bool        update(int toolId, const QJsonObject& updates);
     bool        softDelete(int toolId);
-    bool        updateStock(int toolId, int delta);
     bool        updateStatus(int toolId, const QString& status);
 
     // ═══════════════════════════════════════════════
@@ -61,17 +50,13 @@ public:
     ToolInfo        findToolByCode(const QString& toolCode);
     int             insertTool(const ToolInfo& tool);
     bool            updateTool(const ToolInfo& tool);
-    bool            deleteToolById(int toolId);
     bool            updateToolStatus(int toolId, const QString& status);
-    bool            borrowTool(int toolId, int qty);
-    bool            returnTool(int toolId, int qty);
     // 轻量更新文档路径 — 详情页上传文档专用，避免全字段updateTool
     bool            updateDocumentPath(int toolId, const QString& docPath);
 
     // 分类/柜体查询
     QList<ToolCategory> allCategories();
     QList<ToolCabinet>  allCabinets();
-    QStringList         allCategoryNames();
     QStringList         allCabinetNames();
 
     // 统计与机组查询
@@ -81,10 +66,6 @@ public:
     // 通过工具ID查询映射表中in_stock位置的列表，用于借用时自动分配位置
     QJsonArray findInStockPositions(int toolId, int limit = 10);
     // 更新映射表状态（用于出库操作标记checked_out等）
-    bool        updateMappingStatus(int mappingId, const QString& status);
-
-    // 按名称查ID（Service层迁移到DAO）
-    int findCategoryIdByName(const QString& name);     // 按分类名查category_id，-1=未找到
     int findCabinetIdByName(const QString& name);      // 按柜体名查cabinet_id，-1=未找到
     int countInStockPositions(int toolId);             // 统计工具in_stock位置数
     QString findMappingStatus(int mappingId);          // 查询映射表状态，空字符串=不存在
@@ -111,20 +92,12 @@ public:
     bool        updateTaskTypeToolQty(int typeId, int toolId, int qty);
     bool        checkTaskTypeToolExists(int typeId, int toolId);
     bool        addTaskTypeTool(int typeId, int toolId, int qty);
-    bool        deleteTaskTypeTool(int typeId, int toolId);
-    // 工具维护
-    QJsonArray  allToolsForMaintenance();                   // 工具列表（含分类名）[{toolId,toolCode,toolName,categoryName,spec,unit,status}]
-    QJsonObject findToolForEdit(int toolId);                // 编辑对话框用的工具信息
-    bool        insertToolFull(const QJsonObject& tool);    // 新建工具（含全部字段）
-    bool        updateToolFull(int toolId, const QJsonObject& updates); // 更新工具（含全部字段）
     bool        deleteToolFully(int toolId);                // 删除工具及关联映射记录
     // 位置对照
     QJsonArray  allToolsSimple();                           // 工具下拉列表 [{toolId,toolCode,toolName}]
     QJsonObject checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position);
     bool        insertPositionMapping(int toolId, int cabinetId, const QString& layer, const QString& position, const QString& status = SC::TOOL_PENDING);
-    QJsonObject findPositionMappingDetail(int mappingId);   // 映射详情（含工具名）
-    bool        isPositionMappingOccupied(int mappingId);   // 该位置是否已有工具在库/借用
-    bool        deletePositionMapping(int mappingId);
+    /// 按柜体名称前缀（如"A"）解析柜体ID；找不到返回-1
     QJsonArray  findAllPositionMappings();                  // 所有对照关系 [{mappingId,toolName,toolCode,cabinetName,layer,position,positionStatus}]
     QJsonArray  findAllInStockPositions(int machineGroupId); // 在库位置明细（出库下拉用）[{mappingId,toolId,toolCode,toolName,cabinetName,layer,position,posDisplay}]
 

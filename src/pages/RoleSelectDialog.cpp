@@ -100,7 +100,7 @@ void RoleSelectDialog::setupContent() {
 
     cl->addWidget(makeChoiceBtn(
         QStringLiteral("🛠️"), QStringLiteral("以管理员身份登录"),
-        QStringLiteral("人员、工具、台账、告警等管理功能"),
+        QStringLiteral("人员、工具、告警、系统设置等管理功能"),
         Choice::Admin));
     cl->addWidget(makeChoiceBtn(
         QStringLiteral("👤"), QStringLiteral("以普通用户身份登录"),

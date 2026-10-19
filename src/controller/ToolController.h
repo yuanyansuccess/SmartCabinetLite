@@ -28,6 +28,11 @@ public:
                             const QString& status = "", const QString& machineGroup = "");
     ToolInfo    getToolById(int toolId);
     int         addTool(const ToolInfo& tool);
+    /// 建档同时落位置映射（位置必填，建档即定位置）
+    int         addToolWithPosition(const ToolInfo& tool, int cabinetId,
+                                   const QString& layer, const QString& position);
+    /// 按柜体名称首字母（如"A"）解析柜体ID；找不到返回-1
+    int         resolveCabinetId(const QString& cabLetter);
     bool        updateTool(const ToolInfo& tool);
     bool        deleteTool(int toolId);
     // 详情页上传文档 — 轻量更新文档路径

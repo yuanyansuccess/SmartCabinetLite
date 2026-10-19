@@ -274,7 +274,6 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
     return total;
 }
 
-
 // ==============================================================
 // 【⑤ 工具操作（ToolInfo 接口）
 //   按结构体的新增/更新/删除与状态
@@ -285,10 +284,22 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
  * @return 工具实体；不存在时返回默认构造的空实体
  */
 ToolInfo ToolDAO::findToolById(int toolId) {
-    QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
+    QSqlQuery q = query("SELECT t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
+                         "COALESCE(mpm.cabinet_id, t.cabinet_id) AS cabinet_id, "
+                         "t.machine_group_id, "
+                         "COALESCE(mpm.layer, t.layer) AS layer, "
+                         "COALESCE(mpm.position, t.position) AS position, "
+                         "t.total_qty, t.current_qty, t.vision_tag, t.status, t.is_recommended, "
+                         "t.recognition_method, t.document_path, t.checkout_reason, t.created_at, t.updated_at, "
+                         "c.category_name, "
+                         "COALESCE(mpm_cb.cabinet_name, cb.cabinet_name) AS cabinet_name, "
+                         "mg.group_name "
+                         "FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
                          "LEFT JOIN machine_group mg ON t.machine_group_id=mg.group_id "
+                         "LEFT JOIN tool_position_mapping mpm ON mpm.mapping_id=(SELECT MIN(m.mapping_id) FROM tool_position_mapping m WHERE m.tool_id=t.tool_id AND m.status='in_stock') "
+                         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
                          "WHERE t.tool_id = ?", {toolId});
     if (q.next()) return fromQuery(q);
     return ToolInfo();
@@ -300,10 +311,22 @@ ToolInfo ToolDAO::findToolById(int toolId) {
  * @return 工具实体；不存在时返回默认构造的空实体
  */
 ToolInfo ToolDAO::findToolByCode(const QString& code) {
-    QSqlQuery q = query("SELECT t.*, c.category_name, cb.cabinet_name, mg.group_name FROM tool_info t "
+    QSqlQuery q = query("SELECT t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
+                         "COALESCE(mpm.cabinet_id, t.cabinet_id) AS cabinet_id, "
+                         "t.machine_group_id, "
+                         "COALESCE(mpm.layer, t.layer) AS layer, "
+                         "COALESCE(mpm.position, t.position) AS position, "
+                         "t.total_qty, t.current_qty, t.vision_tag, t.status, t.is_recommended, "
+                         "t.recognition_method, t.document_path, t.checkout_reason, t.created_at, t.updated_at, "
+                         "c.category_name, "
+                         "COALESCE(mpm_cb.cabinet_name, cb.cabinet_name) AS cabinet_name, "
+                         "mg.group_name "
+                         "FROM tool_info t "
                          "LEFT JOIN tool_category c ON t.category_id=c.category_id "
                          "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
                          "LEFT JOIN machine_group mg ON t.machine_group_id=mg.group_id "
+                         "LEFT JOIN tool_position_mapping mpm ON mpm.mapping_id=(SELECT MIN(m.mapping_id) FROM tool_position_mapping m WHERE m.tool_id=t.tool_id AND m.status='in_stock') "
+                         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
                          "WHERE t.tool_code = ?", {code});
     if (q.next()) return fromQuery(q);
     return ToolInfo();
@@ -315,12 +338,12 @@ ToolInfo ToolDAO::findToolByCode(const QString& code) {
  * @return 新记录的ID；写入失败返回 -1
  */
 int ToolDAO::insertTool(const ToolInfo& t) {
-    // 增加recognition_method/document_path列
+    // 位置不再写 tool_info 冗余列(cabinet_id/layer/position)，权威位置在 tool_position_mapping（由 addToolWithPosition 建映射）
     return insertAndGetId("INSERT INTO tool_info (tool_code,tool_name,spec,category_id,"
-                          "cabinet_id,machine_group_id,layer,position,total_qty,current_qty,vision_tag,status,"
-                          "is_recommended,recognition_method,document_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                          {t.toolCode, t.toolName, t.spec, t.categoryId, t.cabinetId,
-                           t.machineGroupId, t.layer, t.position, t.totalQty, t.currentQty, t.visionTag,
+                          "machine_group_id,total_qty,current_qty,vision_tag,status,"
+                          "is_recommended,recognition_method,document_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                          {t.toolCode, t.toolName, t.spec, t.categoryId,
+                           t.machineGroupId, t.totalQty, t.currentQty, t.visionTag,
                            t.status, t.isRecommended, t.recognitionMethod, t.documentPath});
 }
 
@@ -330,12 +353,12 @@ int ToolDAO::insertTool(const ToolInfo& t) {
  * @return true=更新成功
  */
 bool ToolDAO::updateTool(const ToolInfo& t) {
-    // 增加recognition_method/document_path更新
-    return execute("UPDATE tool_info SET tool_name=?,spec=?,category_id=?,cabinet_id=?,"
-                   "machine_group_id=?,layer=?,position=?,total_qty=?,vision_tag=?,status=?,is_recommended=?,"
+    // 位置不写 tool_info 冗余列(cabinet_id/layer/position)，权威位置在 tool_position_mapping（位置调整走入库/调整流程）
+    return execute("UPDATE tool_info SET tool_name=?,spec=?,category_id=?,"
+                   "machine_group_id=?,total_qty=?,vision_tag=?,status=?,is_recommended=?,"
                    "recognition_method=?,document_path=? WHERE tool_id=?",
-                   {t.toolName, t.spec, t.categoryId, t.cabinetId, t.machineGroupId,
-                    t.layer, t.position, t.totalQty, t.visionTag, t.status, t.isRecommended,
+                   {t.toolName, t.spec, t.categoryId, t.machineGroupId,
+                    t.totalQty, t.visionTag, t.status, t.isRecommended,
                     t.recognitionMethod, t.documentPath, t.toolId});
 }
 
@@ -348,46 +371,12 @@ bool ToolDAO::deleteToolById(int toolId) {
     return execute("DELETE FROM tool_info WHERE tool_id = ?", {toolId});
 }
 
-/**
- * @brief 更新工具状态
- * @param toolId 工具ID
- * @param status 目标状态，取 SC::TOOL_* 常量
- * @return true=更新成功
- */
-bool ToolDAO::updateToolStatus(int toolId, const QString& status) {
-    return execute("UPDATE tool_info SET status=? WHERE tool_id=?", {status, toolId});
-}
-
 // 轻量更新文档路径 — 详情页上传文档专用
 // 只更新document_path一个字段，避免全字段updateTool的副作用
 bool ToolDAO::updateDocumentPath(int toolId, const QString& docPath) {
     return execute("UPDATE tool_info SET document_path=? WHERE tool_id=?",
                    {docPath, toolId});
 }
-
-/**
- * @brief 借用工具并扣减在库数量
- * @param toolId 工具ID
- * @param qty 借用数量
- * @return true=扣减成功；false=库存不足或写入失败
- */
-bool ToolDAO::borrowTool(int toolId, int qty) {
-    return execute("UPDATE tool_info SET current_qty=current_qty-?, "
-                   "status=IF(current_qty-?<=0,'borrowed','in_stock') WHERE tool_id=?",
-                   {qty, qty, toolId});
-}
-
-/**
- * @brief 归还工具并回增在库数量
- * @param toolId 工具ID
- * @param qty 归还数量
- * @return true=回增成功
- */
-bool ToolDAO::returnTool(int toolId, int qty) {
-    return execute("UPDATE tool_info SET current_qty=current_qty+?, "
-                   "status='in_stock' WHERE tool_id=?", {qty, toolId});
-}
-
 
 // ==============================================================
 // 【⑥ 配置数据（分类/柜体/机组/任务类型）

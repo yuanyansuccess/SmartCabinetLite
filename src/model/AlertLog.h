@@ -25,7 +25,6 @@ struct AlertLog {
     // 关联展示字段
     QString userName;
     QString realName;
-    QString toolCode;
     QString toolName;
     QString flowNo;
 };

@@ -159,28 +159,60 @@ void ToolManagementPage::onSubmitTool() {
     QString name = m_dlgName->text().trimmed();
     if (name.isEmpty()) { MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("工具名称不能为空")); return; }
 
+    // ── 位置必填（铁律：工具建档即定位置，位置不允许为空）──
+    QString posText = m_dlgPosition->text().trimmed();
+    if (posText.isEmpty()) {
+        MessageDialog::showError(this, QStringLiteral("错误"),
+            QStringLiteral("存放位置不能为空，请按 柜-层-位 填写（如 A-01-03）"));
+        return;
+    }
+    // 解析 柜字母-层-位（兼容 "A-01-03" / "A0103" / "A-1-3"）
+    QRegularExpression re("^([A-Za-z])[-\\s]*(\\d+)[-\\s]*(\\d+)$");
+    QRegularExpressionMatch m = re.match(posText);
+    if (!m.hasMatch()) {
+        MessageDialog::showError(this, QStringLiteral("错误"),
+            QStringLiteral("位置格式应为 柜-层-位（如 A-01-03）"));
+        return;
+    }
+    QString cabLetter = m.captured(1).toUpper();
+    QString layer    = StyleHelper::twoDigitCode(m.captured(2));
+    QString position = StyleHelper::twoDigitCode(m.captured(3));
+
+    ToolController ctrl;
+    int cabinetId = ctrl.resolveCabinetId(cabLetter);
+    if (cabinetId <= 0) {
+        MessageDialog::showError(this, QStringLiteral("错误"),
+            QStringLiteral("未找到柜体\"%1柜\"，请先在柜体管理中添加，或核对位置首字母").arg(cabLetter));
+        return;
+    }
+
     ToolInfo info;
     info.toolName = name;
     info.toolCode = m_dlgCode->text().trimmed();
     info.categoryId = m_dlgCategory->currentData().toInt();
-    info.position = m_dlgPosition->text().trimmed();
+    // 位置由 addToolWithPosition 经参数(cabinetId/layer/position)写入 tool_position_mapping（权威数据源）；
+    // tool_info 不再冗余存储位置，故此处不给 info 赋冗余位置字段
     // 数量恒为1（一个位置=一个工具），不从输入框读取
     info.totalQty = 1;
     info.currentQty = 1;
     info.spec = m_dlgSpec->text().trimmed();
-    info.cabinetId = 0;
     // 从AppConfig读取本机机组ID，系统设置页面配置
     info.machineGroupId = AppConfig::instance().localMachineGroupId();
     info.status = SC::TOOL_IN_STOCK;
 
-    ToolController ctrl;
     bool ok;
     if (m_editToolId == 0) {
-        ok = (ctrl.addTool(info) > 0);
+        // 建档即定位置：位置落进映射表，杜绝"有档无位"
+        int newId = ctrl.addToolWithPosition(info, cabinetId, layer, position);
+        ok = (newId > 0);
+        if (!ok) MessageDialog::showError(this, QStringLiteral("错误"),
+            QStringLiteral("保存失败：工具编号不合法或该位置已被占用"));
     } else {
         info.toolId = m_editToolId;
+        // 编辑场景仅更新工具主档；位置调整请走入库/调整位置流程（避免误覆盖在用映射）
         ok = ctrl.updateTool(info);
     }
+
     if (ok) { m_toolDialog->accept(); loadStats(); }
-    else { MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("保存失败")); }
+    else if (m_editToolId != 0) { MessageDialog::showError(this, QStringLiteral("错误"), QStringLiteral("保存失败")); }
 }

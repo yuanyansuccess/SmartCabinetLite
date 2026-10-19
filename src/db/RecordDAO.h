@@ -50,46 +50,15 @@ public:
     QJsonObject findOperationLogsByType(const QString& operationType, int page, int pageSize);
     // 分页查询全部类型的操作日志（含操作人信息），返回 {list, total}
     // list 元素含 type 字段（operation_type 原值），展示层据此做中文映射
-    QJsonObject findOperationLogsAll(int page, int pageSize);
-    // 统计指定类型的操作日志数量
     int         countOperationLogsByType(const QString& operationType);
     // 入库记录查询（含位置JOIN信息）— 入库记录Tab专用
     // 返回：{list: [{createdAt,content,targetId,realName,workNo,
     // tiCabId,tiCabName,tiLayer,tiPos,mpmCabId,mpmCabName,mpmLayer,mpmPos}], total}
-    QJsonObject findCheckinLogs(int page, int pageSize);
-    // 用户首页统计：今日借用/待归还/本月借用
-    QJsonObject getUserStats(int userId);
-    // 最近借用活动
-    QJsonArray  findRecentActivity(int limit);
-    // 按用户ID查询借用记录
     QJsonArray  findByUserId(int userId, int limit);
     // 台账统计（LedgerStatsPage数据源，自SettingService原样迁移）：
     // totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
     // + categoryStats（按品类件数）+ departmentStats（按部门），旧字段 totalBorrow/totalReturn 同步保留
-    QJsonObject getLedgerStats();
-
-    // ═══════════════════════════════════════════════
-    // 实体类API（Controller层使用）— 从dao/RecordDAO合并
-    // ═══════════════════════════════════════════════
-    int                insertBorrow(const BorrowRecord& r);
-    bool               completeBorrowReturn(int borrowId, const QDateTime& returnTime,
-                                            const QString& condition, const QString& remark);
-    QList<BorrowRecord> findBorrows(int page = 1, int pageSize = 20,
-                                    const QString& keyword = "", const QString& status = "",
-                                    int userId = 0, const QDate& startDate = {}, const QDate& endDate = {});
-    int                borrowCount(const QString& keyword = "", const QString& status = "", int userId = 0,
-                                   const QDate& startDate = {}, const QDate& endDate = {});
     BorrowRecord       findBorrowById(int borrowId);
-    QList<BorrowRecord> findBorrowsByUser(int userId, int limit = 50);
-    bool               hasOverdue(int userId);
-
-    // 归还记录
-    QList<ReturnRecord> findReturns(int page = 1, int pageSize = 20,
-                                    const QString& keyword = "", int userId = 0,
-                                    const QDate& startDate = {}, const QDate& endDate = {});
-
-    // 统计
-    int activeBorrowCount();
     int overdueCount();
 
     static BorrowRecord borrowFromQuery(const QSqlQuery& q);

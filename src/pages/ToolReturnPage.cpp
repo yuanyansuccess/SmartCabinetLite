@@ -466,15 +466,13 @@ void ToolReturnPage::showReturnErrorDialog() {
     if (result == 2) {
         // 忽略或倒计时结束：写告警日志（闭环）
         int alertToolId = 0;
-        QString alertToolCode;
         if (!m_checkedRecordIds.isEmpty()) {
             db::RecordDAO recDao;
             QJsonObject toolInfo = recDao.findToolInfoByRecordId(*m_checkedRecordIds.constBegin());
             alertToolId = toolInfo["toolId"].toInt();
-            alertToolCode = toolInfo["toolCode"].toString();
         }
         AlertService alertSvc;
-        alertSvc.recordVerifyAlert(m_user["userId"].toInt(), alertToolId, alertToolCode,
+        alertSvc.recordVerifyAlert(m_user["userId"].toInt(), alertToolId,
             QStringLiteral("工具核对异常：%1位置工具未正确放入柜位，用户忽略告警或倒计时超时").arg(firstPosition));
 
         MessageDialog::showWarning(nullptr, QStringLiteral("告警已记录"),

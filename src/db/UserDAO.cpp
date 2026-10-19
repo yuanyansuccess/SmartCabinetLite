@@ -28,7 +28,8 @@ User UserDAO::fromQuery(const QSqlQuery& q) {
     u.realName     = q.value("real_name").toString();
     u.workNo       = q.value("work_no").toString();
     u.deptId       = q.value("dept_id").toInt();
-    u.department   = q.value("department").toString();
+    // 部门名称来自 SELECT 中 d.dept_name 的别名，用户表本身不存部门名称
+    u.department   = q.value("department_name").toString();
     u.role         = q.value("role").toString();
     u.mustChangePwd = q.value("must_change_pwd").toInt();
     u.faceFeature  = q.value("face_feature").toString();
@@ -42,6 +43,20 @@ User UserDAO::fromQuery(const QSqlQuery& q) {
 }
 
 /**
+ * @brief 按部门名称解析部门ID
+ * @param deptId 调用方已给出的部门ID，大于0时直接采用
+ * @param deptName 部门名称，仅在 deptId 无效时用于反查 sys_department
+ * @return 有效的部门ID；名称为空或库中不存在该部门时返回0
+ */
+int UserDAO::resolveDeptId(int deptId, const QString& deptName) {
+    if (deptId > 0) return deptId;
+    const QString name = deptName.trimmed();
+    if (name.isEmpty()) return 0;
+    QSqlQuery q = query("SELECT dept_id FROM sys_department WHERE dept_name = ? LIMIT 1", {name});
+    return q.next() ? q.value(0).toInt() : 0;
+}
+
+/**
  * @brief 按登录账号查询用户
  * @param username 登录账号
  * @return 用户信息对象；账号不存在时返回空对象
@@ -50,10 +65,13 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
     query.prepare(
-        "SELECT user_id, username, password_hash, password_salt, real_name, "
-        "role, must_change_pwd, work_no, department, phone, email, face_feature, status, "
-        "last_login_at, created_at, updated_at "
-        "FROM sys_user WHERE username = :username AND status != 'deleted'"
+        "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
+        "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department, "
+        "u.phone, u.email, u.face_feature, u.status, "
+        "u.last_login_at, u.created_at, u.updated_at "
+        "FROM sys_user u "
+        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
+        "WHERE u.username = :username AND u.status != 'deleted'"
     );
     query.bindValue(":username", username);
     if (!safeExec(query) || !query.next()) return QJsonObject();
@@ -67,6 +85,7 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
     user["role"] = query.value("role").toString();
     user["mustChangePwd"] = query.value("must_change_pwd").toInt();
     user["workNo"] = query.value("work_no").toString();
+    user["deptId"] = query.value("dept_id").toInt();
     user["department"] = query.value("department").toString();
     user["phone"] = query.value("phone").toString();
     user["email"] = query.value("email").toString();
@@ -87,10 +106,13 @@ QJsonObject UserDAO::findById(int userId) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
     query.prepare(
-        "SELECT user_id, username, password_hash, password_salt, real_name, "
-        "role, must_change_pwd, work_no, department, phone, email, face_feature, status, "
-        "last_login_at, created_at, updated_at "
-        "FROM sys_user WHERE user_id = :id AND status != 'deleted'"
+        "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
+        "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department, "
+        "u.phone, u.email, u.face_feature, u.status, "
+        "u.last_login_at, u.created_at, u.updated_at "
+        "FROM sys_user u "
+        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
+        "WHERE u.user_id = :id AND u.status != 'deleted'"
     );
     query.bindValue(":id", userId);
     if (!safeExec(query) || !query.next()) return QJsonObject();
@@ -104,6 +126,7 @@ QJsonObject UserDAO::findById(int userId) {
     user["role"] = query.value("role").toString();
     user["mustChangePwd"] = query.value("must_change_pwd").toInt();
     user["workNo"] = query.value("work_no").toString();
+    user["deptId"] = query.value("dept_id").toInt();
     user["department"] = query.value("department").toString();
     user["phone"] = query.value("phone").toString();
     user["email"] = query.value("email").toString();
@@ -113,152 +136,6 @@ QJsonObject UserDAO::findById(int userId) {
     user["createdAt"] = query.value("created_at").toString();
     user["updatedAt"] = query.value("updated_at").toString();
     return user;
-}
-
-/**
- * @brief 分页查询用户列表
- * @param keyword 关键字，匹配账号/工号/姓名，为空不过滤
- * @param role 角色，为空不过滤
- * @param status 状态，为空不过滤
- * @param department 部门名称，为空不过滤
- * @param page 页码，从1开始
- * @param pageSize 每页条数
- * @return 含 list 数组与 total 总数的对象
- */
-QJsonObject UserDAO::findAll(const QString& keyword, const QString& role,
-                            const QString& status, const QString& department,
-                            int page, int pageSize) {
-    QSqlDatabase db = getDb();
-    QStringList conditions;
-    conditions << "u.status != 'deleted'";
-    QMap<QString, QVariant> bindValues;
-
-    if (!keyword.isEmpty()) {
-        QString escaped = keyword;
-        escaped.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
-        QString like = "%" + escaped + "%";
-        conditions << "(u.username LIKE :kw ESCAPE '\\' OR u.real_name LIKE :kw2 ESCAPE '\\' OR u.work_no LIKE :kw3 ESCAPE '\\')";
-        bindValues[":kw"] = like; bindValues[":kw2"] = like; bindValues[":kw3"] = like;
-    }
-    if (!role.isEmpty()) { conditions << "u.role = :role"; bindValues[":role"] = role; }
-    if (!status.isEmpty()) { conditions << "u.status = :status"; bindValues[":status"] = status; }
-    if (!department.isEmpty()) {
-        QStringList depts = department.split(',', Qt::SkipEmptyParts);
-        QStringList placeholders;
-        for (int i = 0; i < depts.size(); ++i) {
-            placeholders << (":dept" + QString::number(i));
-            bindValues[":dept" + QString::number(i)] = depts[i].trimmed();
-        }
-        conditions << "u.department IN (" + placeholders.join(", ") + ")";
-    }
-    QString where = conditions.join(" AND ");
-
-    QSqlQuery countQuery(db);
-    countQuery.prepare("SELECT COUNT(*) FROM sys_user u WHERE " + where);
-    for (auto it = bindValues.begin(); it != bindValues.end(); ++it)
-        countQuery.bindValue(it.key(), it.value());
-    safeExec(countQuery); countQuery.next();
-    int total = countQuery.value(0).toInt();
-
-    QSqlQuery dataQuery(db);
-    // 排序：管理员优先，其次按创建时间倒序
-    dataQuery.prepare(
-        "SELECT u.user_id, u.username, u.real_name, u.role, u.work_no, u.department, "
-        "u.phone, u.email, u.face_feature, u.status, u.last_login_at, u.created_at "
-        "FROM sys_user u WHERE " + where + " ORDER BY CASE u.role WHEN 'admin' THEN 0 ELSE 1 END, u.created_at DESC LIMIT :limit OFFSET :offset"
-    );
-    for (auto it = bindValues.begin(); it != bindValues.end(); ++it)
-        dataQuery.bindValue(it.key(), it.value());
-    dataQuery.bindValue(":limit", pageSize);
-    dataQuery.bindValue(":offset", (page - 1) * pageSize);
-    safeExec(dataQuery);
-
-    QJsonArray list;
-    while (dataQuery.next()) {
-        QJsonObject item;
-        item["userId"] = dataQuery.value("user_id").toInt();
-        item["username"] = dataQuery.value("username").toString();
-        item["realName"] = dataQuery.value("real_name").toString();
-        item["role"] = dataQuery.value("role").toString();
-        item["workNo"] = dataQuery.value("work_no").toString();
-        item["department"] = dataQuery.value("department").toString();
-        item["phone"] = dataQuery.value("phone").toString();
-        item["email"] = dataQuery.value("email").toString();
-        item["faceEnrolled"] = !dataQuery.value("face_feature").toString().isEmpty();
-        item["status"] = dataQuery.value("status").toString();
-        item["lastLoginAt"] = dataQuery.value("last_login_at").toString();
-        item["createdAt"] = dataQuery.value("created_at").toString();
-        list.append(item);
-    }
-    QJsonObject result;
-    result["list"] = list; result["total"] = total;
-    return result;
-}
-
-/**
- * @brief 新增用户记录
- * @param info 用户字段集合，键名使用驼峰形式
- * @return 新记录的用户ID；写入失败返回 -1
- */
-int UserDAO::insert(const QJsonObject& info) {
-    QSqlDatabase db = getDb();
-    QSqlQuery query(db);
-    query.prepare(
-        "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
-        "role, work_no, department, phone, email, status) "
-        "VALUES (:un, :ph, :ps, :rn, :role, :wn, :dept, :phone, :email, :st)"
-    );
-    query.bindValue(":un", info["username"].toString());
-    query.bindValue(":ph", info["passwordHash"].toString());
-    query.bindValue(":ps", info["passwordSalt"].toString());
-    query.bindValue(":rn", info["realName"].toString());
-    query.bindValue(":role", info["role"].toString(SC::ROLE_USER));
-    query.bindValue(":wn", info["workNo"].toString(""));
-    query.bindValue(":dept", info["department"].toString(""));
-    query.bindValue(":phone", info["phone"].toString(""));
-    query.bindValue(":email", info["email"].toString(""));
-    query.bindValue(":st", info["status"].toString(SC::USER_ACTIVE));
-    if (!safeExec(query)) { qWarning() << "[UserDAO] insert failed:" << query.lastError().text(); return -1; }
-    return query.lastInsertId().toInt();
-}
-
-/**
- * @brief 按传入字段增量更新用户信息
- * @param userId 用户ID
- * @param updates 待更新字段集合，为空时不做任何写入
- * @return true=至少更新一个字段；false=入参为空或无有效字段
- */
-bool UserDAO::update(int userId, const QJsonObject& updates) {
-    if (updates.isEmpty()) return false;
-    QSqlDatabase db = getDb();
-    QSqlQuery query(db);
-    QStringList sets; QMap<QString, QVariant> binds;
-    QStringList fields = {"username", "real_name", "role", "work_no", "department", "phone", "email", "status"};
-    for (const auto& f : fields) {
-        if (updates.contains(f)) {
-            sets << (f + " = :" + f);
-            binds[":" + f] = updates[f].toVariant();
-        }
-    }
-    if (sets.isEmpty()) return false;
-    binds[":id"] = userId;
-    query.prepare("UPDATE sys_user SET " + sets.join(", ") + " WHERE user_id = :id");
-    for (auto it = binds.begin(); it != binds.end(); ++it)
-        query.bindValue(it.key(), it.value());
-    return safeExec(query);
-}
-
-/**
- * @brief 逻辑删除用户：状态置为 deleted，保留原记录
- * @param userId 用户ID
- * @return true=状态已更新
- */
-bool UserDAO::softDelete(int userId) {
-    QSqlDatabase db = getDb();
-    QSqlQuery query(db);
-    query.prepare("UPDATE sys_user SET status = 'deleted' WHERE user_id = :id");
-    query.bindValue(":id", userId);
-    return safeExec(query);
 }
 
 /**
@@ -297,9 +174,11 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
     QSqlQuery query(db);
     // activeOnly=true：仅启用账户（登录匹配用，禁用账户由登录流程的状态检查单独拦截）；
     // false：全部未注销账户（人脸录入查重用，禁用账户的人脸同样参与通盘比对）
-    QString sql = "SELECT user_id, username, real_name, work_no, department, face_feature FROM sys_user "
-                  "WHERE face_feature IS NOT NULL AND face_feature != ''";
-    sql += activeOnly ? " AND status = :st" : " AND status != :st";
+    QString sql = "SELECT u.user_id, u.username, u.real_name, u.work_no, "
+                  "d.dept_name AS department, u.face_feature "
+                  "FROM sys_user u LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
+                  "WHERE u.face_feature IS NOT NULL AND u.face_feature != ''";
+    sql += activeOnly ? " AND u.status = :st" : " AND u.status != :st";
     query.prepare(sql);
     query.bindValue(":st", activeOnly ? SC::USER_ACTIVE : SC::USER_DELETED);
     safeExec(query);
@@ -318,20 +197,6 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
 }
 
 /**
- * @brief 更新用户状态
- * @param userId 用户ID
- * @param status 目标状态，取 SC::USER_* 常量
- * @return true=更新成功
- */
-bool UserDAO::updateStatus(int userId, const QString& status) {
-    QSqlDatabase db = getDb();
-    QSqlQuery query(db);
-    query.prepare("UPDATE sys_user SET status = :s WHERE user_id = :id");
-    query.bindValue(":s", status); query.bindValue(":id", userId);
-    return safeExec(query);
-}
-
-/**
  * @brief 记录用户登录成功
  * @param userId 用户ID
  * @param loginIp 登录来源地址
@@ -347,44 +212,13 @@ bool UserDAO::recordLoginSuccess(int userId, const QString&) {
 }
 
 /**
- * @brief 查询全部在用部门名称
- * @return 去重并按名称排序的部门列表（不含状态为 deleted 的用户）；无数据时返回空列表
- */
-QStringList UserDAO::getDistinctDepartments() {
-    QStringList result;
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT DISTINCT department FROM sys_user "
-              "WHERE department IS NOT NULL AND department != '' AND status != 'deleted' "
-              "ORDER BY department");
-    if (safeExec(q)) {
-        while (q.next()) {
-            QString dept = q.value(0).toString().trimmed();
-            if (!dept.isEmpty())
-                result.append(dept);
-        }
-    }
-    return result;
-}
-
-/**
  * @brief 按用户ID查询用户实体
  * @param userId 用户ID
  * @return 用户实体；不存在时返回默认构造的空实体
  */
 User UserDAO::findUserById(int userId) {
-    QSqlQuery q = query("SELECT * FROM sys_user WHERE user_id = ?", {userId});
-    if (q.next()) return fromQuery(q);
-    return User();
-}
-
-/**
- * @brief 按登录账号查询用户实体
- * @param username 登录账号
- * @return 用户实体；不存在时返回默认构造的空实体
- */
-User UserDAO::findUserByUsername(const QString& username) {
-    QSqlQuery q = query("SELECT * FROM sys_user WHERE username = ?", {username});
+    QSqlQuery q = query("SELECT u.*, d.dept_name AS department_name FROM sys_user u "
+                        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE u.user_id = ?", {userId});
     if (q.next()) return fromQuery(q);
     return User();
 }
@@ -395,7 +229,8 @@ User UserDAO::findUserByUsername(const QString& username) {
  * @return 用户实体；不存在时返回默认构造的空实体
  */
 User UserDAO::findUserByWorkNo(const QString& workNo) {
-    QSqlQuery q = query("SELECT * FROM sys_user WHERE work_no = ?", {workNo});
+    QSqlQuery q = query("SELECT u.*, d.dept_name AS department_name FROM sys_user u "
+                        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE u.work_no = ?", {workNo});
     if (q.next()) return fromQuery(q);
     return User();
 }
@@ -413,7 +248,7 @@ User UserDAO::findUserByWorkNo(const QString& workNo) {
 QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword,
                                    const QString& dept, const QString& status, const QString& role) {
     static const QString FALLBACK = QString::fromUtf8("\xe6\x9c\xaa\xe5\x88\x86\xe9\x85\x8d");
-    QString sql = QString("SELECT u.*, COALESCE(NULLIF(d.dept_name,''), NULLIF(u.department,''), '%1') AS display_dept "
+    QString sql = QString("SELECT u.*, COALESCE(NULLIF(d.dept_name,''), '%1') AS department_name "
                   "FROM sys_user u "
                   "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE 1=1").arg(FALLBACK);
     QVariantList params;
@@ -425,19 +260,15 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
     if (!dept.isEmpty()) {
         QStringList deptList = dept.split(",", Qt::SkipEmptyParts);
         if (deptList.size() == 1) {
-            sql += " AND (u.department = ? OR d.dept_name = ?)";
-            params << deptList[0].trimmed() << deptList[0].trimmed();
+            sql += " AND d.dept_name = ?";
+            params << deptList[0].trimmed();
         } else {
-            QStringList placeholdersA, placeholdersB;
-            for (const auto& d : deptList) {
-                placeholdersA << "?";
-                params << d.trimmed();
+            QStringList placeholders;
+            for (const auto& name : deptList) {
+                placeholders << "?";
+                params << name.trimmed();
             }
-            for (int i = 0; i < deptList.size(); ++i) {
-                placeholdersB << "?";
-                params << deptList[i].trimmed();
-            }
-            sql += " AND (u.department IN (" + placeholdersA.join(",") + ") OR d.dept_name IN (" + placeholdersB.join(",") + "))";
+            sql += " AND d.dept_name IN (" + placeholders.join(",") + ")";
         }
     }
     if (!status.isEmpty())  { sql += " AND u.status = ?";      params << status; }
@@ -447,8 +278,8 @@ QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword
     QList<User> list;
     QSqlQuery q = query(paginate(sql, page, pageSize, "CASE WHEN u.role='admin' THEN 0 ELSE 1 END, u.created_at DESC"), params);
     while (q.next()) {
+        // 部门名称由 fromQuery 统一读取 department_name 别名
         User u = fromQuery(q);
-        u.department = q.value("display_dept").toString();
         list.append(u);
     }
     return list;
@@ -480,19 +311,15 @@ int UserDAO::countUsers(const QString& keyword, const QString& dept,
     if (!dept.isEmpty()) {
         QStringList deptList = dept.split(",", Qt::SkipEmptyParts);
         if (deptList.size() == 1) {
-            sql += " AND (u.department = ? OR d.dept_name = ?)";
-            params << deptList[0].trimmed() << deptList[0].trimmed();
+            sql += " AND d.dept_name = ?";
+            params << deptList[0].trimmed();
         } else {
-            QStringList placeholdersA, placeholdersB;
-            for (const auto& d : deptList) {
-                placeholdersA << "?";
-                params << d.trimmed();
+            QStringList placeholders;
+            for (const auto& name : deptList) {
+                placeholders << "?";
+                params << name.trimmed();
             }
-            for (int i = 0; i < deptList.size(); ++i) {
-                placeholdersB << "?";
-                params << deptList[i].trimmed();
-            }
-            sql += " AND (u.department IN (" + placeholdersA.join(",") + ") OR d.dept_name IN (" + placeholdersB.join(",") + "))";
+            sql += " AND d.dept_name IN (" + placeholders.join(",") + ")";
         }
     }
     if (!status.isEmpty()) { sql += " AND u.status = ?";      params << status; }
@@ -507,13 +334,15 @@ int UserDAO::countUsers(const QString& keyword, const QString& dept,
  * @return 新记录的用户ID；写入失败返回 -1
  */
 int UserDAO::insertUser(const User& user) {
-    QString sql = "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
-                  "work_no, dept_id, department, role, must_change_pwd, face_feature, phone, email, status) "
-                  "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // 用户表只保存部门ID：优先用 deptId，缺失时按部门名称反查 sys_department
+    const int deptId = resolveDeptId(user.deptId, user.department);
     // dept_id<=0时插入NULL，避免外键约束失败（sys_department中不存在dept_id=0）
-    QVariant deptIdVal = (user.deptId > 0) ? QVariant(user.deptId) : QVariant();
+    QVariant deptIdVal = (deptId > 0) ? QVariant(deptId) : QVariant();
+    QString sql = "INSERT INTO sys_user (username, password_hash, password_salt, real_name, "
+                  "work_no, dept_id, role, must_change_pwd, face_feature, phone, email, status) "
+                  "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
     return insertAndGetId(sql, {user.username, user.passwordHash, user.passwordSalt,
-                          user.realName, user.workNo, deptIdVal, user.department,
+                          user.realName, user.workNo, deptIdVal,
                           user.role, user.mustChangePwd, user.faceFeature, user.phone,
                           user.email, user.status});
 }
@@ -524,18 +353,13 @@ int UserDAO::insertUser(const User& user) {
  * @return true=更新成功
  */
 bool UserDAO::updateUser(const User& user) {
-    // 解析部门ID：编辑弹窗只传部门名称，dept_id按名称从部门表解析，
+    // 用户表只保存部门ID：优先用 deptId，缺失时按部门名称反查，
     // 避免把无效值0写库触发外键约束fk_user_dept导致保存失败；解析不到写NULL
-    int deptId = user.deptId;
-    if (deptId <= 0) {
-        QSqlQuery dq = query("SELECT dept_id FROM sys_department WHERE dept_name = ? LIMIT 1",
-                             {user.department});
-        if (dq.next()) deptId = dq.value(0).toInt();
-    }
+    const int deptId = resolveDeptId(user.deptId, user.department);
     QVariant deptIdVal = (deptId > 0) ? QVariant(deptId) : QVariant();
-    QString sql = "UPDATE sys_user SET real_name=?, work_no=?, dept_id=?, department=?, "
+    QString sql = "UPDATE sys_user SET real_name=?, work_no=?, dept_id=?, "
                   "role=?, phone=?, email=?, status=? WHERE user_id=?";
-    return execute(sql, {user.realName, user.workNo, deptIdVal, user.department,
+    return execute(sql, {user.realName, user.workNo, deptIdVal,
                    user.role, user.phone, user.email, user.status, user.userId});
 }
 
@@ -591,15 +415,6 @@ bool UserDAO::updateUserPassword(int userId, const QString& hash, const QString&
  */
 bool UserDAO::setMustChangePwd(int userId, int mustChange) {
     return execute("UPDATE sys_user SET must_change_pwd = ? WHERE user_id = ?", {mustChange, userId});
-}
-
-/**
- * @brief 更新用户最后登录时间
- * @param userId 用户ID
- * @return true=更新成功
- */
-bool UserDAO::updateLastLogin(int userId) {
-    return execute("UPDATE sys_user SET last_login_at = CURRENT_TIMESTAMP WHERE user_id = ?", {userId});
 }
 
 // 查询DB中最大数字工号，返回下一个可用工号（001起步，3位补零，超999自然进位4位）

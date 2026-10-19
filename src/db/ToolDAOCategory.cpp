@@ -66,22 +66,10 @@ QList<ToolCabinet> ToolDAO::allCabinets() {
     return list;
 }
 
-/**
- * @brief 查询全部柜体名称
- * @return 柜体名称列表
- */
-QStringList ToolDAO::allCabinetNames() {
-    QStringList names;
-    QSqlQuery q = query("SELECT cabinet_name FROM tool_cabinet");
-    while (q.next()) names << q.value(0).toString();
-    return names;
-}
-
-
 // ==============================================================
 // 【⑦ 统计与关联查询
 //   工具统计、机组查询、在库位置、待入库工具、维护相关查询
 // ==============================================================
-// 工具统计数据 增加borrowedQty字段，与v_tool_stats新列对齐
+// 工具统计含 borrowedQty（借用中/逾期的去重工具数），与工具管理页数值口径一致
 
 } // namespace db

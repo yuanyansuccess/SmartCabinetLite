@@ -119,7 +119,7 @@ bool UserController::setUserStatus(int userId, const QString& status) {
 bool UserController::changePassword(int userId, const QString& oldPwd, const QString& newPwd) {
     User u = m_dao.findUserById(userId);
     if (u.userId == 0) return false;
-    if (!AuthService::verifyPassword(oldPwd, u.passwordHash, u.passwordSalt)) return false;
+    if (!AuthService::verifyPassword(oldPwd, u.passwordSalt, u.passwordHash)) return false;
     // 初始口令安全期：用户自设新口令不允许继续使用默认初始口令
     if (newPwd == SC::DEFAULT_INIT_PASSWORD) {
         qWarning() << "[changePassword] 新口令不能是初始口令";

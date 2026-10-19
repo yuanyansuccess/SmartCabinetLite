@@ -346,112 +346,6 @@ bool RecordDAO::completeReturn(int recordId, const QString& returnTime,
     return safeExec(q) && q.numRowsAffected() > 0;
 }
 
-// ═══════════════════════════════════════════════
-// 实体类API（Controller层使用）— 从dao/RecordDAO.cpp合并
-// ═══════════════════════════════════════════════
-/**
- * @brief 新增借用记录实体
- * @param r 待写入的借用记录
- * @return 新记录的ID；写入失败返回 0
- */
-int RecordDAO::insertBorrow(const BorrowRecord& r) {
-    return insertAndGetId("INSERT INTO tool_borrow_record (flow_no,user_id,tool_id,borrow_qty,"
-                          "borrow_time,expected_return_time,status,borrow_reason,remark) "
-                          "VALUES (?,?,?,?,?,?,?,?,?)",
-                          {r.flowNo, r.userId, r.toolId, r.quantity,
-                           r.borrowTime, r.expectReturnTime, r.status,
-                           r.borrowReason, r.remark});
-}
-
-/**
- * @brief 按借用记录ID完成归还并回写备注
- * @param borrowId 借用记录ID
- * @param returnTime 实际归还时间
- * @param condition 工具状况
- * @param remark 备注
- * @return true=更新成功
- */
-bool RecordDAO::completeBorrowReturn(int borrowId, const QDateTime& returnTime,
-                                     const QString& condition, const QString& remark) {
-    return execute("UPDATE tool_borrow_record SET actual_return_time=?,status='returned',remark=? WHERE record_id=?",
-                   {returnTime, remark, borrowId});
-}
-
-/**
- * @brief 分页查询借用记录实体
- * @param page 页码，从1开始
- * @param pageSize 每页条数
- * @param keyword 关键字，匹配流水号/工具名等，为空不过滤
- * @param status 记录状态，为空不过滤
- * @param userId 用户ID，0表示不限
- * @param startDate 起始日期，为空表示不限
- * @param endDate 截止日期，为空表示不限
- * @return 借用记录实体列表
- */
-QList<BorrowRecord> RecordDAO::findBorrows(int page, int pageSize,
-                                            const QString& keyword, const QString& status,
-                                            int userId, const QDate& startDate, const QDate& endDate) {
-    QString sql = "SELECT br.*, u.username, u.real_name, u.work_no, u.department, "
-                  "ti.tool_code, ti.tool_name, ti.spec, tc.cabinet_name "
-                  "FROM tool_borrow_record br "
-                  "LEFT JOIN sys_user u ON br.user_id=u.user_id "
-                  "LEFT JOIN tool_info ti ON br.tool_id=ti.tool_id "
-                  "LEFT JOIN tool_cabinet tc ON ti.cabinet_id=tc.cabinet_id WHERE 1=1";
-    QVariantList params;
-    if (!keyword.isEmpty()) {
-        sql += " AND (u.real_name LIKE ? OR ti.tool_name LIKE ? OR br.flow_no LIKE ?)";
-        QString kw = "%" + keyword + "%";
-        params << kw << kw << kw;
-    }
-    if (!status.isEmpty()) { sql += " AND br.status = ?"; params << status; }
-    if (userId > 0)        { sql += " AND br.user_id = ?"; params << userId; }
-    if (startDate.isValid()) { sql += " AND br.borrow_time >= ?"; params << startDate.startOfDay(); }
-    if (endDate.isValid())   { sql += " AND br.borrow_time <= ?"; params << endDate.endOfDay(); }
-
-    QList<BorrowRecord> list;
-    QSqlQuery q = query(paginate(sql, page, pageSize, "br.borrow_time DESC"), params);
-    while (q.next()) list.append(borrowFromQuery(q));
-    return list;
-}
-
-/**
- * @brief 统计符合条件的借用记录数
- * @return 记录数量；筛选条件与 findBorrows 保持一致
- */
-int RecordDAO::borrowCount(const QString& keyword, const QString& status, int userId,
-                            const QDate& startDate, const QDate& endDate) {
-    // keyword筛选条件必须与findBorrows完全一致（含flow_no），否则COUNT与数据不匹配
-    QString sql = "SELECT br.* FROM tool_borrow_record br "
-                  "LEFT JOIN sys_user u ON br.user_id=u.user_id "
-                  "LEFT JOIN tool_info ti ON br.tool_id=ti.tool_id WHERE 1=1";
-    QVariantList params;
-    if (!keyword.isEmpty()) {
-        sql += " AND (u.real_name LIKE ? OR ti.tool_name LIKE ? OR br.flow_no LIKE ?)";
-        QString kw = "%" + keyword + "%";
-        params << kw << kw << kw;
-    }
-    if (!status.isEmpty()) { sql += " AND br.status = ?"; params << status; }
-    if (userId > 0)        { sql += " AND br.user_id = ?"; params << userId; }
-    if (startDate.isValid()) { sql += " AND br.borrow_time >= ?"; params << startDate.startOfDay(); }
-    if (endDate.isValid())   { sql += " AND br.borrow_time <= ?"; params << endDate.endOfDay(); }
-    return count(sql, params);
-}
-
-/**
- * @brief 按ID查询借用记录实体
- * @param borrowId 借用记录ID
- * @return 借用记录实体；不存在时返回默认构造的空实体
- */
-BorrowRecord RecordDAO::findBorrowById(int borrowId) {
-    QSqlQuery q = query("SELECT br.*, u.username, u.real_name, ti.tool_code, ti.tool_name "
-                         "FROM tool_borrow_record br "
-                         "LEFT JOIN sys_user u ON br.user_id=u.user_id "
-                         "LEFT JOIN tool_info ti ON br.tool_id=ti.tool_id "
-                         "WHERE br.record_id = ?", {borrowId});
-    if (q.next()) return borrowFromQuery(q);
-    return BorrowRecord();
-}
-
 /**
  * @brief 查询指定用户的借用记录
  * @param userId 用户ID
@@ -468,68 +362,6 @@ QList<BorrowRecord> RecordDAO::findBorrowsByUser(int userId, int limit) {
                          {userId, limit});
     while (q.next()) list.append(borrowFromQuery(q));
     return list;
-}
-
-/**
- * @brief 判断指定用户是否存在未还清的记录
- * @param userId 用户ID
- * @return true=存在借用中或已逾期记录
- */
-bool RecordDAO::hasOverdue(int userId) {
-    // 用数据库当前时间比较，避免应用层与数据库时间不一致
-    return scalar("SELECT COUNT(*) FROM tool_borrow_record WHERE user_id=? AND status IN ('borrowing','overdue') "
-                   "AND expected_return_time < CURRENT_TIMESTAMP", {userId}).toInt() > 0;
-}
-
-/**
- * @brief 分页查询归还记录
- * @param page 页码，从1开始
- * @param pageSize 每页条数
- * @param keyword 关键字，为空不过滤
- * @param userId 用户ID，0表示不限
- * @param startDate 起始日期，为空表示不限
- * @param endDate 截止日期，为空表示不限
- * @return 归还记录实体列表
- */
-QList<ReturnRecord> RecordDAO::findReturns(int page, int pageSize,
-                                            const QString& keyword, int userId,
-                                            const QDate& startDate, const QDate& endDate) {
-    QString sql = "SELECT br.*, u.username, u.real_name, ti.tool_code, ti.tool_name, "
-                  "br.flow_no, br.borrow_time "
-                  "FROM tool_borrow_record br "
-                  "LEFT JOIN sys_user u ON br.user_id=u.user_id "
-                  "LEFT JOIN tool_info ti ON br.tool_id=ti.tool_id "
-                  "WHERE br.status='returned'";
-    QVariantList params;
-    if (!keyword.isEmpty()) {
-        sql += " AND (ti.tool_name LIKE ? OR u.real_name LIKE ?)";
-        QString kw = "%" + keyword + "%";
-        params << kw << kw;
-    }
-    if (userId > 0)        { sql += " AND br.user_id = ?"; params << userId; }
-    if (startDate.isValid()){ sql += " AND br.actual_return_time >= ?"; params << startDate.startOfDay(); }
-    if (endDate.isValid())  { sql += " AND br.actual_return_time <= ?"; params << endDate.endOfDay(); }
-
-    QList<ReturnRecord> list;
-    QSqlQuery q = query(paginate(sql, page, pageSize, "br.actual_return_time DESC"), params);
-    while (q.next()) list.append(returnFromQuery(q));
-    return list;
-}
-
-// 返回去重工具数（统计逻辑与v_tool_stats.borrowed_count一致，
-// 便于与工具管理页数值对齐）
-int RecordDAO::activeBorrowCount() {
-    return scalar("SELECT COUNT(DISTINCT tool_id) FROM tool_borrow_record WHERE status IN ('borrowing','overdue')").toInt();
-}
-
-/**
- * @brief 统计当前逾期记录数
- * @return 状态为已逾期的记录数
- */
-int RecordDAO::overdueCount() {
-    // 用数据库当前时间比较，避免应用层与数据库时间不一致
-    return scalar("SELECT COUNT(*) FROM tool_borrow_record WHERE status='overdue' "
-                   "AND expected_return_time < CURRENT_TIMESTAMP").toInt();
 }
 
 // 通过借用记录ID查询关联工具信息，返回 {toolId, toolCode}
@@ -657,18 +489,6 @@ QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
     return result;
 }
 
-// 统计操作日志数量
-int RecordDAO::countOperationLogsByType(const QString& operationType)
-{
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT COUNT(*) FROM sys_operation_log WHERE operation_type=?");
-    q.addBindValue(operationType);
-    safeExec(q);
-    if (q.next()) return q.value(0).toInt();
-    return 0;
-}
-
 // 入库记录查询（含位置JOIN）— 入库记录Tab专用
 QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 {
@@ -684,20 +504,22 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
     // 分页数据
     int offset = (page - 1) * pageSize;
     QSqlQuery q(db);
+    // 位置一律从 tool_position_mapping 取（按 tool_id 关联，避免用 ti 冗余列反查 mpm 产生漂移）
+    // 列顺序/别名保持与 C++ 读取一致（ti_* 与 mpm_* 现在都填映射表的值）
     q.prepare(
         "SELECT log.created_at, log.content, log.target_id, "
         "       u.real_name, u.work_no, "
-        "       ti.cabinet_id AS ti_cab_id, ti_cb.cabinet_name AS ti_cab_name, "
-        "       ti.layer AS ti_layer, ti.position AS ti_pos, "
-        "       mpm.cabinet_id AS mpm_cab_id, mpm_cb.cabinet_name AS mpm_cab_name, "
-        "       mpm.layer AS mpm_layer, mpm.position AS mpm_pos "
+        "       (SELECT mpm.cabinet_id FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_cab_id, "
+        "       (SELECT mpm_cb.cabinet_name FROM tool_position_mapping mpm JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_cab_name, "
+        "       (SELECT mpm.layer FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_layer, "
+        "       (SELECT mpm.position FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_pos, "
+        "       (SELECT mpm.cabinet_id FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_cab_id, "
+        "       (SELECT mpm_cb.cabinet_name FROM tool_position_mapping mpm JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_cab_name, "
+        "       (SELECT mpm.layer FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_layer, "
+        "       (SELECT mpm.position FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_pos "
         "FROM sys_operation_log log "
         "LEFT JOIN sys_user u ON log.user_id = u.user_id "
         "LEFT JOIN tool_info ti ON ti.tool_code = log.target_id "
-        "LEFT JOIN tool_cabinet ti_cb ON ti.cabinet_id = ti_cb.cabinet_id "
-        "LEFT JOIN tool_position_mapping mpm ON mpm.cabinet_id = ti.cabinet_id "
-        "  AND mpm.layer = ti.layer AND mpm.position = ti.position "
-        "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id = mpm_cb.cabinet_id "
         "WHERE log.operation_type = 'checkin' "
         "ORDER BY log.created_at DESC "
         "LIMIT ? OFFSET ?"
@@ -725,108 +547,6 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
     }
     result["list"] = list;
     return result;
-}
-
-/**
- * @brief 统计指定用户的借用情况
- * @param userId 用户ID
- * @return 含今日借用数、当前在借数、逾期数等指标的对象
- */
-QJsonObject RecordDAO::getUserStats(int userId) {
-    QJsonObject stats;
-    stats["todayBorrow"] = 0;
-    stats["pendingReturn"] = 0;
-    stats["monthBorrow"] = 0;
-    QSqlDatabase db = getDb();
-    // 今日借用数
-    {
-        QSqlQuery q(db);
-        q.prepare("SELECT COUNT(*) FROM tool_borrow_record "
-                  "WHERE user_id=:uid AND DATE(borrow_time)=CURDATE()");
-        q.bindValue(":uid", userId);
-        if (safeExec(q) && q.next()) stats["todayBorrow"] = q.value(0).toInt();
-    }
-    // 待归还数
-    {
-        QSqlQuery q(db);
-        q.prepare("SELECT COUNT(*) FROM tool_borrow_record "
-                  "WHERE user_id=:uid AND status IN ('borrowing','overdue')");
-        q.bindValue(":uid", userId);
-        if (safeExec(q) && q.next()) stats["pendingReturn"] = q.value(0).toInt();
-    }
-    // 本月借用数
-    {
-        QSqlQuery q(db);
-        q.prepare("SELECT COUNT(*) FROM tool_borrow_record "
-                  "WHERE user_id=:uid AND DATE_FORMAT(borrow_time,'%Y-%m')=DATE_FORMAT(CURDATE(),'%Y-%m')");
-        q.bindValue(":uid", userId);
-        if (safeExec(q) && q.next()) stats["monthBorrow"] = q.value(0).toInt();
-    }
-    return stats;
-}
-
-/**
- * @brief 查询系统最近的操作活动
- * @param limit 最多返回条数
- * @return 活动条目数组，按时间倒序
- */
-QJsonArray RecordDAO::findRecentActivity(int limit) {
-    QJsonArray arr;
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare(
-        "SELECT r.record_id, r.borrow_time, r.borrow_qty, r.status, "
-        "  COALESCE(u.real_name, u.username) AS user_name, "
-        "  COALESCE(t.tool_name, '未知工具') AS tool_name "
-        "FROM tool_borrow_record r "
-        "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-        "LEFT JOIN tool_info t ON r.tool_id = t.tool_id "
-        "ORDER BY r.borrow_time DESC LIMIT :lim");
-    q.bindValue(":lim", limit);
-    if (!safeExec(q)) return arr;
-    while (q.next()) {
-        QJsonObject o;
-        QString status = q.value("status").toString();
-        o["time"]   = q.value("borrow_time").toString();
-        o["user"]   = q.value("user_name").toString();
-        o["type"]   = (status == SC::RECORD_RETURNED) ? QStringLiteral("归还") : QStringLiteral("借用");
-        o["tool"]   = q.value("tool_name").toString();
-        o["qty"]    = q.value("borrow_qty").toInt();
-        o["status"] = (status == SC::RECORD_RETURNED) ? QStringLiteral("已归还") : QStringLiteral("已借出");
-        arr.append(o);
-    }
-    return arr;
-}
-
-/**
- * @brief 查询指定用户最近的操作记录
- * @param userId 用户ID
- * @param limit 最多返回条数
- * @return 记录数组，按时间倒序
- */
-QJsonArray RecordDAO::findByUserId(int userId, int limit) {
-    QJsonArray arr;
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare(
-        "SELECT r.borrow_time, r.borrow_qty, r.status, "
-        "  COALESCE(t.tool_name, '未知工具') AS tool_name "
-        "FROM tool_borrow_record r "
-        "LEFT JOIN tool_info t ON r.tool_id = t.tool_id "
-        "WHERE r.user_id = :uid "
-        "ORDER BY r.borrow_time DESC LIMIT :lim");
-    q.bindValue(":uid", userId);
-    q.bindValue(":lim", limit);
-    if (!safeExec(q)) return arr;
-    while (q.next()) {
-        QJsonObject o;
-        o["borrowTime"] = q.value("borrow_time").toString();
-        o["toolName"]   = q.value("tool_name").toString();
-        o["quantity"]   = q.value("borrow_qty").toInt();
-        o["status"]     = q.value("status").toString();
-        arr.append(o);
-    }
-    return arr;
 }
 
 // ═══════════════════════════════════════════════
@@ -919,12 +639,13 @@ QJsonObject RecordDAO::getLedgerStats() {
     {
         QSqlQuery q(db);
         if (q.exec(
-            "SELECT COALESCE(u.department, '未分配') AS department, "
+            "SELECT COALESCE(d.dept_name, '未分配') AS department, "
             "  COUNT(r.record_id) AS borrowCount, "
             "  SUM(CASE WHEN r.status='overdue' THEN 1 ELSE 0 END) AS overdueCount "
             "FROM tool_borrow_record r "
             "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-            "GROUP BY u.department "
+            "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
+            "GROUP BY d.dept_name "
             "ORDER BY borrowCount DESC")) {
             while (q.next()) {
                 QJsonObject ds;

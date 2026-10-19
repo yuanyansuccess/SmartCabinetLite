@@ -74,11 +74,14 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
     // 按工具种类查询（去掉位置JOIN，加availableQty）
     // 借用列表按工具种类显示，推荐工具自动选中，借用时自动分配位置
     // availableQty=映射表in_stock位置数（用户可选的借用数量上限）
+    // 位置只从 tool_position_mapping 取（任选一个 in_stock 位置作代表），不再依赖 tool_info 冗余列
     QString sql = "SELECT DISTINCT tt.tool_id, ti.tool_name, ti.tool_code, ti.spec, ti.total_qty, ti.current_qty, tt.recommended_qty, "
-                  "ti.cabinet_id, cb.cabinet_name, ti.layer, ti.position, ti.unit, "
+                  "ti.unit, "
+                  "(SELECT mpm_cb.cabinet_name FROM tool_position_mapping mpm JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id WHERE mpm.tool_id=ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS cabinet_name, "
+                  "(SELECT mpm.layer FROM tool_position_mapping mpm WHERE mpm.tool_id=ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS layer, "
+                  "(SELECT mpm.position FROM tool_position_mapping mpm WHERE mpm.tool_id=ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS position, "
                   "(SELECT COUNT(*) FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='in_stock') AS available_qty "
                   "FROM task_type_tool tt JOIN tool_info ti ON tt.tool_id=ti.tool_id "
-                  "LEFT JOIN tool_cabinet cb ON ti.cabinet_id=cb.cabinet_id "
                   "WHERE tt.type_id IN (" + phs.join(",") + ") "
                   "AND EXISTS(SELECT 1 FROM tool_position_mapping m WHERE m.tool_id=ti.tool_id AND m.status='in_stock') ";
     if (machineGroupId > 0) {

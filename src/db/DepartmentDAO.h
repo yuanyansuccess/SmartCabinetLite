@@ -6,6 +6,7 @@
  */
 #pragma once
 #include <QStringList>
+#include <QList>
 #include <QSqlQuery>
 #include "DatabaseManager.h"
 
@@ -14,6 +15,15 @@ namespace db {
 class DepartmentDAO {
 public:
     DepartmentDAO() = default;
+
+    /// 部门条目：ID 与名称，供界面下拉框同时展示名称、提交 ID
+    struct Department {
+        int     deptId = 0;
+        QString deptName;
+    };
+
+    /// 获取所有活跃部门（含 ID，按排序字段排序）
+    QList<Department> allDepartments();
 
     /// 获取所有活跃部门名称（按排序字段排序）
     QStringList allNames();

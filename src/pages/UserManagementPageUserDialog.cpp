@@ -16,9 +16,8 @@
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
 #include "controller/UserController.h"
-// 重新引入db/UserDAO(仅用于getDistinctDepartments合并数据源)
-  // 其他User数据访问仍通过UserController
-#include "db/UserDAO.h"
+#include "db/UserDAO.h"        // 用户实体查询（读取操作）
+#include "db/DepartmentDAO.h"  // 部门下拉数据源（部门ID + 名称）
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除
@@ -155,7 +154,10 @@ void UserManagementPage::createUserDialog() {
     // 加载部门
     loadDepartments();
     m_dlgDept->clear();
-    for (const QString& d : m_departmentOptions) m_dlgDept->addItem(d);
+    // 下拉项同时携带部门ID，提交时按ID落库，避免只存名称导致dept_id为空
+    db::DepartmentDAO deptDao;
+    for (const auto& dept : deptDao.allDepartments())
+        m_dlgDept->addItem(dept.deptName, dept.deptId);
 
     // 表单标签样式
     auto makeLabel = [](const QString& text) -> QLabel* {
@@ -325,7 +327,10 @@ void UserManagementPage::onEditUser(int userId) {
     // 刷新部门列表(防止DB新增部门后弹窗列表过期)
     loadDepartments();
     m_dlgDept->clear();
-    for (const QString& d : m_departmentOptions) m_dlgDept->addItem(d);
+    // 下拉项同时携带部门ID，提交时按ID落库，避免只存名称导致dept_id为空
+    db::DepartmentDAO deptDao;
+    for (const auto& dept : deptDao.allDepartments())
+        m_dlgDept->addItem(dept.deptName, dept.deptId);
     m_dlgRealName->setText(u.realName);
     m_dlgWorkNo->setText(u.workNo);
     // 编辑态姓名/工号/部门不允许改动：这三项是人员档案的固定标识，
@@ -334,7 +339,10 @@ void UserManagementPage::onEditUser(int userId) {
     m_dlgWorkNo->setEnabled(false);
     m_dlgWorkNo->setCursor(Qt::ArrowCursor);  // 编辑态工号禁止编辑，箭头光标明示不可点
     m_dlgDept->setEnabled(false);
-    m_dlgDept->setCurrentText(u.department);
+    // 优先按部门ID定位，历史数据找不到时退回按名称匹配
+    const int deptIdx = m_dlgDept->findData(u.deptId);
+    if (deptIdx >= 0) m_dlgDept->setCurrentIndex(deptIdx);
+    else              m_dlgDept->setCurrentText(u.department);
     // 三种角色：普通用户(0)/管理员(1)/管理用户(2)
     m_dlgRoleMode = (u.role == SC::ROLE_ADMIN) ? 1 : (u.role == SC::ROLE_MANAGER ? 2 : 0);
     updateRoleBtnStyles();
@@ -361,7 +369,10 @@ void UserManagementPage::onSubmitUser() {
     QString realName = m_dlgRealName->text().trimmed();
     QString workNo = m_dlgWorkNo->text().trimmed();
     QString password = m_dlgPassword->text();
-    QString dept = m_dlgDept->currentText();
+    QString dept = m_dlgDept->currentText().trimmed();
+    // 部门必须来自部门表：按名称精确定位下拉项并取出部门ID
+    const int deptIdx = m_dlgDept->findText(dept, Qt::MatchExactly);
+    const int deptId = (deptIdx >= 0) ? m_dlgDept->itemData(deptIdx).toInt() : 0;
     // 角色从按钮组获取：0=普通用户 1=管理员 2=管理用户
     QString role = SC::ROLE_USER;
     if (m_dlgRoleMode == 1)      role = SC::ROLE_ADMIN;
@@ -376,9 +387,14 @@ void UserManagementPage::onSubmitUser() {
         MessageDialog::showError(this, QStringLiteral("提示"), common::newWorkNoInvalidText());
         return;
     }
-    // 部门为必填，新增与编辑都校验，避免编辑时被清空或改成不存在的部门
+    // 部门为必填且必须是部门表中存在的部门，保证 dept_id 能正确关联
     if (dept.isEmpty()) {
         MessageDialog::showError(this, QStringLiteral("提示"), QStringLiteral("请选择部门"));
+        return;
+    }
+    if (deptId <= 0) {
+        MessageDialog::showError(this, QStringLiteral("提示"),
+                                 QStringLiteral("部门「%1」不存在，请从下拉列表中选择").arg(dept));
         return;
     }
     if (m_editUserId != 0 && !password.isEmpty() && password.length() < SC::PASSWORD_MIN_LENGTH) {
@@ -399,6 +415,7 @@ void UserManagementPage::onSubmitUser() {
         newUser.username = workNo;
         newUser.realName = realName;
         newUser.workNo = workNo;
+        newUser.deptId = deptId;
         newUser.department = dept;
         newUser.role = role;
         newUser.phone = QString();  // 联系方式不在新增表单采集，落空值
@@ -424,6 +441,7 @@ void UserManagementPage::onSubmitUser() {
     updateUser.userId = m_editUserId;
     updateUser.realName = realName;
     updateUser.workNo = workNo;
+    updateUser.deptId = deptId;
     updateUser.department = dept;
     updateUser.role = role;
     updateUser.phone = original.phone;   // 电话不在编辑界面展示，保留原值

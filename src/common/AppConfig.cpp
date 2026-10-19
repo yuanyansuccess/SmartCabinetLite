@@ -359,8 +359,8 @@ QString AppConfig::backupPath() const      { QMutexLocker l(&m_mutex); return m_
 
 QDate AppConfig::lastBackupDate() const {
     QMutexLocker l(&m_mutex);
-    QString s = m_settings->value("Backup/last_backup_date", "").toString().trimmed();
-    return s.isEmpty() ? QDate() : QDate::fromString(s, "yyyy-MM-dd");
+    QString stored = m_settings->value("Backup/last_backup_date", "").toString().trimmed();
+    return stored.isEmpty() ? QDate() : QDate::fromString(stored, "yyyy-MM-dd");
 }
 
 void AppConfig::setLastBackupDate(const QDate& d) {

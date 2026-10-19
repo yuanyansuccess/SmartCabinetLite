@@ -12,9 +12,6 @@
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
 #include "controller/UserController.h"
-// 重新引入db/UserDAO(仅用于getDistinctDepartments合并数据源)
-  // 其他User数据访问仍通过UserController
-#include "db/UserDAO.h"
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除
@@ -165,13 +162,13 @@ void UserManagementPage::onReset() {
 }
 
 /**
- * @brief delete+recreate弹窗方案(安全) 确保筛选下拉框与列表显示的部门数据完全一致 /** 从DB动态加载部门列表(合并sys_department + sys_user DISTINCT)
+ * @brief 从部门表加载部门名称并重建筛选弹窗，保留原已选状态
  */
 void UserManagementPage::loadDepartments() {
     m_departmentOptions.clear();
     QSet<QString> seen;
 
-    // 1) sys_department表(预定义部门列表)
+    // 部门数据统一以 sys_department 为唯一来源，用户表只保存 dept_id
     SettingService svc;
     QJsonArray depts = svc.getDepartments();
     for (const auto& d : depts) {
@@ -182,24 +179,11 @@ void UserManagementPage::loadDepartments() {
         }
     }
 
-    // 2) sys_user表中用户实际使用的部门(DISTINCT) —— 确保100%覆盖所有用户
-    {
-        db::UserDAO userDao;
-        QStringList userDepts = userDao.getDistinctDepartments();
-        for (const QString& name : userDepts) {
-            QString trimmed = name.trimmed();
-            if (!trimmed.isEmpty() && !seen.contains(trimmed)) {
-                seen.insert(trimmed);
-                m_departmentOptions.append(trimmed);
-            }
-        }
-    }
-
     if (m_departmentOptions.isEmpty()) {
         qDebug() << "[UserManagementPage] 部门列表为空, 降级使用默认值";
         m_departmentOptions = {"技术部", "维修一组", "维修二组", "维修三组", "质检部"};
     } else {
-        qDebug() << "[UserManagementPage] 从DB加载了" << m_departmentOptions.size() << "个部门(合并sys_department+sys_user)";
+        qDebug() << "[UserManagementPage] 从部门表加载了" << m_departmentOptions.size() << "个部门";
     }
 
     // 3) 同步重建筛选弹窗(保留旧选中状态)

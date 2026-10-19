@@ -83,6 +83,7 @@ private:
     // 数据
     QString          m_filePath;
     QList<ImportRow> m_parsedRows;
+    QStringList      m_validDepartments;  // 部门表中的有效部门名称，导入时逐行校验
 
     // 模板列名（不含人脸录入）
     static const QStringList TEMPLATE_HEADERS;

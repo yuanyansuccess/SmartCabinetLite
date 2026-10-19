@@ -349,11 +349,11 @@ void SoftKeyboard::rebuildKeys() {
             } else if (m_keyMode == ModeCn) {
                 QChar c = kd.input.isEmpty() ? QChar() : kd.input.at(0);
                 if (c.isDigit()) {
-                    int v = kd.input.toInt();
+                    int digit = kd.input.toInt();
                     if (m_cn.totalCount() > 0) {
                         // 有拼音候选时：0 键翻页，1-9 键选当前页对应候选
-                        if (v == 0) onNextPage();
-                        else commitCandidate(v - 1);
+                        if (digit == 0) onNextPage();
+                        else commitCandidate(digit - 1);
                     } else {
                         // 无拼音候选时：数字直接上屏，保证同一键盘能输工号/数量
                         appendChar(kd.input);

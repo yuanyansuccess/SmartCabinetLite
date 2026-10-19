@@ -294,13 +294,11 @@ void ToolBorrowPage::showToolVerifyDialog() {
     if (result == 2) {
         // 忽略或倒计时结束：写告警日志（闭环）
         int alertToolId = 0;
-        QString alertToolCode;
         if (!m_selectedTools.isEmpty()) {
             alertToolId = m_selectedTools.first().toolId;
-            alertToolCode = m_selectedTools.first().toolCode;
         }
         AlertService alertSvc;
-        alertSvc.recordVerifyAlert(m_user["userId"].toInt(), alertToolId, alertToolCode,
+        alertSvc.recordVerifyAlert(m_user["userId"].toInt(), alertToolId,
             QStringLiteral("工具核对异常：%1位置工具视觉识别与清单不符，用户忽略告警或倒计时超时").arg(firstPosition));
         MessageDialog::showWarning(nullptr, QStringLiteral("告警已记录"),
             QStringLiteral("工具核对异常告警已记录到系统告警，页面已重置。"));

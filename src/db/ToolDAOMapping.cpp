@@ -85,89 +85,12 @@ bool ToolDAO::insertPositionMapping(int toolId, int cabinetId, const QString& la
     return safeExec(q);
 }
 
-/**
- * @brief 查询位置对照关系详情
- * @param mappingId 位置映射ID
- * @return 含工具与柜体信息的详情对象；不存在时返回空对象
- */
-QJsonObject ToolDAO::findPositionMappingDetail(int mappingId)
+int ToolDAO::findCabinetIdByPrefix(const QString& prefix)
 {
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT m.cabinet_id, m.layer, m.position, t.tool_name, t.status "
-              "FROM tool_position_mapping m JOIN tool_info t ON m.tool_id=t.tool_id "
-              "WHERE m.mapping_id=?");
-    q.addBindValue(mappingId);
-    safeExec(q);
-    QJsonObject obj;
-    if (q.next()) {
-        obj["cabinetId"] = q.value(0).toInt();
-        obj["layer"]     = q.value(1).toString();
-        obj["position"]  = q.value(2).toString();
-        obj["toolName"]  = q.value(3).toString();
-        obj["toolStatus"] = q.value(4).toString();
-    }
-    return obj;
-}
-
-/**
- * @brief 判断位置是否已被占用
- * @param mappingId 位置映射ID
- * @return true=该位置已有工具存放
- */
-bool ToolDAO::isPositionMappingOccupied(int mappingId)
-{
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT m.status FROM tool_position_mapping m WHERE m.mapping_id=? AND m.status IN ('in_stock','borrowed')");
-    q.addBindValue(mappingId);
-    safeExec(q);
-    return q.next();
-}
-
-/**
- * @brief 删除位置对照关系
- * @param mappingId 位置映射ID
- * @return true=删除成功
- */
-bool ToolDAO::deletePositionMapping(int mappingId)
-{
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("DELETE FROM tool_position_mapping WHERE mapping_id=?");
-    q.addBindValue(mappingId);
-    return safeExec(q);
-}
-
-/**
- * @brief 查询全部位置对照关系
- * @return 元素含 mappingId、toolName、toolCode、cabinetName、layer、position、positionStatus 的数组
- */
-QJsonArray ToolDAO::findAllPositionMappings()
-{
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT m.mapping_id, t.tool_name, t.tool_code, "
-           "c.cabinet_name, m.layer, m.position, "
-           "m.status AS position_status "
-           "FROM tool_position_mapping m "
-           "JOIN tool_info t ON m.tool_id=t.tool_id "
-           "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
-           "ORDER BY c.cabinet_name, m.layer, m.position");
-    safeExec(q);
-    QJsonArray arr;
-    while (q.next()) {
-        QJsonObject obj;
-        obj["mappingId"]      = q.value(0).toInt();
-        obj["toolName"]       = q.value(1).toString();
-        obj["toolCode"]       = q.value(2).toString();
-        obj["cabinetName"]    = q.value(3).toString();
-        obj["layer"]          = q.value(4).toString();
-        obj["position"]       = q.value(5).toString();
-        obj["positionStatus"] = q.value(6).toString();
-        arr.append(obj);
-    }
-    return arr;
+    QSqlQuery q = query("SELECT cabinet_id FROM tool_cabinet "
+                        "WHERE cabinet_name LIKE ? ORDER BY cabinet_id LIMIT 1",
+                        { prefix + "%" });
+    return q.next() ? q.value(0).toInt() : -1;
 }
 
 /**
@@ -212,38 +135,6 @@ QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
         arr.append(obj);
     }
     return arr;
-}
-
-/**
- * @brief 按分类名查询category_id，找不到返回-1
- * @param name 名称字符串
- * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
- */
-int ToolDAO::findCategoryIdByName(const QString& name)
-{
-    if (name.isEmpty()) return -1;
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT category_id FROM tool_category WHERE category_name=? LIMIT 1");
-    q.addBindValue(name);
-    if (safeExec(q) && q.next()) return q.value(0).toInt();
-    return -1;
-}
-
-/**
- * @brief 按柜体名查询cabinet_id，找不到返回-1
- * @param name 名称字符串
- * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
- */
-int ToolDAO::findCabinetIdByName(const QString& name)
-{
-    if (name.isEmpty()) return -1;
-    QSqlDatabase db = getDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT cabinet_id FROM tool_cabinet WHERE cabinet_name=? LIMIT 1");
-    q.addBindValue(name);
-    if (safeExec(q) && q.next()) return q.value(0).toInt();
-    return -1;
 }
 
 /**

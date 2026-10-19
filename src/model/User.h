@@ -16,6 +16,7 @@ struct User {
     QString realName;
     QString workNo;
     int     deptId       = 0;
+    /// 部门名称：只读展示字段，由 dept_id 关联 sys_department 得到，不写入用户表
     QString department;
     QString role         = "user";
     int     mustChangePwd = 0;    // 1=下次登录强制修改初始密码（新建/重置时置1，改密成功后清0）

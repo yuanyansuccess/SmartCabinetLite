@@ -1,21 +1,19 @@
 /**
  * @file SettingService.cpp
  * @brief 系统设置服务实现 — 告警日志、台账统计、系统配置
- *        本层只做业务编排，SQL 统一在 db/ 层（AlertDAO/RecordDAO/ConfigDAO）
+ *        本层只做业务编排，SQL 统一在 db/ 层（AlertDAO/RecordDAO/DepartmentDAO）
  * @author 袁燕
  */
 #include "SettingService.h"
 #include "db/RecordDAO.h"
 #include "db/AlertDAO.h"
 #include "db/DepartmentDAO.h"
-#include "db/ConfigDAO.h"
 #include <QDebug>
 
 // 统一使用 db/ 目录，消除 dao/ 与 db/ 混用冗余
 using db::RecordDAO;
 using db::AlertDAO;
 using db::DepartmentDAO;
-using db::ConfigDAO;
 
 SettingService::SettingService(QObject* parent) : QObject(parent) {}
 

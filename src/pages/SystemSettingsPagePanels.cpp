@@ -104,7 +104,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     auto* saveBarLayout = new QHBoxLayout(saveBar);
     saveBarLayout->setContentsMargins(0, 8, 0, 0);  // 8
     saveBarLayout->addStretch();
-    auto* saveBtn = new QPushButton(QStringLiteral("保存借还设置"));
+    auto* saveBtn = new QPushButton(QStringLiteral("保存设置"));
     saveBtn->setStyleSheet(StyleHelper::settingSaveBtn());
     saveBtn->setCursor(Qt::PointingHandCursor);
     connect(saveBtn, &QPushButton::clicked, this, &SystemSettingsPage::onSaveBorrow);

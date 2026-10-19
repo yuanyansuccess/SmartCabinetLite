@@ -16,9 +16,6 @@
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
 #include "controller/UserController.h"
-// 重新引入db/UserDAO(仅用于getDistinctDepartments合并数据源)
-  // 其他User数据访问仍通过UserController
-#include "db/UserDAO.h"
 #include "services/AuthService.h"
 #include "services/SettingService.h"
 #include "services/FaceRecognitionService.h"  // 人脸录入/清除

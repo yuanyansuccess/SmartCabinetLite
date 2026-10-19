@@ -209,11 +209,11 @@ SmartCabinetLite/
 
 ---
 
-### 表结构（15张表）
-`sys_user`, `tool_info`, `tool_borrow_record`, `tool_checkin_record`, `tool_checkout_record`, `sys_alert`, `sys_operation_log`, `sys_department`, `tool_category`, `tool_cabinet`, `checkout_reason`, `task_type`, `task_type_tool`, `stranger_access_log`, `cabinet_snapshot`
+### 表结构（14张表）
+`sys_user`, `sys_department`, `sys_alert`, `sys_alert_type`, `sys_operation_log`, `machine_group`, `tool_category`, `tool_cabinet`, `tool_info`, `tool_position_mapping`, `task_type`, `task_type_tool`, `tool_borrow_record`, `face_recog_log`
 
-### 视图（2个）
-`v_borrowing_tools`, `v_dashboard_stats`
+### 视图（1个）
+`v_tool_latest_operation`（工具最新操作视图，被 ToolDAOToolEntity 两处 LEFT JOIN 使用；`v_tool_stats` 经核查代码零引用，已从生产库与备份中删除）
 
 ---
 

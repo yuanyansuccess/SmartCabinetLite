@@ -89,7 +89,7 @@ bool ToolService::checkinTool(const QJsonObject& data) {
     int inStockCount = dao.countInStockPositions(selectedToolId);
     {
         QJsonObject updates;
-        updates["currentQty"] = inStockCount;
+        // current_qty 由 tool_position_mapping 触发器自动维护，此处不再手算
         QString oldStatus = existing["status"].toString();
         if (inStockCount > 0 &&
             (oldStatus == SC::TOOL_PENDING || oldStatus == SC::TOOL_CHECKED_OUT)) {

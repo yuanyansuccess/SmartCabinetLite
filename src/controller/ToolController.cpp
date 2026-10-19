@@ -49,6 +49,29 @@ int ToolController::addTool(const ToolInfo& tool) {
     return id;
 }
 
+int ToolController::addToolWithPosition(const ToolInfo& tool, int cabinetId,
+                                        const QString& layer, const QString& position)
+{
+    if (!validateToolCode(tool.toolCode)) return -1;
+    if (cabinetId <= 0) return -1;
+    ToolInfo t = tool;
+    t.currentQty = t.totalQty;
+    t.status = SC::TOOL_IN_STOCK;
+    int id = m_toolDao.insertTool(t);
+    if (id <= 0) return -1;
+    // 建档即定位置：建立 in_stock 映射；位置被占用则回滚主档（删主档、返回-1）
+    if (!m_toolDao.insertPositionMapping(id, cabinetId, layer, position, SC::TOOL_IN_STOCK)) {
+        m_toolDao.deleteToolById(id);
+        return -1;
+    }
+    return id;
+}
+
+int ToolController::resolveCabinetId(const QString& cabLetter)
+{
+    return m_toolDao.findCabinetIdByPrefix(cabLetter);
+}
+
 /**
  * @brief 更新工具信息
  * @param tool 含工具ID与待更新字段的实体

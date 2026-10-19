@@ -44,11 +44,9 @@ CheckoutService::CheckoutResult CheckoutService::executeCheckout(
             }
 
             // 出库=工具从柜中取出使用（编制库存total_qty不变，放回时恢复）
-            // current_qty=该工具剩余在库位置数；全部取空则工具状态设为checked_out
+            // current_qty 由 tool_position_mapping 触发器自动维护，此处不再手算
+            // inStockCount 仅用于下方"全部取空则工具置 checked_out"的状态判断
             int inStockCount = toolDao.countInStockPositions(it.toolId);
-            QJsonObject qtyUpdates;
-            qtyUpdates["currentQty"] = inStockCount;
-            stepOk = toolDao.update(it.toolId, qtyUpdates);
             if (!stepOk) {
                 failedNames.append(it.toolName.isEmpty() ? it.toolCode : it.toolName);
                 return false;

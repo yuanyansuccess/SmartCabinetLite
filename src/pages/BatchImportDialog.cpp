@@ -9,6 +9,7 @@
 #include "components/MessageDialog.h"
 #include "utils/StyleHelper.h"
 #include "db/UserDAO.h"
+#include "db/DepartmentDAO.h"  // 校验导入部门是否存在于部门表
 #include "common/DatabaseManager.h"
 #include "common/Constants.h"
 #include "common/DiskSpaceGuard.h"  // 模板下载前磁盘容量保护
@@ -321,8 +322,8 @@ bool BatchImportDialog::generateTemplate(const QString& filePath)
     // 工号规则：纯数字6位补零（000001~999999），与新建账户6-12位规则衔接
     // 生成5行示例（008~012 假设当前最大是007），用户可直接修改或删除示例行
     QStringList exampleDepartments = {
-        QStringLiteral("技术部"), QStringLiteral("维修一部"), QStringLiteral("维修二部"),
-        QStringLiteral("质检部"), QStringLiteral("维修三部")
+        QStringLiteral("技术部"), QStringLiteral("维修一组"), QStringLiteral("维修二组"),
+        QStringLiteral("质检部"), QStringLiteral("维修三组")
     };
     QStringList exampleNames = {
         QStringLiteral("张三"), QStringLiteral("李四"), QStringLiteral("王五"),
@@ -571,6 +572,11 @@ QString BatchImportDialog::validateRow(const ImportRow& row)
     if (row.department.isEmpty()) {
         return QStringLiteral("第%1行：部门不能为空").arg(row.lineNumber);
     }
+    // 部门必须存在于部门表，否则导入后无法关联 dept_id
+    if (!m_validDepartments.isEmpty() && !m_validDepartments.contains(row.department)) {
+        return QStringLiteral("第%1行：部门\"%2\"不存在，请填写：%3")
+            .arg(row.lineNumber).arg(row.department).arg(m_validDepartments.join("、"));
+    }
     if (!ROLE_MAP.contains(row.role)) {
         return QStringLiteral("第%1行：角色\"%2\"不合法，请填写\"管理员\"或\"普通用户\"")
             .arg(row.lineNumber).arg(row.role);
@@ -591,6 +597,8 @@ ImportResult BatchImportDialog::parseExcel(const QString& filePath)
 {
     ImportResult result;
     m_parsedRows.clear();
+    // 一次性读取部门表，供逐行校验部门名称使用
+    m_validDepartments = db::DepartmentDAO().allNames();
 
     QFileInfo fi(filePath);
     QString suffix = fi.suffix().toLower();
