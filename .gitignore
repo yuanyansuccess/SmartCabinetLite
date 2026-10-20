@@ -25,6 +25,7 @@ temp/
 # 文本日志：排除所有 .txt，但保留主 CMakeLists.txt
 *.txt
 !CMakeLists.txt
+!scripts/Readme(add_tool_with_position).txt
 
 # 归档 / 安装包（体积大）
 *.rar
