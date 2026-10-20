@@ -52,5 +52,4 @@ private:
     QString m_placeholder;
     QList<QPair<QString, QCheckBox*>> m_checkBoxes;
     QList<QString> m_selectedCache;  // 上次确认的选中值，用于popup取消时恢复
-    bool m_visible = false;
 };

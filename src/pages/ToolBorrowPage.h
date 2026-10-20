@@ -113,7 +113,6 @@ private:
 
     QLabel* m_recommendHint;  // 推荐提示
     QTableWidget* m_allToolTable;
-    QLineEdit* m_quantityEdit = nullptr;
     QLabel* m_returnTimeLabel = nullptr;  // 只读Label自动显示系统参数计算的归还时间
     QPushButton* m_borrowBtn;
 
@@ -133,7 +132,6 @@ private:
     QList<SelectedToolInfo> m_expandedBorrowList;
 
     // 借用临时数据
-    int m_pendingQuantity = 0;
     QString m_pendingReturnTime;
 
     // 软键盘 

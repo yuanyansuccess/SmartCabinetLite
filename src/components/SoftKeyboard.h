@@ -72,7 +72,6 @@ private:
 
     // ── 模式开关 ──
     QString m_confirmText;  // 自定义确认按钮文本 (Web: confirmText)
-    bool m_pendingRebuild = false;  // 面板创建延迟时标记需重建键盘
 
     // ── UI组件 ──
     QLabel* m_displayLabel = nullptr;    // 输入显示区

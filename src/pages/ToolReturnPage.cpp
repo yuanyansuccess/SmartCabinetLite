@@ -86,7 +86,6 @@ void ToolReturnPage::setupUI() {
     m_workNoLabel = ui->workNoLabel;
     m_deptLabel = ui->deptLabel;
     m_dateLabel = ui->dateLabel;
-    m_warningLabel = ui->warningLabel;
     m_table = ui->table;
     m_paginationBar = ui->paginationBar;
     m_selectAllBtn = ui->selectAllBtn;

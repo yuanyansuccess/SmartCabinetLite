@@ -62,7 +62,6 @@ void SoftKeyboard::ensurePanel() {
     }
     m_panel->setFixedWidth(screenW);
     setupUI();               // 内部已按当前模式构建按键区，无需再次重建
-    m_pendingRebuild = false;
     m_panel->updateGeometry();
     m_panel->hide();
 
@@ -677,8 +676,6 @@ void SoftKeyboard::setMode(KeyMode mode) {
     m_cn.clear();  // 切换模式时重置拼音缓冲
     if (m_panel) {
         rebuildKeys();
-    } else {
-        m_pendingRebuild = true;
     }
 }
 

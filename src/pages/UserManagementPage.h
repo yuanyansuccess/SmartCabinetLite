@@ -108,7 +108,6 @@ private:
 
     // 用户弹窗：BaseDialog统一圆角风格
     BaseDialog* m_userDialog = nullptr;
-    QLineEdit* m_dlgUsername = nullptr;
     QLineEdit* m_dlgRealName = nullptr;
     QLineEdit* m_dlgPassword = nullptr;  // 初始化为nullptr防野指针崩溃
     QFrame* m_dlgPasswordFrame = nullptr;  // 密码输入框容器(含⌨按钮)

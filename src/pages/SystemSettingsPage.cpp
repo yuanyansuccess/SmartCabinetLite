@@ -107,8 +107,8 @@ void SystemSettingsPage::setupUI() {
     // 备份面板内容多，单独包QScrollArea避免字体压扁
     m_stackedWidget = new QStackedWidget();
     m_stackedWidget->addWidget(m_networkPanel = createNetworkPanel());
-    m_stackedWidget->addWidget(m_alertPanel = createAlertPanel());
-    m_stackedWidget->addWidget(m_borrowPanel = createBorrowPanel());
+    m_stackedWidget->addWidget(createAlertPanel());
+    m_stackedWidget->addWidget(createBorrowPanel());
     // 任务配置面板：数据来自数据库，面板构造时立即加载
     m_stackedWidget->addWidget(createTaskConfigPanel());
     // 备份面板内容多，用QScrollArea包裹

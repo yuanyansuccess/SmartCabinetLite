@@ -217,12 +217,10 @@ void MultiSelectFilter::selectAll() {
 void MultiSelectFilter::onFilterBtnClicked() {
     if (m_popup->isVisible()) {
         m_popup->hide();
-        m_visible = false;
     } else {
         QPoint pos = m_filterBtn->mapToGlobal(QPoint(0, m_filterBtn->height() + 4));
         m_popup->move(pos);
         m_popup->show();
-        m_visible = true;
     }
 }
 
@@ -250,7 +248,6 @@ void MultiSelectFilter::onConfirm() {
     m_selectedCache = selected;
     updateButtonText();
     m_popup->hide();
-    m_visible = false;
     emit selectionChanged(selected);
 }
 

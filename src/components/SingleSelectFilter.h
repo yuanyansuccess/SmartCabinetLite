@@ -54,5 +54,4 @@ private:
     QString m_placeholder;
     QStringList m_options;
     int m_selectedIndex = 0;  // 默认选中第一项（"全部"）
-    bool m_popupVisible = false;
 };

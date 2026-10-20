@@ -47,7 +47,6 @@ public:
 
 private:
     db::ToolDAO   m_toolDao;
-    db::RecordDAO m_recordDao;
 
     bool validateToolCode(const QString& code, int excludeId = 0);
 };

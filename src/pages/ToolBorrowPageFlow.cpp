@@ -73,8 +73,6 @@ void ToolBorrowPage::onBorrowConfirm() {
             }
         }
     }
-    // 每件工具默认借1件，m_pendingQuantity用于兼容旧逻辑
-    m_pendingQuantity = 1;
     // 从系统参数自动计算归还时间（不从用户编辑的DateTimeEdit读取）
     int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
     if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;

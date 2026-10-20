@@ -146,7 +146,6 @@ void SingleSelectFilter::setSelectedIndex(int index) {
 void SingleSelectFilter::onFilterBtnClicked() {
     if (m_popup->isVisible()) {
         m_popup->hide();
-        m_popupVisible = false;
     } else {
         // 确保popup内容是最新的
         if (m_popup->layout() == nullptr || m_options.isEmpty()) {
@@ -155,7 +154,6 @@ void SingleSelectFilter::onFilterBtnClicked() {
         QPoint pos = m_filterBtn->mapToGlobal(QPoint(0, m_filterBtn->height() + 4));
         m_popup->move(pos);
         m_popup->show();
-        m_popupVisible = true;
     }
 }
 
@@ -221,7 +219,6 @@ void SingleSelectFilter::rebuildPopup() {
             }
             updateButtonText();
             m_popup->hide();
-            m_popupVisible = false;
             emit selectionChanged(m_options[idx]);
         });
         checkLayout->addWidget(cb);

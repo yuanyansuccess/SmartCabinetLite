@@ -52,7 +52,6 @@ private:
     QLabel* m_dateLabel;               // 日期
 
     // 提示栏
-    QLabel* m_warningLabel;
 
     // 操作按钮
     QPushButton* m_selectAllBtn;  // 恢复声明
@@ -61,9 +60,6 @@ private:
     QTableWidget* m_table;
     QSet<int> m_checkedRecordIds;
     QJsonArray m_records;
-
-  // 归还流程状态标记
-    bool m_returnAttempted = false;    // 是否已经模拟过异常，第二次点击执行实际归还
 
     // 从借用记录跳转时，待自动选中的归还记录ID
     int m_pendingReturnRecordId = 0;

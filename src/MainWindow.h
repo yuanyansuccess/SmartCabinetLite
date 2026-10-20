@@ -105,7 +105,6 @@ private:
 
     // 自动锁屏定时器（空闲超时自动退出登录）
     QTimer* m_idleTimer = nullptr;
-    QDateTime m_lastActivity;        // 最近一次用户操作时间
 
     // 数据库备份检查定时器（每小时检查一次是否到了备份时间）
     QTimer* m_backupCheckTimer = nullptr;

@@ -101,8 +101,6 @@ private:
     QStackedWidget* m_stackedWidget = nullptr;  // 替代QScrollArea
     // 四个面板引用
     QWidget* m_networkPanel = nullptr;
-    QWidget* m_alertPanel = nullptr;
-    QWidget* m_borrowPanel = nullptr;
     QWidget* m_backupPanel = nullptr;
 
     // 任务配置面板控件

@@ -194,7 +194,6 @@ void MainWindow::setupUI() {
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(lockMinutes * 60 * 1000);  // 分钟转毫秒
     m_idleTimer->setSingleShot(true);  // 单次触发，超时后需用户活动才重新计时
-    m_lastActivity = QDateTime::currentDateTime();
     connect(m_idleTimer, &QTimer::timeout, this, &MainWindow::onAutoLockTimeout);
     m_idleTimer->start();
 
@@ -958,7 +957,6 @@ void MainWindow::onBackupCheckTimeout() {
 // 重置空闲计时器（用户有操作时调用，仅自动锁屏启用时生效）
 void MainWindow::resetIdleTimer() {
 #if SC_AUTO_LOCK_ENABLED
-    m_lastActivity = QDateTime::currentDateTime();
     // 无条件重启：定时器为单次触发，触发后 isActive() 恒为 false，
     // 若加 isActive 判断会导致首次自动锁屏后闲置保护永久失效
     if (m_idleTimer) m_idleTimer->start();
