@@ -448,6 +448,10 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     }
     m_loginFlowBusy = true;
 
+    // 登录过渡期间（含强制改密/身份选择弹窗）停止闲置计时，
+    // 避免闲置自动锁屏在弹窗打开时触发、把界面切回登录页造成弹窗叠登录页
+    if (m_idleTimer) m_idleTimer->stop();
+
     // 登录成功后确保摄像头已关闭（兜底保险）
     m_loginPage->stopFaceRecognitionPublic();
 
@@ -534,6 +538,8 @@ void MainWindow::enterMenuHomePage() {
     updateSidebarVisibility();
     showPage("home");
     emit userLoggedIn(m_user);
+    // 真正进入主页后再重新启动闲置计时（登录过渡期间已停止，避免误触自动锁屏）
+    if (m_idleTimer) m_idleTimer->start();
 }
 
 /**
@@ -865,6 +871,9 @@ void MainWindow::navigateToPage(const QString& name) {
 void MainWindow::onAutoLockTimeout() {
     // 仅在已登录状态下触发锁屏
     if (m_user.isEmpty()) return;
+    // 登录过渡期间（强制改密/身份选择弹窗打开）不自动注销，
+    // 否则会把界面切回登录页、与仍打开的模态弹窗叠加
+    if (m_loginFlowBusy) return;
 
     qInfo() << "[AutoLock] Idle timeout, auto logout";
     onLogout();
@@ -942,9 +951,9 @@ void MainWindow::onBackupCheckTimeout() {
 // 重置空闲计时器（用户有操作时调用）
 void MainWindow::resetIdleTimer() {
     m_lastActivity = QDateTime::currentDateTime();
-    if (m_idleTimer && m_idleTimer->isActive()) {
-        m_idleTimer->start();  // 重新计时
-    }
+    // 无条件重启：定时器为单次触发，触发后 isActive() 恒为 false，
+    // 若加 isActive 判断会导致首次自动锁屏后闲置保护永久失效
+    if (m_idleTimer) m_idleTimer->start();
 }
 
 // 全局事件过滤器：监听鼠标点击/移动、键盘按键，重置空闲计时器
