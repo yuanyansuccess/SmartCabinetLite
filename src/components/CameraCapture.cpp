@@ -13,6 +13,8 @@
 #include <QCamera>
 #include <QMediaCaptureSession>
 #include <QImageCapture>
+#include <QMediaDevices>
+#include <QVideoSink>
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
 #endif
@@ -29,6 +31,7 @@ CameraCapture::~CameraCapture() { stop(); }
 
 // ==================== 公开方法 ====================
 
+#ifndef HAS_QT_MULTIMEDIA
 bool CameraCapture::hasCamera() {
 #ifdef _WIN32
     IMFActivate** devices = nullptr;
@@ -52,12 +55,14 @@ bool CameraCapture::hasCamera() {
     return false;
 #endif
 }
+#endif // HAS_QT_MULTIMEDIA
 
 /**
  * @brief 枚举本机可用摄像头
  * @return 摄像头名称列表
  * @note 返回第一个可用采集后端与全部设备名，供设置页选择
  */
+#ifndef HAS_QT_MULTIMEDIA
 QStringList CameraCapture::availableCameras() {
     QStringList result;
 #ifdef _WIN32
@@ -87,10 +92,12 @@ QStringList CameraCapture::availableCameras() {
 #endif
     return result;
 }
+#endif // HAS_QT_MULTIMEDIA
 
 /**
  * @brief 启动摄像头采集
  */
+#ifndef HAS_QT_MULTIMEDIA
 bool CameraCapture::start(int width, int height, int fps) {
     if (m_running) return true;
 
@@ -112,10 +119,12 @@ bool CameraCapture::start(int width, int height, int fps) {
     return false;
 #endif
 }
+#endif // HAS_QT_MULTIMEDIA
 
 /**
  * @brief 停止摄像头采集
  */
+#ifndef HAS_QT_MULTIMEDIA
 void CameraCapture::stop() {
     if (!m_running) return;
     m_timer->stop();
@@ -124,6 +133,7 @@ void CameraCapture::stop() {
     stopMFCapture();
 #endif
 }
+#endif // HAS_QT_MULTIMEDIA
 
 /**
  * @brief 判断采集是否正在运行
@@ -133,6 +143,7 @@ bool CameraCapture::isRunning() const { return m_running; }
 
 // ==================== 内部实现 ====================
 
+#ifndef HAS_QT_MULTIMEDIA
 void CameraCapture::onCaptureTimer() {
 #ifdef _WIN32
     QImage frame = grabMFFrame();
@@ -144,6 +155,7 @@ void CameraCapture::onCaptureTimer() {
     }
 #endif
 }
+#endif // HAS_QT_MULTIMEDIA
 
 #ifdef _WIN32
 
@@ -474,14 +486,13 @@ bool CameraCapture::startQtMultimediaCapture(int width, int height, int fps) {
     });
     
     // 使用QVideoSink获取帧
-    QVideoSink *videoSink = m_captureSession->videoSink();
-    if (videoSink) {
-        connect(videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame &frame) {
-            QMutexLocker lock(&m_mutex);
-            m_currentFrame = frame.toImage();
-            m_frameReady = true;
-        });
-    }
+    m_videoSink = new QVideoSink(this);
+    m_captureSession->setVideoSink(m_videoSink);
+    connect(m_videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame &frame) {
+        QMutexLocker lock(&m_mutex);
+        m_currentFrame = frame.toImage();
+        m_frameReady = true;
+    });
     
     m_camera->start();
     m_running = true;
@@ -503,6 +514,10 @@ void CameraCapture::stopQtMultimediaCapture() {
     if (m_captureSession) {
         delete m_captureSession;
         m_captureSession = nullptr;
+    }
+    if (m_videoSink) {
+        delete m_videoSink;
+        m_videoSink = nullptr;
     }
     m_frameReady = false;
 }

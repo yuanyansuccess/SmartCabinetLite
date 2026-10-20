@@ -30,6 +30,8 @@
 #include <QVideoFrame>
 #include <QMediaCaptureSession>
 #include <QImageCapture>
+#include <QMediaDevices>
+#include <QVideoSink>
 #endif
 
 class CameraCapture : public QObject {
@@ -82,6 +84,7 @@ private:
     
     QCamera* m_camera = nullptr;
     QMediaCaptureSession* m_captureSession = nullptr;
+    QVideoSink* m_videoSink = nullptr;
     QVideoFrame m_lastFrame;
     bool m_frameReady = false;
 #endif

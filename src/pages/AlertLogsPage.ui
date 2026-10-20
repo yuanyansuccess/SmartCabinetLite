@@ -139,7 +139,12 @@ QPushButton:pressed{}</string></property>
    <extends>QWidget</extends>
    <header>components/PaginationBar.h</header>
   </customwidget>
- </customwidgets>
+  <customwidget>
+   <class>SearchBar</class>
+   <extends>QFrame</extends>
+   <header>components/SearchBar.h</header>
+  </customwidget>
+  </customwidgets>
  <resources/>
  <connections/>
 </ui>

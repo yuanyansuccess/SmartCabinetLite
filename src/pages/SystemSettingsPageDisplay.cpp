@@ -105,7 +105,7 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
                                                const QStringList& args) {
         auto* proc = new QProcess(this);
         connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [method, percent, writeLog](int exitCode, QProcess::ExitStatus) {
+                this, [this, method, percent, writeLog](int exitCode, QProcess::ExitStatus) {
             auto* p = qobject_cast<QProcess*>(sender());
             if (!p) return;
             QString output = p->readAllStandardOutput().trimmed();
@@ -232,7 +232,7 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
         ).arg(percent);
         auto* procB = new QProcess(this);
         connect(procB, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [percent, writeLog](int exitCodeB, QProcess::ExitStatus) {
+                this, [this, percent, writeLog](int exitCodeB, QProcess::ExitStatus) {
             auto* pB = qobject_cast<QProcess*>(sender());
             if (!pB) return;
             QString outputB = pB->readAllStandardOutput().trimmed();
