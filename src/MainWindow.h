@@ -88,6 +88,8 @@ private:
     QJsonObject m_user;
     /// 管理用户本次是否选择"以普通用户身份登录"：true=按普通用户权限显示菜单与页面
     bool m_userModeAsNormalUser = false;
+    /// 登录过渡流程进行中（强制改密/身份选择弹窗期间）：防loginSuccess重入导致弹窗叠加
+    bool m_loginFlowBusy = false;
 
     // 10个页面（人脸录入功能集成在人员管理页）
     LoginPage* m_loginPage;

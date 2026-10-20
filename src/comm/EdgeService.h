@@ -85,8 +85,6 @@ private:
 
     bool sendToEdge(const QJsonObject& frame);      ///< 向当前边缘机发一帧
     void requeueFailedRequests();                   ///< 链路恢复后补发失败请求（协议第5章④）
-    QString nextRequestId();                        ///< 生成请求编号 r-yyyyMMdd-NNN
-
     EdgeLink*  m_link = nullptr;         ///< 链路层（本类唯一持有）
     EdgeConfig m_cfg;                    ///< 通信配置（start 注入）
     bool        m_online = false;        ///< 链路在线状态
@@ -97,6 +95,5 @@ private:
     QTimer      m_scanTimer;             ///< 请求超时扫描器（200ms）
     QTimer      m_offlineTimer;          ///< 链路离线扫描器（1s）
     qint64      m_lastPeriodicMs = 0;    ///< 最近一帧periodic到达时刻（离线判定基准）
-    int         m_seq = 0;               ///< request_id 自增序号
     int         m_dropCount = 0;         ///< 异常帧丢弃计数（协议3.6-②）
 };

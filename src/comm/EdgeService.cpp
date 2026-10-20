@@ -322,13 +322,3 @@ void EdgeService::requeueFailedRequests()
     }
 }
 
-/**
- * @brief 生成请求编号
- * @return "r-yyyyMMdd-NNN"，日期+程序内自增序号，上位机单点生成保证唯一（协议3.2）
- */
-QString EdgeService::nextRequestId()
-{
-    return QString(QStringLiteral("r-%1-%2"))
-        .arg(QDate::currentDate().toString(QStringLiteral("yyyyMMdd")))
-        .arg(++m_seq, 3, 10, QChar('0'));
-}

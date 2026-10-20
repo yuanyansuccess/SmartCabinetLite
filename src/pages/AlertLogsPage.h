@@ -38,8 +38,6 @@ public:
     void refresh();
     // 设置当前登录用户（用于忽略按钮权限控制）
     void setUser(const QJsonObject& user) { m_user = user; }
-    // 当前用户是否为管理员
-    bool isAdmin() const { return m_user["role"].toString() == "admin"; }
 
 private slots:
     void onSearch();

@@ -440,8 +440,23 @@ void MainWindow::setCurrentUser(const QJsonObject& user) {
          * @param user 登录用户信息
          */
 void MainWindow::onLoginSuccess(const QJsonObject& user) {
+    // 防重入：身份选择/强制改密弹窗打开期间loginSuccess再次到达（如刷脸自动登录重复触发），
+    // 直接忽略，杜绝同一登录流程叠出两个弹窗、或弹窗与登录页叠加
+    if (m_loginFlowBusy) {
+        qInfo() << "[MainWindow] 忽略重复loginSuccess：登录过渡流程进行中";
+        return;
+    }
+    m_loginFlowBusy = true;
+
     // 登录成功后确保摄像头已关闭（兜底保险）
     m_loginPage->stopFaceRecognitionPublic();
+
+    // 硬性前置条件（第一个UI动作）：先离开登录页切到中性遮罩页，之后才允许出现任何弹窗。
+    // 结构性保证"登录页"与"身份选择/强制改密弹窗"互斥：弹窗只可能出现在遮罩页之上，
+    // 不存在登录页与弹窗叠加的路径。
+    if (m_userFlowCover) m_stack->setCurrentWidget(m_userFlowCover);
+    m_sidebar->setVisible(false);
+
     setCurrentUser(user);
     m_borrowPage->setUser(user);
     m_returnPage->setUser(user);
@@ -452,12 +467,6 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     // 登录成功后刷新TopBar版本号显示（页面层读配置后注入）
     m_topBar->setVersionText(AppConfig::instance().appVersion());
 
-    // 登录已通过但身份未定的过渡态：主界面切到中性遮罩页并隐藏侧边栏。
-    // 原因：此时后续可能先弹"强制改密"或"身份选择"对话框，若不先切走，
-    // 弹窗背景会停留在登录页的"身份验证通过"卡片上，且管理菜单会提前暴露。
-    if (m_userFlowCover) m_stack->setCurrentIndex(m_stack->indexOf(m_userFlowCover));
-    m_sidebar->setVisible(false);
-
     // 初始密码用户必须先自设新密码才能继续（管理员同样适用）
     // 校验不通过或主动退出登录时，一律回到登录页
     if (user["mustChangePwd"].toInt() == 1) {
@@ -465,6 +474,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
         ForceChangePasswordDialog dlg(user["userId"].toInt(),
                                       user["realName"].toString(), false, this);
         if (dlg.exec() != QDialog::Accepted) {
+            m_loginFlowBusy = false;  // 先解锁再注销，否则注销后的自动刷脸登录会被本锁拦死
             onLogout();
             return;
         }
@@ -478,12 +488,16 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
 
     // 普通用户：直接进功能导航主页（卡片为借用归还/查询/操作日志）
     if (role == SC::ROLE_USER) {
+        m_loginFlowBusy = false;
         enterMenuHomePage();
         return;
     }
 
-    // 管理用户（管理员+普通用户双重身份）：先选本次登录身份
+    // 管理用户（管理员+普通用户双重身份）：先选本次登录身份。
+    // 能走到这里的唯一前提：登录已完成且主界面已离开登录页（本函数第一个UI动作保证），
+    // 弹窗前再强制停回遮罩页一次，双保险确保身份选择框永远不会叠在登录页上
     if (role == SC::ROLE_MANAGER) {
+        if (m_userFlowCover) m_stack->setCurrentWidget(m_userFlowCover);
         RoleSelectDialog roleDlg(user["realName"].toString(), this);
         roleDlg.exec();
         // 身份选择埋点：取消=弹窗被关闭（含"退出登录"按钮），将自动注销回登录页
@@ -494,10 +508,12 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
         if (roleDlg.choice() == RoleSelectDialog::Choice::User) {
             // 以普通用户身份进入：导航主页按普通用户卡片注入
             m_userModeAsNormalUser = true;
+            m_loginFlowBusy = false;
             enterMenuHomePage();
             return;
         }
         if (roleDlg.choice() == RoleSelectDialog::Choice::Cancelled) {
+            m_loginFlowBusy = false;  // 先解锁再注销，保证注销后自动刷脸登录可正常触发
             onLogout();
             return;
         }
@@ -505,6 +521,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
         m_userModeAsNormalUser = false;
     }
 
+    m_loginFlowBusy = false;
     // 管理员身份进入：显示功能导航主页（遮罩过渡态在此结束）
     enterMenuHomePage();
 }

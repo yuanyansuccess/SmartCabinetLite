@@ -81,7 +81,6 @@ private slots:
     /// 忘记密码：弹出刷脸验证对话框，成功后自助设置新密码
     void onForgotPassword();
     void onTryFaceAgain();
-    void retryFaceTimeout();
     void onExitSystem();  // 退出系统按钮
 
 private:

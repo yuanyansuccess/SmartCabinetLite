@@ -521,11 +521,6 @@ void LoginPage::stopDotBlink() {
 }
 
 /**
- * @brief [保留] MOC生成代码引用的空方法
- */
-void LoginPage::retryFaceTimeout() {}
-
-/**
  * @brief 将人脸识别状态转换为可读名称
  * @param result 识别状态
  * @return 状态名称，仅用于日志展示
