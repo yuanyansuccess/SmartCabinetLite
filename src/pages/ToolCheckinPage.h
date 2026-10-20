@@ -66,7 +66,7 @@ private:
 
     // ── 出入库单据 ──
     void appendOrderRow(const QString& type);            // 向单据表格追加一行
-    void appendInRowForTool(int toolId);                 // 追加一行入库指令并预选指定工具
+    void appendInRowForTool(int toolId);                 // 追加一行入库指令并预选指定工具（已有该工具行则跳过）
     void reloadToolOptions(int row);                     // 按行类型重载该行工具下拉
     void updateRowPosition(int row);                     // 行内选工具后自动带出位置
     int  rowOfWidget(QWidget* w);                        // 查找单元格控件所在行号

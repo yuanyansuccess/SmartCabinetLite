@@ -177,9 +177,21 @@ void ToolCheckinPage::onAddOrderRowOut() {
 
 /**
  * @brief 追加一行入库指令并预选指定工具（供一键导入入库行调用）
- * @param toolId 待入库工具ID；该工具不在下拉选项中时该行保持未选状态
+ * @param toolId 待入库工具ID；该工具不在下拉选项中时该行保持未选状态；
+ *               列表中已有该工具的入库行时跳过不添加，避免重复入库同一工具
  */
 void ToolCheckinPage::appendInRowForTool(int toolId) {
+    // 去重：已有该工具的入库行则跳过（手动添加的行同样计入"已有"）；
+    // 只比对入库行——出库行下拉data存的是mappingId（位置标识），与toolId不是同一编号空间，不能混比
+    for (int r = 0; r < m_orderTable->rowCount(); ++r) {
+        auto* existTypeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, 0));
+        auto* existToolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, 1));
+        if (!existTypeCombo || !existToolCombo) continue;
+        if (existTypeCombo->currentData().toString() == QStringLiteral("in")
+            && existToolCombo->currentData().toInt() == toolId) {
+            return;
+        }
+    }
     appendOrderRow(QStringLiteral("in"));
     int row = m_orderTable->rowCount() - 1;
     auto* toolCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 1));
@@ -607,7 +619,7 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
 bool ToolCheckinPage::validateOrderItems(const QList<OrderRow>& items) {
     db::ToolDAO toolDao;
 
-    // 入库行：按工具实时查询空闲位置，多行同名工具依次占用不同空闲位置
+    // 入库行：按工具实时查询空闲位置（同一工具多行已在onSubmit入口拦截，此处为防御性逐行分配）
     QMap<int, QJsonArray> freePositionsByTool;  // toolId -> 实时空闲位置列表
     QMap<int, int> assignedCountByTool;         // toolId -> 已分配行数
     for (const OrderRow& it : items) {
@@ -662,7 +674,7 @@ void ToolCheckinPage::clearOrderTable() {
 }
 
 /**
- * @brief 确认出入库：收集校验单据 → 实时核对位置 → 进入开箱环节
+ * @brief 确认出入库：收集校验单据 → 查重 → 实时核对位置 → 进入开箱环节
  */
 void ToolCheckinPage::onSubmit() {
     QString errorMsg;
@@ -678,6 +690,23 @@ void ToolCheckinPage::onSubmit() {
         return;
     }
     m_errorLabel->setVisible(false);
+
+    // 入库行查重：同一工具只允许一行（一行一件）；有重复时提示用户删除多余行，不进入出入库逻辑
+    QMap<int, int>    inRowCountByTool;   // toolId -> 入库行数
+    QMap<int, QString> toolNameByToolId;  // toolId -> 工具名称（提示用）
+    for (const OrderRow& it : items) {
+        if (it.type != QStringLiteral("in")) continue;
+        inRowCountByTool[it.toolId] += 1;
+        toolNameByToolId.insert(it.toolId, it.toolName);
+    }
+    for (int toolId : inRowCountByTool.keys()) {
+        if (inRowCountByTool.value(toolId) > 1) {
+            MessageDialog::showWarning(this, QStringLiteral("无法执行"),
+                QStringLiteral("工具「%1」在列表中有 %2 行重复的入库指令\n请删除多余的行（每行一件），只保留一行后再确认。")
+                    .arg(toolNameByToolId.value(toolId)).arg(inRowCountByTool.value(toolId)));
+            return;
+        }
+    }
 
     if (!validateOrderItems(items)) return;
 
