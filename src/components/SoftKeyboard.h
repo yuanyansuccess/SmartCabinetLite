@@ -28,7 +28,6 @@ public:
     void hide();
     void setMode(KeyMode mode);      // 切换键盘模式（英文/中文）
     void setConfirmText(const QString& text);  // 动态确认按钮文本 (Web: confirmText)
-    void setConfirmVisible(bool visible);  // 控制底部确认按钮区显隐
     void setSurnameMode(bool on);    // 姓名输入：开启姓氏候选前置
 
 signals:
@@ -41,7 +40,6 @@ signals:
 
 public:
     QString currentText() const;  // 版本B兼容：获取当前输入文本
-    void triggerShake();  // 错误抖动动画
 
 private slots:
     void onPrevPage();     // 候选上一页

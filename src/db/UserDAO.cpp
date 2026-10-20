@@ -364,12 +364,17 @@ bool UserDAO::updateUser(const User& user) {
 }
 
 /**
- * @brief 逻辑删除用户：状态置为 deleted
+ * @brief 逻辑删除用户：同步清空人脸特征，状态置为 deleted
  * @param userId 用户ID
- * @return true=状态已更新
+ * @return true=人脸已清空且状态已更新（同一事务，任一失败整体回滚）
+ * @note 注销时一并删除人脸特征，满足需规 3.2.3 第193条"人脸特征数据一并删除"；
+ *       同时避免已注销账户的人脸仍残留于 face_feature，造成人脸录入查重误判"一脸两户"。
  */
 bool UserDAO::deleteUserById(int userId) {
-    return execute("UPDATE sys_user SET status = 'deleted' WHERE user_id = ?", {userId});
+    return transaction([this, userId]() -> bool {
+        if (!deleteFace(userId)) return false;
+        return execute("UPDATE sys_user SET status = 'deleted' WHERE user_id = ?", {userId});
+    });
 }
 
 /**

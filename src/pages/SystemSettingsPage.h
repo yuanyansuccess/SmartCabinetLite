@@ -166,7 +166,6 @@ private:
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
     void snapshotSettings();      // 快照当前UI值
-    void restoreSettings();       // 还原UI值到快照
     bool isDirty();  // 检测UI值是否与快照不同
     void loadConfigFromIni();  // 从本地INI文件加载配置到UI
     bool saveConfigToIni();  // 将当前UI值写入本地INI文件，返回是否成功

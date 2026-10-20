@@ -59,15 +59,6 @@ AppConfig::~AppConfig() { delete m_settings; }
          */
 QString AppConfig::iniFilePath() const { return m_iniPath; }
 
-qreal AppConfig::uiScale() const {
-    QMutexLocker l(&m_mutex);
-    return m_settings->value("UI/uiScale", 0).toDouble();   // 0=自动识别
-}
-
-void AppConfig::setUiScale(qreal v) {
-    QMutexLocker l(&m_mutex);
-    m_settings->setValue("UI/uiScale", v);
-}
 
 // 首次运行时创建默认INI文件（与执行文件同级）
 // 写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
@@ -135,21 +126,7 @@ void AppConfig::createDefaultIni(const QString& path) {
     qInfo() << "[AppConfig] 已创建默认INI文件:" << path;
 }
 
-// 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
-// 修改版本号只需编辑exe同级目录的system.ini中[System]节的version字段
-QString AppConfig::appVersion() const {
-    QMutexLocker l(&m_mutex);
-    return m_settings->value("System/version", SC::APP_VERSION).toString();
-}
 
-/**
-         * @brief 写入应用版本号
-         * @param version 版本号文本
-         */
-void AppConfig::setAppVersion(const QString& version) {
-    QMutexLocker l(&m_mutex);
-    m_settings->setValue("System/version", version);
-}
 
 // ═══════════════════════════════════════════════
 // 数据库配置
@@ -175,6 +152,18 @@ QString AppConfig::dbUser() const { QMutexLocker l(&m_mutex); return m_user; }
  */
 QString AppConfig::dbPass() const { QMutexLocker l(&m_mutex); return m_pass; }
 
+// ═══════════════════════════════════════════════
+// 系统配置（System节）
+// ═══════════════════════════════════════════════
+/**
+ * @brief 读取应用版本号
+ * @return 版本号文本，默认取 SC::APP_VERSION
+ */
+QString AppConfig::appVersion() const {
+    QMutexLocker l(&m_mutex);
+    return m_settings->value("System/version", SC::APP_VERSION).toString();
+}
+
 /**
          * @brief 写入数据库连接配置
          * @param host 地址
@@ -183,12 +172,6 @@ QString AppConfig::dbPass() const { QMutexLocker l(&m_mutex); return m_pass; }
          * @param user 账号
          * @param pass 口令
          */
-void AppConfig::setDbConfig(const QString& host, int port,
-                            const QString& name, const QString& user, const QString& pass) {
-    QMutexLocker l(&m_mutex);
-    m_host = host; m_port = port;
-    m_name = name; m_user = user; m_pass = pass;
-}
 
 // ═══════════════════════════════════════════════
 // 本机机组
@@ -202,19 +185,6 @@ int AppConfig::localMachineGroupId() const {
 /**
  * @brief 读取本机组名称
  */
-QString AppConfig::localMachineGroupName() const {
-    QMutexLocker l(&m_mutex); return m_localGroupName;
-}
-/**
-         * @brief 写入本机组信息
-         * @param groupId 机组ID
-         * @param groupName 机组名称
-         */
-void AppConfig::setLocalMachineGroup(int groupId, const QString& groupName) {
-    QMutexLocker l(&m_mutex);
-    m_localGroupId = groupId;
-    m_localGroupName = groupName;
-}
 
 // ═══════════════════════════════════════════════
 // 网络配置
@@ -316,26 +286,22 @@ int AppConfig::borrowReturnBuffer() const   { QMutexLocker l(&m_mutex); return m
  * @brief 设置归还缓冲时间（分钟）
  */
 void AppConfig::setBorrowReturnBuffer(int v)          { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/return_buffer", v); }
-bool AppConfig::borrowManualUnlock() const  { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/manual_unlock",     SC::BORROW_MANUAL_UNLOCK).toBool(); }
+
 /**
  * @brief 设置是否允许手动开锁
  */
-void AppConfig::setBorrowManualUnlock(bool v)         { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/manual_unlock", v); }
+
 int AppConfig::borrowBrightness() const     { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/brightness",       SC::BORROW_BRIGHTNESS).toInt(); }
+int AppConfig::borrowLockTime() const       { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/lock_time",        SC::BORROW_LOCK_TIME).toInt(); }
 /**
  * @brief 设置借用亮度
  */
 void AppConfig::setBorrowBrightness(int v)            { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/brightness", v); }
-int AppConfig::borrowLockTime() const       { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/lock_time",        SC::BORROW_LOCK_TIME).toInt(); }
+
 /**
  * @brief 设置自动锁屏时间（分钟）
  */
-void AppConfig::setBorrowLockTime(int v)              { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/lock_time", v); }
-int AppConfig::borrowFaceSensitivity() const{ QMutexLocker l(&m_mutex); return m_settings->value("Borrow/face_sensitivity", SC::BORROW_FACE_SENSITIVITY).toInt(); }
-/**
- * @brief 设置人脸识别灵敏度等级
- */
-void AppConfig::setBorrowFaceSensitivity(int v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/face_sensitivity", v); }
+
 
 // ═══════════════════════════════════════════════
 // 备份配置

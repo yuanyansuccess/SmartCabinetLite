@@ -242,25 +242,6 @@ void ToolReturnPage::setPendingReturnRecordId(int recordId) {
 }
 
 /**
- * @brief
- * @param checked 复选框/开关是否勾选，true 选中
- */
-void ToolReturnPage::onSelectAll(bool checked) {
-    m_checkedRecordIds.clear();
-    if (checked) {
-        for (int i = 0; i < m_records.size(); ++i) {
-            QJsonObject r = m_records[i].toObject();
-            m_checkedRecordIds.insert(r["recordId"].toInt());
-        }
-    }
-    for (int i = 0; i < m_table->rowCount(); ++i) {
-        auto* cb = qobject_cast<QCheckBox*>(m_table->cellWidget(i, 0));
-        if (cb) cb->setChecked(checked);
-    }
-    updateReturnBtn();
-}
-
-/**
  * @brief 处理归还选中
  */
 void ToolReturnPage::onReturnSelected() {

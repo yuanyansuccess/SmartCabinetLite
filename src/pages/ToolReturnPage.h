@@ -28,7 +28,6 @@ public:
     void setPendingReturnRecordId(int recordId);
 
 private slots:
-    void onSelectAll(bool checked);
     void onReturnSelected();
     void onPrevPage();  // 上一页
     void onNextPage();  // 下一页

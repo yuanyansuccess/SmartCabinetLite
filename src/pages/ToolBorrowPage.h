@@ -60,11 +60,8 @@ signals:
     void returnRequested(int recordId);
 
 private slots:
-    void onTaskTypeChanged();
     void onToolSelected(int row, int col);
     void onBorrowConfirm();
-    void onReasonChanged(int index);
-    void onSearchTool();
     // 任务类型下拉面板相关
     void onTaskTypeBtnClicked();
     void onFilterTaskTypes();

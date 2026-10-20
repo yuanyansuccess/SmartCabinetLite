@@ -35,20 +35,6 @@ ToolController::PageResult ToolController::getToolList(int page, int pageSize,
  */
 ToolInfo ToolController::getToolById(int toolId) { return m_toolDao.findToolById(toolId); }
 
-/**
- * @brief 新增工具
- * @param tool 工具实体
- * @return 新工具ID；工具编号校验不通过或写入失败返回 -1
- */
-int ToolController::addTool(const ToolInfo& tool) {
-    if (!validateToolCode(tool.toolCode)) return -1;
-    ToolInfo t = tool;
-    t.currentQty = t.totalQty;
-    t.status = SC::TOOL_IN_STOCK;
-    int id = m_toolDao.insertTool(t);
-    return id;
-}
-
 int ToolController::addToolWithPosition(const ToolInfo& tool, int cabinetId,
                                         const QString& layer, const QString& position)
 {

@@ -76,8 +76,6 @@ public:
     static QString textColor()       { return "#1a1a2e"; }
     static QString textSecondary()   { return "#666666"; }
     static QString borderColor()     { return "#e0e0e0"; }
-    static QString purpleColor()     { return "#6c5ce7"; }
-    static QString purpleHover()     { return "#5a4bd1"; }
 
     /// 默认按钮 (白底灰边，用于返回/取消) 统一触屏标准: 44px高 14px字体 10px圆角
     static QString buttonDefault() {
@@ -120,19 +118,6 @@ public:
         );
     }
 
-    /// 确认按钮 (绿色实底)
-    static QString buttonSuccess() {
-        return QString(
-            "QPushButton {"
-            "  background: #43a047; color: white; border: none; border-radius: 10px;"
-            "  padding: 10px 28px; font-size: 14px; font-weight: 700;"
-            "  min-height: 44px; min-width: 100px;"
-            "}"
-            "QPushButton:hover { background: #388e3c; }"
-            "QPushButton:pressed { background: #2e7d32; }"
-            "QPushButton:disabled { background: #cccccc; color: #888888; }"
-        );
-    }
 
     /// 轮廓按钮 (白底蓝边，用于辅助操作) 统一触屏标准
     static QString buttonOutline() {
@@ -336,21 +321,6 @@ public:
               QString::number(Token::ControlHeightCompactInput));
     }
 
-    // 去掉内部边框+纯白背景
-    static QString settingComboBox() {
-        return QString(
-            "QComboBox {"
-            "  border: none; border-radius: %1px;"
-            "  padding: 0 16px; font-size: %2px; color: %3;"
-            "  background: white; min-height: %4px;"
-            "}"
-            "QComboBox::drop-down { border: none; width: 36px; }"
-            "QComboBox QAbstractItemView { font-size: %2px; padding: 8px; }"
-        ).arg(QString::number(Token::RadiusSmall),
-              QString::number(Token::FontInput),
-              textColor(),
-              QString::number(Token::ControlHeightTouch));
-    }
 
     // 去掉内部边框+纯白背景
     // 注意：数字区域下方仍有边框，彻底去掉所有边框和outline
@@ -394,22 +364,6 @@ public:
               primaryHover(), QStringLiteral("#2e7bd6"));
     }
 
-    /// 数值输入框样式
-    static QString spinBox() {
-        return QString(
-            "QSpinBox {"
-            "  border: 2px solid #e0e0e0; border-radius: %1px;"
-            "  padding: 10px 16px; font-size: %2px; color: %3;"
-            "  background: white; min-height: %4px;"
-            "}"
-            "QSpinBox:focus { border-color: %5; }"
-            "QSpinBox::up-button, QSpinBox::down-button { width: 36px; border: none; }"
-        ).arg(QString::number(Token::RadiusMedium),
-              QString::number(Token::FontTitle),
-              textColor(),
-              QString::number(Token::ControlHeightLarge),
-              primaryColor());
-    }
 
     /// 下拉框样式
     static QString comboBox() {
@@ -444,27 +398,7 @@ public:
         ).arg(textColor(), primaryColor());
     }
 
-    static QString tableSpinBox() {
-        return QString(
-            "QSpinBox {"
-            "  border: 1px solid #d9d9d9; border-radius: 8px;"
-            "  padding: 4px 10px; font-size: 14px; color: %1;"
-            "  background: white; min-height: 32px; min-width: 70px;"
-            "}"
-            "QSpinBox:hover { border-color: %2; }"
-            "QSpinBox::up-button, QSpinBox::down-button { width: 22px; border: none; }"
-        ).arg(textColor(), primaryColor());
-    }
 
-    static QString tableCheckBox() {
-        return QString(
-            "QCheckBox { spacing: 6px; background: transparent; }"
-            "QCheckBox::indicator { width: 22px; height: 22px; border-radius: 4px;"
-            "  border: 2px solid #d0d0d0; background: white; }"
-            "QCheckBox::indicator:hover { border-color: %1; }"
-            "QCheckBox::indicator:checked { background: %1; border-color: %1; }"
-        ).arg(primaryColor());
-    }
 
     static QString tableActionBtn() {
         return QString(

@@ -27,7 +27,6 @@ public:
                             const QString& category = "", const QString& cabinet = "",
                             const QString& status = "", const QString& machineGroup = "");
     ToolInfo    getToolById(int toolId);
-    int         addTool(const ToolInfo& tool);
     /// 建档同时落位置映射（位置必填，建档即定位置）
     int         addToolWithPosition(const ToolInfo& tool, int cabinetId,
                                    const QString& layer, const QString& position);

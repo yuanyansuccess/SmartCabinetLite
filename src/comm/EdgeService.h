@@ -28,8 +28,6 @@ public:
 
     void start(const EdgeConfig& cfg);   ///< 启动服务（重复调用安全）
     void stop();                          ///< 停止服务
-    QString requestRecognize();           ///< 发全柜识别请求，返回请求编号
-    PeriodicInfo lastPeriodic() const { return m_lastPeriodic; } ///< 最近一帧周期帧
 
 signals:
     /**

@@ -419,16 +419,6 @@ FaceRecognitionService::EnrollFaceResult FaceRecognitionService::enrollFaceCheck
 }
 
 /**
- * @brief 为用户录入人脸特征（含查重，查重失败返回false）
- * @param userId 用户ID
- * @param faceDescriptor 128维特征串
- * @return true=录入成功；false=被查重拦截或写入失败（需查重复查调用 enrollFaceChecked 获取原因）
- */
-bool FaceRecognitionService::enrollFace(int userId, const QString& faceDescriptor) {
-    return enrollFaceChecked(userId, faceDescriptor).success;
-}
-
-/**
  * @brief 删除用户人脸特征
  * @param userId 用户ID
  * @return true=删除成功
@@ -436,17 +426,6 @@ bool FaceRecognitionService::enrollFace(int userId, const QString& faceDescripto
 bool FaceRecognitionService::deleteFace(int userId) {
     UserDAO dao;
     return dao.deleteFace(userId);
-}
-
-/**
- * @brief 判断用户是否已录入人脸
- * @param userId 用户ID
- * @return true=已录入
- */
-bool FaceRecognitionService::hasFaceEnrolled(int userId) {
-    UserDAO dao;
-    QJsonObject u = dao.findById(userId);
-    return !u["faceFeature"].toString().isEmpty();
 }
 
 /**

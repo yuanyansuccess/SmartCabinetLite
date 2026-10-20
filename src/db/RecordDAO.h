@@ -12,7 +12,6 @@
 #include <QDateTime>
 #include <QDate>
 #include "model/BorrowRecord.h"
-#include "model/ReturnRecord.h"
 #include "BaseDAO.h"
 
 namespace db {
@@ -24,11 +23,15 @@ public:
     // ═══════════════════════════════════════════════
     // QJsonObject API（Service层使用）
     // ═══════════════════════════════════════════════
+    // 写入一条借用记录，返回 record_id（失败返回-1）
     int         insert(const QJsonObject& record);
+    // 按记录ID查询借用详情
     QJsonObject findById(int recordId);
+    // 多条件分页查询借用记录
     QJsonObject findAll(int userId, int toolId, const QString& status,
                         const QString& startDate, const QString& endDate,
                         int page, int pageSize);
+    // 归还确认：写入归还时间/状态/操作人，返回是否成功
     bool        completeReturn(int recordId, const QString& returnTime,
                                const QString& condition, int operatorId, const QString& remark);
     // 查询某工具的最近N条借用记录（用于工具详情对话框展示）
@@ -37,11 +40,15 @@ public:
     QJsonArray  findByMappingId(int mappingId, int limit = 20);
     // 查询操作日志（sys_operation_log）：入库/出库记录
     QJsonObject findLastOperationLog(const QString& toolCode, const QString& operationType);
+    // 查询指定工具的操作日志清单
     QJsonArray  findOperationLogs(const QString& toolCode, const QString& operationType,
                                   const QString& positionKeyword, int limit = 10);
+    // 按用户查询借用记录（普通用户借用明细页/功能主页用）
+    // 入参：userId用户ID, limit返回条数上限
+    // 返回：QList<BorrowRecord> 该用户的借用流水（按借用时间倒序）
+    QList<BorrowRecord> findBorrowsByUser(int userId, int limit);
     // 通过借用记录ID查询关联工具信息（tool_id和tool_code）
     QJsonObject findToolInfoByRecordId(int recordId);
-    // 操作日志通用方法（sys_operation_log）
     // 写入一条操作日志，返回log_id（失败返回-1）
     int         insertOperationLog(int userId, const QString& operationType,
                                   const QString& targetType, const QString& targetId,
@@ -49,20 +56,15 @@ public:
     // 分页查询指定类型的操作日志（含操作人信息），返回 {list, total}
     QJsonObject findOperationLogsByType(const QString& operationType, int page, int pageSize);
     // 分页查询全部类型的操作日志（含操作人信息），返回 {list, total}
-    // list 元素含 type 字段（operation_type 原值），展示层据此做中文映射
-    int         countOperationLogsByType(const QString& operationType);
-    // 入库记录查询（含位置JOIN信息）— 入库记录Tab专用
-    // 返回：{list: [{createdAt,content,targetId,realName,workNo,
-    // tiCabId,tiCabName,tiLayer,tiPos,mpmCabId,mpmCabName,mpmLayer,mpmPos}], total}
-    QJsonArray  findByUserId(int userId, int limit);
-    // 台账统计（LedgerStatsPage数据源，自SettingService原样迁移）：
-    // totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
-    // + categoryStats（按品类件数）+ departmentStats（按部门），旧字段 totalBorrow/totalReturn 同步保留
-    BorrowRecord       findBorrowById(int borrowId);
-    int overdueCount();
+    QJsonObject findOperationLogsAll(int page, int pageSize);
+    // 分页查询入库类操作日志（operation_type='checkin'），返回 {list, total}
+    QJsonObject findCheckinLogs(int page, int pageSize);
+    // 台账统计（LedgerStatsPage数据源）
+    // 返回：QJsonObject含totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
+    //      + categoryStats（按品类件数）+ departmentStats（按部门）
+    QJsonObject getLedgerStats();
 
     static BorrowRecord borrowFromQuery(const QSqlQuery& q);
-    static ReturnRecord returnFromQuery(const QSqlQuery& q);
 };
 
 } // namespace db

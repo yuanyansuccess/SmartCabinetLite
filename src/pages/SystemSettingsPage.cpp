@@ -748,40 +748,6 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::BACKUP_PATH;
 }
 
-/**
- * @brief 还原所有UI控件到快照值
- */
-void SystemSettingsPage::restoreSettings() {
-    // 网络配置
-    if (m_ipEdit) m_ipEdit->setText(m_snapshot.ip);
-    if (m_maskEdit) m_maskEdit->setText(m_snapshot.mask);
-    if (m_gatewayEdit) m_gatewayEdit->setText(m_snapshot.gateway);
-    if (m_dnsEdit) m_dnsEdit->setText(m_snapshot.dns);
-    if (m_serverEdit) m_serverEdit->setText(m_snapshot.server);
-    m_speedMode = m_snapshot.speedMode; updateSpeedBtnStyles();
-    m_networkMode = m_snapshot.networkMode; updateModeBtnStyles();
-
-    // 告警参数
-    if (m_buzzerSlider) m_buzzerSlider->setValue(m_snapshot.buzzerVol);
-    if (m_ledCheck) m_ledCheck->setChecked(m_snapshot.ledAlert);
-    if (m_overdueSpin) m_overdueSpin->setValue(m_snapshot.overdueHours);
-    if (m_doorTimeoutSpin) m_doorTimeoutSpin->setValue(m_snapshot.doorTimeoutSec);
-    if (m_visionCheck) m_visionCheck->setChecked(m_snapshot.visionAlert);
-    m_powerAlarmMode = m_snapshot.powerAlarmMode; updatePowerAlarmBtnStyles();
-    if (m_autoConfirmCheck) m_autoConfirmCheck->setChecked(m_snapshot.autoConfirm);
-
-    // 借还设置
-    if (m_defaultPeriodSpin) m_defaultPeriodSpin->setValue(m_snapshot.defaultPeriod);
-    if (m_returnBufferSpin) m_returnBufferSpin->setValue(m_snapshot.returnBuffer);
-    if (m_brightnessSlider) m_brightnessSlider->setValue(m_snapshot.brightness);
-
-    // 备份管理
-    if (m_autoBackupCheck) m_autoBackupCheck->setChecked(m_snapshot.autoBackup);
-    m_backupPeriod = m_snapshot.backupPeriod; updateBackupPeriodBtnStyles();
-    if (m_cacheHoursSpin) m_cacheHoursSpin->setValue(m_snapshot.cacheHours);
-    if (m_backupPathEdit) m_backupPathEdit->setText(m_snapshot.backupPath);
-}
-
 // 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）
 // Windows方案：PowerShell + WMI (WmiMonitorBrightnessMethods.WmiSetBrightness)
 // 麒麟方案A：/sys/class/backlight/<dev>/brightness 内核接口（硬件级，需root）

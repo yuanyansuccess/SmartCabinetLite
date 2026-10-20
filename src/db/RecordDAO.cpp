@@ -54,31 +54,6 @@ BorrowRecord RecordDAO::borrowFromQuery(const QSqlQuery& q) {
     return r;
 }
 
-/**
- * @brief 查询结果行转换为归还记录实体
- * @param q 已定位到有效行的查询结果
- * @return 填充完成的归还记录实体
- */
-ReturnRecord RecordDAO::returnFromQuery(const QSqlQuery& q) {
-    ReturnRecord r;
-    r.returnId    = q.value("record_id").toInt();
-    r.borrowId    = q.value("record_id").toInt();
-    r.userId      = q.value("user_id").toInt();
-    r.toolId      = q.value("tool_id").toInt();
-    r.quantity    = q.value("borrow_qty").toInt();
-    r.returnTime  = q.value("actual_return_time").toDateTime();
-    r.condition   = q.value("remark").toString();
-    r.remark      = q.value("remark").toString();
-    r.createdAt   = q.value("created_at").toDateTime();
-    r.userName    = q.value("username").toString();
-    r.realName    = q.value("real_name").toString();
-    r.toolCode    = q.value("tool_code").toString();
-    r.toolName    = q.value("tool_name").toString();
-    r.flowNo      = q.value("flow_no").toString();
-    r.borrowTime  = q.value("borrow_time").toString();
-    return r;
-}
-
 // ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）
 // ═══════════════════════════════════════════════

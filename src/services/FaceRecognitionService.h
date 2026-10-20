@@ -62,9 +62,6 @@ public:
                                double marginThreshold = 0.15,
                                double maxEuclideanDist = 0.80);
 
-    // 录入人脸特征
-    bool enrollFace(int userId, const QString& faceDescriptor);
-
     /// 人脸查重命中结果：命中"同一张脸已挂在其他账户"时携带归属用户信息
     struct FaceDuplicateInfo {
         bool    duplicated = false;  ///< true=库内已有同一张脸且不属于本次录入用户
@@ -103,9 +100,6 @@ public:
 
     // 删除人脸特征
     bool deleteFace(int userId);
-
-    // 检查是否已录入
-    bool hasFaceEnrolled(int userId);
 
     // 获取所有已录入人脸
     /// 获取所有已录入人脸

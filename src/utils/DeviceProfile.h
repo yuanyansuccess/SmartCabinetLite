@@ -24,9 +24,6 @@ public:
     // 必须在 QApplication 构造【之后】调用：打印设备识别信息
     static void logDeviceInfo();
 
-    static qreal currentScale()   { return s_scale; }
-    static bool  isSmallScreen()  { return s_smallScreen; }
-
 private:
     static QSize detectScreenLogicalSize();   // 平台 API，构造前可用
     static qreal readConfigUiScale(int argc, char** argv);  // 轻量读 ini

@@ -131,34 +131,7 @@ void EdgeService::stop()
     m_activeClient = 0;
 }
 
-/**
- * @brief 发起全柜识别请求（关柜比对/盘点入口，协议3.2）
- * @return 生成的请求编号 r-yyyyMMdd-NNN，用于日志关联；
- *         链路离线时拒绝发送并返回空串（协议第5章⑤），
- *         同时发 recognizeFailed（requestId 为空串，原因="链路离线"）
- * @note  异步：立即返回不等结果。结果通过 recognizeFinished（成功）/
- *        recognizeFailed（失败）信号返回
- */
-QString EdgeService::requestRecognize()
-{
-    // 第5章⑤：链路离线禁止下发识别请求
-    if (!m_online) {
-        emit recognizeFailed(QString(), QStringLiteral("链路离线，拒绝发送识别请求"));
-        return QString();
-    }
-    QJsonObject frame;
-    frame["type"] = "recognize";
-    frame["request_id"] = nextRequestId();
 
-    Pending p;
-    p.frame = frame;
-    p.sentAtMs = nowMs();
-    p.tries = 1;            // 首次发送（协议3.6-①：之后最多重发2次）
-    m_pending.insert(frame["request_id"].toString(), p);
-
-    sendToEdge(frame);
-    return frame["request_id"].toString();
-}
 
 /**
  * @brief 发起边缘机软件版本查询（验收留痕/运维，协议3.5）

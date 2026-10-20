@@ -32,7 +32,6 @@ signals:
     void userCreated(int userId);
     void userUpdated(int userId);
     void userStatusChanged(int userId, const QString& oldStatus, const QString& newStatus);
-    void faceEnrolled(int userId);
 
 private:
     db::UserDAO m_dao;

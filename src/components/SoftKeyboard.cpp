@@ -696,14 +696,6 @@ void SoftKeyboard::setConfirmText(const QString& text) {
 }
 
 /**
-         * @brief 设置确认键是否显示
-         * @param visible true=显示确认键
-         */
-void SoftKeyboard::setConfirmVisible(bool visible) {
-    if (m_footerArea) m_footerArea->setVisible(visible);
-}
-
-/**
          * @brief 读取当前输入内容
          * @return 输入文本
          */
@@ -725,24 +717,4 @@ bool SoftKeyboard::eventFilter(QObject* obj, QEvent* event) {
         return true;
     }
     return QWidget::eventFilter(obj, event);
-}
-
-/// 错误抖动动画
-void SoftKeyboard::triggerShake() {
-    if (!m_panel) return;
-    QPoint orig = m_panel->pos();
-    QPropertyAnimation* anim = new QPropertyAnimation(m_panel, "pos", this);
-    anim->setDuration(400);
-    anim->setStartValue(orig);
-    anim->setKeyValueAt(0.1, orig + QPoint(-6, 0));
-    anim->setKeyValueAt(0.2, orig + QPoint(6, 0));
-    anim->setKeyValueAt(0.3, orig + QPoint(-6, 0));
-    anim->setKeyValueAt(0.4, orig + QPoint(6, 0));
-    anim->setKeyValueAt(0.5, orig + QPoint(-6, 0));
-    anim->setKeyValueAt(0.6, orig + QPoint(6, 0));
-    anim->setKeyValueAt(0.7, orig + QPoint(-4, 0));
-    anim->setKeyValueAt(0.8, orig + QPoint(4, 0));
-    anim->setKeyValueAt(0.9, orig + QPoint(-2, 0));
-    anim->setEndValue(orig);
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
 }

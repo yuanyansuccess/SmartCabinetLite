@@ -204,56 +204,7 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
     return r;
 }
 
-/**
- * @brief 人脸特征登录
- * @param faceFeature 采集到的128维特征串
- * @return success=是否匹配到已录入人脸，message=失败原因，user=用户信息
- * @note 按余弦相似度择优匹配，相似度低于阈值视为陌生人
- */
-AuthService::LoginResult AuthService::loginByFace(const QString& faceFeature) {
-    // 人脸特征按余弦相似度比对：同一人在不同次采集下特征值并不完全相同，
-    // 因此不能用字符串相等判断
-    // 两个人脸捕获的特征向量不可能完全相等，必须用余弦相似度等数值比对
-    // 委托给FaceRecognitionService::matchFace做专业比对（余弦相似度+欧氏距离双验证）
-    LoginResult r; r.success = false;
-    if (faceFeature.isEmpty()) { r.message = "人脸特征为空"; return r; }
 
-    FaceRecognitionService faceSvc;
-    // 阈值必须与登录页识别一致：跨人相似度实测可达 0.9551，
-    // 低于 0.96 的门槛会把长相相近的男生误判为同一人登录
-    auto matchResult = faceSvc.matchFace(faceFeature, 0.96);
-
-    if (matchResult.success) {
-        UserDAO dao;
-        QJsonObject userInfo = dao.findById(matchResult.userId);
-        if (!userInfo.isEmpty() && userInfo["status"].toString() == SC::USER_ACTIVE) {
-            // 刷脸登录成功同样清空密码失败计数，避免历史误输残留影响后续判定
-            clearPasswordFailures();
-            dao.recordLoginSuccess(matchResult.userId);
-            userInfo.remove("passwordHash"); userInfo.remove("passwordSalt");
-            r.success = true;
-            r.message = QStringLiteral("人脸登录成功 (相似度: %1%)")
-                .arg(QString::number(matchResult.similarity * 100.0, 'f', 1));
-            r.user = userInfo;
-            return r;
-        }
-        r.message = "用户已被禁用或不存在";
-        return r;
-    }
-
-    r.message = matchResult.message.isEmpty()
-        ? QStringLiteral("人脸匹配失败") : matchResult.message;
-    return r;
-}
-
-/**
- * @brief 判断用户是否为管理员
- * @param user 用户信息对象
- * @return true=管理员
- */
-bool AuthService::isAdmin(const QJsonObject& user) const { 
-    return user["role"].toString() == SC::ROLE_ADMIN; 
-}
 
 /**
  * @brief 判断用户是否为启用状态

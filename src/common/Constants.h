@@ -91,7 +91,7 @@ const QString RECORD_OVERDUE   = "overdue";      // 已逾期
 
 // ── 人脸识别结果（face_recog_log.result）──
 // 写入方：FaceRecognitionService（识别判定）、LoginPage::faceResultName（枚举转字符串）
-// 统计方：FaceRecogLogDAO::stats，三处必须同值
+// 使用方：FaceRecognitionService（识别判定写入）、LoginPage::faceResultName（枚举转字符串）；原统计方法FaceRecogLogDAO::getStats已删除
 const QString FACE_RESULT_SUCCESS  = "success";   // 识别成功
 const QString FACE_RESULT_STRANGER = "stranger";  // 陌生人
 const QString FACE_RESULT_REJECTED = "rejected";  // 相似度不足被拒

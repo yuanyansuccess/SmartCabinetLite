@@ -759,7 +759,7 @@ void MainWindow::showUserOperationLog() {
     closeBtn->setStyleSheet(QString(
         "QPushButton { background: %1; color: white; border: none; border-radius: 12px;"
         "  font-size: 20px; font-weight: 700; min-height: 56px; min-width: 260px; }"
-        "QPushButton:hover { background: %2; }"
+        "QPushButton:hover { background: %2; }" 
     ).arg(StyleHelper::primaryColor(), StyleHelper::primaryHover()));
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     lay->addWidget(closeBtn, 0, Qt::AlignCenter);

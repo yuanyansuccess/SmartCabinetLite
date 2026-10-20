@@ -25,12 +25,8 @@ public:
     
     // 密码登录
     LoginResult login(const QString& username, const QString& password);
-    
-    // 人脸登录
-    LoginResult loginByFace(const QString& faceFeature);
-    
+
     // 权限检查
-    bool isAdmin(const QJsonObject& user) const;
     bool isActive(const QJsonObject& user) const;
     
     // 密码工具方法

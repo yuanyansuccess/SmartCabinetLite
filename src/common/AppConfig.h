@@ -28,19 +28,12 @@ public:
     QString dbName() const;
     QString dbUser() const;
     QString dbPass() const;
-    void setDbConfig(const QString& host, int port,
-                     const QString& name, const QString& user, const QString& pass);
 
-    // 应用版本号（从INI的System/version读取，默认Constants.h中的APP_VERSION）
-    QString appVersion() const;
-    void    setAppVersion(const QString& version);
 
     // ═══════════════════════════════════════════════
     // 本机机组信息
     // ═══════════════════════════════════════════════
     int     localMachineGroupId() const;
-    QString localMachineGroupName() const;
-    void    setLocalMachineGroup(int groupId, const QString& groupName);
 
     // ═══════════════════════════════════════════════
     // 网络配置（Network节）
@@ -86,14 +79,9 @@ public:
     void setBorrowDefaultPeriod(int v);
     int  borrowReturnBuffer() const;    // 归还缓冲时间(分钟)
     void setBorrowReturnBuffer(int v);
-    bool borrowManualUnlock() const;    // 手动开锁
-    void setBorrowManualUnlock(bool v);
     int  borrowBrightness() const;      // 屏幕亮度(%)
     void setBorrowBrightness(int v);
     int  borrowLockTime() const;        // 自动锁屏时间(分钟)
-    void setBorrowLockTime(int v);
-    int  borrowFaceSensitivity() const; // 0=标准, 1=宽松, 2=严格
-    void setBorrowFaceSensitivity(int v);
 
     // ═══════════════════════════════════════════════
     // 备份配置（Backup节）
@@ -113,8 +101,6 @@ public:
     // UI 缩放配置（UI节）：>0 时覆盖自动设备识别的等比缩放
     // 与 DeviceProfile 共用 [UI] uiScale 同一键，语义一致
     // ═══════════════════════════════════════════════
-    qreal uiScale() const;        // 0=自动识别
-    void  setUiScale(qreal v);
 
     // ═══════════════════════════════════════════════
     // 通用读写 + 持久化
@@ -124,6 +110,11 @@ public:
     void    save();   // 同步写入INI文件
     void    load();   // 从INI文件加载
     QString iniFilePath() const;  // 返回INI文件路径
+
+    // ═══════════════════════════════════════════════
+    // 系统配置（System节）
+    // ═══════════════════════════════════════════════
+    QString appVersion() const;        // 应用版本号（从INI的System/version读取，默认SC::APP_VERSION）
 
 private:
     AppConfig(const AppConfig&) = delete;

@@ -59,27 +59,6 @@ void FlowDialogs::addTitle(QVBoxLayout* body, const QString& icon, const QString
 }
 
 /**
- * @brief 添加提示栏
- */
-void FlowDialogs::addTipBar(QVBoxLayout* body, const QString& icon, const QString& text, int padding) {
-    auto* tipFrame = new QFrame();
-    tipFrame->setObjectName("tipFrame");
-    tipFrame->setStyleSheet(
-        "QFrame#tipFrame{background:#e6f7ff;border:1px solid #91d5ff;"
-        "border-radius:10px;padding:10px 14px;}"
-    );
-    QHBoxLayout* tipLayout = new QHBoxLayout(tipFrame);
-    tipLayout->setContentsMargins(12, padding, 12, padding);
-    auto* tipIcon = new QLabel(icon);
-    tipIcon->setStyleSheet(QStringLiteral("font-size:%1px;background:transparent;").arg(kTipIconFontSize));
-    auto* tipText = new QLabel(text);
-    tipText->setStyleSheet(QStringLiteral("font-size:15px;color:#1890ff;font-weight:600;background:transparent;"));
-    tipLayout->addWidget(tipIcon);
-    tipLayout->addWidget(tipText, 1);
-    body->addWidget(tipFrame);
-}
-
-/**
  * @brief 创建列表表格
  */
 QTableWidget* FlowDialogs::createListTable(const QStringList& headers) {

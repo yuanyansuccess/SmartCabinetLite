@@ -60,7 +60,6 @@ public:
      * @param text    提示文字
      * @param padding 提示条上下内边距，默认 8
      */
-    static void addTipBar(QVBoxLayout* body, const QString& icon, const QString& text, int padding = 8);
 
     /**
      * @brief 创建统一样式的清单表格

@@ -22,7 +22,6 @@ public:
 
     /** 设置是否随机打乱键位（密码模式） */
     void setShuffle(bool enable);
-    bool isShuffle() const { return m_shuffle; }
 
     /** 设置是否显示密码明文 */
     void setShowPassword(bool show);

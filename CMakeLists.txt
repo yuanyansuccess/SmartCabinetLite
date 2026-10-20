@@ -267,7 +267,6 @@ set(ALL_HEADERS
     src/model/ToolCategory.h
     src/model/ToolCabinet.h
     src/model/BorrowRecord.h
-    src/model/ReturnRecord.h
     src/model/AlertLog.h
     src/model/TaskType.h
     # DB (V6.9统一namespace db，合并QJsonObject + 实体类API)

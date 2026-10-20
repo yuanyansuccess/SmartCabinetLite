@@ -33,7 +33,6 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
     void showPage(const QString& name);
-    QJsonObject currentUser() const { return m_user; }
     void setCurrentUser(const QJsonObject& user);
 
 signals:

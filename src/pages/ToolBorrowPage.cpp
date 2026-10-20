@@ -763,35 +763,12 @@ void ToolBorrowPage::loadBorrowRecords() {
 }
 
 /**
- * @brief 恢复表格重绘和信号
- */
-void ToolBorrowPage::onTaskTypeChanged() {
-    loadRecommendedTools();
-}
-
-/**
  * @brief
  * @param row 表格行号（从 0 开始）
  * @param col 表格列号（从 0 开始）
  */
 void ToolBorrowPage::onToolSelected(int row, int col) {
     // 由checkbox处理选择
-}
-
-/**
- * @brief 处理搜索工具
- */
-void ToolBorrowPage::onSearchTool() {
-    // 搜索行已移除，此方法保留为空避免头文件引用错误
-    refreshAllToolTable();
-}
-
-/**
- * @brief 借用原因变更事件处理
- * @param reason 新的借用原因
- */
-void ToolBorrowPage::onReasonChanged(int index) {
-    // 暂未使用
 }
 
 /**
