@@ -21,6 +21,7 @@
 #include "pages/RoleSelectDialog.h"  // 管理用户登录身份选择
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"  // 读取锁屏时间/备份配置
+#include "common/Constants.h"   // SC_AUTO_LOCK_ENABLED 自动锁屏编译开关
 #include "common/DatabaseManager.h"  // 备份检查
 #include "common/DiskSpaceGuard.h"  // 备份前磁盘容量保护
 #include "db/RecordDAO.h"  // 普通用户查询借用明细与操作日志（读直调DAO）
@@ -187,6 +188,7 @@ void MainWindow::setupUI() {
     // 侧边栏"退出登录"按钮 → 注销回登录页（保留）
     connect(m_topBar, &TopBar::logoutClicked, this, &MainWindow::onLogout);
 
+#if SC_AUTO_LOCK_ENABLED
     // 自动锁屏定时器：读取AppConfig的lockTime，超时自动退出登录
     int lockMinutes = AppConfig::instance().borrowLockTime();
     m_idleTimer = new QTimer(this);
@@ -198,6 +200,7 @@ void MainWindow::setupUI() {
 
     // 安装全局事件过滤器：监听鼠标/键盘活动，重置空闲计时器
     qApp->installEventFilter(this);
+#endif // SC_AUTO_LOCK_ENABLED
 
     // 数据库备份检查定时器：每小时检查一次是否到了备份时间
     m_backupCheckTimer = new QTimer(this);
@@ -867,8 +870,9 @@ void MainWindow::navigateToPage(const QString& name) {
     showPage(name);
 }
 
-// 自动锁屏超时：退出登录回到登录页
+// 自动锁屏超时：退出登录回到登录页（受 SC_AUTO_LOCK_ENABLED 宏控制，默认关闭）
 void MainWindow::onAutoLockTimeout() {
+#if SC_AUTO_LOCK_ENABLED
     // 仅在已登录状态下触发锁屏
     if (m_user.isEmpty()) return;
     // 登录过渡期间（强制改密/身份选择弹窗打开）不自动注销，
@@ -877,6 +881,9 @@ void MainWindow::onAutoLockTimeout() {
 
     qInfo() << "[AutoLock] Idle timeout, auto logout";
     onLogout();
+#else
+    // 自动锁屏功能已关闭：空闲超时不再自动退登录（SC_AUTO_LOCK_ENABLED=0），实现保留待后续确认
+#endif // SC_AUTO_LOCK_ENABLED
 }
 
 // 定时检查是否到了数据库备份时间
@@ -948,12 +955,14 @@ void MainWindow::onBackupCheckTimeout() {
     }
 }
 
-// 重置空闲计时器（用户有操作时调用）
+// 重置空闲计时器（用户有操作时调用，仅自动锁屏启用时生效）
 void MainWindow::resetIdleTimer() {
+#if SC_AUTO_LOCK_ENABLED
     m_lastActivity = QDateTime::currentDateTime();
     // 无条件重启：定时器为单次触发，触发后 isActive() 恒为 false，
     // 若加 isActive 判断会导致首次自动锁屏后闲置保护永久失效
     if (m_idleTimer) m_idleTimer->start();
+#endif // SC_AUTO_LOCK_ENABLED
 }
 
 // 全局事件过滤器：监听鼠标点击/移动、键盘按键，重置空闲计时器

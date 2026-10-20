@@ -7,6 +7,9 @@
 #include <QString>
 #include <QStringList>
 
+// 自动锁屏功能编译开关：1=启用闲置超时自动退登录回到登录页；0=关闭（默认关闭，待确认后再启用或删除相关代码）
+#define SC_AUTO_LOCK_ENABLED 0
+
 namespace SC {
 // ── 应用信息 ──
 const QString APP_VERSION = "V2.00";
