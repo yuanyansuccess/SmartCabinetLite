@@ -71,6 +71,16 @@ public:
      */
     static void centerOnParent(QWidget* dialog);
 
+    /**
+     * @brief 显示与隐藏切换：首次显示前先按布局尺寸预约居中位置
+     * @param visible true=显示，false=隐藏
+     *
+     * 窗口管理器只在窗口首次映射时采纳程序指定的位置。若等到 showEvent（映射过程中）
+     * 才移动窗口，部分窗口管理器会改按级联规则把窗口放到父窗口右下角，
+     * 表现为反复打开时弹窗越偏越远、底部按钮被屏幕边缘裁掉。
+     */
+    void setVisible(bool visible) override;
+
 protected:
     /** 子类重写：在此方法中向 contentLayout 添加业务控件 */
     virtual void setupContent() {}

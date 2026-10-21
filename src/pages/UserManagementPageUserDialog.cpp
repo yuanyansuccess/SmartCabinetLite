@@ -304,6 +304,8 @@ void UserManagementPage::onAddUser() {
     // （表现为行之间出现一大段留白）。只重置高度，宽度由 setFixedWidth 保持不变。
     m_userDialog->setMinimumHeight(0);
     m_userDialog->adjustSize();
+    // 尺寸定型后先算好居中位置再显示：避免窗口管理器在映射时按级联规则把弹窗推到右下角
+    BaseDialog::centerOnParent(m_userDialog);
     m_userDialog->exec();
 }
 
@@ -359,6 +361,8 @@ void UserManagementPage::onEditUser(int userId) {
     // 先释放上一场景遗留的最小高度约束，再按编辑态内容重算高度，各自贴合内容
     m_userDialog->setMinimumHeight(0);
     m_userDialog->adjustSize();
+    // 尺寸定型后先算好居中位置再显示：避免窗口管理器在映射时按级联规则把弹窗推到右下角
+    BaseDialog::centerOnParent(m_userDialog);
     m_userDialog->exec();
 }
 

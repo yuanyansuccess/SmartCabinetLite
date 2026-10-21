@@ -12,8 +12,16 @@
 #include <QApplication>
 #include <QScreen>
 #include <QGraphicsDropShadowEffect>
+#include <QLayout>
 #include <QTimer>
 #include <QWindow>
+
+namespace {
+
+// 窗口映射后重新居中的时间点（毫秒）：0 处理本轮事件，60/200 吸收窗口管理器的异步重排与后到的布局变化
+const int kRecenterDelaysMs[] = {0, 60, 200};
+
+} // namespace
 
 BaseDialog::BaseDialog(QWidget* parent, int cardWidth)
     : QDialog(parent)
@@ -129,10 +137,18 @@ void BaseDialog::centerOnParent(QWidget* dialog)
         return;
     }
 
-    // 优先取对话框实际所在的屏幕，多屏环境下与主屏口径保持一致
+    QWidget* pw = dialog->parentWidget();
+
+    // 以父窗口所在屏幕为准：父窗口显示前位置已确定，比尚未映射的对话框 windowHandle 可靠，
+    // 多屏环境下可避免把弹窗钳到错误的屏幕（例如副屏父窗口被钳到主屏右缘）
     QScreen* screen = nullptr;
-    if (QWindow* handle = dialog->window()->windowHandle()) {
-        screen = handle->screen();
+    if (pw) {
+        screen = QApplication::screenAt(pw->mapToGlobal(pw->rect().center()));
+    }
+    if (!screen) {
+        if (QWindow* handle = dialog->window()->windowHandle()) {
+            screen = handle->screen();
+        }
     }
     if (!screen) {
         screen = QApplication::screenAt(dialog->frameGeometry().center());
@@ -145,8 +161,22 @@ void BaseDialog::centerOnParent(QWidget* dialog)
     }
     const QRect sg = screen->availableGeometry();
 
-    QWidget* pw = dialog->parentWidget();
-    const QSize mySize = dialog->frameGeometry().size();
+    // 尺寸取对话框自身的 size()：无边框窗口的 frameGeometry 在窗口映射完成前，
+    // 部分平台（如麒麟窗口管理器）会返回空尺寸，此时"父窗口中心减尺寸一半"会退化成
+    // 直接用父窗口中心定位，弹窗整体偏向右下、底部按钮被屏幕边缘裁掉。
+    // 取不到有效尺寸时按 adjustSize、sizeHint 逐级兜底；仍无效则不强行定位。
+    QSize mySize = dialog->size();
+    if (mySize.width() <= 0 || mySize.height() <= 0) {
+        dialog->adjustSize();
+        mySize = dialog->size();
+    }
+    if (mySize.width() <= 0 || mySize.height() <= 0) {
+        mySize = dialog->sizeHint();
+    }
+    if (mySize.width() <= 0 || mySize.height() <= 0) {
+        return;
+    }
+
     QPoint topLeft;
     if (pw) {
         const QRect parentRect(pw->mapToGlobal(QPoint(0, 0)), pw->size());
@@ -176,7 +206,8 @@ void BaseDialog::centerOnParent(QWidget* dialog)
 }
 
 /**
- * @brief 显示事件：居中到父窗口并在映射稳定后二次校准位置
+ * @brief 显示事件：居中到父窗口，并在映射稳定后按多个时间点重新校准位置
+ * @param event 显示事件对象
  */
 void BaseDialog::showEvent(QShowEvent* event)
 {
@@ -185,13 +216,34 @@ void BaseDialog::showEvent(QShowEvent* event)
     // 首次定位：窗口映射时按当前几何居中
     centerOnParent(this);
 
-    // 麒麟等平台的窗口管理器可能在映射后重排窗口，且布局在显示后才最终定型，
-    // 事件循环下一轮再校准一次位置，保证任何窗口环境下都准确居中
-    QTimer::singleShot(0, this, [this]() {
-        if (isVisible()) {
-            centerOnParent(this);
+    // 麒麟等平台的窗口管理器可能在映射后重排窗口，布局也可能在显示后才最终定型；
+    // 按多个时间点再校准一次，保证任何窗口环境下都准确居中
+    for (int delayMs : kRecenterDelaysMs) {
+        QTimer::singleShot(delayMs, this, [this]() {
+            if (isVisible()) {
+                centerOnParent(this);
+            }
+        });
+    }
+}
+
+/**
+ * @brief 显示与隐藏切换：首次显示前先按布局尺寸预约居中位置
+ * @param visible true=显示，false=隐藏
+ */
+void BaseDialog::setVisible(bool visible)
+{
+    if (visible && !isVisible()) {
+        // 映射前定型布局并按真实尺寸算好位置：窗口管理器对首次映射时的位置更尊重，
+        // 映射之后再移动则可能被级联放置规则覆盖
+        ensurePolished();
+        if (QLayout* lay = layout()) {
+            lay->activate();
         }
-    });
+        adjustSize();
+        centerOnParent(this);
+    }
+    QDialog::setVisible(visible);
 }
 
 /**
