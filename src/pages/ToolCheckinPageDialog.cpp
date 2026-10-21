@@ -42,18 +42,25 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
     dlg.setFixedSize(560, 480);
 
     // 单据摘要表：类型/工具名称/位置（用户照单操作）
+    // 布局常量：摘要行高；默认最多铺开6行（超出由表格滚动条承接）；表头近似高度（用于总高估算）
+    const int kRowHeight      = 36;
+    const int kMaxPreviewRows = 6;
+    const int kHeaderHeight   = 38;
+
     auto* orderTable = new QTableWidget();
     orderTable->setColumnCount(3);
     orderTable->setHorizontalHeaderLabels({QStringLiteral("类型"), QStringLiteral("工具名称"), QStringLiteral("位置")});
     orderTable->verticalHeader()->setVisible(false);
     orderTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     orderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    // 样式分三层：表格容器（边框/圆角/正文字号）、单元格（内边距无边框）、表头（灰底加粗小字号）
     orderTable->setStyleSheet(QString(
         "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
         "  " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; outline:none; }"
         "QTableWidget::item { padding:6px 10px; border:none; outline:none; }"
         "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; padding:8px; border:none; }"
     ));
+    // 列宽策略：类型列固定80px，工具名与位置列按剩余宽度均分拉伸
     orderTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     orderTable->setColumnWidth(0, 80);
     orderTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -61,8 +68,9 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
 
     orderTable->setRowCount(items.size());
     for (int i = 0; i < items.size(); ++i) {
-        bool isIn = (items[i].type != "out");
+        bool isIn = (items[i].type != QStringLiteral("out"));
         auto* typeItem = new QTableWidgetItem(isIn ? QStringLiteral("入库") : QStringLiteral("出库"));
+        // 类型着色与全站语义一致：绿=入库、橙=出库
         typeItem->setForeground(QColor(isIn ? "#43a047" : "#e67e22"));
         typeItem->setTextAlignment(Qt::AlignCenter);
         orderTable->setItem(i, 0, typeItem);
@@ -70,13 +78,14 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
         auto* posItem = new QTableWidgetItem(items[i].position.isEmpty() ? QStringLiteral("--") : items[i].position);
         posItem->setTextAlignment(Qt::AlignCenter);
         orderTable->setItem(i, 2, posItem);
-        orderTable->setRowHeight(i, 36);
+        orderTable->setRowHeight(i, kRowHeight);
     }
-    orderTable->setFixedHeight(qMin(items.size(), 6) * 36 + 38);
+    // 表格总高 = 显示行数 × 行高 + 表头高度；超过6行不继续增高，由滚动条承接
+    orderTable->setFixedHeight(qMin(items.size(), kMaxPreviewRows) * kRowHeight + kHeaderHeight);
     dlg.bodyLayout()->addWidget(orderTable);
 
+    // Accepted = 用户已按单据取放并关闭柜门，进入逐项执行与检查
     if (dlg.exec() == QDialog::Accepted) {
-        // 用户完成取放并关闭柜门：逐项执行并检查
         showCheckResultDialog(items);
     }
 }

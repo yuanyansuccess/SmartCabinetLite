@@ -677,6 +677,8 @@ void ToolCheckinPage::clearOrderTable() {
  * @brief 确认出入库：收集校验单据 → 查重 → 实时核对位置 → 进入开箱环节
  */
 void ToolCheckinPage::onSubmit() {
+    // 第一步：从表格收集指令。行级格式错误（未选工具、工具信息加载失败、
+    // 出库位置重复、同一工具同时入+出）由 collectOrderItems 写入 errorMsg，此处只负责展示
     QString errorMsg;
     QList<OrderRow> items = collectOrderItems(errorMsg);
     if (!errorMsg.isEmpty()) {
@@ -684,28 +686,28 @@ void ToolCheckinPage::onSubmit() {
         m_errorLabel->setVisible(true);
         return;
     }
+    // 第二步：空单据拦截。collectOrderItems 对空表已设置提示并被上一步拦下，
+    // 此处为防御性兜底：即使收集逻辑将来调整，空单据也绝不会进入后续开箱环节
     if (items.isEmpty()) {
         m_errorLabel->setText(QStringLiteral("请先添加出入库指令"));
         m_errorLabel->setVisible(true);
         return;
     }
+    // 校验通过前隐藏历史错误提示，避免旧红字与后续弹窗同时出现误导用户
     m_errorLabel->setVisible(false);
 
-    // 入库行查重：同一工具只允许一行（一行一件）；有重复时提示用户删除多余行，不进入出入库逻辑
-    QMap<int, int>    inRowCountByTool;   // toolId -> 入库行数
-    QMap<int, QString> toolNameByToolId;  // toolId -> 工具名称（提示用）
+    // 入库行查重：同一工具只允许一行（一行一件）；有重复则提示用户删除多余行后再确认，
+    // 不进入出入库逻辑。用 QSet 记录已出现的工具（与出库行查重同一模式）
+    QSet<int> seenInToolIds;
     for (const OrderRow& it : items) {
         if (it.type != QStringLiteral("in")) continue;
-        inRowCountByTool[it.toolId] += 1;
-        toolNameByToolId.insert(it.toolId, it.toolName);
-    }
-    for (int toolId : inRowCountByTool.keys()) {
-        if (inRowCountByTool.value(toolId) > 1) {
+        if (seenInToolIds.contains(it.toolId)) {
             MessageDialog::showWarning(this, QStringLiteral("无法执行"),
-                QStringLiteral("工具「%1」在列表中有 %2 行重复的入库指令\n请删除多余的行（每行一件），只保留一行后再确认。")
-                    .arg(toolNameByToolId.value(toolId)).arg(inRowCountByTool.value(toolId)));
+                QStringLiteral("工具「%1」已有多行入库指令\n请删除多余的行（每行一件），只保留一行后再确认。")
+                    .arg(it.toolName));
             return;
         }
+        seenInToolIds.insert(it.toolId);
     }
 
     if (!validateOrderItems(items)) return;
