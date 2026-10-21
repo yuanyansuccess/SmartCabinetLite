@@ -64,6 +64,13 @@ public:
      */
     QFrame* card() { return m_card; }
 
+    /**
+     * @brief 将对话框居中到父窗口并钳制在其所在屏幕可用区域内
+     * @param dialog 待定位的顶层对话框
+     * @note 供同风格对话框复用；对话框超出屏幕时锚定左上角，保证标题可见
+     */
+    static void centerOnParent(QWidget* dialog);
+
 protected:
     /** 子类重写：在此方法中向 contentLayout 添加业务控件 */
     virtual void setupContent() {}

@@ -12,6 +12,8 @@
 #include <QApplication>
 #include <QScreen>
 #include <QGraphicsDropShadowEffect>
+#include <QTimer>
+#include <QWindow>
 
 BaseDialog::BaseDialog(QWidget* parent, int cardWidth)
     : QDialog(parent)
@@ -114,40 +116,82 @@ void BaseDialog::setButtonAreaVisible(bool visible)
 }
 
 /**
- * @brief 显示事件
+ * @brief 将对话框居中到父窗口，并钳制在其所在屏幕的可用区域内
+ * @param dialog 待定位的顶层对话框
+ *
+ * 坐标计算：取父窗口全局矩形中心减去对话框尺寸的一半作为目标左上角；
+ * 钳制基准取对话框实际所在屏幕（多屏环境与主屏可能不同，避免钳到错误屏幕），
+ * 对话框宽/高超出屏幕可用区域时锚定左上角，保证标题与首行控件始终可见。
+ */
+void BaseDialog::centerOnParent(QWidget* dialog)
+{
+    if (!dialog) {
+        return;
+    }
+
+    // 优先取对话框实际所在的屏幕，多屏环境下与主屏口径保持一致
+    QScreen* screen = nullptr;
+    if (QWindow* handle = dialog->window()->windowHandle()) {
+        screen = handle->screen();
+    }
+    if (!screen) {
+        screen = QApplication::screenAt(dialog->frameGeometry().center());
+    }
+    if (!screen) {
+        screen = QApplication::primaryScreen();
+    }
+    if (!screen) {
+        return;
+    }
+    const QRect sg = screen->availableGeometry();
+
+    QWidget* pw = dialog->parentWidget();
+    const QSize mySize = dialog->frameGeometry().size();
+    QPoint topLeft;
+    if (pw) {
+        const QRect parentRect(pw->mapToGlobal(QPoint(0, 0)), pw->size());
+        topLeft = QPoint(parentRect.center().x() - mySize.width() / 2,
+                         parentRect.center().y() - mySize.height() / 2);
+    } else {
+        topLeft = QPoint(sg.center().x() - mySize.width() / 2,
+                         sg.center().y() - mySize.height() / 2);
+    }
+
+    // 宽或高超出屏幕时锚定左上角，防止钳制上下界倒挂把标题顶出屏幕
+    if (mySize.width() >= sg.width()) {
+        topLeft.setX(sg.left());
+    }
+    if (mySize.height() >= sg.height()) {
+        topLeft.setY(sg.top());
+    }
+    topLeft.setX(qBound(sg.left(), topLeft.x(), sg.right() - mySize.width()));
+    topLeft.setY(qBound(sg.top(), topLeft.y(), sg.bottom() - mySize.height()));
+
+#ifdef Q_OS_LINUX
+    // 麒麟定位诊断：记录映射后的实际几何与屏幕可用区域，便于现场核对坐标口径
+    qInfo() << "[BaseDialog] reposition dialogSize" << mySize
+            << "topLeft" << topLeft << "available" << sg;
+#endif
+    dialog->move(topLeft);
+}
+
+/**
+ * @brief 显示事件：居中到父窗口并在映射稳定后二次校准位置
  */
 void BaseDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
 
-    // 自动居中到父窗口
-    QWidget* pw = parentWidget();
-    if (!pw) {
-        QScreen* screen = QApplication::primaryScreen();
-        if (screen) {
-            QRect sg = screen->availableGeometry();
-            move(sg.center() - rect().center());
+    // 首次定位：窗口映射时按当前几何居中
+    centerOnParent(this);
+
+    // 麒麟等平台的窗口管理器可能在映射后重排窗口，且布局在显示后才最终定型，
+    // 事件循环下一轮再校准一次位置，保证任何窗口环境下都准确居中
+    QTimer::singleShot(0, this, [this]() {
+        if (isVisible()) {
+            centerOnParent(this);
         }
-        return;
-    }
-
-    QPoint parentGlobal = pw->mapToGlobal(QPoint(0, 0));
-    QRect parentRect(parentGlobal, pw->size());
-    QSize mySize = frameGeometry().size();
-
-    int x = parentRect.center().x() - mySize.width() / 2;
-    int y = parentRect.center().y() - mySize.height() / 2;
-
-    QScreen* screen = QApplication::primaryScreen();
-    if (screen) {
-        QRect sg = screen->availableGeometry();
-        if (x < sg.left()) x = sg.left();
-        if (y < sg.top()) y = sg.top();
-        if (x + mySize.width() > sg.right()) x = sg.right() - mySize.width();
-        if (y + mySize.height() > sg.bottom()) y = sg.bottom() - mySize.height();
-    }
-
-    move(x, y);
+    });
 }
 
 /**
