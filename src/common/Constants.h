@@ -55,6 +55,17 @@ const int PWD_LOCK_MS         = 5 * 60 * 1000;   // 5分钟
 const QString OP_CHECKIN  = "checkin";
 const QString OP_CHECKOUT = "checkout";
 
+// ── 出入库识别流程（边缘机识别后写库） ──
+// 重开柜整理轮次上限：每轮识别有未过项时可重新开柜整理，达到上限仍不全过则按当前实况写库兜底
+const int ORDER_MAX_RETRY_ROUNDS = 3;
+// 入库项"正确放入"的识别置信度门槛：货位上识别出的工具置信度达到该值才判定为放入正确
+const double RECOG_MIN_CONFIDENCE = 0.85;
+// 轮次日志操作类型：每轮识别写一条操作日志，content 为 JSON（轮次/各项结果/错放明细）
+const QString ORDER_ROUND_OP_CHECKIN  = "checkin_round";
+const QString ORDER_ROUND_OP_CHECKOUT = "checkout_round";
+// 关柜等待超时（毫秒）：开箱后等待 IO 板"已关柜"信号的上限，超时提示用户确认柜门已关
+const int CABINET_CLOSE_WAIT_MS = 5 * 60 * 1000;
+
 // ── 工具状态 ──
 const QString TOOL_IN_STOCK    = "in_stock";
 const QString TOOL_BORROWED    = "borrowed";
