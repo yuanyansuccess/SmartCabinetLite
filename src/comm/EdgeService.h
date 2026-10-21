@@ -47,6 +47,14 @@ public:
      */
     QString cameraAbnormalText() const;
 
+public slots:
+    /**
+     * @brief 收到一帧合法JSON（EdgeLink::frameReceived → 此处；亦为单测帧注入入口）
+     * @param clientId 来源连接编号
+     * @param frame    解析后的 JSON 帧对象
+     */
+    void onFrameReceived(quintptr clientId, const QJsonObject& frame);
+
 signals:
     /**
      * @brief 链路在线状态变化（协议第6章）
@@ -97,7 +105,6 @@ signals:
     void versionReceived(const QString& version);
 
 private slots:
-    void onFrameReceived(quintptr clientId, const QJsonObject& frame);  ///< 收到一帧合法JSON
     void onClientConnected(quintptr clientId);   ///< 边缘机接入
     void onClientDisconnected(quintptr clientId); ///< 边缘机断开
     void onScanTimeout();      ///< 请求超时扫描（200ms）

@@ -43,6 +43,12 @@ public:
     /// 切换到指定页签（供 --tab 命令行与截图自动化调用）
     void showTab(int index);
 
+    /**
+     * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
+     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
+     */
+    QString cameraAbnormalText() const;
+
 private slots:
     // 连接
     void onConnectToggle();      ///< 连接/断开上位机
@@ -74,11 +80,6 @@ private:
     QWidget* buildFaultTab();    ///< 异常注入Tab（3.6/第5章）
     QWidget* buildCustomTab();   ///< 自定义帧Tab
     void processLine(const QByteArray& line);   ///< 分帧解析（收）
-    /**
-     * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
-     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
-     */
-    QString cameraAbnormalText() const;
     bool sendFrame(const QJsonObject& frame);   ///< 发送一帧
     QJsonObject sceneAck(int scene) const;      ///< 构造场景回应帧
     void sendOpenAckNow(bool success, const QString& message);  ///< 立即回应最近open_req（开箱协议3.7；success=false 即 result=0 失败）

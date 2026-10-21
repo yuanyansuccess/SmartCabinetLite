@@ -95,33 +95,16 @@ int main(int argc, char* argv[]) {
     DeepFaceExtractor::prestartAsync();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &DeepFaceExtractor::shutdownServer);
 
-    // ── 与边缘计算机通信接口：随主程序启动拉起，监听9000等边缘机接入 ──
-    // 当前只做链路接入（上线/周期帧/离线判定）；识别请求由后续会话业务流程发起
+    // ── 与边缘计算机通信接口：随主程序启动拉起，监听9000等待边缘机接入 ──
+    // 本处只负责创建与启动；信号的功能性消费在 MainWindow::setEdgeService
+    // （识别结果/开箱结果/链路状态转发给入库页），此处不再重复接线
     EdgeService* edgeService = new EdgeService(&app);
     EdgeConfig edgeCfg;
-    edgeCfg.simulate = AppConfig::instance().edgeSimulate();  // 配置文件 [Edge] simulate 持久值（system.ini，重启生效）
-    if (app.arguments().contains(QStringLiteral("--sim"))) { // 命令行 --sim 强制开启仿真
+    // 仿真模式仅由命令行 --sim 控制（不持久化到 system.ini，避免生产环境误开仿真）
+    if (app.arguments().contains(QStringLiteral("--sim"))) {  // 加 --sim 启用内置假边缘机，无需硬件/模拟器
         edgeCfg.simulate = true;
     }
     edgeService->start(edgeCfg);   // 端口9000；simulate=true 时内置假边缘机，无需硬件/模拟器
-    QObject::connect(edgeService, &EdgeService::onlineChanged, [](bool on) {
-        qInfo() << "[EdgeService] 边缘机链路" << (on ? "在线" : "离线");
-    });
-    QObject::connect(edgeService, &EdgeService::periodicUpdated, [](const PeriodicInfo& info) {
-        qInfo() << "[EdgeService] 收到周期帧，运行" << info.uptimeSec
-                << "秒，摄像头" << info.cameras.size() << "个";
-    });
-    QObject::connect(edgeService, &EdgeService::recognizeFinished,
-                     [](const QString& id, const RecognizeResult& r) {
-        qInfo() << "[EdgeService] 识别完成" << id << "共" << r.items.size() << "项";
-    });
-    QObject::connect(edgeService, &EdgeService::recognizeFailed,
-                     [](const QString& id, const QString& why) {
-        qWarning() << "[EdgeService] 识别失败" << id << why;
-    });
-    QObject::connect(edgeService, &EdgeService::versionReceived, [](const QString& v) {
-        qInfo() << "[EdgeService] 边缘机软件版本" << v;
-    });
 
     // ── 主窗口 ──
     // 触屏智能柜系统强制全屏模式运行

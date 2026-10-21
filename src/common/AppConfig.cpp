@@ -163,13 +163,7 @@ QString AppConfig::appVersion() const {
     return m_settings->value("System/version", SC::APP_VERSION).toString();
 }
 
-// ═══════════════════════════════════════════════
-// 边缘机仿真（Edge/simulate）：true=内置假边缘机
-// ═══════════════════════════════════════════════
-bool AppConfig::edgeSimulate() const {
-    QMutexLocker l(&m_mutex);
-    return m_settings->value("Edge/simulate", "0").toInt() != 0;
-}
+
 
 /**
          * @brief 写入数据库连接配置
