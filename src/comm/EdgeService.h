@@ -29,6 +29,9 @@ public:
     void start(const EdgeConfig& cfg);   ///< 启动服务（重复调用安全）
     void stop();                          ///< 停止服务
 
+    bool isOnline() const;                ///< 查询链路当前是否在线（周期帧驱动，供界面显示链路状态）
+    QString requestRecognize();           ///< 发起一次全柜识别请求，返回请求编号；空串=未发出（离线或写入失败）
+
 signals:
     /**
      * @brief 链路在线状态变化（协议第6章）

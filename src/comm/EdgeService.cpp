@@ -172,6 +172,55 @@ void EdgeService::onClientDisconnected(quintptr clientId)
 }
 
 /**
+ * @brief 查询链路当前是否在线（周期帧驱动，供界面显示链路状态）
+ * @return true=在线（最近15秒内收到过周期帧）；false=离线或从未连接
+ */
+bool EdgeService::isOnline() const
+{
+    return m_online;
+}
+
+/**
+ * @brief 发起一次全柜识别请求（协议3.2/3.3）
+ * @return 请求编号（非空=已发出，上层据此进入等待态）；空串=未发出（链路离线或写入失败）
+ * @note  超时重发、恢复补发由内部双扫描器统一处理，本方法只负责生成编号、登记、发送；
+ *        未发出时会发 recognizeFailed 信号，上层无需再判空
+ */
+QString EdgeService::requestRecognize()
+{
+    if (!m_online || m_activeClient == 0) {
+        // 协议第5章⑤：离线禁止下发识别请求
+        emit recognizeFailed(QString(), QStringLiteral("边缘机链路离线，禁止下发识别请求"));
+        return QString();
+    }
+
+    // 请求编号：时间戳+进程内自增序号，重连后也不会与历史编号重复
+    static int seq = 0;
+    ++seq;
+    const QString requestId = QStringLiteral("req-%1-%2")
+        .arg(QDateTime::currentMSecsSinceEpoch()).arg(seq);
+
+    QJsonObject frame;
+    frame["type"] = QStringLiteral("recognize_req");
+    frame["request_id"] = requestId;
+    frame["timestamp"] = QDateTime::currentMSecsSinceEpoch();
+
+    Pending p;
+    p.frame = frame;
+    p.sentAtMs = nowMs();
+    p.tries = 1;
+    m_pending.insert(requestId, p);
+
+    if (!sendToEdge(frame)) {
+        // 写入失败：条目保留等待链路恢复补发（第5章③），本次通知上层未发出
+        m_pending[requestId].failed = true;
+        emit recognizeFailed(requestId, QStringLiteral("识别请求写入失败，已保留待链路恢复补发"));
+        return QString();
+    }
+    return requestId;
+}
+
+/**
  * @brief 收到边缘机一帧合法JSON（EdgeLink 转发）
  * @param clientId 来源连接编号
  * @param frame    已解析的JSON对象，type 为 periodic/recognize_ack/version_ack
