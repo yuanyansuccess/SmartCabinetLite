@@ -11,3 +11,6 @@ SOURCES += main.cpp \
     EdgeSimulator.cpp
 
 HEADERS += EdgeSimulator.h
+
+# 构建与依赖部署请用同目录的 build_release.bat（qmake+nmake+windeployqt 一条龙），
+# 直接 nmake release 只会产出 exe，缺 Qt6*.dll 与 platforms 插件，双击会报找不到 Qt6Widgets.dll。

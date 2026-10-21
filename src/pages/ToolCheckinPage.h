@@ -18,13 +18,16 @@
 #include <QDialog>
 #include <QComboBox>
 #include <QPushButton>
+#include <QStringList>
 class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QLabel>
 #include <QTabWidget>
 #include <QJsonObject>
 #include <QJsonArray>
+#include "services/ToolService.h"  // 单据与实况比对（services 层，页面经中立结构调用）
 
 class PaginationBar;  // 通用分页栏组件
+class DrawerOpeningDialog;  // 开柜/等待弹窗（识别等待态复用）
 
 namespace Ui { class ToolCheckinPage; }  // Qt Designer 生成的静态布局
 
@@ -36,11 +39,34 @@ public:
     void refresh();
     void setUser(const QJsonObject& user) { m_user = user; }  // 设置当前登录用户
 
+signals:
+    /// 请求 MainWindow 向边缘机发起识别（页面不直接持有通信层，符合分层铁律）
+    void recognitionRequested();
+    /// 请求 MainWindow 向边缘机发起开箱（开锁）指令（页面不直接持有通信层）
+    void openRequested();
+
+public slots:
+    /// MainWindow 回传识别请求结果：requestId 非空=已发出（进入等待态）；空串=未发出（离线/写入失败）
+    void onRecognitionStarted(const QString& requestId);
+    /// 识别成功：requestId 与当前在途请求配对，spots 为全柜实况清单（页面中立结构）
+    void onRecognitionResult(const QString& requestId, const QList<ToolService::RecogSpot>& spots);
+    /// 识别失败（超时/离线/补发放弃）：reason 为人读原因，直接提示用户
+    void onRecognitionFailed(const QString& requestId, const QString& reason);
+    /// 边缘机链路心跳状态变化（周期帧驱动）：更新链路标签，等待中掉线时即时收敛
+    void onEdgeOnlineChanged(bool online);
+    /// 开箱指令回传：requestId 非空=已发出（进入开柜等待态）；空串=未发出（离线/写入失败）
+    void onOpenStarted(const QString& requestId);
+    /// 开箱成功（柜体已真实打开）：进入开箱环节（showOrderExecuteDialog）
+    void onOpenFinished(const QString& requestId, bool success, const QString& message);
+    /// 开箱失败（超时/离线/补发放弃）：提示并终止本次
+    void onOpenFailed(const QString& requestId, const QString& reason);
+
 private slots:
     void onAddOrderRow();      // 添加一行入库指令
     void onAddOrderRowOut();   // 添加一行出库指令
     void onBatchImportInRows();// 一键导入入库行：批量勾选待入库工具，一次生成多条入库指令
-    void onSubmit();           // 确认出入库：校验单据→开箱→关柜检查
+    void onSubmit();           // 确认出入库：校验单据→发开箱指令→关柜检查
+    void cancelOpen();         // 开柜等待中用户取消（清状态，零写库）
     void onTabChanged(int index);   // Tab切换时加载数据
     void onRecordPrevPage();   // 入库记录上一页
     void onRecordNextPage();   // 入库记录下一页
@@ -76,7 +102,18 @@ private:
     // ── 确认后的两段式流程 ──
     bool validateOrderItems(const QList<OrderRow>& items); // 执行前最终校验（位置实时核对）
     void showOrderExecuteDialog(const QList<OrderRow>& items); // 开箱环节：柜体打开+单据摘要
-    void showCheckResultDialog(const QList<OrderRow>& items);  // 关柜检查：逐项执行并显示结果
+    /// 关柜检查：按边缘机比对结论逐项执行并显示结果
+    /// @param items         单据指令列表（与 compareItems 同序）
+    /// @param compareItems  比对结论：Matched 项写库，其余项红字展示不写库
+    /// @param misplaced     错放明细（结果页提示行，不写库）
+    void showCheckResultDialog(const QList<OrderRow>& items,
+                               const QList<ToolService::RecogCompareItem>& compareItems,
+                               const QList<ToolService::RecogMisplaced>& misplaced);
+
+    // ── 边缘机识别两段式流程 ──
+    void startEdgeCheck(const QList<OrderRow>& items);  // 发起识别并进入等待态（链路离线则拒绝本次）
+    void applyRecognitionOutcome();                     // 识别回来：比对→写库→结果页
+    void exitWaitState();                               // 退出等待态（失败/取消时恢复界面可用）
 
     // Tab容器
     QTabWidget* m_tabWidget = nullptr;
@@ -87,6 +124,17 @@ private:
     // 机组信息
     QLabel* m_machineGroupLabel = nullptr;
     int m_localMachineGroupId = 0;
+
+    bool m_edgeOnline = false;             // 边缘机链路在线缓存（周期帧驱动，开箱前离线闸门校验用）
+
+    // 在途识别状态：等待边缘机识别结果期间暂存
+    QString m_currentRequestId;          ///< 当前在途识别请求编号（空=无在途）
+    QList<OrderRow> m_pendingItems;      ///< 等待识别结果的单据（识别期间暂存）
+    QList<ToolService::RecogSpot> m_lastSpots;  ///< 最近一次识别返回的全柜实况清单
+    QDialog* m_waitDialog = nullptr;     ///< 识别等待框（模态，结果回来/失败时关闭）
+    QString m_openRequestId;             ///< 当前在途开箱请求编号（空=无在途）
+    QList<OrderRow> m_pendingOpenItems;  ///< 开箱成功后待进入开箱环节的单据（开箱期间暂存）
+    QDialog* m_openWaitDialog = nullptr; ///< 开柜等待框（模态，开箱ack回来/失败时关闭）
 
     // 状态
     QLabel* m_errorLabel = nullptr;

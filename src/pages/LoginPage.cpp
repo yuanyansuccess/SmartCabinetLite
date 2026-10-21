@@ -415,7 +415,7 @@ void LoginPage::retryFace() {
  */
 void LoginPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    // 回到登录页且识别未运行（注销/自动锁屏后）→ 自动恢复人脸识别，避免摄像头停着不工作
+    // 回到登录页且识别未运行（注销后）→ 自动恢复人脸识别，避免摄像头停着不工作
     if (!m_faceRecognitionActive) {
         qInfo() << "[LoginPage] showEvent: face recognition inactive, restarting...";
         startFaceRecognition();

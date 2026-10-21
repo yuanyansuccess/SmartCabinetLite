@@ -17,6 +17,7 @@ struct EdgeConfig {
     int  requestTimeoutMs = 3000;     // 应答超时（协议3.6）
     int  maxRetry = 2;                // 最大重发次数（协议3.6/第5章）
     int  frameMaxBytes = 1024 * 1024; // 单帧上限，防异常数据撑爆缓冲
+    bool simulate = false;            // 仿真模式：内置假边缘机，无需真实硬件/模拟器即可跑通出入库流程
 };
 
 // ---------- recognize_ack：识别清单 ----------
@@ -32,6 +33,13 @@ struct RecognizeItem {
 struct RecognizeResult {
     QString requestId;                 // 与请求配对（协议3.6）
     QList<RecognizeItem> items;        // 全柜实况清单
+};
+
+// ---------- open_ack：开箱（开锁）结果 ----------
+struct OpenResult {
+    QString requestId;   // 与开箱请求配对
+    bool    success = false;  // true=柜体已真实打开（开锁成功）
+    QString message;      // 失败原因（人读，success=false 时有效）
 };
 
 // ---------- periodic：周期帧（边缘机健康状态） ----------

@@ -74,8 +74,14 @@ private:
     QWidget* buildFaultTab();    ///< 异常注入Tab（3.6/第5章）
     QWidget* buildCustomTab();   ///< 自定义帧Tab
     void processLine(const QByteArray& line);   ///< 分帧解析（收）
+    /**
+     * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
+     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
+     */
+    QString cameraAbnormalText() const;
     bool sendFrame(const QJsonObject& frame);   ///< 发送一帧
     QJsonObject sceneAck(int scene) const;      ///< 构造场景回应帧
+    void sendOpenAckNow(bool success, const QString& message);  ///< 立即回应最近open_req（开箱协议3.7；success=false 即 result=0 失败）
     void log(const QString& color, const QString& text);
     void logFrame(const QString& dir, const QJsonObject& f);
     void logEvent(const QString& text) { log("#666666", "[事件] " + text); }
@@ -88,8 +94,7 @@ private:
     QLabel*      m_state = nullptr;
     QCheckBox*   m_autoReconn = nullptr;  ///< 断开后自动重连开关
     // 周期帧Tab
-    QComboBox*   m_cam1 = nullptr;       ///< CAM1 自检状态
-    QComboBox*   m_cam2 = nullptr;       ///< CAM2 自检状态
+    QList<QComboBox*> m_camList;         ///< 8 路摄像头自检状态下拉框（CAM1..CAM8）
     QSpinBox*    m_uptime = nullptr;     ///< uptime_sec
     QCheckBox*   m_periodicOn = nullptr; ///< 周期帧自动发送开关
     QSpinBox*    m_periodicMs = nullptr; ///< 周期帧间隔
@@ -114,7 +119,9 @@ private:
     QTcpSocket*  m_sock = nullptr;
     QTimer       m_periodicTimer;
     QJsonObject  m_lastRequest;      ///< 最近收到的recognize（回应对象）
-    bool         m_autoReply = true; ///< 收到recognize自动回应开关
+    QJsonObject  m_lastOpenRequest;   ///< 最近收到的open_req（回应对象）
+    bool         m_autoReply = true; ///< 收到recognize自动回应开关（识别协议3.3）
+    bool         m_autoOpenReply = true; ///< 收到open_req自动回应开关（开箱协议3.7）；关闭后可手动发失败/不回应以测异常分支
     bool         m_userDisconnect = false;  ///< 用户主动断开（不触发自动重连）
     int          m_reconnTry = 0;    ///< 自动重连退避计数（1/2/4/8/16/30秒封顶）
     int          m_rx = 0, m_tx = 0, m_bad = 0;

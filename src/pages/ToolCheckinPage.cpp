@@ -14,6 +14,7 @@
 #include <QTableWidget>  // 出入库单表格与记录表格
 #include "components/PaginationBar.h"
 #include "components/BaseDialog.h"  // 一键导入入库行弹窗容器
+#include "components/DrawerOpeningDialog.h"  // 识别等待框（复用开柜弹窗骨架）
 #include <QCheckBox>  // 一键导入入库行勾选框
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"
@@ -712,8 +713,268 @@ void ToolCheckinPage::onSubmit() {
 
     if (!validateOrderItems(items)) return;
 
-    // 进入开箱环节：柜体打开动画 + 单据摘要（用户按单据取放工具）
+    // 离线禁止开箱（协议"离线禁止开锁"）：链路不可用时不进入开箱环节，
+    // 避免"门开了但没人记录"——离线时柜体实际无法开锁，UI 也不应谎称已打开
+    if (!m_edgeOnline) {
+        MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
+            QStringLiteral("边缘机链路不可用，无法开箱/开锁。\n请检查边缘计算机连接后重试。"));
+        return;
+    }
+
+    // 发起真实开箱指令（TCP open_req），进入"正在开柜"等待态；ack 成功才进开箱环节
+    m_pendingOpenItems = items;
+    emit openRequested();
+}
+
+// ═══════════ 边缘机开箱（开锁）流程 ═══════════
+
+/**
+ * @brief 开箱指令回传：发起开柜等待态（一段：只发起，不写库）
+ * @param requestId 请求编号；空串=未发出（链路离线或写入失败）
+ * @note  非空则弹出模态等待框（三点动画+取消），open_ack 回来/失败在槽里关闭本框
+ */
+void ToolCheckinPage::onOpenStarted(const QString& requestId) {
+    if (requestId.isEmpty()) {
+        // 未发出：拒绝本次（EdgeService 已同步发过 openFailed，此处兜底提示）
+        m_pendingOpenItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
+            QStringLiteral("边缘机链路不可用，无法开箱/开锁。\n请检查边缘计算机连接后重试。"));
+        return;
+    }
+    m_openRequestId = requestId;
+
+    // 模态等待框：正在开柜（三点动画+取消），ack 回来或失败在槽里关闭本框
+    auto* waitDlg = new DrawerOpeningDialog(QStringLiteral("开柜中"),
+        QStringLiteral("正在打开柜体"),
+        QStringLiteral("系统正在向边缘计算机发送开箱指令，请稍候…"), 32, 48, this);
+    waitDlg->setAttribute(Qt::WA_DeleteOnClose);
+    waitDlg->setNextButtonText(QStringLiteral("开柜中…"));
+    waitDlg->setNextEnabled(false);
+    waitDlg->setFixedSize(520, 380);
+    m_openWaitDialog = waitDlg;
+    // 用户点取消：退出开柜等待态（清状态+提示，零写库）
+    connect(waitDlg, &QDialog::rejected, this, &ToolCheckinPage::cancelOpen);
+    waitDlg->exec();
+    // 模态结束（ack 关闭/用户取消）后对象已随 WA_DeleteOnClose 删除，指针必须清空
+    m_openWaitDialog = nullptr;
+}
+
+/**
+ * @brief 开箱成功（柜体已真实打开）：进入开箱环节（showOrderExecuteDialog）
+ * @param requestId 请求编号（非当前在途请求的回应直接丢弃：已取消/已过期）
+ * @param success   true=开锁成功（柜体已真实打开）
+ * @param message   失败原因（success=false 时有效）
+ */
+void ToolCheckinPage::onOpenFinished(const QString& requestId, bool success, const QString& message) {
+    if (requestId != m_openRequestId) return;   // 已取消/已过期，丢弃迟到回应
+    if (m_openWaitDialog) {
+        m_openWaitDialog->accept();
+        m_openWaitDialog = nullptr;
+    }
+    m_openRequestId.clear();
+
+    if (!success) {
+        m_pendingOpenItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("开箱失败"),
+            message.isEmpty() ? QStringLiteral("边缘机拒绝开箱或开箱失败。") : message);
+        return;
+    }
+
+    // 开箱成功：真实进入开箱环节（此时"柜体已打开"才为真）
+    QList<OrderRow> items = m_pendingOpenItems;
+    m_pendingOpenItems.clear();
     showOrderExecuteDialog(items);
+}
+
+/**
+ * @brief 开箱失败（超时/离线拒发/补发放弃）：终止本次
+ * @param requestId 失败请求编号；空串=离线拒发（由 onOpenStarted 分支统一提示，此处跳过）
+ * @param reason    失败原因（人读）
+ */
+void ToolCheckinPage::onOpenFailed(const QString& requestId, const QString& reason) {
+    // 离线拒发（requestId 空串）时 EdgeService 会同时发本信号与回传空串，提示统一由 onOpenStarted 做
+    if (requestId.isEmpty()) return;
+    if (m_openRequestId.isEmpty()) return;
+    if (requestId != m_openRequestId) return;
+
+    if (m_openWaitDialog) {
+        m_openWaitDialog->accept();
+        m_openWaitDialog = nullptr;
+    }
+    m_openRequestId.clear();
+    m_pendingOpenItems.clear();
+    MessageDialog::showWarning(this, QStringLiteral("开箱失败"), reason);
+}
+
+/**
+ * @brief 开柜等待中用户取消：清在途状态并提示（零写库）
+ */
+void ToolCheckinPage::cancelOpen() {
+    m_openRequestId.clear();
+    m_pendingOpenItems.clear();
+    MessageDialog::showWarning(this, QStringLiteral("已取消"),
+        QStringLiteral("已取消开箱，未执行任何出入库。"));
+}
+
+// ═══════════ 边缘机识别两段式流程 ═══════════
+
+/**
+ * @brief 发起边缘机识别并进入等待态（一段：只发起，不写库）
+ * @param items 已通过校验的单据指令（识别期间暂存，结果回来再比对写库）
+ * @note  链路在线检查在 EdgeService 内部（离线拒发并通知上层），本方法只暂存与转发请求
+ */
+void ToolCheckinPage::startEdgeCheck(const QList<OrderRow>& items) {
+    m_errorLabel->setVisible(false);
+    m_pendingItems = items;
+    m_lastSpots.clear();
+    // 请求经 MainWindow 适配层转到 EdgeService（页面不直接持有通信层）
+    emit recognitionRequested();
+}
+
+/**
+ * @brief MainWindow 回传识别请求结果
+ * @param requestId 请求编号；空串=未发出（链路离线或写入失败）
+ * @note  非空则弹出模态等待框（三点动画+取消），识别结果/失败在槽里关闭本框
+ */
+void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
+    if (requestId.isEmpty()) {
+        // 未发出：拒绝本次，不写库（EdgeService 已同步发过 recognizeFailed，此处兜底提示）
+        m_pendingItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("无法核对"),
+            QStringLiteral("边缘机链路不可用，本次不出入库。\n请检查边缘计算机连接后重试。"));
+        return;
+    }
+    m_currentRequestId = requestId;
+
+    // 模态等待框：识别通常1~3秒；取消随时可放弃本次（零写库）
+    auto* waitDlg = new DrawerOpeningDialog(QStringLiteral("核对中"),
+        QStringLiteral("正在核对柜内工具"),
+        QStringLiteral("系统正在与边缘计算机核对柜内工具，请稍候…"), 32, 48, this);
+    // 关闭即删除：模态返回后对象不残留（onRecognitionStarted 末尾统一清指针）
+    waitDlg->setAttribute(Qt::WA_DeleteOnClose);
+    waitDlg->setNextButtonText(QStringLiteral("核对中…"));
+    waitDlg->setNextEnabled(false);
+    waitDlg->setFixedSize(520, 380);
+    m_waitDialog = waitDlg;
+    // 用户点取消：退出等待态（清状态+提示，零写库）
+    connect(waitDlg, &QDialog::rejected, this, &ToolCheckinPage::exitWaitState);
+    waitDlg->exec();
+    // 模态结束（结果关闭/用户取消）后对象已随 WA_DeleteOnClose 删除，指针必须清空
+    m_waitDialog = nullptr;
+}
+
+/**
+ * @brief 识别成功：配对在途请求 → 比对 → 写库 → 结果页 → 关闭等待框
+ * @param requestId 请求编号（非当前在途请求的回应直接丢弃：已取消/已过期）
+ * @param spots     全柜实况清单（页面中立结构，MainWindow 从通信层转换）
+ */
+void ToolCheckinPage::onRecognitionResult(const QString& requestId,
+                                          const QList<ToolService::RecogSpot>& spots) {
+    if (requestId != m_currentRequestId || m_pendingItems.isEmpty()) return;
+    m_lastSpots = spots;
+
+    applyRecognitionOutcome();   // 比对+写库+结果页
+
+    if (m_waitDialog) {
+        m_waitDialog->accept();  // 关闭等待框（退出其模态循环）
+        m_waitDialog = nullptr;
+    }
+    m_currentRequestId.clear();
+}
+
+/**
+ * @brief 识别失败（超时/链路中断/补发放弃）：关闭等待框并询问是否重新核对
+ * @param requestId 失败请求编号；空串=离线拒发（由 onRecognitionStarted 分支统一提示，此处跳过）
+ * @param reason    失败原因（人读，直接提示）
+ */
+void ToolCheckinPage::onRecognitionFailed(const QString& requestId, const QString& reason) {
+    // 离线拒发（requestId 空串）时 EdgeService 会同时发本信号与回传空串，
+    // 提示统一由 onRecognitionStarted 的空串分支做，这里直接跳过，避免弹两个框
+    if (requestId.isEmpty()) return;
+    if (m_pendingItems.isEmpty()) return;
+    if (requestId != m_currentRequestId) return;
+
+    if (m_waitDialog) {
+        m_waitDialog->accept();  // 仅作关闭手段（不触发取消语义）
+        m_waitDialog = nullptr;
+    }
+    m_currentRequestId.clear();
+
+    // 柜门已关、工具已放好，只是没识别上：提供【重新核对】重发请求，不用重新开箱
+    const bool retry = MessageDialog::showQuestion(this, QStringLiteral("核对失败"),
+        QStringLiteral("%1\n\n是否重新核对？（不用重新开箱）").arg(reason));
+    if (retry) {
+        emit recognitionRequested();   // 重发：onRecognitionStarted 会再次弹出等待框
+    } else {
+        exitWaitState();
+    }
+}
+
+/**
+ * @brief 边缘机链路心跳状态变化（周期帧驱动）：缓存在线态，等待中掉线则终止本次
+ * @param online true=链路恢复；false=判离线（周期帧15秒未达）
+ */
+void ToolCheckinPage::onEdgeOnlineChanged(bool online) {
+    m_edgeOnline = online;               // 缓存当前在线态，供开箱前离线闸门使用
+
+    // 等待核对期间链路掉线：关等待框并终止本次（随后到达的识别失败因请求已清不会重复提示）
+    if (!online && m_waitDialog) {
+        m_waitDialog->accept();
+        m_waitDialog = nullptr;
+        m_currentRequestId.clear();
+        m_pendingItems.clear();
+        m_lastSpots.clear();
+        MessageDialog::showWarning(this, QStringLiteral("链路中断"),
+            QStringLiteral("边缘机链路已断开，本次不出入库。\n请检查边缘计算机连接后重试。"));
+    }
+
+    // 等待开柜期间链路掉线：关开柜等待框并终止本次
+    if (!online && m_openWaitDialog) {
+        m_openWaitDialog->accept();
+        m_openWaitDialog = nullptr;
+        m_openRequestId.clear();
+        m_pendingOpenItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("链路中断"),
+            QStringLiteral("边缘机链路已断开，开箱已终止。\n请检查边缘计算机连接后重试。"));
+    }
+}
+
+/**
+ * @brief 退出等待态：清在途状态并提示（用户取消/失败后放弃都走这里，零写库）
+ */
+void ToolCheckinPage::exitWaitState() {
+    m_currentRequestId.clear();
+    m_pendingItems.clear();
+    m_lastSpots.clear();
+    MessageDialog::showWarning(this, QStringLiteral("已取消"),
+        QStringLiteral("本次核对已终止，未写入任何记录。"));
+}
+
+/**
+ * @brief 识别结果处理（二段）：比对单据与实况 → 通过项写库 → 结果页展示
+ * @note  整单语义：比对未过的项不写库（红字+原因），通过项照常写库并写操作日志；
+ *        轮次闭环（重新开柜整理/3轮兜底）在后续步骤实现
+ */
+void ToolCheckinPage::applyRecognitionOutcome() {
+    if (m_pendingItems.isEmpty()) return;
+
+    // 页面单据行 → services 比对入参（中立结构，不碰通信层类型）
+    QList<ToolService::RecogOrderItem> orderItems;
+    for (const OrderRow& it : m_pendingItems) {
+        ToolService::RecogOrderItem o;
+        o.type = it.type;
+        o.toolId = it.toolId;
+        o.mappingId = it.mappingId;
+        o.toolCode = it.toolCode;
+        o.toolName = it.toolName;
+        o.position = it.position;
+        orderItems.append(o);
+    }
+
+    auto outcome = ToolService::compareOrderWithRecognition(orderItems, m_lastSpots);
+    showCheckResultDialog(m_pendingItems, outcome.items, outcome.misplaced);
+    m_pendingItems.clear();
+    m_lastSpots.clear();
 }
 // ═══════════ 记录相关 ═══════════
 

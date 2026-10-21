@@ -71,6 +71,24 @@ DrawerOpeningDialog::DrawerOpeningDialog(const QString& windowTitle, const QStri
     btnRow->addSpacing(12);
     btnRow->addWidget(nextBtn);
     m_layout->addLayout(btnRow);
+
+    m_descLabel = descLabel;   // 留指针供 setDescHtml 动态切换文案
+    m_nextBtn = nextBtn;       // 留指针供 setNextButtonText/setNextEnabled 使用
+}
+
+/// 修改"下一步"按钮文案（页面按场景定制，不影响其它调用方默认值）
+void DrawerOpeningDialog::setNextButtonText(const QString& text) {
+    if (m_nextBtn) m_nextBtn->setText(text);
+}
+
+/// 动态修改提示文案（等待态切换用）
+void DrawerOpeningDialog::setDescHtml(const QString& html) {
+    if (m_descLabel) m_descLabel->setText(html);
+}
+
+/// 启用/禁用"下一步"按钮（等待态禁用，防止用户重复提交）
+void DrawerOpeningDialog::setNextEnabled(bool enabled) {
+    if (m_nextBtn) m_nextBtn->setEnabled(enabled);
 }
 
 /**

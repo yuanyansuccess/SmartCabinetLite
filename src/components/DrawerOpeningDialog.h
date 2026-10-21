@@ -9,6 +9,8 @@
 #include <QDialog>
 
 class QVBoxLayout;
+class QLabel;
+class QPushButton;
 
 class DrawerOpeningDialog : public QDialog {
     Q_OBJECT
@@ -26,11 +28,20 @@ public:
     /// 内容槽位（位于提示文案之后、底部按钮之前）——页面注入清单表格等
     QVBoxLayout* bodyLayout() const { return m_body; }
 
+    /// 修改"下一步"按钮文案（默认"下一步 →"，页面可按场景定制，如"我已关柜，开始核对"）
+    void setNextButtonText(const QString& text);
+    /// 动态修改提示文案（等待态切换用，如切到"正在核对柜内工具…"）
+    void setDescHtml(const QString& html);
+    /// 启用/禁用"下一步"按钮（等待态禁用，防止重复提交）
+    void setNextEnabled(bool enabled);
+
 private:
     void buildSpinner();
 
     QVBoxLayout* m_layout = nullptr;         // 主布局
     QVBoxLayout* m_body = nullptr;           // 页面内容槽位
+    QLabel* m_descLabel = nullptr;           // 提示文案（setDescHtml 动态切换用）
+    QPushButton* m_nextBtn = nullptr;        // 下一步按钮（文案/启用态动态控制用）
     int m_spinnerHeight = 60;
     int m_dotIndex = 0;                      // 三点动画当前高亮点
 };

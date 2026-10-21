@@ -35,6 +35,14 @@ public:
         StillThere      ///< 出库项目标货位上仍有工具（没有取走）
     };
 
+    /// 边缘机上报的一个货位实况（页面中立结构：MainWindow 从通信层转换后注入，
+    /// 页面不直接包含通信层头文件）
+    struct RecogSpot {
+        QString position;    ///< 货位（A-01-02）
+        QString toolCode;    ///< 识别出的工具编号（空串=认不出）
+        double  confidence = 0.0;  ///< 置信度 0~1
+    };
+
     /// 待比对的一行指令（由页面从单据收集后传入，字段与页面单据行对应）
     struct RecogOrderItem {
         QString type = QStringLiteral("in");  ///< "in"=入库 / "out"=出库
@@ -78,4 +86,13 @@ public:
      */
     static RecogCompareOutcome compareOrderWithRecognition(
         const QList<RecogOrderItem>& items, const RecognizeResult& result);
+
+    /**
+     * @brief 同上，但入参用页面中立实况结构（供页面调用：不碰通信层类型）
+     * @param items   待比对的单据指令列表
+     * @param spots   全柜实况清单（页面中立结构）
+     * @return 逐行结论与错放明细
+     */
+    static RecogCompareOutcome compareOrderWithRecognition(
+        const QList<RecogOrderItem>& items, const QList<RecogSpot>& spots);
 };

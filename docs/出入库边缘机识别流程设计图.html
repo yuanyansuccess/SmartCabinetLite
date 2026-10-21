@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>出入库边缘机识别流程设计图</title>
+<style>
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#f5f7fa; margin:0; padding:32px 40px; color:#333; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  h2 { font-size:19px; margin:36px 0 14px; color:#1a1a2e; border-left:5px solid #4da3ff; padding-left:10px; }
+  .meta { font-size:13px; color:#666; margin-bottom:8px; }
+  .legend { font-size:13px; color:#555; background:#fff; border:1px solid #e8e8e8; border-radius:10px; padding:10px 16px; margin:10px 0 18px; display:flex; gap:26px; flex-wrap:wrap; align-items:center; }
+  .legend span b { font-weight:600; }
+  .lg { display:inline-block; width:26px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px; }
+  .card { background:#fff; border:1px solid #e8e8e8; border-radius:14px; padding:20px; box-shadow:0 2px 10px rgba(20,40,80,.05); }
+  text { font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+  .node-title { font-size:14px; font-weight:700; fill:#fff; }
+  .node-sub { font-size:11px; fill:rgba(255,255,255,.85); }
+  .edge-label { font-size:11px; fill:#555; }
+  .branch-label { font-size:11px; font-weight:700; }
+  table.grid { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  table.grid th { background:#f8f9fb; border:1px solid #e0e0e0; padding:8px 10px; text-align:left; font-weight:700; }
+  table.grid td { border:1px solid #e8e8e8; padding:8px 10px; vertical-align:top; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; border-radius:4px; padding:1px 7px; margin-right:4px; }
+  .t-ok { background:#e8f5e9; color:#2e7d32; }
+  .t-new { background:#fff3e0; color:#d97a1e; }
+  .t-todo { background:#fdecea; color:#c93a2c; }
+  .note { font-size:12.5px; color:#555; background:#f0f7ff; border:1px solid #cfe3fb; border-radius:8px; padding:10px 14px; margin-top:10px; }
+  h3 { font-size:15px; margin:4px 0 10px; }
+</style>
+</head>
+<body>
+<h1>工具出入库：边缘机识别后写库 — 流程设计</h1>
+<div class="meta">SmartCabinetLite · 2026-10-21 · V4 · 整体流程 + 重开柜细节 + 三轮上限 + 8 路摄像头开柜闸门 + 异常清单 + 存储设计 + 实施计划</div>
+
+<div class="legend">
+  <span><b>图例</b></span>
+  <span><span class="lg" style="background:#4da3ff"></span>主干流程</span>
+  <span><span class="lg" style="background:#52c41a"></span>成功分支</span>
+  <span><span class="lg" style="background:#e74c3c"></span>失败/拒绝分支</span>
+  <span><span class="lg" style="background:#e67e22"></span>等待/超时分支</span>
+  <span><span class="lg" style="background:#9aa7b8;border:1.5px dashed #5a6a80"></span>灰色 = IO 板硬件链路</span>
+</div>
+
+<h2>一、主流程图（整体流程，含重开柜闭环与三轮上限）</h2>
+<div class="card">
+<svg id="flow" width="1150" height="1420" viewBox="0 0 1150 1420">
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6db4ff"/><stop offset="1" stop-color="#2e8ae6"/>
+    </linearGradient>
+    <linearGradient id="gGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7bd07b"/><stop offset="1" stop-color="#3da33d"/>
+    </linearGradient>
+    <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f27a6e"/><stop offset="1" stop-color="#c93a2c"/>
+    </linearGradient>
+    <linearGradient id="gOrange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f5a35c"/><stop offset="1" stop-color="#d97a1e"/>
+    </linearGradient>
+    <linearGradient id="gGray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9aa7b8"/><stop offset="1" stop-color="#7a8aa0"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/>
+    </marker>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a3a6a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- 主干节点 -->
+  <g filter="url(#soft)">
+    <rect x="420" y="30"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="130" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="230" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="330" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="430" width="270" height="56" rx="12" fill="url(#gGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="420" y="530" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="630" width="270" height="56" rx="12" fill="url(#gOrange)"/>
+    <rect x="420" y="730" width="270" height="56" rx="12" fill="url(#gGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="420" y="830" width="270" height="56" rx="12" fill="url(#gOrange)"/>
+    <rect x="420" y="930" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="1040" width="270" height="60" rx="12" fill="url(#gOrange)"/>
+    <rect x="420" y="1180" width="270" height="60" rx="12" fill="url(#gGreen)"/>
+    <rect x="420" y="1290" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="555" y="55"  class="node-title">① 出入库页编辑单据</text>
+    <text x="555" y="74"  class="node-sub">手动添加 / 一键导入（已带去重与查重）</text>
+    <text x="555" y="155" class="node-title">② 用户点"确认出入库"</text>
+    <text x="555" y="174" class="node-sub">m_submitBtn → onSubmit</text>
+    <text x="555" y="255" class="node-title">③ 单据校验</text>
+    <text x="555" y="274" class="node-sub">未选工具 / 空单 / 同工具查重 / 位置实时核对</text>
+    <text x="555" y="355" class="node-title">④ 边缘机链路 + 摄像头在线检查</text>
+    <text x="555" y="374" class="node-sub">EdgeService.m_online（周期帧15秒判活）+ 8 路摄像头自检（任一非 ok→拒开柜）</text>
+    <text x="555" y="455" class="node-title">⑤ 下发开锁指令</text>
+    <text x="555" y="474" class="node-sub">IO 板 Modbus TCP</text>
+    <text x="555" y="555" class="node-title">⑥ 开箱弹窗：柜体动画 + 单据摘要</text>
+    <text x="555" y="574" class="node-sub">提示"请按单据操作并关闭柜门"</text>
+    <text x="555" y="655" class="node-title">⑦ 等待关柜（禁用操作）</text>
+    <text x="555" y="674" class="node-sub">提供【取消】放弃本次，零写库</text>
+    <text x="555" y="755" class="node-title">⑧ 收到"已关柜"信号</text>
+    <text x="555" y="774" class="node-sub">IO 板门磁上报</text>
+    <text x="555" y="855" class="node-title">⑨ 发识别请求 + 等待态</text>
+    <text x="555" y="874" class="node-sub">recognize_req（3.3）· "正在核对柜内工具…"</text>
+    <text x="555" y="955" class="node-title">⑩ 比对：单据 vs 全柜实况清单</text>
+    <text x="555" y="974" class="node-sub">入库项=货位有正确工具；出库项=货位已空</text>
+    <text x="555" y="1065" class="node-title">⑪ 全部通过？</text>
+    <text x="555" y="1087" class="node-sub">3轮内全过才整单写库；3轮后按实况兜底</text>
+    <text x="555" y="1205" class="node-title">⑫ 通过项写库 + 操作日志</text>
+    <text x="555" y="1224" class="node-sub">checkinTool / executeCheckout / insertOperationLog</text>
+    <text x="555" y="1315" class="node-title">⑬ 结果页 → 关闭回单据界面</text>
+    <text x="555" y="1334" class="node-sub">成功页 / 兜底结果页关闭后均回到①</text>
+  </g>
+
+  <!-- 主干连线 -->
+  <g stroke="#7a8aa0" stroke-width="1.8" fill="none" marker-end="url(#arr)">
+    <path d="M555,86 L555,126"/>
+    <path d="M555,186 L555,226"/>
+    <path d="M555,286 L555,326"/>
+    <path d="M555,386 L555,426"/>
+    <path d="M555,486 L555,526"/>
+    <path d="M555,586 L555,626"/>
+    <path d="M555,686 L555,726"/>
+    <path d="M555,786 L555,826"/>
+    <path d="M555,886 L555,926"/>
+    <path d="M555,986 L555,1036"/>
+    <path d="M555,1100 L555,1176" stroke="#52c41a"/>
+    <path d="M555,1240 L555,1286"/>
+  </g>
+  <text x="570" y="1152" class="branch-label" fill="#52c41a">是</text>
+
+  <!-- 右侧分支 -->
+  <g filter="url(#soft)">
+    <rect x="830" y="242" width="290" height="50" rx="12" fill="url(#gRed)"/>
+    <rect x="830" y="342" width="290" height="50" rx="12" fill="url(#gRed)"/>
+    <rect x="830" y="402" width="290" height="64" rx="12" fill="url(#gRed)"/>
+    <rect x="830" y="642" width="290" height="50" rx="12" fill="url(#gOrange)"/>
+    <rect x="830" y="842" width="290" height="50" rx="12" fill="url(#gOrange)"/>
+    <rect x="830" y="1072" width="290" height="72" rx="12" fill="url(#gOrange)"/>
+    <rect x="830" y="1196" width="290" height="64" rx="12" fill="url(#gOrange)"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="975" y="264" class="node-title">校验失败：红字提示，留在单据界面</text>
+    <text x="975" y="282" class="node-sub">（现有逻辑，不进流程）</text>
+    <text x="975" y="364" class="node-title">链路离线：拒绝本次，不写库</text>
+    <text x="975" y="382" class="node-sub">提示"边缘机链路离线"，禁止出入库</text>
+    <text x="975" y="424" class="node-title">摄像头异常：拒绝本次，不写库</text>
+    <text x="975" y="446" class="node-sub">提示"以下摄像头状态异常，禁止开柜：CAMx(status)"</text>
+    <text x="975" y="664" class="node-title">超时未关柜：提示"请确认柜门已关"</text>
+    <text x="975" y="682" class="node-sub">可取消，放弃本次零写库</text>
+    <text x="975" y="864" class="node-title">识别超时（3秒×3次）：【重新核对】</text>
+    <text x="975" y="882" class="node-sub">柜门已关，重发识别请求，不用开箱</text>
+    <text x="975" y="1090" class="node-title">结果页·部分未过（暂不写库）</text>
+    <text x="975" y="1108" class="node-sub">通过项绿字 + 未过项红字+原因 + 错放提示</text>
+    <text x="975" y="1126" class="node-sub">【重新开柜整理】第 N/3 轮 或【按当前实况写库】</text>
+    <text x="975" y="1212" class="node-title">三轮仍不全过：按当前实况写库</text>
+    <text x="975" y="1230" class="node-sub">通过项写入、未过项保持原状；操作日志</text>
+    <text x="975" y="1248" class="node-sub">标注"第3轮未全过，按实况写入"</text>
+  </g>
+  <g stroke="#7a8aa0" stroke-width="1.6" fill="none" marker-end="url(#arr)">
+    <path d="M690,258 L826,258"/>
+    <path d="M690,358 L826,358"/>
+    <path d="M690,386 L826,386 L826,427 L830,427"/>
+    <path d="M690,658 L826,658"/>
+    <path d="M690,858 L826,858"/>
+    <path d="M690,1070 L826,1088"/>
+  </g>
+  <text x="700" y="246" class="branch-label" fill="#e74c3c">失败</text>
+  <text x="700" y="346" class="branch-label" fill="#e74c3c">离线</text>
+  <text x="700" y="420" class="branch-label" fill="#e74c3c">异常</text>
+  <text x="700" y="646" class="branch-label" fill="#e67e22">超时</text>
+  <text x="700" y="846" class="branch-label" fill="#e67e22">超时</text>
+  <text x="700" y="1056" class="branch-label" fill="#e67e22">否</text>
+
+  <!-- 识别超时回环 -->
+  <path d="M975,842 L975,806 L690,806 L690,830" stroke="#e67e22" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="800" y="798" class="edge-label" fill="#e67e22">重新核对（重发请求）</text>
+
+  <!-- 部分失败页的两个出口 -->
+  <path d="M830,1100 L1135,1100 L1135,540 L694,540" stroke="#e67e22" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="950" y="1092" class="edge-label" fill="#e67e22">【重新开箱修正】第N/3轮 → 回⑥（摘要只列失败项，比对仍核对全部项）</text>
+  <path d="M975,1144 L975,1192" stroke="#e67e22" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="990" y="1170" class="edge-label" fill="#e67e22">三轮用尽</text>
+  <path d="M860,1144 L860,1192" stroke="#e67e22" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="868" y="1170" class="edge-label" fill="#e67e22">用户主动选择</text>
+  <path d="M830,1228 L790,1228 L790,1330 L694,1330" stroke="#7a8aa0" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="760" y="1352" class="edge-label">【完成】关闭回单据界面（已写入项保留）</text>
+
+  <!-- 每轮日志标注 -->
+  <rect x="60" y="1040" width="300" height="76" rx="10" fill="#fff7e6" stroke="#f0c36d" stroke-width="1.4"/>
+  <text x="210" y="1064" class="edge-label" fill="#8a6d1f" text-anchor="middle" font-weight="700">日志留痕（每轮）</text>
+  <text x="210" y="1084" class="edge-label" fill="#8a6d1f" text-anchor="middle">每轮重开箱写操作日志：</text>
+  <text x="210" y="1102" class="edge-label" fill="#8a6d1f" text-anchor="middle">操作人 / 第几轮 / 修正了哪些项</text>
+</svg>
+</div>
+
+<h2>二、重新开柜整理 — 细节流程（袁总点名细化）</h2>
+<div class="card">
+<svg id="reopen" width="1020" height="1310" viewBox="0 0 1020 1310">
+  <defs>
+    <linearGradient id="hBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6db4ff"/><stop offset="1" stop-color="#2e8ae6"/></linearGradient>
+    <linearGradient id="hGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7bd07b"/><stop offset="1" stop-color="#3da33d"/></linearGradient>
+    <linearGradient id="hOrange" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5a35c"/><stop offset="1" stop-color="#d97a1e"/></linearGradient>
+    <linearGradient id="hGray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa7b8"/><stop offset="1" stop-color="#7a8aa0"/></linearGradient>
+    <marker id="hArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/></marker>
+    <filter id="hSoft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a3a6a" flood-opacity="0.18"/></filter>
+  </defs>
+
+  <g filter="url(#hSoft)">
+    <rect x="360" y="30"  width="300" height="64" rx="12" fill="url(#hOrange)"/>
+    <rect x="360" y="150" width="300" height="56" rx="12" fill="url(#hBlue)"/>
+    <rect x="360" y="260" width="300" height="60" rx="12" fill="url(#hOrange)"/>
+    <rect x="360" y="380" width="300" height="56" rx="12" fill="url(#hBlue)"/>
+    <rect x="360" y="480" width="300" height="56" rx="12" fill="url(#hGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="360" y="580" width="300" height="64" rx="12" fill="url(#hBlue)"/>
+    <rect x="360" y="700" width="300" height="56" rx="12" fill="url(#hBlue)"/>
+    <rect x="360" y="800" width="300" height="56" rx="12" fill="url(#hGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="360" y="900" width="300" height="56" rx="12" fill="url(#hOrange)"/>
+    <rect x="360" y="1000" width="300" height="60" rx="12" fill="url(#hBlue)"/>
+    <rect x="360" y="1120" width="300" height="60" rx="12" fill="url(#hOrange)"/>
+    <rect x="360" y="1230" width="300" height="56" rx="12" fill="url(#hGreen)"/>
+    <rect x="740" y="270" width="260" height="50" rx="12" fill="url(#hOrange)"/>
+    <rect x="740" y="1130" width="260" height="50" rx="12" fill="url(#hGreen)"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="510" y="55"  class="node-title">结果页·部分未过（暂不写库）</text>
+    <text x="510" y="73"  class="node-sub">通过项绿字 + 未过项红字+原因 + 错放提示行</text>
+    <text x="510" y="175" class="node-title">用户点【重新开柜整理】</text>
+    <text x="510" y="193" class="node-sub">（另一出口【按当前实况写库】见主干图）</text>
+    <text x="510" y="283" class="node-title">轮次校验：本轮 N &lt; 3 ？</text>
+    <text x="510" y="301" class="node-sub">N 从 1 开始；第3轮仍不过则不允许再开柜</text>
+    <text x="510" y="403" class="node-title">记第 N 轮整理日志</text>
+    <text x="510" y="421" class="node-sub">操作人 / 第几轮 / 待修正项清单（写操作日志）</text>
+    <text x="510" y="503" class="node-title">再次下发开锁指令</text>
+    <text x="510" y="521" class="node-sub">IO 板 Modbus TCP</text>
+    <text x="510" y="603" class="node-title">开箱弹窗：仅列未过项单据</text>
+    <text x="510" y="621" class="node-sub">未过项红色标记 + 错放提示"X货位有异常工具"</text>
+    <text x="510" y="723" class="node-title">用户按提示整理（把工具放进正确货位）</text>
+    <text x="510" y="741" class="node-sub">已通过项不列入，避免重复操作</text>
+    <text x="510" y="823" class="node-title">等关柜 → IO 板"已关柜"信号</text>
+    <text x="510" y="841" class="node-sub">整理中途又开柜 → 放弃本轮，回等关柜</text>
+    <text x="510" y="923" class="node-title">重新发识别请求 → 等待态</text>
+    <text x="510" y="941" class="node-sub">超时（3秒×3次）→【重新核对】重发，不用开箱</text>
+    <text x="510" y="1023" class="node-title">比对：全部项（不只比未过项）</text>
+    <text x="510" y="1041" class="node-sub">防已通过项在整理时被被动过而未发现</text>
+    <text x="510" y="1143" class="node-title">本轮结果</text>
+    <text x="510" y="1161" class="node-sub">全过 → 整单写库；有未过 → 记本轮失败日志</text>
+    <text x="510" y="1253" class="node-title">整单写库 + 操作日志</text>
+    <text x="510" y="1271" class="node-sub">checkinTool / executeCheckout / insertOperationLog</text>
+    <text x="870" y="290" class="node-title">已达 3 轮上限</text>
+    <text x="870" y="308" class="node-sub">转【按当前实况写库】兜底（见主干图）</text>
+    <text x="870" y="1150" class="node-title">整单写库 + 本轮成功日志</text>
+    <text x="870" y="1168" class="node-sub">→ 成功结果页自动弹出</text>
+  </g>
+  <g stroke="#7a8aa0" stroke-width="1.8" fill="none" marker-end="url(#hArr)">
+    <path d="M510,94 L510,146"/>
+    <path d="M510,206 L510,256"/>
+    <path d="M510,320 L510,376"/>
+    <path d="M510,436 L510,476"/>
+    <path d="M510,536 L510,576"/>
+    <path d="M510,644 L510,696"/>
+    <path d="M510,756 L510,796"/>
+    <path d="M510,856 L510,896"/>
+    <path d="M510,956 L510,996"/>
+    <path d="M510,1060 L510,1116"/>
+    <path d="M510,1180 L510,1226" stroke="#52c41a"/>
+    <path d="M660,290 L736,290"/>
+    <path d="M660,1148 L736,1148" stroke="#52c41a"/>
+  </g>
+  <text x="525" y="1210" class="branch-label" fill="#52c41a">是</text>
+  <text x="668" y="283" class="branch-label" fill="#e67e22">否（N=3）</text>
+  <text x="668" y="1141" class="branch-label" fill="#52c41a">是</text>
+
+  <!-- 本轮有未过 → 回结果页闭环 -->
+  <path d="M360,1150 L180,1150 L180,62 L356,62" stroke="#e67e22" stroke-width="1.8" fill="none" stroke-dasharray="6 4" marker-end="url(#hArr)"/>
+  <text x="190" y="1138" class="edge-label" fill="#e67e22">否：有未过项 → 记本轮失败日志 → 回结果页（红字清单更新）</text>
+  <text x="190" y="50" class="edge-label" fill="#e67e22">回到结果页·部分未过（用户可再次整理或按实况写库）</text>
+  <!-- 整理中途又开柜回环 -->
+  <path d="M660,812 L600,812 L600,776 L360,776" stroke="#7a8aa0" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#hArr)"/>
+  <text x="580" y="770" class="edge-label" fill="#666">IO 板报开柜事件 → 放弃本轮识别，回"等关柜"</text>
+</svg>
+</div>
+
+<h2>三、时序图</h2>
+<div class="card">
+<svg id="seq" width="1160" height="940" viewBox="0 0 1160 940">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3da33d"/>
+    </marker>
+  </defs>
+
+  <!-- 阶段背景带 -->
+  <rect x="20" y="86"  width="1120" height="290" rx="8" fill="#f0f7ff"/>
+  <rect x="20" y="386" width="1120" height="290" rx="8" fill="#fff7ec"/>
+  <rect x="20" y="686" width="1120" height="230" rx="8" fill="#f2fbf2"/>
+  <text x="34" y="106" font-size="12" font-weight="700" fill="#2e8ae6">阶段一 · 准备（校验 + 开柜）</text>
+  <text x="34" y="406" font-size="12" font-weight="700" fill="#d97a1e">阶段二 · 识别通信（等待态，用户无感知等待）</text>
+  <text x="34" y="706" font-size="12" font-weight="700" fill="#3da33d">阶段三 · 写库与结果（3 轮兜底）</text>
+
+  <!-- 泳道 -->
+  <g filter="url(#soft)">
+    <rect x="30"  y="26" width="120" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="250" y="26" width="140" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="530" y="26" width="180" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="800" y="26" width="140" height="44" rx="10" fill="url(#gGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="980" y="26" width="150" height="44" rx="10" fill="url(#gBlue)"/>
+  </g>
+  <g text-anchor="middle" class="node-title" font-size="14">
+    <text x="90"  y="53">用户</text>
+    <text x="320" y="53">出入库页</text>
+    <text x="620" y="53">边缘机 EdgeService</text>
+    <text x="870" y="53">IO 板</text>
+    <text x="1055" y="53">MySQL</text>
+  </g>
+  <g stroke="#c9d4e3" stroke-width="1.6" stroke-dasharray="4 5">
+    <line x1="90"  y1="70" x2="90"  y2="916"/>
+    <line x1="320" y1="70" x2="320" y2="916"/>
+    <line x1="620" y1="70" x2="620" y2="916"/>
+    <line x1="870" y1="70" x2="870" y2="916"/>
+    <line x1="1055" y1="70" x2="1055" y2="916"/>
+  </g>
+
+  <!-- 消息 -->
+  <g stroke-width="1.8" fill="none">
+    <!-- M1 用户->页 点确认 -->
+    <line x1="90" y1="140" x2="316" y2="140" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="203" y="132" class="edge-label" text-anchor="middle">点"确认出入库"</text>
+    <!-- M2 页内自环 校验 -->
+    <path d="M320,180 L320,196 L360,196 L360,180" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="392" y="192" class="edge-label">校验：空单/同工具查重/位置实时核对（现有逻辑）</text>
+    <!-- M3 页->边缘机 在线检查 -->
+    <line x1="320" y1="240" x2="616" y2="240" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="468" y="232" class="edge-label" text-anchor="middle">在线检查 m_online</text>
+    <line x1="616" y1="258" x2="324" y2="258" stroke="#3da33d" stroke-dasharray="5 4" marker-end="url(#arrG)"/>
+    <text x="468" y="252" class="edge-label" text-anchor="middle" fill="#3da33d">离线 → 拒绝本次，不写库</text>
+    <!-- M4 页->IO板 开锁 -->
+    <line x1="320" y1="306" x2="866" y2="306" stroke="#999" stroke-dasharray="6 4" marker-end="url(#arr2)"/>
+    <text x="593" y="298" class="edge-label" text-anchor="middle" fill="#777">开锁指令</text>
+    <!-- M5 页->用户 开箱弹窗 -->
+    <line x1="316" y1="350" x2="94" y2="350" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="205" y="342" class="edge-label" text-anchor="middle">开箱弹窗 + 单据摘要</text>
+    <!-- M6 用户->IO板 物理关柜 -->
+    <line x1="90" y1="400" x2="866" y2="400" stroke="#999" stroke-dasharray="6 4" marker-end="url(#arr2)"/>
+    <text x="478" y="392" class="edge-label" text-anchor="middle" fill="#777">物理关柜</text>
+    <!-- M7 IO板->页 关柜信号 -->
+    <line x1="866" y1="446" x2="324" y2="446" stroke="#999" stroke-dasharray="6 4" marker-end="url(#arr2)"/>
+    <text x="595" y="438" class="edge-label" text-anchor="middle" fill="#777">"已关柜"信号</text>
+    <!-- M8 页->边缘机 识别请求 -->
+    <line x1="320" y1="520" x2="616" y2="520" stroke="#2e8ae6" marker-end="url(#arr2)"/>
+    <text x="468" y="512" class="edge-label" text-anchor="middle" font-weight="700">recognize_req（协议3.3，带 request_id）</text>
+    <!-- M9 边缘机->页 识别回应 -->
+    <line x1="616" y1="560" x2="324" y2="560" stroke="#3da33d" marker-end="url(#arrG)"/>
+    <text x="470" y="552" class="edge-label" text-anchor="middle" fill="#3da33d">recognize_ack：全柜实况清单</text>
+    <!-- M10 页内自环 比对 -->
+    <path d="M320,600 L320,616 L360,616 L360,600" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="392" y="612" class="edge-label">比对：单据逐项 vs 实况（全部项，含 misplaced 错放提示）</text>
+    <!-- M11 页内判断 -->
+    <path d="M320,660 L320,676 L360,676 L360,660" stroke="#7a8aa0" marker-end="url(#arr2)"/>
+    <text x="392" y="672" class="edge-label" font-weight="700">全部通过？（3 轮内全过才整单写库）</text>
+    <!-- M12 页->DB 写库 -->
+    <line x1="320" y1="716" x2="1051" y2="716" stroke="#3da33d" marker-end="url(#arrG)"/>
+    <text x="686" y="708" class="edge-label" text-anchor="middle" fill="#3da33d">写库：全过=整单写入；3轮后兜底=按实况写入+日志标注</text>
+    <!-- M13 页->用户 结果页 -->
+    <line x1="316" y1="760" x2="94" y2="760" stroke="#3da33d" marker-end="url(#arrG)"/>
+    <text x="205" y="752" class="edge-label" text-anchor="middle" fill="#3da33d">结果页自动弹出（成功 / 兜底后如实呈现）</text>
+    <!-- 自环a 边缘机 超时重发 -->
+    <path d="M620,520 L620,486 L660,486 L660,520" stroke="#e67e22" stroke-dasharray="5 4" marker-end="url(#arr2)"/>
+    <text x="672" y="492" class="edge-label" fill="#e67e22">超时3秒×3次 → 页面上【重新核对】重发（不用开箱）</text>
+    <!-- 自环b 页 重开箱闭环 -->
+    <path d="M320,660 L320,348 L316,348" stroke="#e67e22" stroke-dasharray="5 4" marker-end="url(#arr2)"/>
+    <text x="336" y="330" class="edge-label" fill="#e67e22">部分失败 → 结果页【重新开箱修正】第 N/3 轮 → 回开箱弹窗</text>
+    <text x="336" y="348" class="edge-label" fill="#e67e22">（摘要只列失败项；每轮记操作日志；用户也可主动【按实况写库】）</text>
+  </g>
+</svg>
+</div>
+
+<h2>四、异常流程全清单（穷举分析，24 项）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:130px;">阶段</th><th style="width:60px;">#</th><th>异常场景</th><th style="width:220px;">检测点</th><th>处理方式</th><th style="width:90px;">图示状态</th></tr>
+  <tr><td rowspan="4"><b>A 单据校验</b><br/><span style="font-size:12px;color:#888;">进入流程前</span></td>
+      <td>1</td><td>行未选工具</td><td>collectOrderItems</td><td>红字"第X行请选择工具"，留在单据界面</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>2</td><td>空单据</td><td>collectOrderItems</td><td>红字"请先添加出入库指令"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>3</td><td>同工具多行入库</td><td>onSubmit 查重（QSet）</td><td>弹窗"已有多行入库指令，请删除多余行"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>4</td><td>位置被占/工具信息加载失败</td><td>validateOrderItems</td><td>弹窗指明原因，留在单据界面</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td rowspan="6"><b>B 通信</b><br/><span style="font-size:12px;color:#888;">流程进行中</span></td>
+      <td>5</td><td>边缘机链路离线</td><td>点确认时查 m_online</td><td>拒绝本次，不写库，提示"边缘机链路离线"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>6</td><td>关柜信号超时（不关门/IO板故障）</td><td>关柜等待计时器</td><td>提示"请确认柜门已关"，提供【取消】</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>7</td><td>识别请求超时（3秒×3次重发全失败）</td><td>EdgeService 扫描器</td><td>等待态给【重新核对】重发请求，不用开箱</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>8</td><td>在途请求期间链路中断</td><td>EdgeService 登记表</td><td>记通信异常，链路恢复按原 request_id 补发一次；页面表现为超时→重新核对</td><td><span class="tag t-new">本次标注</span></td></tr>
+  <tr><td>9</td><td>坏帧/半帧（JSON解析失败/超长）</td><td>EdgeLink 分帧层</td><td>链路层丢弃并计数，不上抛；页面无感（等同超时）</td><td><span class="tag t-new">本次标注</span></td></tr>
+  <tr><td>10</td><td>识别清单为空（边缘机未就绪/摄像头未覆盖）</td><td>ack items 为空</td><td>全部项目判"未检测到"，进整理闭环（等同部分失败）</td><td><span class="tag t-new">本次新增</span></td></tr>
+  <tr><td rowspan="5"><b>C 识别结果</b><br/><span style="font-size:12px;color:#888;">比对判定</span></td>
+      <td>11</td><td>全部通过</td><td>比对结果</td><td>整单写库 + 操作日志，成功结果页</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>12</td><td>部分未过（货位空/错工具/低置信）</td><td>比对结果</td><td>结果页红字+原因，【重新开柜整理】或【按实况写库】</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>13</td><td>错放 misplaced（A 出现在 B 的货位）</td><td>协议 misplaced 告警字段</td><td>结果页提示行"X货位有异常工具"，人工修正，软件不自动挪动</td><td><span class="tag t-ok">已细化</span></td></tr>
+  <tr><td>14</td><td>未知物品 unknown（货位上有认不出的东西）</td><td>tool_id 为空</td><td>提示"X货位有无法识别物品"；若该货位是本单目标位则该行失败</td><td><span class="tag t-new">本次新增</span></td></tr>
+  <tr><td>15</td><td>在库工具缺失 missing（非本单单据的工具不在位）</td><td>missing 告警字段</td><td>仅提示不拦本单（超出本单范围，属库存差异）</td><td><span class="tag t-new">本次新增</span></td></tr>
+  <tr><td rowspan="5"><b>D 用户操作</b><br/><span style="font-size:12px;color:#888;">交互过程</span></td>
+      <td>16</td><td>等待态点【取消】</td><td>取消按钮</td><td>放弃本次，零写库，回单据界面</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>17</td><td>开柜不操作直接关柜</td><td>识别结果</td><td>目标位全空→全失败→第1轮整理（自然流入闭环）</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>18</td><td>整理中途又开柜（反悔）</td><td>IO 板开柜事件</td><td>放弃本轮识别，回"等关柜"</td><td><span class="tag t-ok">已细化</span></td></tr>
+  <tr><td>19</td><td>3 轮仍不全过</td><td>轮次计数器</td><td>按当前实况写库兜底（不死循环不零写库），日志标注</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td>20</td><td>页面关闭时存在在途识别请求</td><td>页面关闭事件</td><td>断开 recognizeFinished/Failed 连接 + 清 pendingItems，防回调打到已销毁页面；二期加取消帧</td><td><span class="tag t-new">实现要点</span></td></tr>
+  <tr><td rowspan="2"><b>E 写库</b></td>
+      <td>21</td><td>DB 断连/事务失败</td><td>service 返回 false</td><td>整体提示"写入失败请重试"，内存结果保留可重试写库——系统错不按用户未过处理</td><td><span class="tag t-new">本次新增</span></td></tr>
+  <tr><td>22</td><td>部分写成功</td><td>—</td><td>service 单事务保证不发生；checkinTool 一指令一位置，无多位置部分成功</td><td><span class="tag t-ok">机制保证</span></td></tr>
+  <tr><td rowspan="2"><b>F 结果页后</b></td>
+      <td>23</td><td>结果页开着时他人开柜</td><td>—</td><td>不影响本次（已完结）；二期可加刷新提示</td><td><span class="tag t-new">本次标注</span></td></tr>
+  <tr><td>24</td><td>关闭结果页后改单据再确认</td><td>—</td><td>自然重走全流程（轮次计数器重置）</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td rowspan="1"><b>G 安全闸门</b><br/><span style="font-size:12px;color:#888;">开柜前置</span></td>
+      <td>25</td><td>摄像头自检异常（8 路任一非 ok）</td><td>EdgeService.allCamerasOk + 模拟器 open_req 拦截</td><td>拒绝本次，不写库，提示"以下摄像头状态异常，禁止开柜：CAMx(status)"（上位机与模拟器两端一致）</td><td><span class="tag t-new">本次新增</span></td></tr>
+</table>
+<div class="note"><b>覆盖度结论</b>：原主干图已覆盖 14 项；本次分析新增/细化 10 项，其中 3 项（#10 识别清单为空、#14 未知物品、#15 在库缺失）是原图未涉及的识别结果分支，#20/#21 是实现层必须处理的防护点。#8/#9/#23 由 EdgeLink/EdgeService 既有机制或时序自然覆盖，只需在图注与代码注释中写明，不必画支线。</div>
+</div>
+
+<h2>五、放错位置的数据存储与状态枚举设计</h2>
+<div class="card">
+<h3 style="font-size:15px;margin:4px 0 10px;">3.1 设计原则：货位状态机不放 misplaced</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0 0 12px;">
+"一个位置一个工具"是系统铁律，由 <code>tool_position_mapping</code> 唯一键 (cabinet_id, layer, position) 物理保证。
+<b>错放是"一次识别事件"，不是货位的持续状态</b>——货位状态机保持三值不变：
+<code>pending</code>（待入库）/ <code>in_stock</code>（在库）/ <code>checked_out</code>（已出库）。
+若给货位加 <code>misplaced</code> 状态，"一个位置一个工具"的守恒就被打破（位置上既有主人又出现异物时状态无法自洽），且所有按状态过滤的查询（findAllInStockPositions 等 7 处）都要改，风险远大于收益。
+</p>
+<h3 style="font-size:15px;margin:4px 0 10px;">3.2 错放数据的三层落点</h3>
+<table class="grid">
+  <tr><th style="width:150px;">落点</th><th>本期做法</th><th style="width:200px;">理由</th></tr>
+  <tr><td><b>操作日志</b><br/>sys_operation_log</td><td>每轮识别写一条 <code>operation_type='checkin_round'/'checkout_round'</code>，content 为 JSON：<code>{round, order:[{toolCode,position,result}], misplaced:[{actualPosition,toolCode,expectedOwner}], unknown:[position], confidence}</code>，result=success/fail</td><td>表结构现成（type 是自由字符串、content 是 JSON text），<b>零改表</b>；满足"每轮留痕可追溯"</td></tr>
+  <tr><td><b>告警</b><br/>sys_alert + sys_alert_type</td><td><b>本期不写</b>（遵袁总前议"先提示"）。字典表已存在 <code>mismatch</code>（工具错放）/ <code>rack_mismatch</code>（货架错放）/ <code>missing</code> 三个现成类型</td><td>将来要告警联动时直接启用，<b>零建表零加类型</b></td></tr>
+  <tr><td><b>新表</b><br/>tool_misplacement</td><td><b>不建</b></td><td>单柜场景人工修正即可闭环；多柜场合作业队列是将来的独立需求，现在建属过度设计</td></tr>
+</table>
+<h3 style="font-size:15px;margin:14px 0 10px;">3.3 本期新增状态枚举（全部走 SC:: 常量，禁裸字符串）</h3>
+<table class="grid">
+  <tr><th style="width:210px;">枚举</th><th style="width:330px;">取值</th><th>用途</th></tr>
+  <tr><td><b>RecogItemResult</b>（识别结果类型，页面/服务内存态，不入库）</td><td>Matched / Empty / WrongTool / LowConfidence / UnknownItem / Misplaced</td><td>比对函数 compareOrderWithRecognition 的逐项判定输出，驱动结果页红绿字</td></tr>
+  <tr><td><b>RoundState</b>（单据轮次状态，内存态）</td><td>Running / Passed / Partial / GivenUp</td><td>重开柜闭环状态机，控制按钮可用性与上限</td></tr>
+  <tr><td><b>SC::ORDER_MAX_RETRY_ROUNDS</b></td><td>3（红线常量，可调）</td><td>重开柜整理轮次上限</td></tr>
+  <tr><td><b>SC::RECOG_MIN_CONFIDENCE</b></td><td>0.85</td><td>入库项"正确放入"的置信度门槛（低于判 LowConfidence）</td></tr>
+  <tr><td><b>SC::ORDER_ROUND_OP_CHECKIN / _CHECKOUT</b></td><td>"checkin_round" / "checkout_round"</td><td>轮次日志的 operation_type 值</td></tr>
+</table>
+</div>
+
+<h2>六、实施计划</h2>
+<div class="card">
+<h3 style="font-size:15px;margin:4px 0 10px;">一期（本次实施，不依赖 IO 板）</h3>
+<table class="grid">
+  <tr><th style="width:60px;">序号</th><th style="width:230px;">文件</th><th>改动内容</th></tr>
+  <tr><td>1</td><td>src/common/Constants.h</td><td>新增 ORDER_MAX_RETRY_ROUNDS / RECOG_MIN_CONFIDENCE / ORDER_ROUND_OP_CHECKIN / ORDER_ROUND_OP_CHECKOUT / 等待态与关柜超时常量</td></tr>
+  <tr><td>2</td><td>src/comm/EdgeService.{h,cpp}</td><td>新增公开方法 <code>requestRecognize()</code>：request_id 生成+登记进 m_pending+发送帧；离线拒发返回空串。超时/重发/补发全复用既有机制，不重复实现</td></tr>
+  <tr><td>3</td><td>src/pages/ToolCheckinPage.{h,cpp}</td><td>①onSubmit 拆出 startEdgeCheck（发起+等待态）②新增 onRecognizeFinished/onRecognizeFailed 槽（requestId 配对，非本次请求丢弃）③<b>compareOrderWithRecognition() 私有纯函数</b>（单据 vs 实况清单逐项判定，输出 RecogItemResult）④applyOrderResults()（写库+轮次日志+结果页）⑤轮次状态机 m_currentRound ⑥"我已关柜"按钮顶替关柜信号⑦页面关闭清理在途请求（#20）</td></tr>
+  <tr><td>4</td><td>src/pages/ToolCheckinPageDialog.cpp</td><td>①开箱弹窗改造：等待态（"正在核对柜内工具…"+取消）②结果页改造：双按钮（重新开柜整理 N/3 / 按实况写库）+ 错放与未知物品提示行</td></tr>
+  <tr><td>5</td><td>src/MainWindow.{h,cpp}</td><td>构造 EdgeService 实例并注入 ToolCheckinPage（页面不自己 new，符合分层铁律）</td></tr>
+  <tr><td>6</td><td>src/db/RecordDAO 或 ToolCheckinPage</td><td>轮次日志写入（insertOperationLog 复用，type 用新常量，content 组 JSON）</td></tr>
+  <tr><td>7</td><td>tests/</td><td>①compareOrderWithRecognition 纯函数单测：6 场景（全过/空位/错工具/低置信/未知物品/错放）②带库 test_services 补充轮次日志断言</td></tr>
+</table>
+<div class="note"><b>无边缘机时的测试策略</b>：现场没有真实边缘机，①"离线拒绝"路径可直接实测（EdgeService 离线→点确认→验证拒绝不写库）②真识别路径用单测 mock——把 RecognizeResult 直接喂给 compareOrderWithRecognition 验证比对与轮次推进，不依赖硬件 ③GUI 冒烟走"离线拒绝"与"我已关柜顶替"路径。</div>
+<h3 style="font-size:15px;margin:14px 0 10px;">二期（IO 板就绪后）</h3>
+<table class="grid">
+  <tr><th style="width:60px;">序号</th><th style="width:230px;">模块</th><th>内容</th></tr>
+  <tr><td>1</td><td>src/comm/IoLink + IoService（新建）</td><td>Modbus TCP 客户端，照 EdgeLink/EdgeService 分层范式；CommTypes.h 追加 IoConfig/IoResult</td></tr>
+  <tr><td>2</td><td>开锁指令</td><td>IoService 公开 openCabinet()，ToolCheckinPage 调用点替换"直接进入开箱弹窗"</td></tr>
+  <tr><td>3</td><td>关柜信号</td><td>IoService doorClosed 信号 → 页面 onCabinetClosed()；删除"我已关柜"顶替按钮</td></tr>
+  <tr><td>4</td><td>借用归还会话接入</td><td>CabinetSessionDialog 的内存模拟快照换成 IO 板真实开关柜事件 + 边缘机识别</td></tr>
+</table>
+<h3 style="font-size:15px;margin:14px 0 10px;">工作量与验证</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0;">
+一期约 700-900 行（新代码为主、改造集中在 ToolCheckinPage 系列与 EdgeService 一个方法），验证链：
+编译 0 错 → ctest 4/4 → arch_guard 全绿 → 带库 test_services → GUI 冒烟（离线拒绝/顶替关柜/等待态/结果页）→ 单测 mock 比对全场景。
+</p>
+</div>
+
+<h2>七、决策确认清单（袁总逐条确认）</h2>
+<div class="card">
+<table style="width:100%; border-collapse:collapse; font-size:14px;">
+  <tr style="background:#f8f9fb;">
+    <th style="border:1px solid #e8e8e8; padding:9px 12px; width:44px;">#</th>
+    <th style="border:1px solid #e8e8e8; padding:9px 12px;">事项</th>
+    <th style="border:1px solid #e8e8e8; padding:9px 12px; width:430px;">结论</th>
+    <th style="border:1px solid #e8e8e8; padding:9px 12px; width:80px;">状态</th>
+  </tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">1</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">写库拆"通信→回调写库"异步两段</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">showCheckResultDialog 拆出 startEdgeCheck / onRecognizeFinished / applyOrderResults</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">2</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">边缘机离线/超时/未部署</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">禁止出入库，提示"边缘机链路离线"后不写库</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">3</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">比对逻辑归属</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">先放 ToolCheckinPage 私有方法，独立成方法预留将来自抽取口</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">4</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">开锁指令 / 关柜信号</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">IO 板 Modbus TCP 通信（新建 IoLink/IoService，照 EdgeLink/EdgeService 分层）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">5</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">识别触发点</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">IO 板"已关柜"硬件信号触发识别，与软件按钮解耦</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">6</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">等待态体验</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">点确认即发起，等待动画承接耗时，结果回来自动弹结果页，含【取消】</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">7</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">写库时机</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">3 轮内全过则整单写库；3 轮仍不全过（或用户主动选择）则按实况写库：通过项写入、未过项保持原状，日志标注"第3轮未全过，按实况写入"</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">8</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">重试上限</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">收敛为红线常量（如 SC::ORDER_MAX_RETRY_ROUNDS），当前值 3，后续可调</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">9</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">错放提示</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">结果页加"检测到 X 货位有异常工具"提示行，不写告警</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">10</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">操作日志</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">每轮重开箱都记：操作人 / 第几轮 / 修正了哪些项</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">11</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">三轮仍不全过的兜底</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">不死循环、不零写库：按当前实况写库（通过项写入、未过项保持原状），结果页如实呈现，日志标注（袁总 10-21 拍板）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr style="background:#fffaf0;"><td style="border:1px solid #e8e8e8; padding:9px 12px;">12</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">重开箱的摘要与比对范围</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">建议：摘要只列失败项（少误导），比对核对全部项（防已通过项被被动过）</td><td style="border:1px solid #f0c36d; padding:9px 12px; color:#d97a1e; font-weight:700;">待确认</td></tr>
+  <tr style="background:#fffaf0;"><td style="border:1px solid #e8e8e8; padding:9px 12px;">13</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">识别超时但柜门已关</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">建议：等待态给【重新核对】按钮，重发识别请求，不用重新开箱</td><td style="border:1px solid #f0c36d; padding:9px 12px; color:#d97a1e; font-weight:700;">待确认</td></tr>
+</table>
+</div>
+
+</body>
+</html>

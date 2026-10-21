@@ -7,9 +7,6 @@
 #include <QString>
 #include <QStringList>
 
-// 自动锁屏功能编译开关：1=启用闲置超时自动退登录回到登录页；0=关闭（默认关闭，待确认后再启用或删除相关代码）
-#define SC_AUTO_LOCK_ENABLED 0
-
 namespace SC {
 // ── 应用信息 ──
 const QString APP_VERSION = "V2.00";
@@ -231,7 +228,6 @@ const int  BORROW_DEFAULT_PERIOD   = 48;
 const int  BORROW_RETURN_BUFFER    = 30;
 const bool BORROW_MANUAL_UNLOCK    = false;
 const int  BORROW_BRIGHTNESS       = 80;
-const int  BORROW_LOCK_TIME        = 5;
 const int  BORROW_FACE_SENSITIVITY = 0;
 
 // ── 人脸识别超时/延迟配置 ──

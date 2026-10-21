@@ -46,7 +46,7 @@ public:
         m_logoutSuppressed = true;
         m_logoutSuppressUntilMs = QDateTime::currentMSecsSinceEpoch() + kLogoutSuppressWindowMs;
     }
-    /// 回到登录页时恢复人脸识别（注销/自动锁屏后摄像头需重新启动，已运行则跳过）
+    /// 回到登录页时恢复人脸识别（注销后摄像头需重新启动，已运行则跳过）
     /// @note relogin=true 时状态文案为"请重新刷脸"（注销/锁屏回登场景）
     void resumeFaceRecognition() {
         if (!m_faceRecognitionActive) startFaceRecognition(true);

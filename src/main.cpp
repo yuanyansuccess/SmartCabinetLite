@@ -98,7 +98,12 @@ int main(int argc, char* argv[]) {
     // ── 与边缘计算机通信接口：随主程序启动拉起，监听9000等边缘机接入 ──
     // 当前只做链路接入（上线/周期帧/离线判定）；识别请求由后续会话业务流程发起
     EdgeService* edgeService = new EdgeService(&app);
-    edgeService->start(EdgeConfig());   // 缺省配置：端口9000，日志自动进 logs/app_日期.log
+    EdgeConfig edgeCfg;
+    edgeCfg.simulate = AppConfig::instance().edgeSimulate();  // 配置文件 [Edge] simulate 持久值（system.ini，重启生效）
+    if (app.arguments().contains(QStringLiteral("--sim"))) { // 命令行 --sim 强制开启仿真
+        edgeCfg.simulate = true;
+    }
+    edgeService->start(edgeCfg);   // 端口9000；simulate=true 时内置假边缘机，无需硬件/模拟器
     QObject::connect(edgeService, &EdgeService::onlineChanged, [](bool on) {
         qInfo() << "[EdgeService] 边缘机链路" << (on ? "在线" : "离线");
     });
@@ -121,6 +126,8 @@ int main(int argc, char* argv[]) {
     // ── 主窗口 ──
     // 触屏智能柜系统强制全屏模式运行
     MainWindow w;
+    // 边缘机通信服务移交主窗口适配（识别结果转发出入库页，页面不直接持通信层）
+    w.setEdgeService(edgeService);
     DeviceProfile::logDeviceInfo();   // 主屏已就绪，打印设备识别与缩放信息
     w.showFullScreen();
 

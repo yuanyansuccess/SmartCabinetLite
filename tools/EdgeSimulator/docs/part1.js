@@ -58,6 +58,8 @@ children.push(p("本工具对协议 A 接口的全部消息与规则逐条覆盖
 children.push(table([900, 2050, 3550, 2960],
   ["协议条款", "接口/规则", "协议要求", "本工具覆盖方式"],
   [
+    ["3.1", "open_req 开箱请求", "上位机→边缘机，仅 type+request_id", "边缘机执行开锁，回 open_ack"],
+    ["3.1", "open_ack 开箱回应", "回带 request_id + result(0/1) + message", "上位机据此判断是否真实开柜，离线/超时按失败处理"],
     ["3.2", "recognize 请求", "上位机→边缘机，仅 type+request_id", "工具接收并记录，作为回应对象"],
     ["3.3", "recognize_ack 回应", "回带 request_id + items 全字段（position/tool_id/class_id/confidence/alert_type/alert_level）", "7 个场景按钮：正常/有借有还/无变化/错放/未知物/置信度低/缺失"],
     ["3.3", "alert_type 全枚举", "misplaced/unknown/missing/low_confidence", "4 个告警场景按钮逐一覆盖（含 missing 边界值）"],

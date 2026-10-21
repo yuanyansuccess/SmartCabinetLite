@@ -755,11 +755,6 @@ void SystemSettingsPage::snapshotSettings() {
 // 麒麟方案C：brightnessctl set <val>% 命令（需安装）
 // 异步执行不阻塞UI，失败静默处理并降级尝试下一方案
 
-// 跨平台设置自动锁屏时间
-// Windows：powercfg 设置显示器关闭超时 + 通过QTimer在主窗口实现应用层锁屏
-// 麒麟：xset s <秒数> 设置屏幕保护超时 + xset dpms <秒数> 设置DPMS显示器电源管理
-// 同时写入AppConfig供MainWindow的QTimer读取实现应用层自动锁屏
-
 
 
 

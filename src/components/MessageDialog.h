@@ -3,7 +3,9 @@
  * @brief 自定义消息对话框组件（替代QMessageBox）
  * @author 袁燕
  * @date 2026-06-25
- * @说明 美观的模态对话框，支持4种类型：成功(Success)、失败(Error)、警告(Warning)、询问(Question)
+ * @说明 美观的模态对话框，支持4种类型：成功(Success)、失败(Error)、警告(Warning)、询问(Question)。
+ *       弹窗宽度按文字长度自适应（440~560px），高度按换行后的真实行数确定；
+ *       内容超过屏幕允许高度时正文内部滚动，保证路径、错误详情等长文本完整可见。
  */
 #ifndef MESSAGEDIALOG_H
 #define MESSAGEDIALOG_H

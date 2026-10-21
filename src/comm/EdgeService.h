@@ -31,6 +31,21 @@ public:
 
     bool isOnline() const;                ///< 查询链路当前是否在线（周期帧驱动，供界面显示链路状态）
     QString requestRecognize();           ///< 发起一次全柜识别请求，返回请求编号；空串=未发出（离线或写入失败）
+    QString requestOpen();                ///< 发起一次开箱（开锁）请求，返回请求编号；空串=未发出（离线或写入失败）
+
+    /**
+     * @brief 查询当前边缘机 8 路摄像头自检是否全部正常（开柜前置安全闸门）
+     * @return true=全部正常，或周期帧未上报自检（兼容未启用自检的硬件，不拦开柜）；
+     *         false=存在任一状态非 "ok" 的摄像头（offline/low_light/dirty/comm_error）
+     * @note  摄像头异常属安全红线：货位识别可信度下降，禁止开锁（袁总安全策略）
+     */
+    bool allCamerasOk() const;
+
+    /**
+     * @brief 取异常摄像头摘要文本（供界面提示与开柜拒绝原因）
+     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或自检缺席时返回空串
+     */
+    QString cameraAbnormalText() const;
 
 signals:
     /**
@@ -56,6 +71,20 @@ signals:
     void recognizeFailed(const QString& requestId, const QString& reason);
 
     /**
+     * @brief 开箱请求成功完成（开箱协议）
+     * @param requestId 对应 requestOpen 返回的编号
+     * @param result    开箱结果（success=true 表示柜体已真实打开）
+     */
+    void openFinished(const QString& requestId, const OpenResult& result);
+
+    /**
+     * @brief 开箱请求最终失败（超时/离线拒发/补发放弃）
+     * @param requestId 失败的请求编号；离线拒绝时为空串
+     * @param reason    失败原因（人读）
+     */
+    void openFailed(const QString& requestId, const QString& reason);
+
+    /**
      * @brief 每收到一帧周期帧发一次（协议3.4）
      * @param info 最新周期帧内容（在线状态/摄像头自检）
      */
@@ -73,6 +102,7 @@ private slots:
     void onClientDisconnected(quintptr clientId); ///< 边缘机断开
     void onScanTimeout();      ///< 请求超时扫描（200ms）
     void onOfflineScan();      ///< 链路离线扫描（1s）
+    void onSimPeriodic();      ///< 仿真模式周期帧（内置假边缘机，模拟 periodic）
 
 private:
     /**
@@ -97,6 +127,8 @@ private:
     QHash<QString, Pending> m_pending;   ///< 在途请求登记表，key=request_id
     QTimer      m_scanTimer;             ///< 请求超时扫描器（200ms）
     QTimer      m_offlineTimer;          ///< 链路离线扫描器（1s）
+    QTimer      m_simTimer;              ///< 仿真模式周期帧定时器（仿真时启用）
+    bool        m_sim = false;           ///< 仿真模式开关（内置假边缘机）
     qint64      m_lastPeriodicMs = 0;    ///< 最近一帧periodic到达时刻（离线判定基准）
     int         m_dropCount = 0;         ///< 异常帧丢弃计数（协议3.6-②）
 };

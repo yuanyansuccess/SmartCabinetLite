@@ -26,6 +26,7 @@ class ToolCheckinPage;
 class LedgerStatsPage;
 class AlertLogsPage;
 class SystemSettingsPage;
+class EdgeService;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -34,6 +35,9 @@ public:
     ~MainWindow();
     void showPage(const QString& name);
     void setCurrentUser(const QJsonObject& user);
+    /// 注入边缘机通信服务（main.cpp 创建后调用；识别结果经本类适配转发给出入库页，
+    /// 页面不直接持有通信层，符合分层铁律）
+    void setEdgeService(EdgeService* svc);
 
 signals:
     void userLoggedIn(QJsonObject user);
@@ -45,9 +49,7 @@ private slots:
     void navigateToPage(const QString& name);
     /// 功能导航主页卡片点击分流：管理员页面名跳转，普通用户动作弹窗
     void onMenuCardClicked(const QString& key);
-    void onAutoLockTimeout();  // 自动锁屏超时→退出登录回登录页
     void onBackupCheckTimeout();  // 定时检查是否到了备份时间
-    void resetIdleTimer();  // 用户操作重置空闲计时器
 
 private:
     void setupUI();
@@ -103,14 +105,10 @@ private:
     AlertLogsPage* m_alertsPage;
     SystemSettingsPage* m_settingsPage;
 
-    // 自动锁屏定时器（空闲超时自动退出登录）
-    QTimer* m_idleTimer = nullptr;
+    // 与边缘计算机通信接口（main.cpp 创建并注入，识别结果适配后转给出入库页）
+    EdgeService* m_edgeService = nullptr;
 
     // 数据库备份检查定时器（每小时检查一次是否到了备份时间）
     QTimer* m_backupCheckTimer = nullptr;
     QDate m_lastBackupDate;          // 上次备份日期（避免同一天重复备份）
-
-protected:
-    // 事件过滤器：监听全局鼠标/键盘活动，重置空闲计时器
-    bool eventFilter(QObject* watched, QEvent* event) override;
 };

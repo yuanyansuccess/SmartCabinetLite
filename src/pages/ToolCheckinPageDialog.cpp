@@ -84,21 +84,28 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
     orderTable->setFixedHeight(qMin(items.size(), kMaxPreviewRows) * kRowHeight + kHeaderHeight);
     dlg.bodyLayout()->addWidget(orderTable);
 
-    // Accepted = 用户已按单据取放并关闭柜门，进入逐项执行与检查
+    // 按钮文案按出入库场景定制：由"关柜"驱动核对（一期点此按钮顶替关柜信号）
+    dlg.setNextButtonText(QStringLiteral("我已关柜，开始核对 →"));
+    // Accepted = 用户已按单据取放并关柜：发起边缘机识别（一段），
+    // 写库延后到识别结果回来（applyRecognitionOutcome），本函数不再直接写库
     if (dlg.exec() == QDialog::Accepted) {
-        showCheckResultDialog(items);
+        startEdgeCheck(items);
     }
 }
 // ═══════════ 关柜检查：逐项执行 + 结果展示 ═══════════
 
 /**
- * @brief 关柜检查：逐项执行出入库指令并落库，结果逐行展示
- * @param items 已通过校验的出入库指令列表（入库行已分配好位置）
+ * @brief 关柜检查：按边缘机比对结论逐项执行并显示结果
+ * @param items         已通过校验的出入库指令列表（入库行已分配好位置）
+ * @param compareItems  边缘机比对结论（与 items 同序）：Matched 项才写库，其余红字展示
+ * @param misplaced     错放明细（结果页提示行，只提示不告警）
  *
- * 执行约定：各项独立执行互不影响；成功项写操作日志（入库 checkin /
- * 出库 checkout），失败项红字提示原因且不写任何记录，可重新执行。
+ * 执行约定：比对通过的项写库并写操作日志（入库 checkin / 出库 checkout）；
+ * 比对未过的项红字提示原因且不写任何记录。
  */
-void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
+void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
+                                            const QList<ToolService::RecogCompareItem>& compareItems,
+                                            const QList<ToolService::RecogMisplaced>& misplaced) {
     int userId = m_user["userId"].toInt();
     if (userId <= 0) userId = 1;
 
@@ -117,8 +124,22 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
     CheckoutService checkoutSvc;
     db::RecordDAO recDao;
 
-    for (const OrderRow& it : items) {
-        if (it.type != "out") {
+    for (int i = 0; i < items.size(); ++i) {
+        const OrderRow& it = items[i];
+        const QString typeText = (it.type != QStringLiteral("out"))
+            ? QStringLiteral("入库") : QStringLiteral("出库");
+
+        // 比对未过项：不写库，红字展示比对原因（防脏数据：状态没对上就不落库）
+        if (i >= compareItems.size()
+            || compareItems[i].result != ToolService::RecogItemResult::Matched) {
+            const QString reason = (i < compareItems.size() && !compareItems[i].detail.isEmpty())
+                ? compareItems[i].detail
+                : QStringLiteral("未通过边缘机核对");
+            results.append({false, typeText, it.toolName, it.position, reason});
+            continue;
+        }
+
+        if (it.type != QStringLiteral("out")) {
             // ── 入库项：更新映射表位置为在库（服务内部校验位置状态） ──
             QJsonArray positions;
             positions.append(it.posInfo);
@@ -133,12 +154,12 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
                 QString content = QStringLiteral("入库工具「%1」编号[%2]×1件 位置%3")
                     .arg(it.toolName, it.toolCode, it.position);
                 recDao.insertOperationLog(userId, SC::OP_CHECKIN, "tool", it.toolCode, content);
-                results.append({true, QStringLiteral("入库"), it.toolName, it.position,
+                results.append({true, typeText, it.toolName, it.position,
                     QStringLiteral("入库成功")});
                 ++successCount;
             } else {
-                results.append({false, QStringLiteral("入库"), it.toolName, it.position,
-                    QStringLiteral("未检测到入库，请确认工具已放入指定位置")});
+                results.append({false, typeText, it.toolName, it.position,
+                    QStringLiteral("写入失败，请重试")});
             }
         } else {
             // ── 出库项：按位置出库（服务内部单事务：状态/库存/日志） ──
@@ -153,13 +174,12 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
 
             auto out = checkoutSvc.executeCheckout(userId, {outItem});
             if (out.success) {
-                results.append({true, QStringLiteral("出库"), it.toolName, it.position,
+                results.append({true, typeText, it.toolName, it.position,
                     QStringLiteral("出库成功")});
                 ++successCount;
             } else {
-                results.append({false, QStringLiteral("出库"), it.toolName, it.position,
-                    out.message.isEmpty() ? QStringLiteral("未检测到出库，请确认工具已从位置取走")
-                                          : out.message});
+                results.append({false, typeText, it.toolName, it.position,
+                    out.message.isEmpty() ? QStringLiteral("写入失败，请重试") : out.message});
             }
         }
     }
@@ -194,6 +214,23 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items) {
     resultTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
     resultTable->setColumnWidth(2, 110);
     resultTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+
+    // 错放提示行：只提示不告警（袁总前议）；人工把工具放回正确货位即可
+    if (!misplaced.isEmpty()) {
+        QStringList tips;
+        for (const auto& m : misplaced) {
+            tips << QStringLiteral("「%1」实际在 %2，应放 %3")
+                .arg(m.toolName.isEmpty() ? m.toolCode : m.toolName,
+                     m.actualPosition, m.expectedPosition);
+        }
+        auto* misplacedLabel = new QLabel(QStringLiteral("⚠ 检测到错放：") + tips.join(QStringLiteral("；")));
+        misplacedLabel->setWordWrap(true);
+        misplacedLabel->setStyleSheet(QString(
+            "" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";"
+            "color:#d97a1e;background:#fff7e6;border:1px solid #f0c36d;"
+            "border-radius:10px;padding:8px 12px;"));
+        dlg.bodyLayout()->addWidget(misplacedLabel);
+    }
 
     resultTable->setRowCount(results.size());
     for (int i = 0; i < results.size(); ++i) {

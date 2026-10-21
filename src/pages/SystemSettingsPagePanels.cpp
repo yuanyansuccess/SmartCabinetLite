@@ -71,8 +71,7 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     m_returnBufferSpin->setStyleSheet(StyleHelper::settingSpinBox());
     form->addRow(FormFactory::formLabel(QStringLiteral("归还缓冲时间")), m_returnBufferSpin);
 
-    // 删除3项：手动开锁验证、人脸识别灵敏度、自动锁屏时间
-    // 确认删除，只保留：借出数量/借用期限/归还缓冲/显示屏亮度
+    // 本页仅保留：借出数量/借用期限/归还缓冲/显示屏亮度
     m_brightnessSlider = new QSlider(Qt::Horizontal);
     m_brightnessSlider->setRange(30, 100);
     m_brightnessSlider->setValue(80);

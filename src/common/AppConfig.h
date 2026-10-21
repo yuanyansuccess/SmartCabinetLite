@@ -81,7 +81,6 @@ public:
     void setBorrowReturnBuffer(int v);
     int  borrowBrightness() const;      // 屏幕亮度(%)
     void setBorrowBrightness(int v);
-    int  borrowLockTime() const;        // 自动锁屏时间(分钟)
 
     // ═══════════════════════════════════════════════
     // 备份配置（Backup节）
@@ -115,6 +114,11 @@ public:
     // 系统配置（System节）
     // ═══════════════════════════════════════════════
     QString appVersion() const;        // 应用版本号（从INI的System/version读取，默认SC::APP_VERSION）
+
+    // ═══════════════════════════════════════════════
+    // 边缘机仿真（Edge节）：true=内置假边缘机，无需真实硬件/模拟器
+    // ═══════════════════════════════════════════════
+    bool edgeSimulate() const;
 
 private:
     AppConfig(const AppConfig&) = delete;

@@ -109,7 +109,6 @@ void AppConfig::createDefaultIni(const QString& path) {
     content += "return_buffer=" + QString::number(SC::BORROW_RETURN_BUFFER) + "\n";
     content += "manual_unlock=" + QString(SC::BORROW_MANUAL_UNLOCK ? "true" : "false") + "\n";
     content += "brightness=" + QString::number(SC::BORROW_BRIGHTNESS) + "\n";
-    content += "lock_time=" + QString::number(SC::BORROW_LOCK_TIME) + "\n";
     content += "face_sensitivity=" + QString::number(SC::BORROW_FACE_SENSITIVITY) + "\n";
     content += "\n";
     content += "[Backup]\n";
@@ -162,6 +161,14 @@ QString AppConfig::dbPass() const { QMutexLocker l(&m_mutex); return m_pass; }
 QString AppConfig::appVersion() const {
     QMutexLocker l(&m_mutex);
     return m_settings->value("System/version", SC::APP_VERSION).toString();
+}
+
+// ═══════════════════════════════════════════════
+// 边缘机仿真（Edge/simulate）：true=内置假边缘机
+// ═══════════════════════════════════════════════
+bool AppConfig::edgeSimulate() const {
+    QMutexLocker l(&m_mutex);
+    return m_settings->value("Edge/simulate", "0").toInt() != 0;
 }
 
 /**
@@ -292,16 +299,10 @@ void AppConfig::setBorrowReturnBuffer(int v)          { QMutexLocker l(&m_mutex)
  */
 
 int AppConfig::borrowBrightness() const     { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/brightness",       SC::BORROW_BRIGHTNESS).toInt(); }
-int AppConfig::borrowLockTime() const       { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/lock_time",        SC::BORROW_LOCK_TIME).toInt(); }
 /**
  * @brief 设置借用亮度
  */
 void AppConfig::setBorrowBrightness(int v)            { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/brightness", v); }
-
-/**
- * @brief 设置自动锁屏时间（分钟）
- */
-
 
 // ═══════════════════════════════════════════════
 // 备份配置

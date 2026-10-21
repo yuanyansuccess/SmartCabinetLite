@@ -46,30 +46,34 @@ enum Scene {
     SceneMissing,        // 缺失告警 alert_type=missing
 };
 
-/// 相机自检"空"选项标记：选中时 camera_status 发空数组（协议3.4：自检可缺席）
+/// 相机自检"空"选项标记：选中时该相机不出现在 camera_status（协议3.4：自检可缺席）
 const QString kCamEmpty = QStringLiteral("(空-不报自检)");
 
 /**
- * @brief 构造周期帧（协议3.4）
- * @param cam1Status CAM1 自检状态（ok/offline/low_light/dirty/comm_error/空）
- * @param cam2Status CAM2 自检状态（同上）
- * @param uptimeSec  边缘机运行秒数
- * @return periodic 帧对象；某相机选"空"时该相机不出现在 camera_status，
- *         两个都选空则 camera_status 为空数组（验证上位机容错）
+ * @brief 构造周期帧（协议3.4），含 8 路摄像头自检
+ * @param cams      8 路摄像头自检状态下拉框（CAM1..CAM8，与硬件一一对应）
+ * @param uptimeSec 边缘机运行秒数
+ * @return periodic 帧对象；某相机选"空"时不出现在 camera_status，全部选空则 camera_status 为空数组
+ * @note  摄像头 id 按位置稳定编为 CAM1..CAM8；任一状态非 ok 即异常（上位机据此禁止开柜）
  */
-QJsonObject makePeriodic(const QString& cam1Status, const QString& cam2Status, int uptimeSec)
+QJsonObject makePeriodic(const QList<QComboBox*>& cams, int uptimeSec)
 {
     QJsonObject p;
     p["type"] = "periodic";
     p["uptime_sec"] = uptimeSec;
-    QJsonArray cams;
-    if (cam1Status != kCamEmpty) {
-        QJsonObject c1; c1["camera_id"] = "CAM1"; c1["status"] = cam1Status; cams.append(c1);
+    QJsonArray arr;
+    int pos = 0;
+    for (QComboBox* c : cams) {
+        ++pos;
+        const QString st = c ? c->currentText() : kCamEmpty;
+        if (st != kCamEmpty) {
+            QJsonObject o;
+            o["camera_id"] = QStringLiteral("CAM%1").arg(pos);
+            o["status"] = st;
+            arr.append(o);
+        }
     }
-    if (cam2Status != kCamEmpty) {
-        QJsonObject c2; c2["camera_id"] = "CAM2"; c2["status"] = cam2Status; cams.append(c2);
-    }
-    p["camera_status"] = cams;
+    p["camera_status"] = arr;
     return p;
 }
 
@@ -190,7 +194,7 @@ EdgeSimulator::EdgeSimulator(QWidget* parent)
     }
 
     connect(&m_periodicTimer, &QTimer::timeout, this, [this] {
-        sendFrame(makePeriodic(m_cam1->currentText(), m_cam2->currentText(), m_uptime->value()));
+        sendFrame(makePeriodic(m_camList, m_uptime->value()));
     });
     connect(&m_loopTimer, &QTimer::timeout, this, &EdgeSimulator::sendCustomFrame);
 }
@@ -259,12 +263,16 @@ QWidget* EdgeSimulator::buildPeriodicTab()
     auto* w = new QWidget;
     auto* g = new QGridLayout(w);
 
-    m_cam1 = new QComboBox;
-    m_cam2 = new QComboBox;
-    for (QComboBox* c : {m_cam1, m_cam2}) {
-        c->addItems({QStringLiteral("ok"), QStringLiteral("offline"),
-                     QStringLiteral("low_light"), QStringLiteral("dirty"),
-                     QStringLiteral("comm_error"), kCamEmpty});
+    // 8 路摄像头自检状态（CAM1..CAM8，与真实边缘机一一对应）
+    const QStringList camStates = {QStringLiteral("ok"), QStringLiteral("offline"),
+                                   QStringLiteral("low_light"), QStringLiteral("dirty"),
+                                   QStringLiteral("comm_error"), kCamEmpty};
+    for (int i = 1; i <= 8; ++i) {
+        auto* c = new QComboBox;
+        c->addItems(camStates);
+        m_camList.append(c);
+        g->addWidget(new QLabel(QStringLiteral("CAM%1 自检状态").arg(i)), i - 1, 0);
+        g->addWidget(c, i - 1, 1);
     }
     m_uptime = new QSpinBox;
     m_uptime->setRange(0, 9999999);
@@ -280,17 +288,17 @@ QWidget* EdgeSimulator::buildPeriodicTab()
     m_periodicMs->setSuffix(QStringLiteral(" ms"));
     connect(m_periodicOn, &QCheckBox::toggled, this, &EdgeSimulator::togglePeriodic);
 
-    g->addWidget(new QLabel(QStringLiteral("CAM1 自检状态")), 0, 0);
-    g->addWidget(m_cam1, 0, 1);
-    g->addWidget(new QLabel(QStringLiteral("CAM2 自检状态")), 1, 0);
-    g->addWidget(m_cam2, 1, 1);
-    g->addWidget(new QLabel(QStringLiteral("uptime_sec")), 2, 0);
-    g->addWidget(m_uptime, 2, 1);
-    g->addWidget(m_btnPeriodic, 3, 0, 1, 2);
-    g->addWidget(m_periodicOn, 4, 0);
-    g->addWidget(m_periodicMs, 4, 1);
-    g->addWidget(new QLabel(QStringLiteral("相机状态含义：ok=正常 offline=掉线\nlow_light=光照不足 dirty=镜头脏污\ncomm_error=通信异常（具体以硬件选型为准）\n(空-不报自检)：该相机不出现在清单，\n两个都选空则 camera_status 为空数组\n（验证上位机对自检缺席的容错）")), 5, 0, 1, 2);
-    g->setRowStretch(6, 1);
+    const int rowUptime = 8;     // 8 路相机占 0..7 行
+    g->addWidget(new QLabel(QStringLiteral("uptime_sec")), rowUptime, 0);
+    g->addWidget(m_uptime, rowUptime, 1);
+    g->addWidget(m_btnPeriodic, rowUptime + 1, 0, 1, 2);
+    g->addWidget(m_periodicOn, rowUptime + 2, 0);
+    g->addWidget(m_periodicMs, rowUptime + 2, 1);
+    g->addWidget(new QLabel(QStringLiteral("8 路摄像头（CAM1..CAM8）状态含义：\nok=正常 offline=掉线 low_light=光照不足\n"
+                                          "dirty=镜头脏污 comm_error=通信异常\n(空-不报自检)：该相机不出现在清单，全部选空则 camera_status 为空数组\n"
+                                          "安全策略：任一状态非 ok → 上位机与模拟器两端都拒绝开柜")),
+                 rowUptime + 3, 0, 1, 2);
+    g->setRowStretch(rowUptime + 4, 1);
     return w;
 }
 
@@ -338,7 +346,7 @@ QWidget* EdgeSimulator::buildRecognizeTab()
         }
         const QJsonObject ack = sceneAckFrame(SceneNormal, m_lastRequest);
         if (m_sock && m_sock->state() == QAbstractSocket::ConnectedState) {
-            const QByteArray raw = QJsonDocument(makePeriodic(m_cam1->currentText(), m_cam2->currentText(), m_uptime->value()))
+            const QByteArray raw = QJsonDocument(makePeriodic(m_camList, m_uptime->value()))
                                        .toJson(QJsonDocument::Compact)
                                    + QJsonDocument(ack).toJson(QJsonDocument::Compact) + '\n';
             m_sock->write(raw);
@@ -347,7 +355,7 @@ QWidget* EdgeSimulator::buildRecognizeTab()
             refreshStat();
         }
     });
-    auto* btnSilent = new QPushButton(QStringLiteral("不回应：关闭自动回应，测超时重发（第5章）"));
+    auto* btnSilent = new QPushButton(QStringLiteral("识别不回应：关闭识别自动回应，测识别超时重发（第5章）"));
     connect(btnSilent, &QPushButton::clicked, this, [this] {
         m_autoReply = false;
         logEvent(QStringLiteral("自动回应已关闭：之后收到的recognize将不回应（点场景按钮可手动回应）"));
@@ -374,7 +382,28 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     g->addWidget(m_silenceAt, row, 0);
     g->addWidget(m_silenceFor, row, 1);
     ++row;
-    g->addWidget(m_stat, row, 0, 1, 2);
+    g->addWidget(m_stat, row, 0, 1, 2); ++row;
+
+    // 开箱回应控制（协议3.7开箱）：默认自动成功；可切换为失败/不回应以测试上位机异常分支
+    auto* openTitle = new QLabel(QStringLiteral("开箱回应（3.7 开箱协议）"));
+    openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
+    g->addWidget(openTitle, ++row, 0, 1, 2);
+    auto* btnOpenFail = new QPushButton(QStringLiteral("开箱失败（result=0，测开箱失败分支）"));
+    connect(btnOpenFail, &QPushButton::clicked, this, [this] { sendOpenAckNow(false, QStringLiteral("开箱失败（模拟）")); });
+    g->addWidget(btnOpenFail, ++row, 0, 1, 2);
+    auto* btnOpenSilent = new QPushButton(QStringLiteral("开箱不回应（测开箱超时分支）"));
+    connect(btnOpenSilent, &QPushButton::clicked, this, [this] {
+        m_autoOpenReply = false;
+        logEvent(QStringLiteral("开箱自动回应已关闭：之后收到的open_req将不回应（点【恢复开箱自动成功】恢复）"));
+    });
+    g->addWidget(btnOpenSilent, ++row, 0, 1, 2);
+    auto* btnOpenRestore = new QPushButton(QStringLiteral("恢复开箱自动成功"));
+    connect(btnOpenRestore, &QPushButton::clicked, this, [this] {
+        m_autoOpenReply = true;
+        logEvent(QStringLiteral("开箱自动回应已恢复：之后收到的open_req将自动回应成功"));
+    });
+    g->addWidget(btnOpenRestore, ++row, 0, 1, 2);
+
     g->setRowStretch(row + 1, 1);
     return w;
 }
@@ -535,7 +564,7 @@ void EdgeSimulator::processLine(const QByteArray& line)
     logFrame("RX", frame);
     const QString type = frame["type"].toString();
 
-    if (type == QStringLiteral("recognize")) {
+    if (type == QStringLiteral("recognize_req")) {   // 协议3.3：上位机下发的识别请求帧类型
         m_lastRequest = frame;
         if (m_autoReply) {
             QTimer::singleShot(200, this, [this] { replyScene(SceneNormal); });
@@ -543,6 +572,23 @@ void EdgeSimulator::processLine(const QByteArray& line)
     } else if (type == QStringLiteral("version_query")) {
         // 3.5：收到版本查询自动回应
         QTimer::singleShot(200, this, [this] { sendVersionAckNow(); });
+    } else if (type == QStringLiteral("open_req")) {
+        // 开箱协议（3.7）：收到开箱指令，默认自动回应开箱成功；
+        // m_autoOpenReply=false 时不自动回应，改由用户点【开箱失败/开箱不回应】手动测试异常分支
+        m_lastOpenRequest = frame;
+        if (m_autoOpenReply) {
+            // 安全策略：8 路摄像头任一异常则模拟真实边缘机拒绝开柜（回 result=0），与上位机闸门一致
+            const QString abnormal = cameraAbnormalText();
+            if (abnormal.isEmpty()) {
+                QTimer::singleShot(200, this, [this] { sendOpenAckNow(true, QStringLiteral("")); });
+            } else {
+                const QString msg = QStringLiteral("以下摄像头状态异常，禁止开柜：%1").arg(abnormal);
+                logEvent(msg);
+                QTimer::singleShot(200, this, [this, msg] { sendOpenAckNow(false, msg); });
+            }
+        } else {
+            logEvent(QStringLiteral("收到open_req（开箱自动回应已关闭，可点【开箱失败】发result=0，或保持不回应测开箱超时）"));
+        }
     }
     refreshStat();
 }
@@ -551,7 +597,7 @@ void EdgeSimulator::processLine(const QByteArray& line)
 
 void EdgeSimulator::sendPeriodicNow()
 {
-    sendFrame(makePeriodic(m_cam1->currentText(), m_cam2->currentText(), m_uptime->value()));
+    sendFrame(makePeriodic(m_camList, m_uptime->value()));
 }
 
 void EdgeSimulator::togglePeriodic(bool on)
@@ -606,12 +652,48 @@ void EdgeSimulator::executeSilenceDrop()
 
 // ─────────────────────── 协议3.5 版本 ───────────────────────
 
+/**
+ * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
+ * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
+ */
+QString EdgeSimulator::cameraAbnormalText() const
+{
+    QStringList parts;
+    int pos = 0;
+    for (QComboBox* c : m_camList) {
+        ++pos;
+        const QString st = c ? c->currentText() : kCamEmpty;
+        if (st != kCamEmpty && st != QStringLiteral("ok")) {
+            parts.append(QStringLiteral("CAM%1(%2)").arg(pos).arg(st));
+        }
+    }
+    return parts.join(QChar(' '));
+}
+
 void EdgeSimulator::sendVersionAckNow()
 {
     QJsonObject v;
     v["type"] = "version_ack";
     v["software_version"] = m_version->text();
     sendFrame(v);
+}
+
+void EdgeSimulator::sendOpenAckNow(bool success, const QString& message)
+{
+    if (!m_sock || m_sock->state() != QAbstractSocket::ConnectedState) {
+        logEvent(QStringLiteral("发送open_ack失败：未连接"));
+        return;
+    }
+    if (m_lastOpenRequest.isEmpty()) {
+        logEvent(QStringLiteral("没有待回应的open_req（先等上位机发一次开箱请求）"));
+        return;
+    }
+    QJsonObject a;
+    a["type"] = "open_ack";
+    a["request_id"] = m_lastOpenRequest["request_id"].toString();
+    a["result"] = success ? 1 : 0;
+    a["message"] = message;
+    sendFrame(a);
 }
 
 // ─────────────────────── 协议3.6 异常注入 ───────────────────────

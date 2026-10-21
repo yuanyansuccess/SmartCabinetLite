@@ -40,7 +40,7 @@
 // ==============================================================
 /**
  * @brief 启动人脸识别
- * @param relogin true=注销/自动锁屏回登场景（状态文案"请重新刷脸"），false=首次登录
+ * @param relogin true=注销回登场景（状态文案"请重新刷脸"），false=首次登录
  */
 void LoginPage::startFaceRecognition(bool relogin) {
     m_passwordMode = false;  // 回到人脸模式：恢复回调写状态的资格与状态行显示

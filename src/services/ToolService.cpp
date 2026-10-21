@@ -186,3 +186,24 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
 
     return outcome;
 }
+
+/**
+ * @brief 页面中立实况结构版比对：转成通信层结果后复用核心逻辑
+ * @param items   待比对的单据指令列表
+ * @param spots   全柜实况清单（页面中立结构，由 MainWindow 从通信层转换）
+ * @return 逐行结论与错放明细
+ * @note  页面经此重载调用，无需包含通信层头文件（分层铁律）
+ */
+ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
+    const QList<RecogOrderItem>& items, const QList<RecogSpot>& spots)
+{
+    RecognizeResult result;
+    for (const RecogSpot& s : spots) {
+        RecognizeItem item;
+        item.position   = s.position;
+        item.toolId     = s.toolCode;
+        item.confidence = s.confidence;
+        result.items.append(item);
+    }
+    return compareOrderWithRecognition(items, result);
+}
