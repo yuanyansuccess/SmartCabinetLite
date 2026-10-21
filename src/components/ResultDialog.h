@@ -8,6 +8,7 @@
  */
 #pragma once
 #include <QDialog>
+#include <QShowEvent>
 
 class QVBoxLayout;
 class QHBoxLayout;
@@ -33,6 +34,10 @@ public:
     void addFinishButtonCentered(const QString& text, const QString& style);
     /// 按钮行完成按钮（归还/入库/出库样式：buttonPrimary + stretch居中）
     void addFinishButtonRow(const QString& text, const QString& style, int minWidth);
+
+protected:
+    /// 显示时统一居中到父窗口（兼容麒麟窗口管理器）
+    void showEvent(QShowEvent* event) override;
 
 private:
     QVBoxLayout* m_layout = nullptr;

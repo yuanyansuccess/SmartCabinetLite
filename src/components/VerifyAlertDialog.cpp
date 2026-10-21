@@ -5,11 +5,13 @@
  */
 #include "VerifyAlertDialog.h"
 
+#include "BaseDialog.h"  // 复用统一居中逻辑 centerAndKeep
 #include "utils/StyleHelper.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -115,4 +117,14 @@ void VerifyAlertDialog::buildCountdown(QHBoxLayout* topRow) {
         }
     });
     m_timer->start();
+}
+
+/**
+ * @brief 显示时统一居中到父窗口并兼容麒麟窗口管理器的映射后重排
+ * @param event 显示事件对象
+ */
+void VerifyAlertDialog::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    BaseDialog::centerAndKeep(this);
 }

@@ -7,6 +7,7 @@
  */
 #pragma once
 #include <QDialog>
+#include <QShowEvent>
 
 class QVBoxLayout;
 class QLabel;
@@ -37,6 +38,10 @@ public:
 
 private:
     void buildSpinner();
+
+protected:
+    /// 显示时统一居中到父窗口（兼容麒麟窗口管理器）
+    void showEvent(QShowEvent* event) override;
 
     QVBoxLayout* m_layout = nullptr;         // 主布局
     QVBoxLayout* m_body = nullptr;           // 页面内容槽位

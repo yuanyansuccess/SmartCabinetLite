@@ -8,6 +8,7 @@
  */
 #pragma once
 #include <QDialog>
+#include <QShowEvent>
 
 class QLabel;
 class QTimer;
@@ -33,6 +34,10 @@ public:
 
 private:
     void buildCountdown(QHBoxLayout* topRow);
+
+protected:
+    /// 显示时统一居中到父窗口（兼容麒麟窗口管理器）
+    void showEvent(QShowEvent* event) override;
 
     int m_bufferMinutes = 0;  ///< 忽略倒计时分钟数（由调用方传入，组件不读配置）
     QLabel* m_countdownLabel = nullptr;

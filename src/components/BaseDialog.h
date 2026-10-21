@@ -72,6 +72,17 @@ public:
     static void centerOnParent(QWidget* dialog);
 
     /**
+     * @brief 显示时居中父窗口，并在窗口映射稳定后按多个时间点重新校准位置
+     * @param dialog 待定位的顶层对话框
+     *
+     * 窗口管理器（尤其麒麟）常在首次映射后重排窗口或延迟定型布局，
+     * 仅在 showEvent 中居中一次会在反复打开时越偏越远、底部按钮被屏幕边缘裁掉。
+     * 此处先立即居中，再按若干时间点在窗口仍可见时重复居中，保证任何平台都准确。
+     * 所有需要居中的弹窗统一调用本方法，避免在多处各写一套居中逻辑。
+     */
+    static void centerAndKeep(QWidget* dialog);
+
+    /**
      * @brief 显示与隐藏切换：首次显示前先按布局尺寸预约居中位置
      * @param visible true=显示，false=隐藏
      *

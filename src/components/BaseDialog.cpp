@@ -212,16 +212,29 @@ void BaseDialog::centerOnParent(QWidget* dialog)
 void BaseDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
+    // 统一走 centerAndKeep：立即居中 + 多时间点重校准，兼容麒麟等窗口管理器
+    centerAndKeep(this);
+}
+
+/**
+ * @brief 显示时居中父窗口，并在窗口映射稳定后按多个时间点重新校准位置
+ * @param dialog 待定位的顶层对话框
+ */
+void BaseDialog::centerAndKeep(QWidget* dialog)
+{
+    if (!dialog) {
+        return;
+    }
 
     // 首次定位：窗口映射时按当前几何居中
-    centerOnParent(this);
+    centerOnParent(dialog);
 
     // 麒麟等平台的窗口管理器可能在映射后重排窗口，布局也可能在显示后才最终定型；
     // 按多个时间点再校准一次，保证任何窗口环境下都准确居中
     for (int delayMs : kRecenterDelaysMs) {
-        QTimer::singleShot(delayMs, this, [this]() {
-            if (isVisible()) {
-                centerOnParent(this);
+        QTimer::singleShot(delayMs, dialog, [dialog]() {
+            if (dialog->isVisible()) {
+                centerOnParent(dialog);
             }
         });
     }

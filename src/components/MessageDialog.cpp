@@ -5,6 +5,7 @@
  * @date 2026-06-25
  */
 #include "MessageDialog.h"
+#include "BaseDialog.h"  // 复用统一居中逻辑 centerAndKeep（兼容麒麟窗口管理器）
 #include "utils/StyleHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -367,38 +368,9 @@ void MessageDialog::showEvent(QShowEvent* event)
         }
     }
 
-    QWidget* pw = parentWidget();
-    if (!pw) {
-        // 无父窗口则居中到屏幕
-        QScreen* screen = QApplication::primaryScreen();
-        if (screen) {
-            QRect sg = screen->availableGeometry();
-            move(sg.center() - rect().center());
-        }
-        return;
-    }
-
-    // 获取父窗口在屏幕上的全局矩形
-    QPoint parentGlobal = pw->mapToGlobal(QPoint(0, 0));
-    QRect parentRect(parentGlobal, pw->size());
-
-    // 当前对话框实际尺寸（showEvent时已确定）
-    QSize mySize = frameGeometry().size();
-
-    int x = parentRect.center().x() - mySize.width() / 2;
-    int y = parentRect.center().y() - mySize.height() / 2;
-
-    // 确保不出屏幕边界
-    QScreen* screen = QApplication::primaryScreen();
-    if (screen) {
-        QRect sg = screen->availableGeometry();
-        if (x < sg.left()) x = sg.left();
-        if (y < sg.top()) y = sg.top();
-        if (x + mySize.width() > sg.right()) x = sg.right() - mySize.width();
-        if (y + mySize.height() > sg.bottom()) y = sg.bottom() - mySize.height();
-    }
-
-    move(x, y);
+    // 统一居中到父窗口（无父窗口时居中到屏幕），并在映射稳定后重复校准，
+    // 兼容麒麟窗口管理器首次映射后的重排，避免弹窗越偏越远
+    BaseDialog::centerAndKeep(this);
 }
 
 /**

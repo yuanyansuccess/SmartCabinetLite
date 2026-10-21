@@ -5,11 +5,13 @@
  */
 #include "ResultDialog.h"
 
+#include "BaseDialog.h"  // 复用统一居中逻辑 centerAndKeep
 #include "utils/StyleHelper.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QVBoxLayout>
 
 ResultDialog::ResultDialog(const QString& windowTitle, const QString& icon,
@@ -42,6 +44,16 @@ ResultDialog::ResultDialog(const QString& windowTitle, const QString& icon,
     m_body->setContentsMargins(0, 0, 0, 0);
     m_body->setSpacing(0);
     m_layout->addLayout(m_body);
+}
+
+/**
+ * @brief 显示时统一居中到父窗口并兼容麒麟窗口管理器的映射后重排
+ * @param event 显示事件对象
+ */
+void ResultDialog::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    BaseDialog::centerAndKeep(this);
 }
 
 /**
