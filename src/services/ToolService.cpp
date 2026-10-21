@@ -100,3 +100,89 @@ bool ToolService::checkinTool(const QJsonObject& data) {
 
     return allSuccess;
 }
+
+/**
+ * @brief 单据与边缘机实况比对（静态纯函数：不读库不写库不碰界面）
+ * @param items   待比对的单据指令列表（入库项已分配好目标货位）
+ * @param result  边缘机返回的全柜实况清单（recognize_ack 解析结果）
+ * @return 逐行结论（与 items 同序）+ 错放明细
+ * @note  入库项：目标货位须识别出正是本工具且置信度达 SC::RECOG_MIN_CONFIDENCE 门槛；
+ *        出库项：目标货位上没有识别出工具即通过（已取走）；
+ *        错放明细：本单入库工具出现在非目标货位（出库工具无"应放"目标，不参与错放扫描）
+ */
+ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
+    const QList<RecogOrderItem>& items, const RecognizeResult& result)
+{
+    RecogCompareOutcome outcome;
+
+    // 实况清单按货位建索引：协议约定一个货位一条记录，直接覆盖不会丢数据
+    QHash<QString, RecognizeItem> spotByPos;
+    for (const RecognizeItem& s : result.items) {
+        spotByPos.insert(s.position, s);
+    }
+
+    // 入库工具的编号->名称、编号->目标货位（错放扫描与提示用）
+    QHash<QString, QString> nameByCode;
+    QHash<QString, QString> expectedPosByCode;
+    for (const RecogOrderItem& it : items) {
+        if (!it.toolName.isEmpty()) nameByCode.insert(it.toolCode, it.toolName);
+        if (it.type == QStringLiteral("in")) {
+            expectedPosByCode.insert(it.toolCode, it.position);
+        }
+    }
+
+    for (const RecogOrderItem& it : items) {
+        RecogCompareItem cmp;
+        cmp.toolId   = it.toolId;
+        cmp.toolCode = it.toolCode;
+        cmp.toolName = it.toolName;
+        cmp.position = it.position;
+
+        if (it.type == QStringLiteral("in")) {
+            auto spot = spotByPos.constFind(it.position);
+            if (spot == spotByPos.constEnd()) {
+                cmp.result = RecogItemResult::Empty;
+                cmp.detail = QStringLiteral("货位为空，未检测到工具放入");
+            } else if (spot->toolId.isEmpty()) {
+                cmp.result = RecogItemResult::UnknownItem;
+                cmp.detail = QStringLiteral("货位上物品无法识别");
+            } else if (spot->toolId != it.toolCode) {
+                cmp.result = RecogItemResult::WrongTool;
+                cmp.detail = QStringLiteral("货位上为%1").arg(spot->toolId);
+            } else if (spot->confidence < SC::RECOG_MIN_CONFIDENCE) {
+                cmp.result = RecogItemResult::LowConfidence;
+                cmp.detail = QStringLiteral("置信度%1%，未达%2%门槛")
+                    .arg(spot->confidence * 100, 0, 'f', 0)
+                    .arg(SC::RECOG_MIN_CONFIDENCE * 100, 0, 'f', 0);
+            } else {
+                cmp.result = RecogItemResult::Matched;
+            }
+        } else {
+            // 出库项：货位上没有识别出工具即通过（工具已取走）
+            auto spot = spotByPos.constFind(it.position);
+            if (spot == spotByPos.constEnd() || spot->toolId.isEmpty()) {
+                cmp.result = RecogItemResult::Matched;
+            } else {
+                cmp.result = RecogItemResult::StillThere;
+                cmp.detail = QStringLiteral("货位上仍有%1").arg(spot->toolId);
+            }
+        }
+        outcome.items.append(cmp);
+    }
+
+    // 错放扫描：本单入库工具出现在非目标货位
+    for (const RecognizeItem& s : result.items) {
+        if (s.toolId.isEmpty()) continue;
+        auto expected = expectedPosByCode.constFind(s.toolId);
+        if (expected != expectedPosByCode.constEnd() && expected.value() != s.position) {
+            RecogMisplaced misplaced;
+            misplaced.toolCode         = s.toolId;
+            misplaced.toolName         = nameByCode.value(s.toolId);
+            misplaced.actualPosition   = s.position;
+            misplaced.expectedPosition = expected.value();
+            outcome.misplaced.append(misplaced);
+        }
+    }
+
+    return outcome;
+}
