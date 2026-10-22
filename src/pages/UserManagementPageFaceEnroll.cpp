@@ -116,7 +116,8 @@ void UserManagementPage::onFaceEnroll(int userId) {
 
     auto* dlg = new BaseDialog(this, 520);
     dlg->setDialogTitle(QStringLiteral("人脸信息录入"));
-    dlg->setMinimumHeight(580);
+    // 620：视频框(260)+横幅+说明行+按钮区在 1028×768 小分辨率下不再挤压重叠的最低高度
+    dlg->setMinimumHeight(620);
 
     // ctx 必须堆分配：异步HTTP回调(onFacePostureReply)用引用捕获它，
     // 若栈分配，对话框关闭函数返回后ctx即析构，飞行中的回复到达即野指针崩溃(0xC0000005)。
@@ -684,19 +685,19 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
     ctx.directionLabel->setStyleSheet(
         "font-size:32px; font-weight:900; color:#ffffff; "
         "background:#ff4d4f; border-radius:14px; padding:10px 20px;");
+    // 一行说清两件事（这张脸属于谁、要替换找谁）：
+    // 1028×768 等小分辨率下对话框内容区高度有限，多行叠层会挤压摄像头预览区，
+    // 且原"未保存"状态行与横幅语义重复，全部收敛到本行
     ctx.instructionLabel->setText(
-        QStringLiteral("该人脸已录入到「%1」\n若站错人，请重新采集\n若确需替换，请联系管理员清除对方人脸").arg(ownerText));
+        QStringLiteral("未保存：该人脸已属于「%1」，如需替换请联系管理员").arg(ownerText));
     ctx.instructionLabel->setStyleSheet(
         "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#ff4d4f;padding:4px 0;background:transparent;");
-    ctx.statusLabel->setText(QStringLiteral("未保存：人脸重复"));
-    ctx.statusLabel->setStyleSheet(
-        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:700;color:#ff4d4f;background:transparent;");
+    ctx.statusLabel->setText(QString());
 
-    // 相似度只进日志：现场只需知道"这张脸已经属于谁"，不需要算法数值
+    // 相似度只进日志：现场只需知道"这张脸已经属于谁"，不需要算法数值。
+    // 不再弹 MessageDialog：横幅与说明行已完整表达，弹窗属重复提醒
     qDebug() << "[UserManagement] 人脸查重命中, owner=" << ownerText
              << "similarity=" << similarity;
-    MessageDialog::showWarning(ctx.dlg, QStringLiteral("人脸重复"),
-        QStringLiteral("该人脸已录入到「%1」\n一张脸只能录入一个账户\n若确需替换，请联系管理员清除对方人脸后重试").arg(ownerText));
 }
 
 /** 已录入用户点击 → 弹出查看/清除人脸对话框 — 统一BaseDialog圆角风格 */
