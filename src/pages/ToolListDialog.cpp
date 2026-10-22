@@ -71,24 +71,21 @@ void ToolListDialog::buildContent() {
     auto* cl = contentLayout();
     cl->setSpacing(12);
 
-    // 返回行：关闭清单对话框，回到工具管理页面
-    auto* backRow = new QHBoxLayout();
+    // 搜索行：返回按钮与搜索/查询/重置同行摆放，省出一整行高度给下方列表展示更多内容
+    auto* searchRow = new QHBoxLayout();
+    searchRow->setSpacing(12);
+
+    // 返回按钮：关闭清单对话框，回到工具管理页面
     auto* backBtn = new QPushButton(QStringLiteral("← 返回"));
     backBtn->setStyleSheet(StyleHelper::buttonOutline());
     backBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     backBtn->setCursor(Qt::PointingHandCursor);
     connect(backBtn, &QPushButton::clicked, this, &QDialog::accept);
-    backRow->addWidget(backBtn);
-    backRow->addStretch(1);
-    cl->addLayout(backRow);
-
-    // 搜索行：搜索栏占据整行剩余宽度 + 查询/重置（不与筛选器挤在同一行，避免被压窄）
-    auto* searchRow = new QHBoxLayout();
-    searchRow->setSpacing(12);
+    searchRow->addWidget(backBtn);
 
     m_searchBar = new SearchBar(this);
     m_searchBar->setPlaceholderText(QStringLiteral("搜索工具名称/编号..."));
-    m_searchBar->setMinimumSize(320, StyleHelper::Token::ControlHeightTouch);
+    m_searchBar->setMinimumSize(240, StyleHelper::Token::ControlHeightTouch);
     m_searchBar->lineEdit()->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
     searchRow->addWidget(m_searchBar, 1);
     connect(m_searchBar->keyboardButton(), &QPushButton::clicked,

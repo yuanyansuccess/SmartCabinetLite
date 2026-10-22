@@ -19,6 +19,7 @@
 #include "common/Constants.h"          // 识别方式常量
 #include "db/RecordDAO.h"              // 查询工具的借用记录
 #include <QApplication>                // 屏幕高度自适应
+#include <QRect>                       // 屏幕可用区域几何计算
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -61,7 +62,7 @@ void ToolManagementPage::onDetailTool(const ToolInfo& toolInfo) {
     ctx.t = resolveToolInfo(toolInfo);
     if (ctx.t.toolId == 0) return;
 
-    // 对话框加宽到900，确保操作记录表格列宽不截断
+    // 对话框宽度在finalizeDetailDialog中按屏幕自适应加宽，盖住清单弹窗且操作记录列宽不截断
     ctx.dlg = new BaseDialog(this, 900);
     ctx.dlg->setDialogTitle(QStringLiteral("工具详情"));
     ctx.dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -471,12 +472,13 @@ void ToolManagementPage::finalizeDetailDialog(ToolDetailCtx& ctx) {
     QWidget* docTab = createDocumentTab(ctx.t.toolId, ctx.t.documentPath);
     ctx.tabWidget->addTab(docTab, QStringLiteral("📄 工具文档"));
 
-    // 对话框高度自适应屏幕，避免内容增加后溢出看不到关闭按钮
+    // 对话框接近全屏：宽高均大于清单弹窗，居中后完整盖住其返回按钮，避免用户误以为还需先返回
     auto* cl = ctx.dlg->contentLayout();
-    int screenHeight = QApplication::primaryScreen()->availableGeometry().height();
-    int dlgHeight = qMin(screenHeight * 88 / 100, 820);
+    QRect availGeo = QApplication::primaryScreen()->availableGeometry();
+    int dlgWidth  = qBound(900, availGeo.width() - 40, 1200);
+    int dlgHeight = availGeo.height() - 48;
     ctx.dlg->setMinimumHeight(500);
-    ctx.dlg->resize(900, dlgHeight);
+    ctx.dlg->resize(dlgWidth, dlgHeight);
     cl->addWidget(ctx.tabWidget);
     cl->addSpacing(20);
 
