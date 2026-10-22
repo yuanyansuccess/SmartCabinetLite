@@ -63,6 +63,7 @@ docs/_insert_diagrams.py
 
 # 模拟器构建产物与临时测试脚本
 tools/EdgeSimulator/release/
+tools/EdgeSimulator/debug/
 tools/face-recognition/_tmp_*
 tools/face-recognition/server_timing*
 tools/face-recognition/test_face_sample.*

@@ -16,6 +16,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QFile>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -177,7 +178,21 @@ EdgeSimulator::EdgeSimulator(QWidget* parent)
     leftWrap->setLayout(left);
     leftWrap->setFixedWidth(430);
     root->addWidget(leftWrap);
-    root->addWidget(m_logView, 1);
+
+    // 右侧：日志工具行（标题+保存按钮）+ 日志区
+    auto* rightWrap = new QWidget;
+    auto* rightCol = new QVBoxLayout(rightWrap);
+    rightCol->setContentsMargins(0, 0, 0, 0);
+    auto* logBar = new QHBoxLayout;
+    logBar->addWidget(new QLabel(QStringLiteral("通信日志")));
+    logBar->addStretch(1);
+    m_btnSaveLog = new QPushButton(QStringLiteral("保存日志"));
+    m_btnSaveLog->setToolTip(QStringLiteral("把日志区当前内容保存为带时间戳的文本文件（exe 同目录，不可写时自动回退桌面）"));
+    connect(m_btnSaveLog, &QPushButton::clicked, this, &EdgeSimulator::onSaveLogClicked);
+    logBar->addWidget(m_btnSaveLog);
+    rightCol->addLayout(logBar);
+    rightCol->addWidget(m_logView, 1);
+    root->addWidget(rightWrap, 1);
 
     // 日志落盘：优先 exe 同目录，失败回退系统临时目录
     QString logPath = QCoreApplication::applicationDirPath() + QStringLiteral("/EdgeSimulator_log.txt");
@@ -836,6 +851,60 @@ void EdgeSimulator::log(const QString& color, const QString& text)
         m_logFile->write(QString("[%1] %2\n").arg(stamp, text).toUtf8());
         m_logFile->flush();
     }
+}
+
+/**
+ * @brief 保存日志：把日志区当前内容一键导出为文本文件
+ * @note  保存位置：exe 同目录优先（与启动时自动落盘一致，测试人员就地取档）；
+ *        目录不可写时依次回退桌面、系统临时目录。文件名带导出时间戳，
+ *        不会覆盖自动落盘的 EdgeSimulator_log.txt，多轮测试可分别留档。
+ *        导出为 UTF-8 带 BOM 的纯文本，头部附软件名与导出时间；
+ *        保存结果（成功含路径、失败含原因）写回日志区。
+ * @return 无（日志区为空时仅提示，不产生文件）
+ */
+void EdgeSimulator::onSaveLogClicked()
+{
+    const QString text = m_logView->toPlainText();
+    if (text.isEmpty()) {
+        logEvent(QStringLiteral("保存失败：当前没有日志内容"));
+        return;
+    }
+    // 目录可写探测：写一个临时探针文件再删除，避免把错误路径当可用
+    auto dirWritable = [](const QString& dir) {
+        if (dir.isEmpty()) {
+            return false;
+        }
+        QFile probe(dir + QStringLiteral("/.log_save_probe"));
+        if (!probe.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+        probe.close();
+        probe.remove();
+        return true;
+    };
+    QString dir = QCoreApplication::applicationDirPath();
+    if (!dirWritable(dir)) {
+        dir = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    }
+    if (!dirWritable(dir)) {
+        dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    }
+    const QString fileName = QString(QStringLiteral("EdgeSimulator_log_%1.txt"))
+                                 .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss")));
+    const QString path = dir + QChar('/') + fileName;
+
+    QFile out(path);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        logEvent(QString(QStringLiteral("保存日志失败：无法写入 %1（%2）")).arg(path, out.errorString()));
+        return;
+    }
+    const QString header = QString(QStringLiteral("=== 边缘计算机模拟器 通信日志 导出时间 %1 ===\n"))
+                               .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+    out.write("\xEF\xBB\xBF");   // UTF-8 BOM：Windows 记事本直接打开中文不乱码
+    out.write(header.toUtf8());
+    out.write(text.toUtf8());
+    out.close();
+    logEvent(QString(QStringLiteral("日志已保存：%1")).arg(path));
 }
 
 void EdgeSimulator::logFrame(const QString& dir, const QJsonObject& f)

@@ -72,6 +72,8 @@ private slots:
     // 自定义帧
     void sendCustomFrame();      ///< 发送自定义内容（按行发送，JSON或原文）
     void toggleLoopSend(bool on);///< 循环发送自定义内容（压力/持续异常测试）
+    // 日志
+    void onSaveLogClicked();     ///< 保存日志：导出日志区内容为文本文件
 
 private:
     QWidget* buildConnPanel();   ///< 连接区
@@ -115,6 +117,7 @@ private:
     QTimer       m_loopTimer;            ///< 循环发送定时器
     // 日志
     QTextEdit*   m_logView = nullptr;
+    QPushButton* m_btnSaveLog = nullptr;  ///< 保存日志按钮（导出日志区内容）
     QLabel*      m_stat = nullptr;
 
     QTcpSocket*  m_sock = nullptr;
