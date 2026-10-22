@@ -6,6 +6,7 @@
 #include "AlertLogsPage.h"
 #include "ui_AlertLogsPage.h"
 #include <QTableWidget>  // 告警日志表格
+#include <QDateTime>  // 告警时间简化格式化
 #include "common/Constants.h"
 #include "utils/StyleHelper.h"
 #include "services/SettingService.h"  // 分页列表数据源
@@ -60,9 +61,9 @@ void AlertLogsPage::setupUI() {
     m_table->setHorizontalHeaderLabels({QStringLiteral("告警时间"),
                                         QStringLiteral("告警类型"),
                                         QStringLiteral("告警内容")});
-    // 列宽策略：时间/类型按内容自适应，告警内容列拉伸占满剩余宽度
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
-    m_table->setColumnWidth(0, 190);
+    // 列宽策略：时间按内容自适应(麒麟字体渲染较宽,固定190会截断),
+    // 类型按内容自适应，告警内容列拉伸占满剩余宽度
+    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_table->horizontalHeader()->setStretchLastSection(false);
@@ -195,9 +196,12 @@ void AlertLogsPage::loadAlerts() {
     for (int i = 0; i < list.size(); ++i) {
         QJsonObject alert = list[i].toObject();
 
-        // 列0：告警时间
-        QString time = alert["createdAt"].toString();
-        if (!time.isEmpty() && time.length() > 19) time = time.left(19);
+        // 列0：告警时间，简化显示：ISO原串"2026-10-16T17:04:58" → "2026-10-16 17:04"
+        // 去掉T与秒，与出入库记录/操作日志风格统一；解析失败回退原串
+        QDateTime dt = QDateTime::fromString(alert["createdAt"].toString(), Qt::ISODate);
+        if (!dt.isValid()) dt = QDateTime::fromString(alert["createdAt"].toString(), Qt::ISODateWithMs);
+        QString time = dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+                                    : alert["createdAt"].toString();
         m_table->setItem(i, 0, new QTableWidgetItem(time));
 
         // 列1：告警类型 数据库已返回中文类型名，直接显示

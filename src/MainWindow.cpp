@@ -21,6 +21,7 @@
 #include "pages/RoleSelectDialog.h"  // 管理用户登录身份选择
 #include "comm/EdgeService.h"  // 与边缘计算机通信接口（识别结果适配后转给出入库页）
 #include "utils/StyleHelper.h"
+#include "utils/ScreenFit.h"   // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
 #include "common/AppConfig.h"  // 读取备份配置
 #include "common/Constants.h"   // SC 命名空间常量
 #include "common/DatabaseManager.h"  // 备份检查
@@ -34,6 +35,7 @@
 #include <QJsonArray>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QDateTime>  // 操作日志时间简化格式化
 #include <QApplication>  // qApp->quit()退出整个系统
 #include <QGraphicsOpacityEffect>  // 页面切换淡入淡出动画
 #include <QPropertyAnimation>
@@ -730,7 +732,7 @@ void MainWindow::showUserBorrowDetail() {
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     lay->addWidget(closeBtn, 0, Qt::AlignCenter);
 
-    dlg.showFullScreen();
+    UiFit::showFullScreenFit(&dlg, this);
     dlg.exec();
 }
 
@@ -782,15 +784,18 @@ void MainWindow::showUserOperationLog() {
     table->verticalHeader()->setVisible(false);
     table->verticalHeader()->setDefaultSectionSize(46);
     table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);   // 内容撑满
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);  // 时间自适应,麒麟固定宽会截断
     table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    table->setColumnWidth(0, 190);
     table->setRowCount(list.size());
     for (int i = 0; i < list.size(); ++i) {
         const QJsonObject r = list.at(i).toObject();
-        QString time = r["createdAt"].toString();
-        if (time.length() > 19) time = time.left(19);
+        // 时间简化显示：ISO原串"2026-10-16T17:04:58" → "2026-10-16 17:04"
+        // 去掉T与秒，与出入库记录页风格统一；解析失败回退原串
+        QDateTime dt = QDateTime::fromString(r["createdAt"].toString(), Qt::ISODate);
+        if (!dt.isValid()) dt = QDateTime::fromString(r["createdAt"].toString(), Qt::ISODateWithMs);
+        QString time = dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+                                    : r["createdAt"].toString();
         table->setItem(i, 0, new QTableWidgetItem(time));
 
         // 类型中文+配色（入库绿/出库红，其余类型显示原值）
@@ -826,7 +831,7 @@ void MainWindow::showUserOperationLog() {
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     lay->addWidget(closeBtn, 0, Qt::AlignCenter);
 
-    dlg.showFullScreen();
+    UiFit::showFullScreenFit(&dlg, this);
     dlg.exec();
 }
 
@@ -858,7 +863,7 @@ TopBar* MainWindow::attachDialogTopBar(QDialog* dlg, const QString& title) {
     connect(topBar, &TopBar::exitSystemClicked, qApp, &QApplication::quit);
     connect(topBar, &TopBar::helpClicked, dlg, [dlg] {
         HelpManualDialog manual(dlg);
-        manual.showFullScreen();
+        UiFit::showFullScreenFit(&manual, dlg);
         manual.exec();
     });
     return topBar;
@@ -870,7 +875,7 @@ TopBar* MainWindow::attachDialogTopBar(QDialog* dlg, const QString& title) {
  */
 void MainWindow::showHelpManual() {
     HelpManualDialog dlg(this);
-    dlg.showFullScreen();
+    UiFit::showFullScreenFit(&dlg, this);
     dlg.exec();
 }
 

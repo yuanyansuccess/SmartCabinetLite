@@ -29,6 +29,17 @@
 #include <QPushButton>
 #include <QRegularExpression>  // 解析content字段
 #include <QSet>  // 出库位置查重
+#include <QDateTime>  // 记录时间简化格式化
+
+namespace {
+/// 记录时间简化显示：ISO原串"2026-10-16T17:04:23" → "2026-10-16 17:04"
+/// 去掉T与秒：麒麟1024x768下时间列更紧凑易读；解析失败回退原串
+QString formatRecordTime(const QString& iso) {
+    QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
+    if (!dt.isValid()) dt = QDateTime::fromString(iso, Qt::ISODateWithMs);
+    return dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm")) : iso;
+}
+}
 
 /**
  * @brief 构造函数，初始化 ToolCheckinPage 对象并连接信号槽
@@ -74,11 +85,14 @@ void ToolCheckinPage::setupUI() {
     m_orderTable->setColumnWidth(4, 90);    // 操作
     m_orderTable->verticalHeader()->setMinimumSectionSize(56);
 
-    // 入库记录表格列宽：时间/名称/编号/位置Stretch，供应商/操作人Fixed
+    // 入库记录表格列宽：时间按内容自适应(麒麟字体渲染较宽,固定150会截断)，
+    // 名称/编号/位置Stretch，供应商/操作人Fixed
     m_recordTable->horizontalHeader()->setStretchLastSection(false);
     for (int i = 0; i < 6; i++) {
         if (i == 4 || i == 5) {
             m_recordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed);
+        } else if (i == 0) {
+            m_recordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::ResizeToContents);
         } else {
             m_recordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
         }
@@ -92,6 +106,9 @@ void ToolCheckinPage::setupUI() {
     for (int i = 0; i < 4; i++) {
         if (i == 3) {
             m_outRecordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed);
+        } else if (i == 0) {
+            // 时间列按内容自适应：与入库记录一致，避免麒麟上固定宽度截断
+            m_outRecordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::ResizeToContents);
         } else {
             m_outRecordTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
         }
@@ -1031,7 +1048,7 @@ void ToolCheckinPage::loadCheckinRecords() {
     for (int i = 0; i < records.size(); ++i) {
         QJsonObject r = records[i].toObject();
         QString content = r["content"].toString();
-        QString time = r["createdAt"].toString();
+        QString time = formatRecordTime(r["createdAt"].toString());
 
         // 列顺序：入库时间(0)/工具名称(1)/工具编号(2)/位置(3)/供应商(4)/操作人(5)
         m_recordTable->setItem(i, 0, new QTableWidgetItem(time));
@@ -1128,7 +1145,7 @@ void ToolCheckinPage::loadCheckoutRecords() {
     for (int i = 0; i < records.size(); ++i) {
         QJsonObject r = records[i].toObject();
         QString content = r["content"].toString();
-        QString time = r["createdAt"].toString();
+        QString time = formatRecordTime(r["createdAt"].toString());
 
         // 列顺序：出库时间(0)/工具名称(1)/工具编号(2)/操作人(3)
         m_outRecordTable->setItem(i, 0, new QTableWidgetItem(time));
