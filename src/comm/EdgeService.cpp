@@ -100,6 +100,7 @@ void EdgeService::start(const EdgeConfig& cfg)
     m_activeClient = 0;
     m_lastPeriodicMs = 0;
     m_pending.clear();
+    m_lastCamStatus.clear();   // 摄像头状态基线重建：首帧只建基线，不把旧连接的状态当变化上报
 
     if (!m_sim) {
         m_link = new EdgeLink(this);
@@ -326,6 +327,18 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
             m_online = true;
             emit onlineChanged(true);
             requeueFailedRequests();   // 第5章④：链路恢复（周期帧重新到达）→ 补发
+        }
+        // 摄像头自检状态变化检测（协议3.4）：相对上一帧有变化且新状态异常（非 ok）才上报，
+        // 由上层落告警。恢复正常（→ok）不发送——告警只记异常出现，不记恢复，避免刷屏。
+        // 首帧（基线里没有该相机）只建基线不发送：服务重启不应把重启前的状态当"变化"刷告警；
+        // 相机从清单缺席不处理（自检可缺席属硬件选型，保持旧基线，回来时若不同仍会发现）
+        for (const CameraStatusItem& cam : m_lastPeriodic.cameras) {
+            const QString prev = m_lastCamStatus.value(cam.cameraId);
+            if (m_lastCamStatus.contains(cam.cameraId) && prev != cam.status
+                && cam.status != QStringLiteral("ok")) {
+                emit cameraStatusChanged(cam.cameraId, prev, cam.status);
+            }
+            m_lastCamStatus[cam.cameraId] = cam.status;
         }
         emit periodicUpdated(m_lastPeriodic);
         return;

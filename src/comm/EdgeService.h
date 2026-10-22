@@ -99,6 +99,16 @@ signals:
     void periodicUpdated(const PeriodicInfo& info);
 
     /**
+     * @brief 某一路摄像头自检状态变为异常时发一次（协议3.4；相对上一帧有变化且新状态非 ok）
+     * @param cameraId   摄像头编号，如 "CAM3"
+     * @param oldStatus  上一帧状态（ok/offline/low_light/dirty/comm_error）
+     * @param newStatus  本帧状态（必为异常态，ok 的恢复不触发）
+     * @note  首帧只建立基线不发送（服务重启不应刷出一批历史状态告警）；
+     *        恢复正常（→ok）不发送——告警只记异常出现，不记恢复
+     */
+    void cameraStatusChanged(const QString& cameraId, const QString& oldStatus, const QString& newStatus);
+
+    /**
      * @brief 收到边缘机版本回应（协议3.5）
      * @param version 边缘机软件版本号，验收交付留痕
      */
@@ -130,6 +140,7 @@ private:
     bool        m_online = false;        ///< 链路在线状态
     quintptr    m_activeClient = 0;      ///< 当前边缘机连接编号（0=无连接）
     PeriodicInfo m_lastPeriodic;         ///< 最近一帧周期帧缓存
+    QHash<QString, QString> m_lastCamStatus;  ///< 各摄像头上一次自检状态（key=cameraId），状态变化检测基线
     QString     m_version;               ///< 最近版本回应缓存
     QHash<QString, Pending> m_pending;   ///< 在途请求登记表，key=request_id
     QTimer      m_scanTimer;             ///< 请求超时扫描器（200ms）

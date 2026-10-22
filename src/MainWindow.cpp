@@ -20,6 +20,7 @@
 #include "pages/ForceChangePasswordDialog.h"  // 首次登录强制修改初始密码
 #include "pages/RoleSelectDialog.h"  // 管理用户登录身份选择
 #include "comm/EdgeService.h"  // 与边缘计算机通信接口（识别结果适配后转给出入库页）
+#include "services/AlertService.h"  // 摄像头状态变化落告警（通信事件→告警域）
 #include "utils/StyleHelper.h"
 #include "utils/ScreenFit.h"   // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
 #include "common/AppConfig.h"  // 读取备份配置
@@ -447,8 +448,12 @@ void MainWindow::setEdgeService(EdgeService* svc) {
             m_checkinPage->onRecognitionFailed(requestId, reason);
         });
 
-    // 链路心跳状态变化 → 转发出入库页显示（等待中掉线时页面可即时收敛）
+    // 链路心跳状态变化 → 转发出入库页显示（等待中掉线时页面可即时收敛）；
+    // 由在线翻转为离线时落一条通信中断告警（翻转时刻才触发，天然去重；恢复不告警）
     connect(m_edgeService, &EdgeService::onlineChanged, this, [this](bool online) {
+        if (!online) {
+            AlertService().recordEdgeOffline();
+        }
         m_checkinPage->onEdgeOnlineChanged(online);
     });
 
@@ -468,6 +473,12 @@ void MainWindow::setEdgeService(EdgeService* svc) {
 
     // 补发当前在线状态，避免页面订阅前边缘机已在线导致初始误判离线（开箱闸门误拒）
     m_checkinPage->onEdgeOnlineChanged(m_edgeService->isOnline());
+
+    // 摄像头自检状态相对上一帧变化 → 落一条告警（协议3.4；恢复也记，内容注明）
+    connect(m_edgeService, &EdgeService::cameraStatusChanged, this,
+        [this](const QString& cameraId, const QString& oldStatus, const QString& newStatus) {
+            AlertService().recordCameraStatusChanged(cameraId, oldStatus, newStatus);
+        });
 }
 
 /**

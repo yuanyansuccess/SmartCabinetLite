@@ -122,6 +122,8 @@ const QStringList TOOL_DOC_SUFFIXES = { "doc", "docx", "pdf" };
 
 // 告警类型编码（sys_alert_type.type_code）：写告警时经 AlertDAO::findTypeIdByCode 查回 type_id
 const QString ALERT_TYPE_LOGIN_FAIL = "login_fail";  // 登录失败（密码连续错误触发整机锁定）
+const QString ALERT_TYPE_HW_FAULT   = "hw_fault";    // 系统硬件故障（边缘机摄像头状态变化等设备类告警复用此激活类型）
+const QString ALERT_TYPE_HW_COMM    = "hw_comm";     // 硬件通讯故障（与边缘计算机链路离线等通信类告警复用此激活类型）
 
 // ── 告警大类（告警日志页两个入口共用同一页面，按类型编码集合区分显示范围）──
 // 系统告警：设备与系统状态类；操作告警：用户操作行为类（错放/未授权/登录失败等）。

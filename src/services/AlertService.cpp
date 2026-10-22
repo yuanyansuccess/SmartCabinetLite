@@ -7,6 +7,7 @@
 
 #include "db/AlertDAO.h"
 #include "common/Constants.h"
+#include <QDebug>
 
 /**
  * @brief 记录一条识别核验告警
@@ -32,4 +33,53 @@ void AlertService::recordVerifyAlert(int userId, int toolId, const QString& mess
 QJsonArray AlertService::getAlertTypes() {
     db::AlertDAO dao;
     return dao.getAlertTypes();
+}
+
+/**
+ * @brief 记录边缘机摄像头自检状态变化告警（复用 hw_fault 激活类型）
+ * @param cameraId   摄像头编号，如 "CAM3"
+ * @param oldStatus  变化前状态
+ * @param newStatus  变化后状态
+ * @note  类型编码经常量取，字典查不回 type_id（类型被停用）时只告警不写库，
+ *        避免外键失败把 DB 错误抛到通信链路里
+ */
+void AlertService::recordCameraStatusChanged(const QString& cameraId,
+                                             const QString& oldStatus,
+                                             const QString& newStatus) {
+    db::AlertDAO dao;
+    const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_HW_FAULT);
+    if (typeId <= 0) {
+        qWarning() << "[AlertService] 摄像头状态变化告警跳过：字典中找不到已启用类型"
+                   << SC::ALERT_TYPE_HW_FAULT;
+        return;
+    }
+    AlertLog alert;
+    alert.typeId = typeId;
+    // 触发方已保证 newStatus 非 ok（恢复正常不触发），文案固定为异常变化
+    alert.message = QString(QStringLiteral("边缘机摄像头 %1 状态异常变化：%2 → %3"))
+                        .arg(cameraId, oldStatus, newStatus);
+    alert.status = SC::ALERT_UNHANDLED;
+    dao.insertAlert(alert);
+}
+
+/**
+ * @brief 记录与边缘计算机通信中断告警（复用 hw_comm 激活类型）
+ * @note  类型编码经常量取，字典查不回 type_id（类型被停用）时只告警不写库；
+ *        触发方（MainWindow 的 onlineChanged 适配）只在由在线翻转为离线时调用，
+ *        离线持续期间不会重复触发，本方法无去重负担
+ */
+void AlertService::recordEdgeOffline() {
+    db::AlertDAO dao;
+    const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_HW_COMM);
+    if (typeId <= 0) {
+        qWarning() << "[AlertService] 边缘机离线告警跳过：字典中找不到已启用类型"
+                   << SC::ALERT_TYPE_HW_COMM;
+        return;
+    }
+    AlertLog alert;
+    alert.typeId = typeId;
+    // 两条离线路径（TCP断开立即判/周期帧15秒超时判）共用本方法，文案不写具体判定方式
+    alert.message = QStringLiteral("与边缘计算机通信中断，出入库核对功能暂不可用，请检查边缘计算机");
+    alert.status = SC::ALERT_UNHANDLED;
+    dao.insertAlert(alert);
 }
