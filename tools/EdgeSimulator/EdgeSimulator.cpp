@@ -28,6 +28,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QSettings>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTime>
@@ -45,6 +46,7 @@ enum Scene {
     SceneUnknown,        // 未知物告警 alert_type=unknown
     SceneLowConf,        // 置信度不足 alert_type=low_confidence
     SceneMissing,        // 缺失告警 alert_type=missing
+    SceneSilent,         // 不回应（测上位机识别超时重发，第5章；作为场景选项而非开关，测完切回即恢复，无状态残留）
 };
 
 /// 相机自检"空"选项标记：选中时该相机不出现在 camera_status（协议3.4：自检可缺席）
@@ -212,13 +214,68 @@ EdgeSimulator::EdgeSimulator(QWidget* parent)
         sendFrame(makePeriodic(m_camList, m_uptime->value()));
     });
     connect(&m_loopTimer, &QTimer::timeout, this, &EdgeSimulator::sendCustomFrame);
+
+    // 全部界面构建完成后，恢复上次的回应配置（连接前即可完成配置，符合"配置好再连"的使用方式）
+    loadConfig();
 }
 
 EdgeSimulator::~EdgeSimulator()
 {
+    saveConfig();   // 退出前持久化全部回应配置，下次启动原样恢复
     if (m_sock) {
         m_sock->abort();
     }
+}
+
+/**
+ * @brief 把全部回应配置持久化到 exe 同目录 simulator.ini
+ * @return 无。写失败静默忽略（配置文件不影响主功能）
+ * @note  覆盖：8 路摄像头状态/周期帧参数/识别场景与延迟/开箱策略与失败文案/版本号/连接参数；
+ *        配置随 exe 部署目录走（绿色部署），测试人员一次配好长期复用
+ */
+void EdgeSimulator::saveConfig()
+{
+    QSettings s(QCoreApplication::applicationDirPath() + QStringLiteral("/simulator.ini"), QSettings::IniFormat);
+    for (int i = 0; i < m_camList.size(); ++i) {
+        s.setValue(QString(QStringLiteral("camera/cam%1")).arg(i + 1), m_camList[i]->currentText());
+    }
+    s.setValue(QStringLiteral("periodic/auto"), m_periodicOn ? m_periodicOn->isChecked() : true);
+    s.setValue(QStringLiteral("periodic/intervalMs"), m_periodicMs ? m_periodicMs->value() : 3000);
+    s.setValue(QStringLiteral("periodic/uptime"), m_uptime ? m_uptime->value() : 123);
+    s.setValue(QStringLiteral("reply/sceneIndex"), m_recScene ? m_recScene->currentIndex() : 0);
+    s.setValue(QStringLiteral("reply/delayMs"), m_delayMs ? m_delayMs->value() : 200);
+    s.setValue(QStringLiteral("open/policyIndex"), m_openPolicy ? m_openPolicy->currentIndex() : 0);
+    s.setValue(QStringLiteral("open/failMsg"), m_openFailMsg ? m_openFailMsg->text() : QStringLiteral("开箱失败（模拟）"));
+    s.setValue(QStringLiteral("version/value"), m_version ? m_version->text() : QStringLiteral("1.2.0"));
+    s.setValue(QStringLiteral("conn/addr"), m_addr ? m_addr->text() : QStringLiteral("127.0.0.1"));
+    s.setValue(QStringLiteral("conn/port"), m_port ? m_port->value() : 9000);
+    s.setValue(QStringLiteral("conn/autoReconnect"), m_autoReconn ? m_autoReconn->isChecked() : true);
+}
+
+/**
+ * @brief 启动时从 exe 同目录 simulator.ini 恢复上次的回应配置
+ * @return 无。文件不存在或某项缺失时用界面默认值（与原硬编码默认一致）
+ */
+void EdgeSimulator::loadConfig()
+{
+    QSettings s(QCoreApplication::applicationDirPath() + QStringLiteral("/simulator.ini"), QSettings::IniFormat);
+    for (int i = 0; i < m_camList.size(); ++i) {
+        const QString v = s.value(QString(QStringLiteral("camera/cam%1")).arg(i + 1)).toString();
+        if (!v.isEmpty()) {
+            m_camList[i]->setCurrentText(v);
+        }
+    }
+    m_periodicOn->setChecked(s.value(QStringLiteral("periodic/auto"), true).toBool());
+    m_periodicMs->setValue(s.value(QStringLiteral("periodic/intervalMs"), 3000).toInt());
+    m_uptime->setValue(s.value(QStringLiteral("periodic/uptime"), 123).toInt());
+    m_recScene->setCurrentIndex(s.value(QStringLiteral("reply/sceneIndex"), 0).toInt());
+    m_delayMs->setValue(s.value(QStringLiteral("reply/delayMs"), 200).toInt());
+    m_openPolicy->setCurrentIndex(s.value(QStringLiteral("open/policyIndex"), 0).toInt());
+    m_openFailMsg->setText(s.value(QStringLiteral("open/failMsg"), QStringLiteral("开箱失败（模拟）")).toString());
+    m_version->setText(s.value(QStringLiteral("version/value"), QStringLiteral("1.2.0")).toString());
+    m_addr->setText(s.value(QStringLiteral("conn/addr"), QStringLiteral("127.0.0.1")).toString());
+    m_port->setValue(s.value(QStringLiteral("conn/port"), 9000).toInt());
+    m_autoReconn->setChecked(s.value(QStringLiteral("conn/autoReconnect"), true).toBool());
 }
 
 /**
@@ -285,6 +342,7 @@ QWidget* EdgeSimulator::buildPeriodicTab()
     for (int i = 1; i <= 8; ++i) {
         auto* c = new QComboBox;
         c->addItems(camStates);
+        c->setObjectName(QString(QStringLiteral("cam%1")).arg(i));  // 固定名：单测按名查找，避免下拉总数变化导致下标错位
         m_camList.append(c);
         g->addWidget(new QLabel(QStringLiteral("CAM%1 自检状态").arg(i)), i - 1, 0);
         g->addWidget(c, i - 1, 1);
@@ -322,32 +380,36 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     auto* w = new QWidget;
     auto* g = new QGridLayout(w);
 
-    // 场景按钮（协议3.3全部场景，按钮文字带功能说明）
-    struct Item { const char* text; int scene; };
-    const Item items[] = {
-        {"正常清单：2条样例，测消息配对",            SceneNormal},
-        {"有借有还：A-01-05空+A-01-06套筒",          SceneBorrowReturn},
-        {"无变化：空清单，测归档分支",                SceneNoChange},
-        {"错放告警：misplaced L2，测告警弹窗",        SceneMisplaced},
-        {"未知物告警：unknown L3，测严重告警",        SceneUnknown},
-        {"置信度不足：low_confidence L1，测不落账",   SceneLowConf},
-        {"缺失告警：missing L2，测字段枚举边界",      SceneMissing},
-    };
-    int row = 0;
-    for (const Item& it : items) {
-        auto* b = new QPushButton(QString::fromUtf8(it.text));
-        b->setProperty("scene", it.scene);
-        connect(b, &QPushButton::clicked, this, [this, b] { replyScene(b->property("scene").toInt()); });
-        g->addWidget(b, row, 0, 1, 2);
-        ++row;
-    }
+    // ── 自动回应配置区（连接前配好，连接后即改即生效；下一条请求按当前配置回）──
+    auto* cfgTitle = new QLabel(QStringLiteral("识别自动回应配置（协议3.3 · 连接前后可随时切换，下一条请求即生效）"));
+    cfgTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
+    g->addWidget(cfgTitle, 0, 0, 1, 2);
+
+    m_recScene = new QComboBox;
+    // 下拉选项文字=测试含义，itemData=Scene 枚举值；顺序与协议场景清单一致
+    m_recScene->addItem(QStringLiteral("正常清单（2条样例，测消息配对）"),        SceneNormal);
+    m_recScene->addItem(QStringLiteral("有借有还（A-01-05空+A-01-06套筒）"),      SceneBorrowReturn);
+    m_recScene->addItem(QStringLiteral("无变化（空清单，测归档分支）"),           SceneNoChange);
+    m_recScene->addItem(QStringLiteral("错放告警（misplaced L2，测告警提示）"),   SceneMisplaced);
+    m_recScene->addItem(QStringLiteral("未知物告警（unknown L3，测严重告警）"),   SceneUnknown);
+    m_recScene->addItem(QStringLiteral("置信度不足（low_confidence L1，测不落账）"), SceneLowConf);
+    m_recScene->addItem(QStringLiteral("缺失告警（missing L2，测字段枚举边界）"),  SceneMissing);
+    m_recScene->addItem(QStringLiteral("不回应（测上位机识别超时重发，第5章）"),   SceneSilent);
+    g->addWidget(new QLabel(QStringLiteral("回应场景")), 1, 0);
+    g->addWidget(m_recScene, 1, 1);
 
     m_delayMs = new QSpinBox;
-    m_delayMs->setRange(100, 30000);
-    m_delayMs->setValue(4000);
+    m_delayMs->setRange(0, 30000);
+    m_delayMs->setValue(200);
     m_delayMs->setSuffix(QStringLiteral(" ms"));
-    auto* btnDelayed = new QPushButton(QStringLiteral("延迟回应：默认4000ms>3秒，测超时重发"));
-    connect(btnDelayed, &QPushButton::clicked, this, &EdgeSimulator::sendDelayedReply);
+    m_delayMs->setToolTip(QStringLiteral("0=立即回应；设 >3000（上位机3秒超时）可测超时重发"));
+    g->addWidget(new QLabel(QStringLiteral("回应延迟")), 2, 0);
+    g->addWidget(m_delayMs, 2, 1);
+
+    // ── 手动注入区（一次性动作，补充自动配置覆盖不到的协议异常）──
+    auto* manTitle = new QLabel(QStringLiteral("手动注入（一次性动作）"));
+    manTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
+    g->addWidget(manTitle, 3, 0, 1, 2);
     auto* btnDup = new QPushButton(QStringLiteral("重复回应×2：测request_id去重（3.6-③）"));
     connect(btnDup, &QPushButton::clicked, this, [this] {
         replyScene(SceneNormal);
@@ -370,19 +432,13 @@ QWidget* EdgeSimulator::buildRecognizeTab()
             refreshStat();
         }
     });
-    auto* btnSilent = new QPushButton(QStringLiteral("识别不回应：关闭识别自动回应，测识别超时重发（第5章）"));
-    connect(btnSilent, &QPushButton::clicked, this, [this] {
-        m_autoReply = false;
-        logEvent(QStringLiteral("自动回应已关闭：之后收到的recognize将不回应（点场景按钮可手动回应）"));
-    });
+    g->addWidget(btnDup, 4, 0, 1, 2);
+    g->addWidget(btnFlood, 5, 0, 1, 2);
 
-    g->addWidget(btnDelayed, row, 0);
-    g->addWidget(m_delayMs, row, 1);
-    ++row;
-    g->addWidget(btnDup, row, 0, 1, 2); ++row;
-    g->addWidget(btnFlood, row, 0, 1, 2); ++row;
-    g->addWidget(btnSilent, row, 0, 1, 2); ++row;
-
+    // ── 链路离线模拟区（第5章）──
+    auto* linkTitle = new QLabel(QStringLiteral("链路离线模拟（第5章）"));
+    linkTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
+    g->addWidget(linkTitle, 6, 0, 1, 2);
     m_silenceAt = new QSpinBox;
     m_silenceAt->setRange(1, 600);
     m_silenceAt->setValue(10);
@@ -393,33 +449,12 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     m_silenceFor->setSuffix(QStringLiteral(" s"));
     auto* btnDrop = new QPushButton(QStringLiteral("停发周期帧：测15秒判离线+恢复补发（第5章）"));
     connect(btnDrop, &QPushButton::clicked, this, &EdgeSimulator::executeSilenceDrop);
-    g->addWidget(btnDrop, row, 0); ++row;
-    g->addWidget(m_silenceAt, row, 0);
-    g->addWidget(m_silenceFor, row, 1);
-    ++row;
-    g->addWidget(m_stat, row, 0, 1, 2); ++row;
+    g->addWidget(btnDrop, 7, 0, 1, 2);
+    g->addWidget(m_silenceAt, 8, 0);
+    g->addWidget(m_silenceFor, 8, 1);
 
-    // 开箱回应控制（协议3.7开箱）：默认自动成功；可切换为失败/不回应以测试上位机异常分支
-    auto* openTitle = new QLabel(QStringLiteral("开箱回应（3.7 开箱协议）"));
-    openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
-    g->addWidget(openTitle, ++row, 0, 1, 2);
-    auto* btnOpenFail = new QPushButton(QStringLiteral("开箱失败（result=0，测开箱失败分支）"));
-    connect(btnOpenFail, &QPushButton::clicked, this, [this] { sendOpenAckNow(false, QStringLiteral("开箱失败（模拟）")); });
-    g->addWidget(btnOpenFail, ++row, 0, 1, 2);
-    auto* btnOpenSilent = new QPushButton(QStringLiteral("开箱不回应（测开箱超时分支）"));
-    connect(btnOpenSilent, &QPushButton::clicked, this, [this] {
-        m_autoOpenReply = false;
-        logEvent(QStringLiteral("开箱自动回应已关闭：之后收到的open_req将不回应（点【恢复开箱自动成功】恢复）"));
-    });
-    g->addWidget(btnOpenSilent, ++row, 0, 1, 2);
-    auto* btnOpenRestore = new QPushButton(QStringLiteral("恢复开箱自动成功"));
-    connect(btnOpenRestore, &QPushButton::clicked, this, [this] {
-        m_autoOpenReply = true;
-        logEvent(QStringLiteral("开箱自动回应已恢复：之后收到的open_req将自动回应成功"));
-    });
-    g->addWidget(btnOpenRestore, ++row, 0, 1, 2);
-
-    g->setRowStretch(row + 1, 1);
+    g->addWidget(m_stat, 9, 0, 1, 2);
+    g->setRowStretch(10, 1);
     return w;
 }
 
@@ -428,13 +463,38 @@ QWidget* EdgeSimulator::buildFaultTab()
     auto* w = new QWidget;
     auto* g = new QGridLayout(w);
 
+    // ── 开箱回应配置区（协议3.7：连接前配好，连接后即改即生效）──
+    auto* openTitle = new QLabel(QStringLiteral("开箱回应配置（协议3.7 · 下一条 open_req 即生效）"));
+    openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
+    g->addWidget(openTitle, 0, 0, 1, 2);
+
+    m_openPolicy = new QComboBox;
+    m_openPolicy->addItem(QStringLiteral("自动成功（摄像头异常时联动拒绝，与真实边缘机一致）"), 0);
+    m_openPolicy->addItem(QStringLiteral("固定失败（回 result=0，测上位机开箱失败分支）"), 1);
+    m_openPolicy->addItem(QStringLiteral("不回应（测上位机开箱超时重发，第5章）"), 2);
+    g->addWidget(new QLabel(QStringLiteral("回应策略")), 1, 0);
+    g->addWidget(m_openPolicy, 1, 1);
+
+    m_openFailMsg = new QLineEdit(QStringLiteral("开箱失败（模拟）"));
+    m_openFailMsg->setToolTip(QStringLiteral("策略为“固定失败”时 open_ack 携带的原因文案"));
+    g->addWidget(new QLabel(QStringLiteral("失败原因文案")), 2, 0);
+    g->addWidget(m_openFailMsg, 2, 1);
+
+    // ── 版本回应配置（协议3.5：自动回应+手动立即回）──
+    auto* verTitle = new QLabel(QStringLiteral("版本回应（协议3.5）"));
+    verTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
+    g->addWidget(verTitle, 3, 0, 1, 2);
     m_version = new QLineEdit(QStringLiteral("1.2.0"));
     auto* btnVer = new QPushButton(QStringLiteral("立即回 version_ack：版本号取左侧输入框"));
     connect(btnVer, &QPushButton::clicked, this, &EdgeSimulator::sendVersionAckNow);
-    g->addWidget(new QLabel(QStringLiteral("版本号")), 0, 0);
-    g->addWidget(m_version, 0, 1);
-    g->addWidget(btnVer, 1, 0, 1, 2);
+    g->addWidget(new QLabel(QStringLiteral("版本号")), 4, 0);
+    g->addWidget(m_version, 4, 1);
+    g->addWidget(btnVer, 5, 0, 1, 2);
 
+    // ── 异常注入区（协议3.6，一次性动作）──
+    auto* injTitle = new QLabel(QStringLiteral("异常注入（协议3.6 · 一次性动作）"));
+    injTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:8px;"));
+    g->addWidget(injTitle, 6, 0, 1, 2);
     auto* btnBad = new QPushButton(QStringLiteral("注入非法JSON：测坏帧丢弃不断链（3.6-②）"));
     connect(btnBad, &QPushButton::clicked, this, &EdgeSimulator::injectBadFrame);
     auto* btnUnknown = new QPushButton(QStringLiteral("注入未知type：测未知类型丢弃（3.6-②）"));
@@ -447,12 +507,12 @@ QWidget* EdgeSimulator::buildFaultTab()
     connect(btnDisc, &QPushButton::clicked, this, [this] {
         if (m_sock) m_sock->disconnectFromHost();
     });
-    g->addWidget(btnBad, 2, 0, 1, 2);
-    g->addWidget(btnUnknown, 3, 0, 1, 2);
-    g->addWidget(btnOver, 4, 0, 1, 2);
-    g->addWidget(btnBadId, 5, 0, 1, 2);
-    g->addWidget(btnDisc, 6, 0, 1, 2);
-    g->setRowStretch(7, 1);
+    g->addWidget(btnBad, 7, 0, 1, 2);
+    g->addWidget(btnUnknown, 8, 0, 1, 2);
+    g->addWidget(btnOver, 9, 0, 1, 2);
+    g->addWidget(btnBadId, 10, 0, 1, 2);
+    g->addWidget(btnDisc, 11, 0, 1, 2);
+    g->setRowStretch(12, 1);
     return w;
 }
 
@@ -501,6 +561,9 @@ void EdgeSimulator::onConnectToggle()
     m_sock = new QTcpSocket(this);
     connect(m_sock, &QTcpSocket::connected, this, &EdgeSimulator::onSocketConnected);
     connect(m_sock, &QTcpSocket::disconnected, this, &EdgeSimulator::onSocketDisconnected);
+    // 连接失败（上位机未启动/端口未监听/连接被拒）也必须接：Qt 对"从未建立过的连接"
+    // 失败时只发 errorOccurred、不发 disconnected，不接就会让退避重连链条无声断裂
+    connect(m_sock, &QTcpSocket::errorOccurred, this, &EdgeSimulator::onSocketError);
     connect(m_sock, &QTcpSocket::readyRead, this, &EdgeSimulator::onReadyRead);
     m_sock->connectToHost(m_addr->text(), static_cast<quint16>(m_port->value()));
     logEvent(QString(QStringLiteral("正在连接 %1:%2 …")).arg(m_addr->text()).arg(m_port->value()));
@@ -520,6 +583,9 @@ void EdgeSimulator::onSocketConnected()
 
 void EdgeSimulator::onSocketDisconnected()
 {
+    // 防重入：连接失败(errorOccurred)与断开(disconnected)可能先后触发同一socket，
+    // 先到者已把 m_sock 置空并安排过退避，后到者直接跳过，避免退避翻倍与日志重复
+    if (!m_sock) return;
     m_periodicTimer.stop();
     m_state->setText(QStringLiteral("● 未连接"));
     m_state->setStyleSheet(QStringLiteral("color:#c2571f;font-weight:bold;"));
@@ -544,6 +610,25 @@ void EdgeSimulator::onSocketDisconnected()
         });
     }
     m_userDisconnect = false;
+}
+
+/**
+ * @brief 连接失败处理：上位机未启动/端口未监听/连接被拒
+ * @param err 套接字错误类型（仅用于定位，具体人读信息取 errorString）
+ * @note  Qt 对"从未成功建立过的连接"失败时只发 errorOccurred、不发 disconnected。
+ *       若此处不处理，退避重连链条会在这里无声断裂——表现为"模拟器再也不重连、
+ *       上位机永远收不到心跳"，而界面上只有一句"正在连接"便再无下文，极易误判为
+ *       "模拟器一直在发心跳"。这里显式复用 onSocketDisconnected 的清理与退避逻辑，
+ *       达到两个目的：①给出可见的失败原因（不再无声卡死）
+ *       ②退避重连持续进行，上位机一旦起来就自动接上
+ */
+void EdgeSimulator::onSocketError(QAbstractSocket::SocketError err)
+{
+    if (!m_sock) return;   // 已由 onSocketDisconnected 处理过，防重入
+    Q_UNUSED(err)
+    logEvent(QString(QStringLiteral("连接失败：%1（将继续按退避自动重连）"))
+                 .arg(m_sock->errorString()));
+    onSocketDisconnected();
 }
 
 // ─────────────────────── 收帧 ───────────────────────
@@ -581,28 +666,43 @@ void EdgeSimulator::processLine(const QByteArray& line)
 
     if (type == QStringLiteral("recognize_req")) {   // 协议3.3：上位机下发的识别请求帧类型
         m_lastRequest = frame;
-        if (m_autoReply) {
-            QTimer::singleShot(200, this, [this] { replyScene(SceneNormal); });
+        // 按配置回应：场景取下拉当前项（含"不回应"），延迟取数字框（0=立即）；
+        // 连接前后改配置都即时生效，测完"不回应"切回其他场景即可，无状态残留
+        const int scene = m_recScene ? m_recScene->currentData().toInt() : static_cast<int>(SceneNormal);
+        const int delay = m_delayMs ? m_delayMs->value() : 0;
+        if (scene == SceneSilent) {
+            logEvent(QStringLiteral("收到recognize_req（场景配置为不回应，不回应以测上位机超时重发）"));
+        } else {
+            const QString sceneText = m_recScene ? m_recScene->currentText() : QString();
+            logEvent(QString(QStringLiteral("收到recognize_req → 按配置延迟%1ms回： %2")).arg(delay).arg(sceneText));
+            QTimer::singleShot(delay, this, [this, scene] { replyScene(scene); });
         }
     } else if (type == QStringLiteral("version_query")) {
         // 3.5：收到版本查询自动回应
         QTimer::singleShot(200, this, [this] { sendVersionAckNow(); });
     } else if (type == QStringLiteral("open_req")) {
-        // 开箱协议（3.7）：收到开箱指令，默认自动回应开箱成功；
-        // m_autoOpenReply=false 时不自动回应，改由用户点【开箱失败/开箱不回应】手动测试异常分支
+        // 开箱协议（3.7）：按回应策略配置回应——
+        // 自动成功=模拟真实边缘机（摄像头异常时联动拒绝）；固定失败=纯粹回 result=0（测上位机失败分支）；
+        // 不回应=静默（测上位机开箱超时重发）
         m_lastOpenRequest = frame;
-        if (m_autoOpenReply) {
-            // 安全策略：8 路摄像头任一异常则模拟真实边缘机拒绝开柜（回 result=0），与上位机闸门一致
+        const int policy = m_openPolicy ? m_openPolicy->currentData().toInt() : 0;
+        if (policy == 2) {
+            logEvent(QStringLiteral("收到open_req（策略为不回应，静默以测上位机开箱超时重发）"));
+        } else if (policy == 1) {
+            const QString msg = m_openFailMsg ? m_openFailMsg->text() : QStringLiteral("开箱失败（模拟）");
+            logEvent(QString(QStringLiteral("收到open_req → 按配置固定失败（result=0）：%1")).arg(msg));
+            QTimer::singleShot(200, this, [this, msg] { sendOpenAckNow(false, msg); });
+        } else {
+            // 自动成功：安全策略——8 路摄像头任一异常则模拟真实边缘机拒绝开柜（回 result=0），与上位机闸门一致
             const QString abnormal = cameraAbnormalText();
             if (abnormal.isEmpty()) {
+                logEvent(QStringLiteral("收到open_req → 按配置自动成功（摄像头全部正常）"));
                 QTimer::singleShot(200, this, [this] { sendOpenAckNow(true, QStringLiteral("")); });
             } else {
                 const QString msg = QStringLiteral("以下摄像头状态异常，禁止开柜：%1").arg(abnormal);
                 logEvent(msg);
                 QTimer::singleShot(200, this, [this, msg] { sendOpenAckNow(false, msg); });
             }
-        } else {
-            logEvent(QStringLiteral("收到open_req（开箱自动回应已关闭，可点【开箱失败】发result=0，或保持不回应测开箱超时）"));
         }
     }
     refreshStat();
@@ -637,16 +737,6 @@ void EdgeSimulator::replyScene(int scene)
         return;
     }
     sendFrame(sceneAckFrame(scene, m_lastRequest));
-}
-
-void EdgeSimulator::sendDelayedReply()
-{
-    if (m_lastRequest.isEmpty()) {
-        logEvent(QStringLiteral("没有待回应的recognize请求"));
-        return;
-    }
-    logEvent(QString(QStringLiteral("延迟%1ms后回应")).arg(m_delayMs->value()));
-    QTimer::singleShot(m_delayMs->value(), this, [this] { replyScene(SceneNormal); });
 }
 
 void EdgeSimulator::executeSilenceDrop()

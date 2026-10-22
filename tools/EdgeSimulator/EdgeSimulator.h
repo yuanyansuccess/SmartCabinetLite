@@ -54,13 +54,13 @@ private slots:
     void onConnectToggle();      ///< 连接/断开上位机
     void onSocketConnected();    ///< 连接建立
     void onSocketDisconnected(); ///< 连接断开
+    void onSocketError(QAbstractSocket::SocketError err); ///< 连接失败（端口未监听/被拒）：继续退避重连并提示
     void onReadyRead();          ///< 收到上位机帧
     // 周期帧（协议3.4）
     void sendPeriodicNow();      ///< 立即发一帧周期帧
     void togglePeriodic(bool on);///< 周期帧自动发送启停
     // 识别回应（协议3.3）
     void replyScene(int scene);  ///< 按场景回应最近recognize
-    void sendDelayedReply();     ///< 延迟回应（毫秒可设）
     void executeSilenceDrop();   ///< 停发周期帧N秒（第5章离线场景）
     // 版本（协议3.5）
     void sendVersionAckNow();    ///< 立即回version_ack
@@ -85,6 +85,8 @@ private:
     bool sendFrame(const QJsonObject& frame);   ///< 发送一帧
     QJsonObject sceneAck(int scene) const;      ///< 构造场景回应帧
     void sendOpenAckNow(bool success, const QString& message);  ///< 立即回应最近open_req（开箱协议3.7；success=false 即 result=0 失败）
+    void saveConfig();           ///< 全部回应配置持久化到 exe 同目录 simulator.ini
+    void loadConfig();           ///< 启动时恢复上次的回应配置（连接前配好即可长期复用）
     void log(const QString& color, const QString& text);
     void logFrame(const QString& dir, const QJsonObject& f);
     void logEvent(const QString& text) { log("#666666", "[事件] " + text); }
@@ -102,11 +104,14 @@ private:
     QCheckBox*   m_periodicOn = nullptr; ///< 周期帧自动发送开关
     QSpinBox*    m_periodicMs = nullptr; ///< 周期帧间隔
     QPushButton* m_btnPeriodic = nullptr;///< 立即发一帧
-    // 识别回应Tab
-    QSpinBox*    m_delayMs = nullptr;    ///< 延迟回应毫秒
+    // 识别回应Tab（自动回应配置：连接前配好、连接后即改即生效）
+    QComboBox*   m_recScene = nullptr;   ///< 识别回应场景单选（含"不回应"选项，测识别超时）
+    QSpinBox*    m_delayMs = nullptr;    ///< 识别回应延迟毫秒（0=立即；>3000 可测上位机超时重发）
     QSpinBox*    m_silenceAt = nullptr;  ///< 几秒后停发周期帧
     QSpinBox*    m_silenceFor = nullptr; ///< 停发持续秒数
-    // 版本Tab并入异常Tab
+    // 版本/开箱/异常Tab
+    QComboBox*   m_openPolicy = nullptr; ///< 开箱回应策略单选（自动成功/固定失败/不回应，3.7）
+    QLineEdit*   m_openFailMsg = nullptr;///< 开箱"固定失败"时 open_ack 附带的原因文案
     QLineEdit*   m_version = nullptr;    ///< version_ack 版本号
     // 自定义帧Tab
     QTextEdit*   m_custom = nullptr;     ///< 自定义内容输入（每行一帧）
@@ -124,8 +129,6 @@ private:
     QTimer       m_periodicTimer;
     QJsonObject  m_lastRequest;      ///< 最近收到的recognize（回应对象）
     QJsonObject  m_lastOpenRequest;   ///< 最近收到的open_req（回应对象）
-    bool         m_autoReply = true; ///< 收到recognize自动回应开关（识别协议3.3）
-    bool         m_autoOpenReply = true; ///< 收到open_req自动回应开关（开箱协议3.7）；关闭后可手动发失败/不回应以测异常分支
     bool         m_userDisconnect = false;  ///< 用户主动断开（不触发自动重连）
     int          m_reconnTry = 0;    ///< 自动重连退避计数（1/2/4/8/16/30秒封顶）
     int          m_rx = 0, m_tx = 0, m_bad = 0;
