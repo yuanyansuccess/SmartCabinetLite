@@ -322,27 +322,22 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     m_samples.append({descriptor, image, confidence, quality});
     m_captureCount = m_samples.size();
 
-    // 极速优化：第一帧直接验证，不等待多帧
-    // 原逻辑：置信度>0.85且2帧 → 等待时间长
-    // 新逻辑：只要特征有效(descDim>=128)直接验证，1帧搞定
-    // 提速：2-3s → 1s
-
-    if (descDim >= 128 && m_captureCount >= 1) {
+    // 自适应早退：质量合格的帧立即比对(第1帧即验)。
+    //   - 成功(sim>=0.965 且非双高候选)：直接通过，恢复"1帧"速度，体感不再慢；
+    //   - 失败/陌生人(临界帧 0.94~0.965 或双高候选)：不立即判失败，继续采集第2帧
+    //     择优兜底，保留"多帧取最优"对未识别率的改善。
+    // 阈值0.965保持不变（张育诚误识红线不受影响）；好帧sim多在0.97+可1帧通过。
+    if (descDim >= 128) {
         collectBestSample();
         return;
     }
 
-    // 继续采集
-    if (m_captureCount < 2) {
-        m_captureProgress->setText(QStringLiteral("已采集 %1/2 帧，请保持面部自然...").arg(m_captureCount));
-        m_captureProgress->setVisible(true);
-        m_faceCamera->reset();
-        m_faceResult = FaceResult::Scanning;
-        // 对齐Web端：采集期间保持"已检测到人脸"状态文字
-        setScanStatus(QStringLiteral("请保持不动"), 0);
-    } else {
-        collectBestSample();
-    }
+    // 质量不足(维度<128)：继续采集下一帧，不消耗比对机会
+    m_captureProgress->setText(QStringLiteral("已采集 %1 帧，请保持面部自然...").arg(m_captureCount));
+    m_captureProgress->setVisible(true);
+    m_faceCamera->reset();
+    m_faceResult = FaceResult::Scanning;
+    setScanStatus(QStringLiteral("请保持不动"), 0);
 }
 
 /**
@@ -365,7 +360,7 @@ void LoginPage::collectBestSample() {
         m_verifyStartMs = QDateTime::currentMSecsSinceEpoch();
     }
     auto& best = m_samples.first();
-    verifyFace(best.descriptor, best.image);
+    verifyFace(best.descriptor, best.image, best.quality);
 }
 
 /// 人脸验证 — 直接本地比对，不走8088后端
@@ -373,7 +368,7 @@ void LoginPage::collectBestSample() {
 /// 原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
 /// 新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
 /// 现场无Web前端，8088后端不需要部署
-void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
+void LoginPage::verifyFace(const QString& descriptor, const QImage& image, double quality) {
     Q_UNUSED(image);
     // 竞态防护：已登录成功则不重复验证
     if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
@@ -381,15 +376,15 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image) {
         return;
     }
     // 直接本地比对，无需HTTP请求
-    doLocalFaceVerify(descriptor);
+    doLocalFaceVerify(descriptor, quality);
 }
 
 /// 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
 /// 使用 FaceRecognitionService 默认阈值，与登录识别共用同一套判定
-void LoginPage::doLocalFaceVerify(const QString& descriptor) {
+void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
     FaceRecognitionService svc;
-    auto result = svc.matchFace(descriptor);
+    auto result = svc.matchFace(descriptor, 0.965, 0.965, 0.35, 0.15, 0.80, quality);
 
     // 记录本次相似度：便于现场判断"差多少到阈值"（SC_LOG_SENSITIVE=1 可见）
     ++m_verifyBudget;
@@ -411,6 +406,15 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
         resp["token"] = QString::number(QDateTime::currentSecsSinceEpoch());
         handleFaceSuccess(resp);
     } else if (result.isStranger) {
+        // 自适应早退：第1帧被判陌生人多为本人临界帧(0.94~0.965)被当作全局最高不足，
+        // 不直接判陌生人，继续采第2帧择优，避免误伤本人、抬高未识别率。
+        if (m_captureCount < 2) {
+            m_isVerifying = false;
+            m_faceCamera->reset();
+            m_faceResult = FaceResult::Scanning;
+            if (!keepDistanceHint()) setScanStatus(QStringLiteral("请保持不动"), 0);
+            return;
+        }
         QJsonObject resp;
         resp["isStranger"] = true;
         resp["timestamp"] = QDateTime::currentDateTime().toString(SC::TIMESTAMP_FORMAT);
@@ -418,6 +422,15 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor) {
         resp["clientIp"] = QStringLiteral("本地终端");
         handleFaceStranger(resp);
     } else {
+        // 自适应早退：仅第1帧(尚不足2帧)比对失败时，不立即判失败，
+        // 继续采集第2帧择优兜底，避免临界帧(0.94~0.965)被单帧误拒抬高未识别率。
+        if (m_captureCount < 2) {
+            m_isVerifying = false;
+            m_faceCamera->reset();
+            m_faceResult = FaceResult::Scanning;
+            if (!keepDistanceHint()) setScanStatus(QStringLiteral("请保持不动"), 0);
+            return;
+        }
         handleVerifyFailure(result.message.isEmpty()
             ? QStringLiteral("人脸验证失败") : result.message);
     }
@@ -544,7 +557,7 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
         // 尝试下一帧 (复刻Web版逐帧重试)
         qDebug() << "[LoginPage] 当前帧失败，尝试备用帧，剩余:" << m_samples.size();
         auto& next = m_samples.first();
-        verifyFace(next.descriptor, next.image);
+        verifyFace(next.descriptor, next.image, next.quality);
         return;
     }
     // 所有帧都失败 → 降级密码登录

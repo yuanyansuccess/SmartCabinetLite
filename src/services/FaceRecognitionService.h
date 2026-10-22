@@ -60,7 +60,8 @@ public:
                                double highConfidence = 0.965,
                                double rejectThreshold = 0.35,
                                double marginThreshold = 0.15,
-                               double maxEuclideanDist = 0.80);
+                               double maxEuclideanDist = 0.80,
+                               double quality = 0);
 
     /// 人脸查重命中结果：命中"同一张脸已挂在其他账户"时携带归属用户信息
     struct FaceDuplicateInfo {

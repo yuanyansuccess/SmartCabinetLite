@@ -95,7 +95,8 @@ double FaceRecognitionService::euclideanDistance(const QVector<double>& a, const
  */
 FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     const QString& faceDescriptor, double threshold, double highConfidence,
-    double rejectThreshold, double marginThreshold, double maxEuclideanDist) {
+    double rejectThreshold, double marginThreshold, double maxEuclideanDist,
+    double quality) {
 
     FaceMatchResult result;
     result.success = false;
@@ -170,7 +171,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         result.isStranger = true;
         result.message = QStringLiteral("检测到陌生人，未在系统中注册");
         FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_STRANGER, globalBestSim, globalBestDist, threshold,
-                                      "multi", candidateCnt, int(recogTimer.elapsed()), "" });
+                                      "multi", candidateCnt,                                       int(recogTimer.elapsed()), "",
+                                      0.0, QString(), quality });
         return result;
     }
 
@@ -188,12 +190,14 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         result.message = QStringLiteral("未匹配，请重试");
         FaceRecogLogDAO().insertLog({ "no_candidate", globalBestSim, globalBestDist,
                                       rejectThreshold, "none",
-                                      candidateCnt, int(recogTimer.elapsed()), "" });
+                                      candidateCnt,                                       int(recogTimer.elapsed()), "",
+                                      0.0, QString(), quality });
         return result;
     }
 
     auto& best = candidates[0];
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
+    QString secondUser = candidates.size() > 1 ? candidates[1].workNo : "";
 
   // 单人脸严格策略：系统仅1人脸时必须达到更高门槛
     // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，
@@ -244,7 +248,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         result.success = true;
         FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_SUCCESS, best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
-                                      int(recogTimer.elapsed()), best.workNo });
+                                      int(recogTimer.elapsed()), best.workNo,
+                                      secondSim, secondUser, quality });
     } else {
         // 区分"陌生人"与"质量不足"：
         //   欧氏距离是第二道防线，特征偏斜/姿态不佳时余弦够但距离略超，
@@ -280,7 +285,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         }
         FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_REJECTED, best.similarity, best.euclideanDist,
                                       effThreshold, effMode, candidateCnt,
-                                      int(recogTimer.elapsed()), "" });
+                                      int(recogTimer.elapsed()), "",
+                                      secondSim, secondUser, 0.0 });
         return result;
     }
 

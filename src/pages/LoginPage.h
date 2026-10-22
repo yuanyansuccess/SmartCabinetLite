@@ -128,12 +128,12 @@ private:
     /// @param relogin true=注销/锁屏回登场景（状态文案为"请重新刷脸"），false=首次登录
     void startFaceRecognition(bool relogin = false);
     void stopFaceRecognition();
-    void verifyFace(const QString& descriptor, const QImage& image);
+    void verifyFace(const QString& descriptor, const QImage& image, double quality = 0);
     void collectBestSample();
     /** 验证失败处理，尝试备用帧 */
     void handleVerifyFailure(const QString& errMsg);
     /** 本地降级验证（后端不可用时） */
-    void doLocalFaceVerify(const QString& descriptor);
+    void doLocalFaceVerify(const QString& descriptor, double quality = 0);
     /** 人脸识别成功统一处理 */
     void handleFaceSuccess(const QJsonObject& resp);
     /** 陌生人检测统一处理 */
