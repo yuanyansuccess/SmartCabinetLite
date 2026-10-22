@@ -56,8 +56,8 @@ public:
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,
-                               double threshold = 0.96,
-                               double highConfidence = 0.96,
+                               double threshold = 0.965,
+                               double highConfidence = 0.965,
                                double rejectThreshold = 0.35,
                                double marginThreshold = 0.15,
                                double maxEuclideanDist = 0.80);
