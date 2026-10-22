@@ -12,6 +12,7 @@
 #include "common/PositionFormatter.h"
 #include "components/TopBar.h"   // 会话顶栏与管理页面共用同一组件
 #include "HelpManualDialog.h"    // 顶栏"帮助"按钮打开内置操作手册
+#include "utils/ScreenFit.h"     // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -85,7 +86,7 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
     connect(topBar, &TopBar::exitSystemClicked, qApp, &QApplication::quit);
     connect(topBar, &TopBar::helpClicked, this, [this] {
         HelpManualDialog manual(this);
-        manual.showFullScreen();
+        UiFit::showFullScreenFit(&manual, this);
         manual.exec();
     });
 
@@ -96,13 +97,13 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
 
 /**
  * @brief 全屏启动会话并阻塞，直到用户确认关闭智能柜
+ * @note 窗口几何直接铺满屏幕，不依赖窗口管理器的全屏能力：
+ *       麒麟等窗口管理器可能忽略无边框对话框的全屏请求，窗口会退回内容尺寸并居中，
+ *       导致顶栏被挤出屏幕、内容显示不全
  */
 void CabinetSessionDialog::startSession()
 {
-    // 全屏显示（8寸屏尺寸小，普通用户会话必须占满整个屏幕）
-    showFullScreen();
-    raise();
-    activateWindow();
+    UiFit::showFullScreenFit(this, parentWidget());
     QEventLoop loop;
     connect(this, &QDialog::finished, &loop, &QEventLoop::quit);
     loop.exec();

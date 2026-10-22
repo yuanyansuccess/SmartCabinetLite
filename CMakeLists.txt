@@ -312,6 +312,7 @@ set(ALL_HEADERS
     # Utils (版本B)
     src/utils/StyleHelper.h
     src/utils/DeviceProfile.h
+    src/utils/ScreenFit.h           # 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
     src/utils/PinyinDict.h          # [2026-10-17] 拼音词库接口
     src/utils/PinyinInput.h         # [2026-10-17] 拼音输入引擎接口
     src/utils/PinyinDictData.h      # [2026-10-17] 拼音词库数据（自动生成）
