@@ -128,12 +128,14 @@ private:
     /// @param relogin true=注销/锁屏回登场景（状态文案为"请重新刷脸"），false=首次登录
     void startFaceRecognition(bool relogin = false);
     void stopFaceRecognition();
-    void verifyFace(const QString& descriptor, const QImage& image, double quality = 0);
+    void verifyFace(const QString& descriptor, const QImage& image, double quality = 0,
+                    const QJsonObject& liveness = QJsonObject());
     void collectBestSample();
     /** 验证失败处理，尝试备用帧 */
     void handleVerifyFailure(const QString& errMsg);
     /** 本地降级验证（后端不可用时） */
-    void doLocalFaceVerify(const QString& descriptor, double quality = 0);
+    void doLocalFaceVerify(const QString& descriptor, double quality = 0,
+                           const QJsonObject& liveness = QJsonObject());
     /** 人脸识别成功统一处理 */
     void handleFaceSuccess(const QJsonObject& resp);
     /** 陌生人检测统一处理 */
@@ -193,8 +195,13 @@ private:
         QImage image;
         double confidence;
         double quality;
+        QJsonObject liveness;   ///< 本帧采集时的无感活体判定（与 descriptor 同源同刻）
     };
     QVector<FaceSample> m_samples;
+
+    /// 连续判为静态面（照片/静态画面）的帧计数：达到 SC::FACE_LIVENESS_MAX_FAIL
+    /// 后本次人脸验证判失败；新的一轮识别（startFaceRecognition）时归零
+    int m_staticFrameCount = 0;
 
     // 密码登录
     QWidget* m_passwordForm;

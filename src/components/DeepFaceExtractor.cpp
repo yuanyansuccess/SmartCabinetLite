@@ -339,19 +339,25 @@ QString DeepFaceExtractor::httpPostSync(const QString& url, const QByteArray& bo
 
 /**
          * @brief 从图像提取人脸特征
-         * @param imageBase64 图像的 Base64 文本
+         * @param image 待处理的摄像头图像
          * @param outFeature 特征串输出参数（128维，逗号分隔）
          * @param outConfidence 置信度输出参数
          * @param outMessage 失败原因输出参数
+         * @param outLiveness 活体判定输出参数（可为 nullptr）；
+         *        服务端未返回 liveness 字段（版本不匹配）时置空对象
          * @return true=提取成功
          */
 bool DeepFaceExtractor::extract(const QImage& image,
-                                 QString& outFeature,
-                                 double& outConfidence,
-                                 QString& outMessage) {
+                                QString& outFeature,
+                                double& outConfidence,
+                                QString& outMessage,
+                                QJsonObject* outLiveness) {
     outFeature.clear();
     outConfidence = 0;
     outMessage.clear();
+    if (outLiveness) {
+        *outLiveness = QJsonObject();   // 先置空：失败/字段缺失时页面据此识别"本次无活体判定"
+    }
 
     // 1. 确保face-server.js常驻服务在运行
     if (!ensureServerRunning()) {
@@ -405,6 +411,15 @@ bool DeepFaceExtractor::extract(const QImage& image,
     }
     outFeature = parts.join(",");
     outConfidence = obj["confidence"].toDouble(0.8);
+
+    // 无感活体判定（V2.22）：服务端按最近时序窗返回 collecting/passed/failed；
+    // 旧版服务无此字段时保持空对象，由调用方按"未生效"处理（放行但告警）
+    if (outLiveness) {
+        const QJsonObject live = obj["liveness"].toObject();
+        if (!live.isEmpty()) {
+            *outLiveness = live;
+        }
+    }
 
     qDebug() << "[DeepFaceExtractor] 特征提取成功，维度=" << descriptor.size()
              << "置信度=" << outConfidence;
