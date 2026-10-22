@@ -12,7 +12,6 @@
 #include <QVector>
 #include <QRect>
 #include <QElapsedTimer>
-#include <QJsonObject>
 
 // 前向声明
 class CameraCapture;
@@ -71,10 +70,6 @@ public:
     void captureNow();
     /// 返回当前人脸特征描述符（逗号分隔128维浮点数）
     QString getLastDescriptor() const;
-    /// 返回最近一次采集的无感活体判定（captureNow 同步提取后刷新）
-    /// @return {state: collecting/passed/failed, microMotion, blinks}；
-    ///         服务端未返回该字段时为空对象（调用方按"未生效"处理）
-    const QJsonObject& lastLiveness() const { return m_lastLiveness; }
     /// 返回当前人脸检测边界框（相对于220x220显示区域）
     QRect faceRect() const;
 
@@ -148,7 +143,6 @@ private:
     QImage m_lastFrame;                     // 最新帧（原始640x480）
     QRect m_lastFaceRect;                   // 最后一次检测到的人脸区域
     QVector<double> m_lastDescriptor;       // 上次提取的特征向量
-    QJsonObject m_lastLiveness;             // 最近一次采集的无感活体判定（随 captureNow 刷新）
     bool m_active = false;
     bool m_cameraAvailable = false;
     bool m_faceDetected = false;

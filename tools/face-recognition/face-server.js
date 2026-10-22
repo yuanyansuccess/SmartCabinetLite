@@ -12,19 +12,11 @@
  *
  * API:
  *   POST /extract  body: { "image": "<base64 JPEG>" }
- *     响应: { "success": true, "descriptor": [128 floats], "confidence": 0.9, "landmarks": [[x,y],...],
- *             "liveness": { "state": "collecting|passed|failed", "frames", "microMotion", "blinks" } }
+ *     响应: { "success": true, "descriptor": [128 floats], "confidence": 0.9, "landmarks": [[x,y],...] }
  *     响应: { "success": false, "error": "未检测到人脸" }
  *   POST /posture  body: { "image": "<base64 JPEG>" }
  *     响应: { "success": true, "landmarks": [[x,y],...], "yaw": 0.12, "pitch": 0.05 }
  *     响应: { "success": false, "error": "未检测到人脸" }
- *
- * [V2.22 2026-10-22 袁燕] 新增无感活体检测（liveness 字段，见 liveness.js）：
- *   背景：特征相似度只验"像不像"，验不了"是不是活人"——清晰照片可越过阈值登录。
- *   实现：/extract 成功后把本帧 68 关键点存入最近 6 秒时序窗，按"最近帧过半有
- *         位移"判微颤（照片帧间静止必 failed，真人持续微颤 passed，帧不足
- *         collecting 不判失败）；landmarks 输出精度同步 2→3 位保信号底噪足够低。
- *   客户端零强制改动：不读 liveness 字段时行为与之前完全一致（向后兼容）。
  *
  * [V2.20 2026-10-13 袁燕] 分段耗时计时（NPU提速决策前的数据采集）
  *   背景：登录RTT偏慢，需定位瓶颈在"图像传输/解码"还是"模型推理"，再决定
@@ -45,17 +37,11 @@
 const http = require('http');
 const path = require('path');
 const MODELS_PATH = path.join(__dirname, 'models');
-const { evaluateLiveness, WINDOW_MS } = require('./liveness');
 
 // [V2.17 2026-10-04 袁燕] 人脸框边长下限(px)：低于此值视为距离过远。
 //   与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。
 //   实测校准：正常约 95~105px，明显偏远约 55~62px，故取 70。
 const FACE_MIN_SIZE = 70;
-
-// [V2.22 2026-10-22 袁燕] 无感活体检测时序缓冲：保存最近窗口期内每帧的 68 关键点，
-//   供 evaluateLiveness 做微颤/眨眼判定。单柜单摄像头场景下按到达时序聚合即可；
-//   缓冲只存关键点坐标（不含图像、不含身份信息），内存占用可忽略。
-let landmarkHistory = [];
 
 // [V2.20 2026-10-13 袁燕] 分段计时开关：默认开启（调试期采集数据用），
 //   量产稳定后可以 SC_FACE_TIMING=0 关闭日志（timing字段仍随响应返回，零开销）
@@ -206,25 +192,12 @@ async function extractFeature(imageBase64) {
                 + ` total=${timing.total}ms faceSize=${Math.round(faceSize)}px`);
         }
         // 保持原有响应结构（含 landmarks），确保与客户端行为完全一致
-        // [V2.22 2026-10-22 袁燕] landmarks 输出精度 2→3 位：无感活体的微颤判据
-        //   需要亚像素级位移信号，2 位小数的量化台阶(0.01px)会抬高照片的位移
-        //   噪声底；3 位(0.001px)压低后与真人微颤(0.15~0.5px)拉开差距。
-        //   入窗用原始 positions（未取整），保最高精度
-        const positions = withLandmarks.landmarks.positions;
-        const landmarks = positions.map(p => [Math.round(p.x * 1000) / 1000, Math.round(p.y * 1000) / 1000]);
-
-        // [V2.22] 无感活体：本帧关键点入时序窗，按窗口判定
-        //   collecting=窗口帧数不足（继续采集，不判失败）；passed=微颤达标；failed=帧间静止
-        landmarkHistory.push({ t: Date.now(), pts: positions });
-        landmarkHistory = landmarkHistory.filter(f => f.t >= Date.now() - WINDOW_MS);
-        const liveness = evaluateLiveness(landmarkHistory);
-
+        const landmarks = withLandmarks.landmarks.positions.map(p => [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]);
         return {
             success: true,
             descriptor: Array.from(result.descriptor),
             confidence: result.detection.score || 0.8,
             landmarks: landmarks,
-            liveness: liveness,
             timing: timing
         };
     } finally {

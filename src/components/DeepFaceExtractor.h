@@ -17,7 +17,6 @@
 #include <QImage>
 #include <QVector>
 #include <QPointF>
-#include <QJsonObject>
 
 class DeepFaceExtractor : public QObject {
     Q_OBJECT
@@ -30,10 +29,6 @@ public:
      * @param outFeature  输出：逗号分隔的128维特征字符串
      * @param outConfidence  输出：人脸检测置信度(0-1)
      * @param outMessage  输出：错误消息（成功时为空）
-     * @param outLiveness  输出：无感活体判定（可为 nullptr 不取）；
-     *                     {state: collecting/passed/failed, microMotion, blinks}，
-     *                     collecting=时序窗口帧数不足（继续采集不判失败）。
-     *                     服务端未返回该字段（版本不匹配）时置空对象
      * @return true 提取成功
      *
      * 通过HTTP调用常驻face-server.js，同步等待响应
@@ -42,8 +37,7 @@ public:
     bool extract(const QImage& image,
                  QString& outFeature,
                  double& outConfidence,
-                 QString& outMessage,
-                 QJsonObject* outLiveness = nullptr);
+                 QString& outMessage);
 
     /**
      * @brief 人脸方位检测（轻量，只检测landmarks不提取特征）

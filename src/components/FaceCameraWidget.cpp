@@ -220,7 +220,6 @@ void FaceCameraWidget::stopCamera()
     m_stableCount = 0;
     m_lastFrame = QImage();
     m_lastFaceRect = QRect();
-    m_lastLiveness = QJsonObject();
     emit stateChanged(0);
 }
 
@@ -323,9 +322,8 @@ void FaceCameraWidget::captureNow()
         QString feature;
         double deepConfidence = 0;
         QString errMsg;
-        m_lastLiveness = QJsonObject();   // 先清空：失败时页面据此识别"本次无活体判定"
         DeepFaceExtractor extractor;
-        bool ok = extractor.extract(m_lastFrame, feature, deepConfidence, errMsg, &m_lastLiveness);
+        bool ok = extractor.extract(m_lastFrame, feature, deepConfidence, errMsg);
 
         m_lastDescriptor.clear();
         m_lastExtractError.clear();
@@ -758,14 +756,11 @@ QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceR
     }
 
     // 深度学习提取：发送完整帧（不裁剪），让face-api.js自己检测人脸
-    // 活体判定一并取回存成员：登录页captureNow路径之外，本路径（录入/忘记密码
-    // 复用）也缓存最新结论，页面层按需取用，本期不改变既有行为
     QString feature;
     double confidence = 0;
     QString message;
-    m_lastLiveness = QJsonObject();
     DeepFaceExtractor extractor;
-    if (extractor.extract(frame, feature, confidence, message, &m_lastLiveness)) {
+    if (extractor.extract(frame, feature, confidence, message)) {
         return feature;
     }
     // 深度学习提取失败 → 返回空，不降级到纹理哈希

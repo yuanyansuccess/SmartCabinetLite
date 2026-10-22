@@ -52,7 +52,6 @@ void LoginPage::startFaceRecognition(bool relogin) {
     m_isVerifying = false;
     m_verifyBudget = 0;        // 新一轮识别，重置采样预算
     m_verifyStartMs = 0;
-    m_staticFrameCount = 0;    // 新一轮识别，重置静态帧计数（活体门控）
     m_distanceHintShown = false;
     if (m_faceCamera) m_faceCamera->clearTooFarHint();  // 清除上一轮距离提示
 
@@ -320,9 +319,7 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
         m_faceResult = FaceResult::Scanning;
         return;
     }
-    // 活体判定与本帧 descriptor 同源同刻入样本：多帧择优时用哪一帧比对，
-    // 就用哪一帧的活体结论，避免"用活体帧的结论放行静态帧的特征"
-    m_samples.append({descriptor, image, confidence, quality, m_faceCamera->lastLiveness()});
+    m_samples.append({descriptor, image, confidence, quality});
     m_captureCount = m_samples.size();
 
     // 自适应早退：质量合格的帧立即比对(第1帧即验)。
@@ -363,7 +360,7 @@ void LoginPage::collectBestSample() {
         m_verifyStartMs = QDateTime::currentMSecsSinceEpoch();
     }
     auto& best = m_samples.first();
-    verifyFace(best.descriptor, best.image, best.quality, best.liveness);
+    verifyFace(best.descriptor, best.image, best.quality);
 }
 
 /// 人脸验证 — 直接本地比对，不走8088后端
@@ -371,8 +368,7 @@ void LoginPage::collectBestSample() {
 /// 原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
 /// 新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
 /// 现场无Web前端，8088后端不需要部署
-void LoginPage::verifyFace(const QString& descriptor, const QImage& image, double quality,
-                           const QJsonObject& liveness) {
+void LoginPage::verifyFace(const QString& descriptor, const QImage& image, double quality) {
     Q_UNUSED(image);
     // 竞态防护：已登录成功则不重复验证
     if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
@@ -380,15 +376,13 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image, doubl
         return;
     }
     // 直接本地比对，无需HTTP请求
-    doLocalFaceVerify(descriptor, quality, liveness);
+    doLocalFaceVerify(descriptor, quality);
 }
 
 /// 本地FaceRecognitionService验证
 /// @param descriptor 逗号分隔的128维face-api.js深度学习特征
-/// @param liveness 本帧的无感活体判定（与 descriptor 同源同刻）
 /// 使用 FaceRecognitionService 默认阈值，与登录识别共用同一套判定
-void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality,
-                                  const QJsonObject& liveness) {
+void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
     FaceRecognitionService svc;
     auto result = svc.matchFace(descriptor, 0.965, 0.965, 0.35, 0.15, 0.80, quality);
 
@@ -399,42 +393,6 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality,
             << (result.success ? "通过" : "未通过");
 
     if (result.success) {
-        // 无感活体门控：相似度只证明"像库内某人"，照片同样能过——
-        // 必须再验"是不是活人"才放行。判据来自服务端时序窗（liveness.js）：
-        //   passed    = 最近帧过半有微颤（活人在位）→ 放行
-        //   failed    = 帧间静止（照片/静态画面）→ 作废本帧继续采，累计到
-        //               SC::FACE_LIVENESS_MAX_FAIL 才最终失败（绝不放行）
-        //   collecting= 窗口帧数不足 → 继续采集等窗口攒够，不判失败
-        //   字段缺失   = 服务端版本不匹配/异常 → 放行但告警（部署应同版本上线），
-        //               不放行会让服务异常表现为全员无法登录
-        const QString liveState = liveness.value(QStringLiteral("state")).toString();
-        if (liveState == QStringLiteral("failed")) {
-            ++m_staticFrameCount;
-            m_isVerifying = false;
-            m_faceCamera->reset();
-            m_faceResult = FaceResult::Scanning;
-            qInfo() << "[LoginPage] 活体门控拦截：帧间静止（静态画面/照片） 连续静态帧="
-                    << m_staticFrameCount;
-            if (m_staticFrameCount >= SC::FACE_LIVENESS_MAX_FAIL) {
-                // 提示不点破"照片"二字：防攻击者得知检测原理后调整攻击手段
-                handleVerifyFailure(QStringLiteral("活体检测未通过，请本人正对摄像头重试，或使用账号密码登录"));
-            } else if (!keepDistanceHint()) {
-                setScanStatus(QStringLiteral("请保持自然，正对摄像头"), 0);
-            }
-            return;
-        }
-        if (liveState == QStringLiteral("collecting")) {
-            // 时序窗口还没攒够帧：不判失败，继续采集（避免登录初期误拦截）
-            m_isVerifying = false;
-            m_faceCamera->reset();
-            m_faceResult = FaceResult::Scanning;
-            if (!keepDistanceHint()) setScanStatus(QStringLiteral("请正对摄像头"), 0);
-            return;
-        }
-        if (liveState.isEmpty()) {
-            qWarning() << "[LoginPage] 服务端未返回活体判定，活体门控未生效（请确认 face-server 已更新到同版本）";
-        }
-        // passed（或字段缺失放行）→ 双达标，进入成功流程
         QJsonObject resp;
         resp["success"] = true;
         resp["userId"] = result.userId;
@@ -599,7 +557,7 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
         // 尝试下一帧 (复刻Web版逐帧重试)
         qDebug() << "[LoginPage] 当前帧失败，尝试备用帧，剩余:" << m_samples.size();
         auto& next = m_samples.first();
-        verifyFace(next.descriptor, next.image, next.quality, next.liveness);
+        verifyFace(next.descriptor, next.image, next.quality);
         return;
     }
     // 所有帧都失败 → 降级密码登录
