@@ -93,6 +93,9 @@ void NumKeypad::ensurePanel()
                    + 4 * m_keyH + 3 * m_keySpacing
                    + m_footerH + m_padBottom;
     m_panel->setFixedHeight((int)totalH);
+    // 监视面板的隐藏/关闭：Qt::Popup 在点击面板外部区域时会自动关闭最上层弹窗
+    // （即本面板），必须据此联动收起遮罩，否则遮罩残留盖住整页（详见 eventFilter）
+    m_panel->installEventFilter(this);
     m_panel->hide();
 }
 
@@ -185,6 +188,27 @@ void NumKeypad::hide()
         if (overlay) { overlay->hide(); overlay->close(); overlay->deleteLater(); }
         if (panel)   { panel->hide();   panel->close();   panel->deleteLater(); }
     });
+}
+
+/**
+ * @brief 面板事件拦截：点击面板外部区域时，Qt::Popup 原生机制只自动关闭最上层弹窗
+ *        （即本键盘面板），而全屏遮罩会顺势变成新的最顶层弹窗继续显示，
+ *        把整个页面盖住导致点哪都没反应——表现为"键盘消失了但页面假卡死"。
+ *        此处捕获面板被隐藏/关闭，联动收起遮罩，恢复页面可操作性。
+ * @param obj 被监视的对象（本函数只关心键盘面板）
+ * @param event 事件对象
+ * @return 交还 Qt 默认处理的结果
+ */
+bool NumKeypad::eventFilter(QObject* obj, QEvent* event)
+{
+    if (obj == m_panel
+        && (event->type() == QEvent::Hide || event->type() == QEvent::Close)) {
+        // 面板已被 Qt 关闭：走完整 hide() 收起遮罩并恢复父控件归属。
+        // hide() 会先把本控件从面板布局摘出再延迟销毁面板，故本控件不会随面板一起被销毁；
+        // 同时置空 m_panel/m_overlay，下次 show() 由 ensurePanel() 完整重建（含遮罩）。
+        hide();
+    }
+    return QWidget::eventFilter(obj, event);
 }
 
 // ═══════════ 公开API ═══════════

@@ -63,6 +63,9 @@ void SoftKeyboard::ensurePanel() {
     m_panel->setFixedWidth(screenW);
     setupUI();               // 内部已按当前模式构建按键区，无需再次重建
     m_panel->updateGeometry();
+    // 监视面板的隐藏/关闭：Qt::Popup 在点击面板外部区域时会自动关闭最上层弹窗
+    // （即本面板），必须据此联动收起遮罩，否则遮罩残留盖住整页（详见 eventFilter）
+    m_panel->installEventFilter(this);
     m_panel->hide();
 
     // 创建全屏半透明遮罩窗口，彻底杜绝键盘穿透
@@ -710,6 +713,14 @@ bool SoftKeyboard::eventFilter(QObject* obj, QEvent* event) {
     if (obj == m_overlay && event->type() == QEvent::MouseButtonPress) {
         emit cancelled();
         emit inputCancelled();
+        hide();
+        return true;
+    }
+    // 点击面板外部区域时，Qt::Popup 原生机制只自动关闭最上层弹窗（即本面板），
+    // 全屏遮罩会顺势变成新的最顶层弹窗继续显示，把整个页面盖住导致点哪都没反应
+    // （表现为"键盘消失了但页面假卡死"）。此处捕获面板被隐藏/关闭，联动收起遮罩。
+    if (obj == m_panel
+        && (event->type() == QEvent::Hide || event->type() == QEvent::Close)) {
         hide();
         return true;
     }

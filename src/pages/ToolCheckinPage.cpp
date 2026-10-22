@@ -730,11 +730,11 @@ void ToolCheckinPage::onSubmit() {
 
     if (!validateOrderItems(items)) return;
 
-    // 离线禁止开箱（协议"离线禁止开锁"）：链路不可用时不进入开箱环节，
+    // 离线禁止开箱（协议"离线禁止开锁"）：链路离线时不进入开箱环节，
     // 避免"门开了但没人记录"——离线时柜体实际无法开锁，UI 也不应谎称已打开
     if (!m_edgeOnline) {
         MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
-            QStringLiteral("边缘机链路不可用，无法开箱/开锁。\n请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
         return;
     }
 
@@ -752,10 +752,11 @@ void ToolCheckinPage::onSubmit() {
  */
 void ToolCheckinPage::onOpenStarted(const QString& requestId) {
     if (requestId.isEmpty()) {
-        // 未发出：拒绝本次（EdgeService 已同步发过 openFailed，此处兜底提示）
+        // 未发出：链路离线或摄像头闸门拒绝。EdgeService 在同一调用内已先发 openFailed，
+        // 其中的 reason 才是真实原因（离线文案或"摄像头状态异常"摘要）；
+        // 提示统一交给 onOpenFailed 的空串分支做，此处只清状态——
+        // 若在此弹固定"链路不可用"文案，会把摄像头异常的真实原因盖掉（提示与原因不符）
         m_pendingOpenItems.clear();
-        MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
-            QStringLiteral("边缘机链路不可用，无法开箱/开锁。\n请检查边缘计算机连接后重试。"));
         return;
     }
     m_openRequestId = requestId;
@@ -804,13 +805,24 @@ void ToolCheckinPage::onOpenFinished(const QString& requestId, bool success, con
 }
 
 /**
- * @brief 开箱失败（超时/离线拒发/补发放弃）：终止本次
- * @param requestId 失败请求编号；空串=离线拒发（由 onOpenStarted 分支统一提示，此处跳过）
+ * @brief 开箱失败（超时/离线拒发/摄像头闸门拒绝/补发放弃）：终止本次
+ * @param requestId 失败请求编号；空串=未发出（链路离线或摄像头异常，本分支直接按 reason 提示）
  * @param reason    失败原因（人读）
  */
 void ToolCheckinPage::onOpenFailed(const QString& requestId, const QString& reason) {
-    // 离线拒发（requestId 空串）时 EdgeService 会同时发本信号与回传空串，提示统一由 onOpenStarted 做
-    if (requestId.isEmpty()) return;
+    // 未发出（requestId 空串）：链路离线或摄像头闸门拒绝，EdgeService 给出的 reason 即真实原因。
+    // requestOpen 内部先 emit 本信号再返回空串，故本分支必先于 onOpenStarted 的空串分支执行，
+    // 只在这里弹一次框，提示内容与真实拒绝原因一致
+    if (requestId.isEmpty()) {
+        if (m_openWaitDialog) {          // 防御：清掉可能残留的开柜等待框
+            m_openWaitDialog->accept();
+            m_openWaitDialog = nullptr;
+        }
+        m_openRequestId.clear();
+        m_pendingOpenItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("无法开箱"), reason);
+        return;
+    }
     if (m_openRequestId.isEmpty()) return;
     if (requestId != m_openRequestId) return;
 
@@ -855,10 +867,9 @@ void ToolCheckinPage::startEdgeCheck(const QList<OrderRow>& items) {
  */
 void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
     if (requestId.isEmpty()) {
-        // 未发出：拒绝本次，不写库（EdgeService 已同步发过 recognizeFailed，此处兜底提示）
+        // 未发出：链路离线。EdgeService 在同一调用内已先发 recognizeFailed，
+        // 其中的 reason 即真实原因；提示统一由 onRecognitionFailed 的空串分支做，此处只清状态
         m_pendingItems.clear();
-        MessageDialog::showWarning(this, QStringLiteral("无法核对"),
-            QStringLiteral("边缘机链路不可用，本次不出入库。\n请检查边缘计算机连接后重试。"));
         return;
     }
     m_currentRequestId = requestId;
@@ -901,13 +912,17 @@ void ToolCheckinPage::onRecognitionResult(const QString& requestId,
 
 /**
  * @brief 识别失败（超时/链路中断/补发放弃）：关闭等待框并询问是否重新核对
- * @param requestId 失败请求编号；空串=离线拒发（由 onRecognitionStarted 分支统一提示，此处跳过）
+ * @param requestId 失败请求编号；空串=未发出（链路离线，本分支直接按 reason 提示）
  * @param reason    失败原因（人读，直接提示）
  */
 void ToolCheckinPage::onRecognitionFailed(const QString& requestId, const QString& reason) {
-    // 离线拒发（requestId 空串）时 EdgeService 会同时发本信号与回传空串，
-    // 提示统一由 onRecognitionStarted 的空串分支做，这里直接跳过，避免弹两个框
-    if (requestId.isEmpty()) return;
+    // 未发出（requestId 空串）：链路离线，EdgeService 给出的 reason 即真实原因。
+    // requestRecognize 内部先 emit 本信号再返回空串，故本分支必先于 onRecognitionStarted 执行，只弹一次框
+    if (requestId.isEmpty()) {
+        m_pendingItems.clear();
+        MessageDialog::showWarning(this, QStringLiteral("无法核对"), reason);
+        return;
+    }
     if (m_pendingItems.isEmpty()) return;
     if (requestId != m_currentRequestId) return;
 

@@ -50,6 +50,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void leaveEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;  // 面板被Qt自动关闭时联动收遮罩
 
 private:
     /** 确保顶层Popup面板已创建 */

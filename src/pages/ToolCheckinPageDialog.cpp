@@ -86,7 +86,8 @@ void ToolCheckinPage::showOrderExecuteDialog(const QList<OrderRow>& items) {
 
     // 按钮文案按出入库场景定制：由"关柜"驱动核对（一期点此按钮顶替关柜信号）
     dlg.setNextButtonText(QStringLiteral("我已关柜，开始核对 →"));
-    // Accepted = 用户已按单据取放并关柜：发起边缘机识别（一段），
+    // Accepted =
+    // 用户已按单据取放并关柜：发起边缘机识别（一段），
     // 写库延后到识别结果回来（applyRecognitionOutcome），本函数不再直接写库
     if (dlg.exec() == QDialog::Accepted) {
         startEdgeCheck(items);

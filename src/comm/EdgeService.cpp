@@ -231,7 +231,7 @@ QString EdgeService::requestRecognize()
 {
     if (!m_online || m_activeClient == 0) {
         // 协议第5章⑤：离线禁止下发识别请求
-        emit recognizeFailed(QString(), QStringLiteral("边缘机链路离线，禁止下发识别请求"));
+        emit recognizeFailed(QString(), QStringLiteral("边缘计算机连接已断开，暂时无法核对柜内工具。\n请检查边缘计算机连接后重试。"));
         return QString();
     }
 
@@ -271,7 +271,7 @@ QString EdgeService::requestOpen()
 {
     if (!m_online || m_activeClient == 0) {
         // 协议第5章⑤：离线禁止下发开箱请求
-        emit openFailed(QString(), QStringLiteral("边缘机链路离线，禁止下发开箱请求"));
+        emit openFailed(QString(), QStringLiteral("边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
         return QString();
     }
 
