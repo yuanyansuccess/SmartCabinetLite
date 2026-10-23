@@ -27,6 +27,7 @@
 #include <QHeaderView>
 #include <QComboBox>
 #include <QPushButton>
+#include <QTimer>  // 结果页延后到事件循环下一轮弹出
 #include <QRegularExpression>  // 解析content字段
 #include <QSet>  // 出库位置查重
 #include <QDateTime>  // 记录时间简化格式化
@@ -895,19 +896,33 @@ void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
  * @brief 识别成功：配对在途请求 → 比对 → 写库 → 结果页 → 关闭等待框
  * @param requestId 请求编号（非当前在途请求的回应直接丢弃：已取消/已过期）
  * @param spots     全柜实况清单（页面中立结构，MainWindow 从通信层转换）
+ * @note  比对与结果页要弹模态对话框，若直接在本槽里同步弹，会把模态循环压进
+ *        通信回调栈，链路收帧随之停摆、周期帧心跳停更，链路会被误判为中断；
+ *        故此处先清在途状态并关闭等待框，再把结果页排到事件循环下一轮弹出
  */
 void ToolCheckinPage::onRecognitionResult(const QString& requestId,
                                           const QList<ToolService::RecogSpot>& spots) {
-    if (requestId != m_currentRequestId || m_pendingItems.isEmpty()) return;
+    if (requestId != m_currentRequestId) {
+        // 迟到的结果：本次请求已取消或已换成新请求，结果不再采用（留日志便于现场排查）
+        qWarning() << "[ToolCheckinPage] 丢弃迟到的识别结果，当前请求="
+                   << m_currentRequestId << "收到的=" << requestId;
+        return;
+    }
+    if (m_pendingItems.isEmpty()) {
+        // 本次单据已终止（用户取消或已按实况写库），结果无对象可落，留日志备查
+        qWarning() << "[ToolCheckinPage] 丢弃识别结果（本次单据已终止）" << requestId;
+        return;
+    }
     m_lastSpots = spots;
-
-    applyRecognitionOutcome();   // 比对+写库+结果页
+    m_currentRequestId.clear();   // 先清在途编号：结果页打开期间再来一帧也不会重复处理
 
     if (m_waitDialog) {
         m_waitDialog->accept();  // 关闭等待框（退出其模态循环）
         m_waitDialog = nullptr;
     }
-    m_currentRequestId.clear();
+
+    // 结果页排到事件循环下一轮弹出：比对写库与结果框都不再压在通信回调栈上
+    QTimer::singleShot(0, this, [this]() { applyRecognitionOutcome(); });
 }
 
 /**
