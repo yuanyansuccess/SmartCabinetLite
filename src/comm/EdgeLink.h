@@ -18,6 +18,8 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QHash>
+#include <QQueue>
+#include <QPair>
 #include "CommTypes.h"
 
 class EdgeLink : public QObject {
@@ -32,6 +34,7 @@ public:
     bool sendFrame(quintptr clientId, const QJsonObject& frame);  ///< 向指定连接发一帧
     QString peerAddress(quintptr clientId) const;  ///< 查询连接对端IP
     bool isListening() const;             ///< 是否正在监听
+    qint64 lastFrameMs() const;           ///< 最近收到任意一帧的时刻（0=从未收到）；链路是否真断开的判断依据
 
 signals:
     void clientConnected(quintptr clientId);      ///< 边缘机接入（含重连，每次都是新编号）
@@ -44,10 +47,31 @@ private slots:
     void onReadyRead();
     void onDisconnected();
 
+    /**
+     * @brief 把已切分出的帧逐个上抛给上层（每次只抛一帧，抛完让出事件循环）
+     * @return 无
+     * @note  收帧与业务处理分离的原因：上抛帧会触发界面写库与模态对话框，
+     *        若在 socket 事件栈里同步执行，业务一堵收帧就停摆，
+     *        周期帧心跳随之停更，链路会被误判为离线。
+     *        声明为槽是为了能以排队方式投递（事件循环下一轮才执行）
+     */
+    void drainFrames();
+
 private:
+    /**
+     * @brief 安排一次帧队列排空（排队派发，保证排空动作发生在事件循环的下一轮）
+     * @return 无
+     * @note  同一时刻只允许一个排空动作在排队中，防止重复投递
+     */
+    void scheduleDrain();
+
     QTcpServer* m_server = nullptr;
     /// key = socket 指针值（连接存续期唯一，重连即新编号）
     QHash<quintptr, QTcpSocket*> m_clients;
     EdgeConfig m_cfg;
     int m_badFrames = 0;   ///< 累计坏帧数（日志留痕，观察链路质量）
+    /// 已切分但尚未上抛的帧队列（first=连接编号，second=帧内容）
+    QQueue<QPair<quintptr, QJsonObject>> m_frameQueue;
+    bool m_drainScheduled = false;   ///< 排空动作是否已在排队中
+    qint64 m_lastFrameMs = 0;        ///< 最近收到任意一帧的时刻（收到即刷新，与业务处理无关）
 };

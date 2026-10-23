@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QHostAddress>
+#include <QDateTime>
 
 EdgeLink::EdgeLink(QObject* parent)
     : QObject(parent)
@@ -75,6 +76,10 @@ void EdgeLink::stop()
 
     m_server->deleteLater();
     m_server = nullptr;
+
+    // 队列里的帧已无接收方，一并丢弃（避免停止后仍上抛过期帧）
+    m_frameQueue.clear();
+    m_drainScheduled = false;
 }
 
 /**
@@ -101,6 +106,17 @@ bool EdgeLink::sendFrame(quintptr clientId, const QJsonObject& frame)
 bool EdgeLink::isListening() const
 {
     return m_server && m_server->isListening();
+}
+
+/**
+ * @brief 查询最近收到任意一帧的时刻
+ * @return 毫秒时间戳；0 表示本连接尚未收到过任何帧
+ * @note  该时刻在收帧那一刻刷新，与帧的业务处理进度无关：
+ *        链路是否真的断开通，看的是"有没有数据进来"，不是"业务处理到哪了"
+ */
+qint64 EdgeLink::lastFrameMs() const
+{
+    return m_lastFrameMs;
 }
 
 /**
@@ -132,8 +148,10 @@ void EdgeLink::onNewConnection()
 }
 
 /**
- * @brief 连接上有数据到达：按行切分并解析JSON，合法帧发 frameReceived
- * @note  粘包时缓冲区一次到达多帧，while 循环逐行处理，靠换行自然分帧
+ * @brief 连接上有数据到达：按行切分并解析JSON，合法帧入队等待上抛
+ * @note  粘包时缓冲区一次到达多帧，while 循环逐行处理，靠换行自然分帧；
+ *        本方法只负责收字节与切帧，帧的交付交给 drainFrames 排队处理，
+ *        保证上层的写库与模态对话框不会压在本函数的调用栈上
  */
 void EdgeLink::onReadyRead()
 {
@@ -164,12 +182,55 @@ void EdgeLink::onReadyRead()
             continue;
         }
 
-        emit frameReceived(id, doc.object());
+        qDebug() << "[EdgeLink] 收到帧 type=" << doc.object().value("type").toString()
+                 << "字节=" << line.size() << "id=" << id;
+        m_lastFrameMs = QDateTime::currentMSecsSinceEpoch();   // 收帧时刻基准（与业务处理解耦）
+        m_frameQueue.enqueue(qMakePair(id, doc.object()));
+    }
+
+    scheduleDrain();
+}
+
+/**
+ * @brief 把已切分出的帧逐个上抛给上层（每次只抛一帧，抛完让出事件循环）
+ * @return 无
+ * @note  一帧一让出：上抛会触发界面写库与模态对话框，一次只处理一帧可让
+ *        定时器（心跳、请求超时扫描）及时得到执行机会
+ */
+void EdgeLink::drainFrames()
+{
+    m_drainScheduled = false;
+
+    while (!m_frameQueue.isEmpty()) {
+        const auto frame = m_frameQueue.dequeue();
+        emit frameReceived(frame.first, frame.second);
+
+        if (!m_frameQueue.isEmpty()) {
+            // 队列还有帧：重新排队，下一轮事件循环继续处理
+            scheduleDrain();
+            return;
+        }
     }
 }
 
 /**
+ * @brief 安排一次帧队列排空（排队派发，保证排空动作发生在事件循环的下一轮）
+ * @return 无
+ * @note  同一时刻只允许一个排空动作在排队中，防止重复投递
+ */
+void EdgeLink::scheduleDrain()
+{
+    if (m_drainScheduled) {
+        return;
+    }
+    m_drainScheduled = true;
+    QMetaObject::invokeMethod(this, &EdgeLink::drainFrames, Qt::QueuedConnection);
+}
+
+/**
  * @brief 连接断开：从连接表移除，发 clientDisconnected
+ * @note  该连接队列中尚未上抛的帧一并剔除：连接已断，这些帧的回应已失效，
+ *        若继续上抛会被上层误判成对在途请求的有效回应
  */
 void EdgeLink::onDisconnected()
 {
@@ -180,6 +241,13 @@ void EdgeLink::onDisconnected()
     const quintptr id = reinterpret_cast<quintptr>(sock);
     m_clients.remove(id);
     sock->deleteLater();
+
+    for (int i = m_frameQueue.size() - 1; i >= 0; --i) {
+        if (m_frameQueue.at(i).first == id) {
+            m_frameQueue.removeAt(i);
+        }
+    }
+
     qDebug() << "[EdgeLink] client disconnected id=" << id;
     emit clientDisconnected(id);
 }
