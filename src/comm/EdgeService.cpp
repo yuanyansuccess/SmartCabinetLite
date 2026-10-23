@@ -356,6 +356,8 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
         RecognizeResult result;
         result.requestId = id;
         result.items = parseItems(frame["items"].toArray());
+        qDebug() << "[EdgeService] 识别回应已配对" << id
+                 << "识别条目数=" << result.items.size();
         emit recognizeFinished(id, result);
         return;
     }
@@ -446,12 +448,22 @@ void EdgeService::onScanTimeout()
 /**
  * @brief 链路离线扫描（1秒周期）：周期帧距上帧超15秒判离线
  * @note  与请求扫描器独立判定（第6章）
+ * @note  防误报：周期帧超时但链路仍有其它类型消息往来时，说明链路本身是通的
+ *        （只是周期帧没来或业务处理滞后），此时判离线会打断正在进行中的业务，故只记警告；
+ *        真正断链时一个消息都收不到，照常判离线
+ * @note  "有没有消息进来"以链路层的收帧时刻为准（EdgeLink::lastFrameMs），
+ *        不受业务处理进度影响：收帧到了就算链路通
  */
 void EdgeService::onOfflineScan()
 {
     // 3.6-④/第6章：周期帧连续15秒（连丢5条）收不到 → 判离线
     if (m_online && m_lastPeriodicMs > 0
         && nowMs() - m_lastPeriodicMs > m_cfg.offlineTimeoutMs) {
+        const qint64 lastFrameAt = m_link ? m_link->lastFrameMs() : 0;
+        if (lastFrameAt > 0 && nowMs() - lastFrameAt < m_cfg.offlineTimeoutMs) {
+            qWarning() << "[EdgeService] 周期帧超时但链路仍有其它消息往来，暂不判离线";
+            return;
+        }
         m_online = false;
         emit onlineChanged(false);
     }
