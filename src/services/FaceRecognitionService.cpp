@@ -131,13 +131,13 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 遍历所有已录入人脸，计算余弦相似度+欧氏距离；
     // 所有候选必须遍历完再综合判断——禁止提前退出，防止陌生人相似度碰巧高时被直接放行
     struct Candidate {
-        int userId;
+        int userId = 0;
         QString username;
         QString realName;
         QString workNo;
         QString department;
-        double similarity;       // 余弦相似度
-        double euclideanDist;    // 欧氏距离（越小越相似）
+        double similarity = 0.0;     // 余弦相似度
+        double euclideanDist = 0.0;  // 欧氏距离（越小越相似）
     };
     QVector<Candidate> candidates;
     candidates.reserve(enrolled.size());

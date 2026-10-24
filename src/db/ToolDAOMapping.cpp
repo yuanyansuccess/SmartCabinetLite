@@ -16,15 +16,53 @@
 
 namespace db {
 
+namespace {
+
+// 位置维度查询的公共列清单与表关联：在库位置、已借出位置两处查询共用这一份，
+// 改列时只改这里，避免漏改一处造成字段错位
+const QString kPositionSelectSql =
+    QStringLiteral("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, t.spec, "
+                    "c.cabinet_name, m.layer, m.position "
+                    "FROM tool_position_mapping m "
+                    "JOIN tool_info t ON m.tool_id=t.tool_id "
+                    "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id ");
+
+/**
+ * @brief 把位置维度查询的一行组装成结果对象
+ * @param query 已执行到当前行的查询，取值顺序与 kPositionSelectSql 的列顺序一致
+ * @return 含 mappingId/toolId/toolCode/toolName/spec/cabinetName/layer/position 的对象
+ */
+QJsonObject positionRowFromQuery(const QSqlQuery& query)
+{
+    QJsonObject row;
+    row["mappingId"]   = query.value(0).toInt();
+    row["toolId"]      = query.value(1).toInt();
+    row["toolCode"]    = query.value(2).toString();
+    row["toolName"]    = query.value(3).toString();
+    row["spec"]        = query.value(4).toString();
+    row["cabinetName"] = query.value(5).toString();
+    row["layer"]       = query.value(6).toString();
+    row["position"]    = query.value(7).toString();
+    return row;
+}
+
+} // namespace
+
 /**
  * @brief 查询工具简要列表
+ * @param categoryId 工具品类编号；<=0 表示不限品类
  * @return 元素含 toolId、toolCode、toolName 的数组，供下拉框使用
  */
-QJsonArray ToolDAO::allToolsSimple()
+QJsonArray ToolDAO::allToolsSimple(int categoryId)
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
-    q.prepare("SELECT tool_id, tool_code, tool_name FROM tool_info ORDER BY tool_id");
+    if (categoryId > 0)
+        q.prepare("SELECT tool_id, tool_code, tool_name FROM tool_info WHERE category_id = ? ORDER BY tool_id");
+    else
+        q.prepare("SELECT tool_id, tool_code, tool_name FROM tool_info ORDER BY tool_id");
+    if (categoryId > 0)
+        q.bindValue(0, categoryId);
     safeExec(q);
     QJsonArray arr;
     while (q.next()) {
@@ -85,6 +123,11 @@ bool ToolDAO::insertPositionMapping(int toolId, int cabinetId, const QString& la
     return safeExec(q);
 }
 
+/**
+ * @brief 按柜体名称前缀匹配出柜体ID（取排在最前面的一个）
+ * @param prefix 柜体名称前缀，如 "A" 可匹配 "A柜""A区"等
+ * @return 命中的柜体ID；没有匹配项时返回 -1
+ */
 int ToolDAO::findCabinetIdByPrefix(const QString& prefix)
 {
     QSqlQuery q = query("SELECT cabinet_id FROM tool_cabinet "
@@ -102,37 +145,44 @@ QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
 {
     QSqlDatabase db = getDb();
     QSqlQuery q(db);
+    const QString sql = kPositionSelectSql
+        + QStringLiteral("WHERE m.status='in_stock'%1 "
+                         "ORDER BY c.cabinet_name, m.layer, m.position").arg(
+            machineGroupId > 0 ? QStringLiteral(" AND t.machine_group_id=?") : QString());
+    q.prepare(sql);
     if (machineGroupId > 0) {
-        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, t.spec, "
-               "c.cabinet_name, m.layer, m.position "
-               "FROM tool_position_mapping m "
-               "JOIN tool_info t ON m.tool_id=t.tool_id "
-               "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
-               "WHERE m.status='in_stock' AND t.machine_group_id=? "
-               "ORDER BY c.cabinet_name, m.layer, m.position");
         q.addBindValue(machineGroupId);
-    } else {
-        q.prepare("SELECT m.mapping_id, t.tool_id, t.tool_code, t.tool_name, t.spec, "
-               "c.cabinet_name, m.layer, m.position "
-               "FROM tool_position_mapping m "
-               "JOIN tool_info t ON m.tool_id=t.tool_id "
-               "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
-               "WHERE m.status='in_stock' "
-               "ORDER BY c.cabinet_name, m.layer, m.position");
     }
     safeExec(q);
     QJsonArray arr;
     while (q.next()) {
-        QJsonObject obj;
-        obj["mappingId"]   = q.value(0).toInt();
-        obj["toolId"]      = q.value(1).toInt();
-        obj["toolCode"]    = q.value(2).toString();
-        obj["toolName"]    = q.value(3).toString();
-        obj["spec"]        = q.value(4).toString();
-        obj["cabinetName"] = q.value(5).toString();
-        obj["layer"]       = q.value(6).toString();
-        obj["position"]    = q.value(7).toString();
-        arr.append(obj);
+        arr.append(positionRowFromQuery(q));
+    }
+    return arr;
+}
+
+/**
+ * @brief 已借出未归还的位置明细（位置维度，出库下拉用）：借出的工具仍占用原位置记录
+ * @param machineGroupId 机组编号，用于按机组隔离数据；<=0 表示不限机组
+ * @return 查询结果数组，元素字段与 findAllInStockPositions 一致（mappingId/toolId/toolCode/toolName/spec/cabinetName/layer/position）
+ * @note  这类工具不在柜内，转出库时不需要开箱；出库动作走映射表状态更新（borrowed → checked_out）
+ */
+QJsonArray ToolDAO::findBorrowedOutPositions(int machineGroupId)
+{
+    QSqlDatabase db = getDb();
+    QSqlQuery q(db);
+    const QString sql = kPositionSelectSql
+        + QStringLiteral("WHERE m.status='borrowed'%1 "
+                         "ORDER BY c.cabinet_name, m.layer, m.position").arg(
+            machineGroupId > 0 ? QStringLiteral(" AND t.machine_group_id=?") : QString());
+    q.prepare(sql);
+    if (machineGroupId > 0) {
+        q.addBindValue(machineGroupId);
+    }
+    safeExec(q);
+    QJsonArray arr;
+    while (q.next()) {
+        arr.append(positionRowFromQuery(q));
     }
     return arr;
 }

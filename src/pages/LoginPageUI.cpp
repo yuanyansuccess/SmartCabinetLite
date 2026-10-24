@@ -622,7 +622,7 @@ void LoginPage::buildStatusRow(QVBoxLayout* layout) {
 
     m_cameraStatusText->setStyleSheet(
 
-        QStringLiteral("font-size:14px; color:#888888; font-weight:600; background:transparent;"));
+        ("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color:#888888; font-weight:600; background:transparent;"));
 
     statusRow->addWidget(m_cameraStatusText);
 

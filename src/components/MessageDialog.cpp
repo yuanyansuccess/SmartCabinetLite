@@ -352,12 +352,15 @@ void MessageDialog::setupUI(DialogType type, const QString& title, const QString
     outerLayout->addWidget(card);
 }
 
-// 每次弹出自动居中到父窗口（showEvent保证实际尺寸已确定）
+/**
+ * @brief 每次弹出自动居中到父窗口（showEvent 保证实际尺寸已确定）
+ * @param event 显示事件
+ */
 void MessageDialog::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
 
-    // 兜底：不同平台字体行距存在差异，按当前宽度重算一次所需高度，不足时补足
+    // 不同平台字体行距不一样，这里按当前宽度再算一次需要的高度，不够就补上
     if (layout()) {
         const int neededHeight = layout()->hasHeightForWidth()
             ? layout()->totalHeightForWidth(width())
@@ -401,6 +404,9 @@ void MessageDialog::showSuccess(QWidget* parent, const QString& title, const QSt
 
 /**
  * @brief 显示异常
+ * @param parent 父窗口
+ * @param title 标题文字
+ * @param message 消息内容
  */
 void MessageDialog::showError(QWidget* parent, const QString& title, const QString& message)
 {
@@ -433,9 +439,16 @@ bool MessageDialog::showQuestion(QWidget* parent, const QString& title, const QS
     return dlg.m_confirmed;
 }
 
-// 脏数据保存确认对话框（保存/不保存，无取消按钮）
-// 返回: 0=不保存, 1=保存
-// 风格统一：圆角卡片+图标+触屏按钮，不使用QMessageBox原生样式
+/**
+ * @brief 脏数据保存确认对话框（保存/不保存，无取消按钮）
+ * @param parent 父窗口
+ * @param title 标题文字
+ * @param message 消息内容
+ * @param saveText 自定义"保存"按钮文案（空时默认"保存"）
+ * @param discardText 自定义"不保存"按钮文案（空时默认"不保存"）
+ * @return 1=保存，0=不保存
+ * @note 风格统一：圆角卡片+图标+触屏按钮，不使用 QMessageBox 原生样式
+ */
 int MessageDialog::showDirtyConfirm(QWidget* parent, const QString& title, const QString& message,
                                      const QString& saveText, const QString& discardText)
 {

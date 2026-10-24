@@ -10,19 +10,22 @@
 #include "utils/PinyinDict.h"
 #include "utils/PinyinDictData.h"
 #include "utils/PinyinPhraseData.h"
-#include <QMap>
+#include <QHash>
 #include <QSet>
 #include <QRegularExpression>
 
 namespace PinyinDict {
 
+// 声调数字归一正则（zhang1 -> zhang），仅构造一次，避免每次按键查询都重建
+static const QRegularExpression kToneDigits("[0-9]");
+
 QStringList candidates(const QString& pinyin) {
     QString py = pinyin.trimmed().toLower();
-    py.remove(QRegularExpression("[0-9]"));  // 归一：去掉声调数字（zhang1 -> zhang）
+    py.remove(kToneDigits);  // 归一：去掉声调数字
     if (py.isEmpty()) return QStringList();
 
     // 懒构建索引（仅一次）：汉字已按字频排序，直接按序入表
-    static QMap<QString, QStringList> cache;
+    static QHash<QString, QStringList> cache;
     if (cache.isEmpty()) {
         for (const auto& e : kPinyinEntries) {
             if (!e.py) break;
@@ -42,11 +45,11 @@ QStringList candidates(const QString& pinyin) {
 
 QStringList phrases(const QString& pinyin) {
     QString py = pinyin.trimmed().toLower();
-    py.remove(QRegularExpression("[0-9]"));
+    py.remove(kToneDigits);  // 归一：去掉声调数字
     if (py.isEmpty()) return QStringList();
 
     // 懒构建索引（仅一次）：整词入表，不能拆成单字
-    static QMap<QString, QStringList> phraseCache;
+    static QHash<QString, QStringList> phraseCache;
     if (phraseCache.isEmpty()) {
         for (const auto& e : kPinyinPhraseEntries) {
             if (!e.py) break;

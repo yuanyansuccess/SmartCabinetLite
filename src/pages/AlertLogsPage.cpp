@@ -200,7 +200,7 @@ void AlertLogsPage::loadAlerts() {
         // 去掉T与秒，与出入库记录/操作日志风格统一；解析失败回退原串
         QDateTime dt = QDateTime::fromString(alert["createdAt"].toString(), Qt::ISODate);
         if (!dt.isValid()) dt = QDateTime::fromString(alert["createdAt"].toString(), Qt::ISODateWithMs);
-        QString time = dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+        QString time = dt.isValid() ? dt.toString(SC::DATE_TIME_FORMAT)
                                     : alert["createdAt"].toString();
         m_table->setItem(i, 0, new QTableWidgetItem(time));
 

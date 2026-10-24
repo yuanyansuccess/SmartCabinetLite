@@ -210,7 +210,8 @@ void MainWindow::setupTopBar() {
 }
 
 /**
- * @brief 创建侧边栏
+ * @brief 创建侧边栏容器并装配各功能入口按钮
+ * @return 侧边栏容器控件（调用方负责把它放进布局并显示）
  */
 QWidget* MainWindow::createSidebar() {
     QWidget* sb = new QWidget();
@@ -254,7 +255,7 @@ QWidget* MainWindow::createSidebar() {
         // 8寸屏适配：菜单项高度60px，字体18px，触控目标加大防误触
         btn->setMinimumHeight(60);
         btn->setStyleSheet(
-            "QPushButton { color:#c0c0d0; font-size:18px; text-align:left; padding-left:18px; "
+            "QPushButton { color:#c0c0d0; " + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " text-align:left; padding-left:18px; "
             "border:none; border-radius:10px; background:transparent; }"
             "QPushButton:hover { background:#2a2a5e; color:white; }"
             "QPushButton[active=\"true\"] { background:#4da3ff; color:white; font-weight:bold; }"
@@ -273,7 +274,8 @@ QWidget* MainWindow::createSidebar() {
 }
 
 /**
- * @brief 显示页面
+ * @brief 按页面名称切换主显示区页面，并按角色执行权限收敛
+ * @param name 目标页面注册名（如 "tools"/"settings"），未知名称回退到工具管理页
  */
 void MainWindow::showPage(const QString& name) {
   // 普通用户仅允许访问 工具管理与功能导航主页（卡片按角色注入，无越权入口），
@@ -433,24 +435,28 @@ void MainWindow::setEdgeService(EdgeService* svc) {
     });
 
     // 识别成功 → 转页面中立结构转发
-    connect(m_edgeService, &EdgeService::recognizeFinished, this,
+    // 以下几条连接一律以出入库页为接收对象（context）：页面销毁时 Qt 自动断开，
+    // 避免识别/开箱结果晚到时打进已销毁的页面
+    connect(m_edgeService, &EdgeService::recognizeFinished, m_checkinPage,
         [this](const QString& requestId, const RecognizeResult& result) {
             QList<ToolService::RecogSpot> spots;
             for (const RecognizeItem& item : result.items) {
-                spots.append(ToolService::RecogSpot{item.position, item.toolId, item.confidence});
+                // present 一并带出：全柜核对靠它区分"货位已扫但是空的"与"货位根本没回报"
+                spots.append(ToolService::RecogSpot{item.position, item.toolId,
+                                                     item.confidence, item.present});
             }
             m_checkinPage->onRecognitionResult(requestId, spots);
         });
 
     // 识别失败（超时/离线/补发放弃） → 透传原因
-    connect(m_edgeService, &EdgeService::recognizeFailed, this,
+    connect(m_edgeService, &EdgeService::recognizeFailed, m_checkinPage,
         [this](const QString& requestId, const QString& reason) {
             m_checkinPage->onRecognitionFailed(requestId, reason);
         });
 
-    // 链路心跳状态变化 → 转发出入库页显示（等待中掉线时页面可即时收敛）；
+    // 链路心跳状态变化 → 转发出入库页显示（等待期间掉线，页面能立刻跟着变）；
     // 由在线翻转为离线时落一条通信中断告警（翻转时刻才触发，天然去重；恢复不告警）
-    connect(m_edgeService, &EdgeService::onlineChanged, this, [this](bool online) {
+    connect(m_edgeService, &EdgeService::onlineChanged, m_checkinPage, [this](bool online) {
         if (!online) {
             AlertService().recordEdgeOffline();
         }
@@ -462,11 +468,11 @@ void MainWindow::setEdgeService(EdgeService* svc) {
         const QString requestId = m_edgeService->requestOpen();
         m_checkinPage->onOpenStarted(requestId);
     });
-    connect(m_edgeService, &EdgeService::openFinished, this,
+    connect(m_edgeService, &EdgeService::openFinished, m_checkinPage,
         [this](const QString& requestId, const OpenResult& result) {
             m_checkinPage->onOpenFinished(requestId, result.success, result.message);
         });
-    connect(m_edgeService, &EdgeService::openFailed, this,
+    connect(m_edgeService, &EdgeService::openFailed, m_checkinPage,
         [this](const QString& requestId, const QString& reason) {
             m_checkinPage->onOpenFailed(requestId, reason);
         });
@@ -482,7 +488,8 @@ void MainWindow::setEdgeService(EdgeService* svc) {
 }
 
 /**
- * @brief 设置当前用户
+ * @brief 设置当前登录用户，并刷新顶栏信息与侧边栏可见项
+ * @param user 用户结果对象（含 realName/department/role 等字段）
  */
 void MainWindow::setCurrentUser(const QJsonObject& user) {
     m_user = user;
@@ -506,7 +513,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
     }
     m_loginFlowBusy = true;
 
-    // 登录成功后确保摄像头已关闭（兜底保险）
+    // 登录成功后确保摄像头已关闭（多一层保险，避免摄像头一直开着）
     m_loginPage->stopFaceRecognitionPublic();
 
     // 硬性前置条件（第一个UI动作）：先离开登录页切到中性遮罩页，之后才允许出现任何弹窗。
@@ -585,7 +592,7 @@ void MainWindow::onLoginSuccess(const QJsonObject& user) {
 }
 
 /**
- * @brief 进入功能导航主页：显示侧边栏状态收敛后切页（遮罩过渡态在此结束）
+ * @brief 进入功能导航主页：侧边栏该显示哪些项定下来之后再切页（遮罩过渡态在此结束）
  * @note 卡片内容由 refreshMenuCards 按当前登录角色注入；注销由 TopBar 注销按钮承担
  */
 void MainWindow::enterMenuHomePage() {
@@ -620,7 +627,7 @@ void MainWindow::refreshMenuCards() {
 
 /**
  * @brief 功能导航主页卡片点击分流
- * @param key 卡片标识：管理侧为页面注册名直接跳转（权限收敛在 showPage 内）；
+ * @param key 卡片标识：管理侧为页面注册名直接跳转（能不能进由 showPage 统一判断）；
  *            普通用户为动作标识，弹出对应会话/明细/操作日志对话框
  */
 void MainWindow::onMenuCardClicked(const QString& key) {
@@ -689,8 +696,8 @@ void MainWindow::showUserBorrowDetail() {
     table->setAlternatingRowColors(false);
     table->setStyleSheet(
         "QTableWidget { background:white; border:1px solid #e0e0e0; border-radius:10px;"
-        "  font-size:16px; color:#333; gridline-color:#eee; }"
-        "QHeaderView::section { background:#f5f6f8; color:#999; font-size:14px; font-weight:600;"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color:#333; gridline-color:#eee; }"
+        "QHeaderView::section { background:#f5f6f8; color:#999; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:600;"
         "  border:none; border-bottom:1px solid #e0e0e0; padding:10px 6px; }"
         "QTableWidget::item { padding:8px 6px; }");
     table->verticalHeader()->setVisible(false);
@@ -705,11 +712,11 @@ void MainWindow::showUserBorrowDetail() {
     table->setRowCount(records.size());
     for (int i = 0; i < records.size(); ++i) {
         const BorrowRecord& r = records.at(i);
-        table->setItem(i, 0, new QTableWidgetItem(r.borrowTime.toString("yyyy-MM-dd HH:mm")));
+        table->setItem(i, 0, new QTableWidgetItem(r.borrowTime.toString(SC::DATE_TIME_FORMAT)));
         table->setItem(i, 1, new QTableWidgetItem(r.toolName));
         table->setItem(i, 2, new QTableWidgetItem(r.toolCode));
         table->setItem(i, 3, new QTableWidgetItem(QString::number(r.quantity)));
-        table->setItem(i, 4, new QTableWidgetItem(r.expectReturnTime.toString("yyyy-MM-dd HH:mm")));
+        table->setItem(i, 4, new QTableWidgetItem(r.expectReturnTime.toString(SC::DATE_TIME_FORMAT)));
 
         // 状态列：中文+配色（借用中蓝/已逾期红/已归还绿）
         QString statusText;
@@ -726,7 +733,7 @@ void MainWindow::showUserBorrowDetail() {
     if (records.isEmpty()) {
         auto* emptyLabel = new QLabel(QStringLiteral("暂无借用记录"));
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet(QString("font-size: 18px; color: %1; background: transparent; padding: 24px;")
+        emptyLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " color: %1; background: transparent; padding: 24px;")
                                       .arg(StyleHelper::textSecondary()));
         lay->addWidget(emptyLabel);
     }
@@ -737,7 +744,7 @@ void MainWindow::showUserBorrowDetail() {
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(QString(
         "QPushButton { background: %1; color: white; border: none; border-radius: 12px;"
-        "  font-size: 20px; font-weight: 700; min-height: 56px; min-width: 260px; }"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; min-height: 56px; min-width: 260px; }"
         "QPushButton:hover { background: %2; }"
     ).arg(StyleHelper::primaryColor(), StyleHelper::primaryHover()));
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
@@ -788,8 +795,8 @@ void MainWindow::showUserOperationLog() {
     table->setSelectionMode(QAbstractItemView::SingleSelection);
     table->setStyleSheet(
         "QTableWidget { background:white; border:1px solid #e0e0e0; border-radius:10px;"
-        "  font-size:16px; color:#333; gridline-color:#eee; }"
-        "QHeaderView::section { background:#f5f6f8; color:#999; font-size:14px; font-weight:600;"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color:#333; gridline-color:#eee; }"
+        "QHeaderView::section { background:#f5f6f8; color:#999; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight:600;"
         "  border:none; border-bottom:1px solid #e0e0e0; padding:10px 6px; }"
         "QTableWidget::item { padding:8px 6px; }");
     table->verticalHeader()->setVisible(false);
@@ -805,7 +812,7 @@ void MainWindow::showUserOperationLog() {
         // 去掉T与秒，与出入库记录页风格统一；解析失败回退原串
         QDateTime dt = QDateTime::fromString(r["createdAt"].toString(), Qt::ISODate);
         if (!dt.isValid()) dt = QDateTime::fromString(r["createdAt"].toString(), Qt::ISODateWithMs);
-        QString time = dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+        QString time = dt.isValid() ? dt.toString(SC::DATE_TIME_FORMAT)
                                     : r["createdAt"].toString();
         table->setItem(i, 0, new QTableWidgetItem(time));
 
@@ -825,7 +832,7 @@ void MainWindow::showUserOperationLog() {
     if (list.isEmpty()) {
         auto* emptyLabel = new QLabel(QStringLiteral("暂无操作日志"));
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet(QString("font-size: 18px; color: %1; background: transparent; padding: 24px;")
+        emptyLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " color: %1; background: transparent; padding: 24px;")
                                       .arg(StyleHelper::textSecondary()));
         lay->addWidget(emptyLabel);
     }
@@ -836,7 +843,7 @@ void MainWindow::showUserOperationLog() {
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(QString(
         "QPushButton { background: %1; color: white; border: none; border-radius: 12px;"
-        "  font-size: 20px; font-weight: 700; min-height: 56px; min-width: 260px; }"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; min-height: 56px; min-width: 260px; }"
         "QPushButton:hover { background: %2; }" 
     ).arg(StyleHelper::primaryColor(), StyleHelper::primaryHover()));
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
@@ -896,7 +903,7 @@ void MainWindow::showHelpManual() {
 void MainWindow::onLogout() {
     m_user = QJsonObject();
     m_userModeAsNormalUser = false;  // 复位身份标志，避免下次登录沿用上次选择
-    // 侧边栏已移除用户区域，仅重置TopBar
+    // 顶栏恢复未登录显示，侧边栏不展示用户信息故无需处理
     m_topBar->setUserName(QStringLiteral("未登录"));
     m_topBar->setDepartment("");
     m_topBar->setHomeButtonVisible(false);  // 注销回登录页后隐藏"主页"按钮
@@ -918,6 +925,10 @@ void MainWindow::onLogout() {
     emit userLoggedOut();
 }
 
+/**
+ * @brief 按页面注册名切换当前页面
+ * @param name 页面注册名；传了没注册的名字时不做切换
+ */
 void MainWindow::navigateToPage(const QString& name) {
     showPage(name);
 }

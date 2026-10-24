@@ -23,7 +23,7 @@ public:
 
     /// 输入一个拼音字母（a-z），清空页码（开始新的一页输入）
     void inputLetter(const QChar& c);
-    /// 删除缓冲中最后一个拼音字母；返回 true 表示缓冲非空已移除，false 表示缓冲已空
+    /// 删除缓冲中最后一个拼音字母；true 表示确实删掉了一个字母，false 表示缓冲本来就是空的
     bool backspace();
     /// 清空拼音缓冲与页码
     void clear();

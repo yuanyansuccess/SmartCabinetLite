@@ -38,7 +38,7 @@ namespace {
 QString formatRecordTime(const QString& iso) {
     QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
     if (!dt.isValid()) dt = QDateTime::fromString(iso, Qt::ISODateWithMs);
-    return dt.isValid() ? dt.toString(QStringLiteral("yyyy-MM-dd HH:mm")) : iso;
+    return dt.isValid() ? dt.toString(SC::DATE_TIME_FORMAT) : iso;
 }
 }
 
@@ -53,6 +53,22 @@ ToolCheckinPage::ToolCheckinPage(QWidget* parent) : QWidget(parent), ui(new Ui::
 }
 
 ToolCheckinPage::~ToolCheckinPage() {
+    // 页面关闭时若还有在途识别/开箱请求，清掉本地状态并关掉等待框：
+    // 防止识别结果回来后打进已销毁的页面（设计图异常清单 #20）
+    m_currentRequestId.clear();
+    m_pendingItems.clear();
+    m_openRequestId.clear();
+    m_pendingOpenItems.clear();
+    if (m_waitDialog) {
+        m_waitDialog->reject();
+        m_waitDialog = nullptr;
+    }
+    if (m_openExecuteDialog) {
+        // 页面销毁中：置内部关闭标记，避免弹窗关闭回调弹出提示框
+        m_openDialogInternalClose = true;
+        m_openExecuteDialog->reject();
+        m_openExecuteDialog = nullptr;
+    }
     delete ui;
 }
 
@@ -129,6 +145,11 @@ void ToolCheckinPage::setupUI() {
     connect(m_outRecordPaginationBar, &PaginationBar::nextClicked, this, &ToolCheckinPage::onOutRecordNextPage);
     // Tab切换时加载对应数据
     connect(m_tabWidget, &QTabWidget::currentChanged, this, &ToolCheckinPage::onTabChanged);
+
+    // 关柜等待超时计时：柜体打开后起算，到时仍未确认关柜则终止本次（零写库）
+    m_closeWaitTimer = new QTimer(this);
+    m_closeWaitTimer->setSingleShot(true);
+    connect(m_closeWaitTimer, &QTimer::timeout, this, &ToolCheckinPage::onCloseWaitTimeout);
 }
 
 /**
@@ -177,6 +198,7 @@ void ToolCheckinPage::refresh() {
     loadLocalMachineGroup();
     if (m_tabWidget) m_tabWidget->setCurrentIndex(0);
     clearOrderTable();
+    resetOrderSession();   // 刷新即换单：清掉上一单残留的单据与轮次状态
 }
 // ═══════════ 出入库单据 ═══════════
 
@@ -249,8 +271,8 @@ void ToolCheckinPage::onBatchImportInRows() {
     auto* tip = new QLabel(QStringLiteral(
         "勾选需要入库的工具（默认全选），确认后按列表顺序逐条生成入库行。"));
     tip->setWordWrap(true);
-    tip->setStyleSheet(QStringLiteral(
-        "font-size:14px;color:#1890ff;background:#e6f7ff;"
+    tip->setStyleSheet((
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "color:#1890ff;background:#e6f7ff;"
         "border:1px solid #91d5ff;border-radius:10px;padding:10px 14px;"));
     cl->addWidget(tip);
 
@@ -314,9 +336,9 @@ void ToolCheckinPage::onBatchImportInRows() {
     for (auto* b : { selAllBtn, selNoneBtn }) {
         b->setCursor(Qt::PointingHandCursor);
         b->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
-        b->setStyleSheet(QStringLiteral(
+        b->setStyleSheet((
             "QPushButton{background:#fff;color:#4da3ff;border:1px solid #4da3ff;"
-            "border-radius:10px;font-size:14px;font-weight:600;padding:0 18px;}"
+            "border-radius:10px;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "font-weight:600;padding:0 18px;}"
             "QPushButton:hover{background:#e8f0fe;}"));
     }
     connect(selAllBtn, &QPushButton::clicked, this, [&checkBoxes]() {
@@ -336,9 +358,9 @@ void ToolCheckinPage::onBatchImportInRows() {
     cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     cancelBtn->setMinimumWidth(100);
     cancelBtn->setCursor(Qt::PointingHandCursor);
-    cancelBtn->setStyleSheet(QStringLiteral(
+    cancelBtn->setStyleSheet((
         "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "font-size:15px;font-weight:600;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "font-weight:600;}"
         "QPushButton:hover{background:#f5f5f5;}"));
     connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
@@ -346,9 +368,9 @@ void ToolCheckinPage::onBatchImportInRows() {
     okBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     okBtn->setMinimumWidth(100);
     okBtn->setCursor(Qt::PointingHandCursor);
-    okBtn->setStyleSheet(QStringLiteral(
+    okBtn->setStyleSheet((
         "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:12px;"
-        "font-size:16px;font-weight:700;}"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "font-weight:700;}"
         "QPushButton:hover{background:#3d8ae0;}"));
 
     bl->addWidget(cancelBtn);
@@ -469,8 +491,26 @@ void ToolCheckinPage::reloadToolOptions(int row) {
             // 规格随下拉项带出（Qt::UserRole+1），选工具时无需再查库
             toolCombo->setItemData(toolCombo->count() - 1, t["spec"].toString(), Qt::UserRole + 1);
         }
+        // 已借出未归还的工具同样可转出库：它们不在柜内，整单只有这类行时不需要开箱
+        QJsonArray borrowed = toolDao.findBorrowedOutPositions(m_localMachineGroupId);
+        if (borrowed.isEmpty()) {
+            // 本机组没有借出工具时说明原因：工具管理页看的是全库，本页只列本机组的
+            const int otherGroupCount = toolDao.findBorrowedOutPositions(0).size();
+            if (otherGroupCount > 0) {
+                toolCombo->addItem(QStringLiteral("（本机组暂无借出工具，其它机组还有 %1 件借出中）").arg(otherGroupCount), -1);
+            }
+        }
+        for (int i = 0; i < borrowed.size(); ++i) {
+            QJsonObject t = borrowed[i].toObject();
+            toolCombo->addItem(QStringLiteral("%1 - %2（借出中，转出库免开箱）")
+                                   .arg(t["toolCode"].toString(), t["toolName"].toString()),
+                               t["mappingId"].toInt());
+            toolCombo->setItemData(toolCombo->count() - 1, t["spec"].toString(), Qt::UserRole + 1);
+            // 借出标记（Qt::UserRole+2）：告诉收集环节这一行是"借出转出库"
+            toolCombo->setItemData(toolCombo->count() - 1, true, Qt::UserRole + 2);
+        }
         if (toolCombo->count() <= 1) {
-            toolCombo->addItem(QStringLiteral("暂无在库工具"), -1);
+            toolCombo->addItem(QStringLiteral("暂无在库或借出中的工具"), -1);
         }
     } else {
         // 入库下拉=对照表中有空闲位置的工具（含已出库工具回流）
@@ -533,14 +573,18 @@ void ToolCheckinPage::updateRowPosition(int row) {
     specItem->setText(spec.isEmpty() ? QStringLiteral("--") : spec);
 
     if (typeCombo->currentData().toString() == "out") {
-        // 出库：selectedId=mappingId，位置与toolId从在库位置明细实时查询带出
+        // 出库：selectedId=mappingId；借出中的工具不在在库清单里，按借出明细单独取位置
+        const bool isBorrowed = toolCombo->itemData(toolCombo->currentIndex(), Qt::UserRole + 2).toBool();
         db::ToolDAO toolDao;
-        QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
-        for (int i = 0; i < inStock.size(); ++i) {
-            QJsonObject t = inStock[i].toObject();
+        QJsonArray spots = isBorrowed ? toolDao.findBorrowedOutPositions(m_localMachineGroupId)
+                                      : toolDao.findAllInStockPositions(m_localMachineGroupId);
+        for (int i = 0; i < spots.size(); ++i) {
+            QJsonObject t = spots[i].toObject();
             if (t["mappingId"].toInt() == selectedId) {
-                posItem->setText(StyleHelper::formatPosition(
-                    t["cabinetName"].toString(), t["layer"].toString(), t["position"].toString()));
+                const QString posText = StyleHelper::formatPosition(
+                    t["cabinetName"].toString(), t["layer"].toString(), t["position"].toString());
+                // 界面上标注借出状态，业务数据仍用纯位置串（结果页/日志口径一致）
+                posItem->setText(isBorrowed ? posText + QStringLiteral("（借出中）") : posText);
                 posItem->setData(Qt::UserRole, t["toolId"].toInt());
                 return;
             }
@@ -596,6 +640,8 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
         if (type == "out") {
             // 出库：selectedId=mappingId，toolId从位置列UserRole取
             item.mappingId = selectedId;
+            // 借出标记（Qt::UserRole+2）：为 true 表示这是"借出未归还转出库"，不需要开箱
+            item.borrowedOut = toolCombo->currentData(Qt::UserRole + 2).toBool();
             auto* posItem = m_orderTable->item(row, 3);
             item.toolId = posItem ? posItem->data(Qt::UserRole).toInt() : 0;
             if (outMappingIds.contains(item.mappingId)) {
@@ -632,10 +678,10 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
 
 /**
  * @brief 执行前最终核对：入库行实时分配空闲位置，出库行实时核对位置仍在库
- * @param items 待核对的指令列表（入库行的位置信息会被写回）
+ * @param items 待核对的指令列表（出入库行的位置信息都会被回填到本列表）
  * @return true=全部通过；失败时通过 MessageDialog 提示原因
  */
-bool ToolCheckinPage::validateOrderItems(const QList<OrderRow>& items) {
+bool ToolCheckinPage::validateOrderItems(QList<OrderRow>& items) {
     db::ToolDAO toolDao;
 
     // 入库行：按工具实时查询空闲位置（同一工具多行已在onSubmit入口拦截，此处为防御性逐行分配）
@@ -649,14 +695,23 @@ bool ToolCheckinPage::validateOrderItems(const QList<OrderRow>& items) {
         }
     }
 
-    // 出库行：实时核对位置仍在库（页面打开期间可能被其他操作出库）
+    // 出库行：实时核对位置仍在库（页面打开期间可能被其他操作出库），
+    // 并把位置原始信息与展示串回填到指令（开箱摘要、边缘机比对、结果页、操作日志都依赖它）
     QJsonArray inStockList = toolDao.findAllInStockPositions(m_localMachineGroupId);
-    QSet<int> validMappingIds;
+    QMap<int, QJsonObject> inStockByMapping;   // mappingId -> 在库位置原始信息
     for (int i = 0; i < inStockList.size(); ++i) {
-        validMappingIds.insert(inStockList[i].toObject()["mappingId"].toInt());
+        QJsonObject spot = inStockList[i].toObject();
+        inStockByMapping.insert(spot["mappingId"].toInt(), spot);
+    }
+    // 借出转出库行核对的是"仍在借出中"，与在库行分开取数，避免把借出行误判为位置已变更
+    QJsonArray borrowedList = toolDao.findBorrowedOutPositions(m_localMachineGroupId);
+    QMap<int, QJsonObject> borrowedByMapping;  // mappingId -> 借出位置原始信息
+    for (int i = 0; i < borrowedList.size(); ++i) {
+        QJsonObject spot = borrowedList[i].toObject();
+        borrowedByMapping.insert(spot["mappingId"].toInt(), spot);
     }
 
-    for (const OrderRow& it : items) {
+    for (OrderRow& it : items) {
         if (it.type == "in") {
             QJsonArray freePositions = freePositionsByTool.value(it.toolId);
             int used = assignedCountByTool.value(it.toolId);
@@ -668,17 +723,38 @@ bool ToolCheckinPage::validateOrderItems(const QList<OrderRow>& items) {
             }
             QJsonObject p = freePositions[used].toObject();
             // 分配结果写回指令（posInfo供执行环节直接使用）
-            OrderRow& mutableItem = const_cast<OrderRow&>(it);
-            mutableItem.posInfo = p;
-            mutableItem.position = StyleHelper::formatPosition(
+            it.posInfo = p;
+            it.position = StyleHelper::formatPosition(
                 p["cabinetName"].toString(), p["layer"].toString(), p["position"].toString());
             assignedCountByTool[it.toolId] = used + 1;
-        } else if (!validMappingIds.contains(it.mappingId)) {
-            // 出库位置已不在库（页面打开期间被其他操作出库）
-            MessageDialog::showWarning(this, QStringLiteral("无法执行"),
-                QStringLiteral("工具「%1」的位置已不在库（可能刚被出库），请删除该行后重新添加。")
-                    .arg(it.toolName));
-            return false;
+        } else {
+            if (it.borrowedOut) {
+                if (!borrowedByMapping.contains(it.mappingId)) {
+                    // 借出转出库：该工具已不在借出中（可能刚被归还或再次出库）
+                    MessageDialog::showWarning(this, QStringLiteral("无法执行"),
+                        QStringLiteral("工具「%1」已不在借出中（可能刚被归还或出库），请删除该行后重新添加。")
+                            .arg(it.toolName));
+                    return false;
+                }
+                const QJsonObject spot = borrowedByMapping.value(it.mappingId);
+                it.posInfo = spot;
+                it.position = StyleHelper::formatPosition(
+                    spot["cabinetName"].toString(), spot["layer"].toString(), spot["position"].toString());
+                continue;   // 借出转出库没有在库位置可分配，位置回填后本行校验即完成
+            }
+            if (!inStockByMapping.contains(it.mappingId)) {
+                // 出库位置已不在库（页面打开期间被其他操作出库）
+                MessageDialog::showWarning(this, QStringLiteral("无法执行"),
+                    QStringLiteral("工具「%1」的位置已不在库（可能刚被出库），请删除该行后重新添加。")
+                        .arg(it.toolName));
+                return false;
+            }
+            // 出库行位置回填：与入库行同一口径，保证开箱摘要显示货位、边缘机比对能按货位核对、
+            // 结果页与操作日志不留空位置
+            const QJsonObject spot = inStockByMapping.value(it.mappingId);
+            it.posInfo = spot;
+            it.position = StyleHelper::formatPosition(
+                spot["cabinetName"].toString(), spot["layer"].toString(), spot["position"].toString());
         }
     }
     return true;
@@ -696,6 +772,12 @@ void ToolCheckinPage::clearOrderTable() {
  * @brief 确认出入库：收集校验单据 → 查重 → 实时核对位置 → 进入开箱环节
  */
 void ToolCheckinPage::onSubmit() {
+    // 已有开柜流程在进行（统一弹窗未关闭）：忽略重复提交，避免单据与轮次状态被重置
+    if (m_openExecuteDialog) return;
+
+    // 新一单开始：先复位上一单残留（尤其是"重新开柜"标记，避免本单沿用上一单的全量单据）
+    resetOrderSession();
+
     // 第一步：从表格收集指令。行级格式错误（未选工具、工具信息加载失败、
     // 出库位置重复、同一工具同时入+出）由 collectOrderItems 写入 errorMsg，此处只负责展示
     QString errorMsg;
@@ -706,7 +788,7 @@ void ToolCheckinPage::onSubmit() {
         return;
     }
     // 第二步：空单据拦截。collectOrderItems 对空表已设置提示并被上一步拦下，
-    // 此处为防御性兜底：即使收集逻辑将来调整，空单据也绝不会进入后续开箱环节
+    // 此处为防御性保底：即使收集逻辑将来调整，空单据也绝不会进入后续开箱环节
     if (items.isEmpty()) {
         m_errorLabel->setText(QStringLiteral("请先添加出入库指令"));
         m_errorLabel->setVisible(true);
@@ -731,17 +813,69 @@ void ToolCheckinPage::onSubmit() {
 
     if (!validateOrderItems(items)) return;
 
+    // 整单都是"借出未归还转出库"：工具不在柜内，没有取放动作，直接写库（不需要开箱）
+    if (!orderNeedsOpening(items)) {
+        submitBorrowedOutWithoutOpening(items);
+        return;
+    }
+
     // 离线禁止开箱（协议"离线禁止开锁"）：链路离线时不进入开箱环节，
     // 避免"门开了但没人记录"——离线时柜体实际无法开锁，UI 也不应谎称已打开
     if (!m_edgeOnline) {
         MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
-            QStringLiteral("边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机链路离线：边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
         return;
     }
 
-    // 发起真实开箱指令（TCP open_req），进入"正在开柜"等待态；ack 成功才进开箱环节
+    // 发起真实开箱指令（TCP open_req），统一弹窗先显示"正在打开柜体"；
+    // ack 回来后原地切换为"柜体已打开"，全程只有一个页面
     m_pendingOpenItems = items;
     emit openRequested();
+}
+
+// ═══════════ 借出转出库（不开箱） ═══════════
+
+/**
+ * @brief 判断单据是否需要开箱
+ * @param items 已通过校验的出入库指令列表
+ * @return true=需要开箱（存在入库行，或存在"在库位置出库"行）；
+ *         false=整单都是"借出未归还转出库"，工具不在柜内，无需开箱
+ */
+bool ToolCheckinPage::orderNeedsOpening(const QList<OrderRow>& items) const {
+    for (const OrderRow& it : items) {
+        if (it.type != QStringLiteral("out") || !it.borrowedOut) {
+            return true;   // 入库行或在库位置出库行都要开柜取放工具
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief 整单均为借出转出库：不开箱直接写库并弹出结果页
+ * @param items 已通过校验的借出转出库指令列表
+ * @return 无。写库与结果页复用"关柜检查"的统一实现，保证两处行为一致
+ * @note  这类工具不在柜内，没有取放动作，也就没有边缘机核对环节：
+ *        全部行按"通过"构造比对结论，直接整单写入并结清对应借用记录
+ */
+void ToolCheckinPage::submitBorrowedOutWithoutOpening(const QList<OrderRow>& items) {
+    QList<ToolService::RecogCompareItem> compareItems;
+    compareItems.reserve(items.size());
+    for (const OrderRow& it : items) {
+        ToolService::RecogCompareItem cmp;
+        cmp.toolId   = it.toolId;
+        cmp.toolCode = it.toolCode;
+        cmp.toolName = it.toolName;
+        cmp.position = it.position;
+        cmp.result   = ToolService::RecogItemResult::Matched;
+        cmp.detail   = QStringLiteral("借出转出库（免开箱，未做柜内核对）");
+        compareItems.append(cmp);
+    }
+    m_orderItems   = items;
+    m_currentRound = 1;
+    m_roundState   = RoundState::Running;
+    // 免开箱路径没有柜内实况，全柜核对结论保持默认（checked=false），结果页不显示核对行
+    showCheckResultDialog(items, compareItems, QList<ToolService::RecogMisplaced>(),
+                          ToolService::RecogStockOutcome(), 1, 1);
 }
 
 // ═══════════ 边缘机开箱（开锁）流程 ═══════════
@@ -749,7 +883,7 @@ void ToolCheckinPage::onSubmit() {
 /**
  * @brief 开箱指令回传：发起开柜等待态（一段：只发起，不写库）
  * @param requestId 请求编号；空串=未发出（链路离线或写入失败）
- * @note  非空则弹出模态等待框（三点动画+取消），open_ack 回来/失败在槽里关闭本框
+ * @note  非空则弹出统一弹窗（初始为"正在打开柜体"），开箱成功后原地切换为"柜体已打开"
  */
 void ToolCheckinPage::onOpenStarted(const QString& requestId) {
     if (requestId.isEmpty()) {
@@ -762,47 +896,73 @@ void ToolCheckinPage::onOpenStarted(const QString& requestId) {
     }
     m_openRequestId = requestId;
 
-    // 模态等待框：正在开柜（三点动画+取消），ack 回来或失败在槽里关闭本框
-    auto* waitDlg = new DrawerOpeningDialog(QStringLiteral("开柜中"),
-        QStringLiteral("正在打开柜体"),
-        QStringLiteral("系统正在向边缘计算机发送开箱指令，请稍候…"), 32, 48, this);
-    waitDlg->setAttribute(Qt::WA_DeleteOnClose);
-    waitDlg->setNextButtonText(QStringLiteral("开柜中…"));
-    waitDlg->setNextEnabled(false);
-    waitDlg->setFixedSize(520, 380);
-    m_openWaitDialog = waitDlg;
-    // 用户点取消：退出开柜等待态（清状态+提示，零写库）
-    connect(waitDlg, &QDialog::rejected, this, &ToolCheckinPage::cancelOpen);
-    waitDlg->exec();
-    // 模态结束（ack 关闭/用户取消）后对象已随 WA_DeleteOnClose 删除，指针必须清空
-    m_openWaitDialog = nullptr;
+    // 统一弹窗：先显示"正在打开柜体"，开柜成功后原地切换为"柜体已打开 + 单据摘要"，
+    // 全程只有一个页面，避免两个弹窗先后出现造成画面跳闪。
+    // 用 show() 而非 exec()：不嵌套事件循环，通信回包照常在主事件循环里被处理
+    auto* dlg = buildOpenExecuteDialog(m_pendingOpenItems);
+    m_openExecuteDialog = dlg;
+    m_openDialogOpened = false;
+    connect(dlg, &QDialog::finished, this, [this, dlg](int result) {
+        if (m_openExecuteDialog == dlg) {
+            m_openExecuteDialog = nullptr;
+        }
+        dlg->deleteLater();
+        if (m_closeWaitTimer) m_closeWaitTimer->stop();
+        if (m_openDialogInternalClose) {
+            // 程序内部关闭（开柜失败/链路中断等）：提示由调用方给出，这里不再打扰用户
+            return;
+        }
+        if (result == QDialog::Accepted) {
+            // 用户已按单据取放工具并关柜：发起边缘机识别（写库延后到识别结果回来）
+            startEdgeCheck();
+            return;
+        }
+        if (m_openDialogOpened) {
+            // 柜体已打开后用户取消：本次操作放弃，零写库
+            m_pendingOpenItems.clear();
+            m_reopenPending = false;
+            MessageDialog::showWarning(this, QStringLiteral("已取消"),
+                QStringLiteral("已取消本次出入库，未写入任何记录。"));
+            return;
+        }
+        // 开柜阶段用户取消：终止本次开箱，零写库
+        cancelOpen();
+    });
+    dlg->show();
 }
 
 /**
- * @brief 开箱成功（柜体已真实打开）：进入开箱环节（showOrderExecuteDialog）
+ * @brief 开箱成功（柜体已真实打开）：统一弹窗原地切换到"柜体已打开"状态
  * @param requestId 请求编号（非当前在途请求的回应直接丢弃：已取消/已过期）
  * @param success   true=开锁成功（柜体已真实打开）
  * @param message   失败原因（success=false 时有效）
  */
 void ToolCheckinPage::onOpenFinished(const QString& requestId, bool success, const QString& message) {
     if (requestId != m_openRequestId) return;   // 已取消/已过期，丢弃迟到回应
-    if (m_openWaitDialog) {
-        m_openWaitDialog->accept();
-        m_openWaitDialog = nullptr;
-    }
     m_openRequestId.clear();
 
     if (!success) {
         m_pendingOpenItems.clear();
+        closeOpenExecuteDialog();
         MessageDialog::showWarning(this, QStringLiteral("开箱失败"),
             message.isEmpty() ? QStringLiteral("边缘机拒绝开箱或开箱失败。") : message);
         return;
     }
 
-    // 开箱成功：真实进入开箱环节（此时"柜体已打开"才为真）
+    // 开箱成功：单据与轮次按"首次开箱/重新开柜整理"分别处理
     QList<OrderRow> items = m_pendingOpenItems;
     m_pendingOpenItems.clear();
-    showOrderExecuteDialog(items);
+    if (m_reopenPending) {
+        // 重新开柜整理：保留全量单据与当前轮次（比对仍按全部项，轮次继续累加）
+        m_reopenPending = false;
+    } else {
+        m_orderItems = items;    // 首次开箱：固定全量单据（重开柜不重置）
+        m_currentRound = 1;      // 新一轮从 1 开始
+        m_roundState = RoundState::Running;
+    }
+
+    // 统一弹窗原地切换到"柜体已打开"：只换文案与按钮，不再新弹页面（避免画面跳闪）
+    applyOpenOpenedState(m_openExecuteDialog);
 }
 
 /**
@@ -815,24 +975,20 @@ void ToolCheckinPage::onOpenFailed(const QString& requestId, const QString& reas
     // requestOpen 内部先 emit 本信号再返回空串，故本分支必先于 onOpenStarted 的空串分支执行，
     // 只在这里弹一次框，提示内容与真实拒绝原因一致
     if (requestId.isEmpty()) {
-        if (m_openWaitDialog) {          // 防御：清掉可能残留的开柜等待框
-            m_openWaitDialog->accept();
-            m_openWaitDialog = nullptr;
-        }
+        closeOpenExecuteDialog();       // 防御：清掉可能残留的统一弹窗
         m_openRequestId.clear();
         m_pendingOpenItems.clear();
+        m_reopenPending = false;   // 开箱没成功就取消：不能留下"重新开柜"标记给下一单
         MessageDialog::showWarning(this, QStringLiteral("无法开箱"), reason);
         return;
     }
     if (m_openRequestId.isEmpty()) return;
     if (requestId != m_openRequestId) return;
 
-    if (m_openWaitDialog) {
-        m_openWaitDialog->accept();
-        m_openWaitDialog = nullptr;
-    }
+    closeOpenExecuteDialog();
     m_openRequestId.clear();
     m_pendingOpenItems.clear();
+    m_reopenPending = false;       // 同上：开箱失败后不留重开柜标记
     MessageDialog::showWarning(this, QStringLiteral("开箱失败"), reason);
 }
 
@@ -842,8 +998,35 @@ void ToolCheckinPage::onOpenFailed(const QString& requestId, const QString& reas
 void ToolCheckinPage::cancelOpen() {
     m_openRequestId.clear();
     m_pendingOpenItems.clear();
+    m_reopenPending = false;       // 取消即终止本次流程
     MessageDialog::showWarning(this, QStringLiteral("已取消"),
         QStringLiteral("已取消开箱，未执行任何出入库。"));
+}
+
+/**
+ * @brief 关闭统一开柜弹窗（程序内部关闭：开箱失败/链路中断等场景，不弹"用户取消"提示）
+ * @return 无
+ * @note 关闭前先置内部关闭标记，使弹窗的关闭回调不再走"用户取消"分支，避免提示重复弹出
+ */
+void ToolCheckinPage::closeOpenExecuteDialog() {
+    if (m_closeWaitTimer) m_closeWaitTimer->stop();
+    if (!m_openExecuteDialog) return;
+    m_openDialogInternalClose = true;
+    m_openExecuteDialog->reject();
+    m_openExecuteDialog = nullptr;
+    m_openDialogInternalClose = false;
+    m_openDialogOpened = false;
+}
+
+/**
+ * @brief 柜体打开后等待关柜超时：关闭统一弹窗并提示确认柜门已关（零写库）
+ * @return 无
+ */
+void ToolCheckinPage::onCloseWaitTimeout() {
+    if (!m_openExecuteDialog || !m_openExecuteDialog->isVisible()) return;
+    closeOpenExecuteDialog();
+    MessageDialog::showWarning(this, QStringLiteral("请确认柜门已关"),
+        QStringLiteral("等待关柜超时，本次操作已取消，未写入任何记录。\n请确认柜门已关后重新发起本次出入库。"));
 }
 
 // ═══════════ 边缘机识别两段式流程 ═══════════
@@ -853,9 +1036,9 @@ void ToolCheckinPage::cancelOpen() {
  * @param items 已通过校验的单据指令（识别期间暂存，结果回来再比对写库）
  * @note  链路在线检查在 EdgeService 内部（离线拒发并通知上层），本方法只暂存与转发请求
  */
-void ToolCheckinPage::startEdgeCheck(const QList<OrderRow>& items) {
+void ToolCheckinPage::startEdgeCheck() {
     m_errorLabel->setVisible(false);
-    m_pendingItems = items;
+    m_pendingItems = m_orderItems;   // 每轮均按全量单据核对，避免子集核对丢失已通过项
     m_lastSpots.clear();
     // 请求经 MainWindow 适配层转到 EdgeService（页面不直接持有通信层）
     emit recognitionRequested();
@@ -875,11 +1058,12 @@ void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
     }
     m_currentRequestId = requestId;
 
-    // 模态等待框：识别通常1~3秒；取消随时可放弃本次（零写库）
+    // 等待框用非模态显示：识别请求是异步的，模态 exec() 会与结果页/开箱弹窗层层嵌套，
+    // 嵌套后内层返回会把外层等待框的指针清掉，导致外层永远关不掉（用户卡在"核对中"）
     auto* waitDlg = new DrawerOpeningDialog(QStringLiteral("核对中"),
-        QStringLiteral("正在核对柜内工具"),
+        QStringLiteral("正在核对柜内工具…"),
         QStringLiteral("系统正在与边缘计算机核对柜内工具，请稍候…"), 32, 48, this);
-    // 关闭即删除：模态返回后对象不残留（onRecognitionStarted 末尾统一清指针）
+    // 结果回来或用户取消时关闭本框，关闭后本次结果不再保留
     waitDlg->setAttribute(Qt::WA_DeleteOnClose);
     waitDlg->setNextButtonText(QStringLiteral("核对中…"));
     waitDlg->setNextEnabled(false);
@@ -887,9 +1071,7 @@ void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
     m_waitDialog = waitDlg;
     // 用户点取消：退出等待态（清状态+提示，零写库）
     connect(waitDlg, &QDialog::rejected, this, &ToolCheckinPage::exitWaitState);
-    waitDlg->exec();
-    // 模态结束（结果关闭/用户取消）后对象已随 WA_DeleteOnClose 删除，指针必须清空
-    m_waitDialog = nullptr;
+    waitDlg->show();
 }
 
 /**
@@ -903,7 +1085,7 @@ void ToolCheckinPage::onRecognitionStarted(const QString& requestId) {
 void ToolCheckinPage::onRecognitionResult(const QString& requestId,
                                           const QList<ToolService::RecogSpot>& spots) {
     if (requestId != m_currentRequestId) {
-        // 迟到的结果：本次请求已取消或已换成新请求，结果不再采用（留日志便于现场排查）
+        // 编号对不上说明这份结果来晚了：当前请求已经换了新的，这份结果不再采用
         qWarning() << "[ToolCheckinPage] 丢弃迟到的识别结果，当前请求="
                    << m_currentRequestId << "收到的=" << requestId;
         return;
@@ -951,7 +1133,7 @@ void ToolCheckinPage::onRecognitionFailed(const QString& requestId, const QStrin
     const bool retry = MessageDialog::showQuestion(this, QStringLiteral("核对失败"),
         QStringLiteral("%1\n\n是否重新核对？（不用重新开箱）").arg(reason));
     if (retry) {
-        emit recognitionRequested();   // 重发：onRecognitionStarted 会再次弹出等待框
+        startEdgeCheck();   // 重发走统一入口：清上轮实况缓存并按全量单据重新核对
     } else {
         exitWaitState();
     }
@@ -975,10 +1157,9 @@ void ToolCheckinPage::onEdgeOnlineChanged(bool online) {
             QStringLiteral("边缘机链路已断开，本次不出入库。\n请检查边缘计算机连接后重试。"));
     }
 
-    // 等待开柜期间链路掉线：关开柜等待框并终止本次
-    if (!online && m_openWaitDialog) {
-        m_openWaitDialog->accept();
-        m_openWaitDialog = nullptr;
+    // 开柜等待期间链路掉线：关闭统一弹窗并终止本次（柜体已打开后不打断取放流程）
+    if (!online && m_openExecuteDialog && !m_openDialogOpened) {
+        closeOpenExecuteDialog();
         m_openRequestId.clear();
         m_pendingOpenItems.clear();
         MessageDialog::showWarning(this, QStringLiteral("链路中断"),
@@ -990,24 +1171,38 @@ void ToolCheckinPage::onEdgeOnlineChanged(bool online) {
  * @brief 退出等待态：清在途状态并提示（用户取消/失败后放弃都走这里，零写库）
  */
 void ToolCheckinPage::exitWaitState() {
-    m_currentRequestId.clear();
-    m_pendingItems.clear();
-    m_lastSpots.clear();
+    resetOrderSession();
     MessageDialog::showWarning(this, QStringLiteral("已取消"),
         QStringLiteral("本次核对已终止，未写入任何记录。"));
 }
 
 /**
+ * @brief 复位本次单据会话：清全量单据、轮次计数、轮次状态与在途请求
+ * @return 无
+ * @note  新一单开始、取消、失败退出、页面刷新时统一调用。
+ *        少了这一步，上一单残留的"重新开柜"标记会让下一单沿用旧单据被写库
+ */
+void ToolCheckinPage::resetOrderSession() {
+    m_currentRequestId.clear();
+    m_pendingItems.clear();
+    m_lastSpots.clear();
+    m_orderItems.clear();
+    m_currentRound = 1;
+    m_roundState = RoundState::Running;
+    m_reopenPending = false;
+}
+
+/**
  * @brief 识别结果处理（二段）：比对单据与实况 → 通过项写库 → 结果页展示
  * @note  整单语义：比对未过的项不写库（红字+原因），通过项照常写库并写操作日志；
- *        轮次闭环（重新开柜整理/3轮兜底）在后续步骤实现
+ *        轮次（重新开柜整理/3轮保底）在后续步骤实现
  */
 void ToolCheckinPage::applyRecognitionOutcome() {
-    if (m_pendingItems.isEmpty()) return;
+    if (m_orderItems.isEmpty()) return;
 
     // 页面单据行 → services 比对入参（中立结构，不碰通信层类型）
     QList<ToolService::RecogOrderItem> orderItems;
-    for (const OrderRow& it : m_pendingItems) {
+    for (const OrderRow& it : m_orderItems) {
         ToolService::RecogOrderItem o;
         o.type = it.type;
         o.toolId = it.toolId;
@@ -1018,8 +1213,43 @@ void ToolCheckinPage::applyRecognitionOutcome() {
         orderItems.append(o);
     }
 
+    // 本单据涉及的目标货位不参与全柜核对：这些货位正在被本单处理，
+    // 入库前映射状态还是 pending/checked_out（不在在库清单里），出库后要被取空，
+    // 参与比对会把正常业务动作误报成异常
+    QSet<QString> ignorePositions;
+    for (const OrderRow& it : m_orderItems) {
+        if (!it.position.isEmpty()) ignorePositions.insert(it.position);
+    }
+
+    // 全柜核对基准：库内全量在库货位（只读查询，经 DAO 取数）
+    // 刻意不限机组：边缘机摄像头扫的是整个物理柜子，不分机组；
+    // 机组隔离只约束"能借用/入库/出库哪些工具"，不约束"柜子里实际有什么"。
+    // 若按本机组过滤，别的机组放在货位上的工具会被误报成"来源不明"
+    QList<ToolService::RecogStockItem> stocks;
+    db::ToolDAO toolDao;
+    const QJsonArray inStock = toolDao.findAllInStockPositions(0);
+    for (const QJsonValue& v : inStock) {
+        const QJsonObject o = v.toObject();
+        ToolService::RecogStockItem st;
+        st.mappingId = o["mappingId"].toInt();
+        st.toolId    = o["toolId"].toInt();
+        st.toolCode  = o["toolCode"].toString();
+        st.toolName  = o["toolName"].toString();
+        st.position  = StyleHelper::formatPosition(o["cabinetName"].toString(),
+                                                   o["layer"].toString(),
+                                                   o["position"].toString());
+        if (!st.position.isEmpty()) stocks.append(st);
+    }
+
+    m_lastStockOutcome = ToolService::compareStockWithRecognition(stocks, m_lastSpots, ignorePositions);
+    qInfo() << "[ToolCheckinPage] 全柜核对：库内" << m_lastStockOutcome.stockCount
+            << "个货位，识别" << m_lastStockOutcome.scannedCount << "条，异常"
+            << m_lastStockOutcome.diffs.size() << "处";
+
     auto outcome = ToolService::compareOrderWithRecognition(orderItems, m_lastSpots);
-    showCheckResultDialog(m_pendingItems, outcome.items, outcome.misplaced);
+    showCheckResultDialog(m_orderItems, outcome.items, outcome.misplaced,
+                          m_lastStockOutcome,
+                          m_currentRound, SC::ORDER_MAX_RETRY_ROUNDS);
     m_pendingItems.clear();
     m_lastSpots.clear();
 }

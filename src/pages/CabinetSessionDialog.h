@@ -102,7 +102,7 @@ private:
         QString name;
         QString code;
         QString position;
-        bool inCabinet;
+        bool inCabinet = false;
         bool misplaced = false;      // 放错位置标记（演示专用）
         QString wrongPosition;       // 错放到的位置
     };

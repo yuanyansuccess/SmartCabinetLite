@@ -37,9 +37,7 @@ public:
         static constexpr int ControlHeight       = 44;  // 常规按钮与输入框
         static constexpr int ControlHeightTouch  = 48;  // 触屏标准高度（主要交互控件）
         static constexpr int ControlHeightLarge  = 56;  // 大按钮/强调操作
-        static constexpr int ControlHeightCompact = 32;  // 表格内紧凑控件
         static constexpr int ControlHeightCompactInput = 40;  // 设置页紧凑输入框
-        static constexpr int RowHeight           = 44;  // 表格行高
 
         // ---- 圆角（px）----
         static constexpr int RadiusSmall  = 8;
@@ -63,6 +61,13 @@ public:
         return QString("min-height:%1px;").arg(level);
     }
 
+    /// 生成 border-radius 片段（圆角统一走令牌，新代码禁止写数字）
+    /// @param level 取 StyleHelper::Token::Radius* 系列值（8/10/12/14）
+    /// @return 形如 "border-radius:10px;" 的 QSS 片段
+    static QString radius(int level) {
+        return QString("border-radius:%1px;").arg(level);
+    }
+
     // ============ 颜色方案 ============
     static QString bgColor()         { return "#f0f2f5"; }
     static QString whiteColor()      { return "#ffffff"; }
@@ -77,13 +82,18 @@ public:
     static QString textSecondary()   { return "#666666"; }
     static QString borderColor()     { return "#e0e0e0"; }
 
+    /// 主按钮按下态颜色（原散落裸值 #2e7bd6，语义化收口）
+    static QString primaryPressed()  { return "#2e7bd6"; }
+    /// 危险按钮按下态颜色（原散落裸值 #b71c1c，语义化收口）
+    static QString dangerPressed()   { return "#b71c1c"; }
+
     /// 默认按钮 (白底灰边，用于返回/取消) 统一触屏标准: 44px高 14px字体 10px圆角
     static QString buttonDefault() {
         return QString(
             "QPushButton {"
             "  background: #fff; color: #666;"
             "  border: 1px solid #d0d0d0; border-radius: 10px;"
-            "  padding: 10px 24px; font-size: 14px; font-weight: 600;"
+            "  padding: 10px 24px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 600;"
             "  min-height: 44px; min-width: 80px;"
             "}"
             "QPushButton:hover { background: #f5f5f5; border-color: #b0b0b0; }"
@@ -96,25 +106,25 @@ public:
     static QString buttonPrimary() {
         return QString(
             "QPushButton {"
-            "  background: #4da3ff; color: white; border: none; border-radius: 10px;"
-            "  padding: 10px 28px; font-size: 14px; font-weight: 700;"
+            "  background: %1; color: white; border: none; border-radius: 10px;"
+            "  padding: 10px 28px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 700;"
             "  min-height: 44px; min-width: 100px;"
             "}"
-            "QPushButton:hover { background: #3d8ae0; }"
-            "QPushButton:pressed { background: #2e7bd6; }"
+            "QPushButton:hover { background: %2; }"
+            "QPushButton:pressed { background: %3; }"
             "QPushButton:disabled { background: #cccccc; color: #888888; }"
-        );
+        ).arg(primaryColor(), primaryHover(), primaryPressed());
     }
 
     /// 流程确认清单的清单表格样式（借用/归还/出库"确认清单"对话框共用，唯一定义点）
     static QString listTableStyle() {
         return QString(
             "QTableWidget { border:1px solid #f0f0f0; background:#fff; border-radius:10px; "
-            "  font-family:\"Microsoft YaHei\",sans-serif; font-size:14px; }"
+            "  font-family:\"Microsoft YaHei\",sans-serif; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " }"
             "QTableWidget::item { padding:10px 12px; color:#333; border:none; "
             "  border-bottom:1px solid #f3f3f3; }"
             "QHeaderView::section { background:#f8f9fb; color:#666; font-weight:600; "
-            "  font-size:13px; padding:10px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
+            "  " + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + " padding:10px 12px; border:none; border-bottom:1px solid #f0f0f0; }"
         );
     }
 
@@ -125,7 +135,7 @@ public:
             "QPushButton {"
             "  background: white; color: #4da3ff;"
             "  border: 1px solid #4da3ff; border-radius: 10px;"
-            "  padding: 10px 24px; font-size: 14px; font-weight: 700;"
+            "  padding: 10px 24px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 700;"
             "  min-height: 44px; min-width: 80px;"
             "}"
             "QPushButton:hover { background: #f0f7ff; }"
@@ -138,12 +148,12 @@ public:
         return QString(
             "QPushButton {"
             "  background: %1; color: white; border: none; border-radius: 10px;"
-            "  padding: 10px 28px; font-size: 14px; font-weight: 700;"
+            "  padding: 10px 28px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 700;"
             "  min-height: 44px; min-width: 100px;"
             "}"
             "QPushButton:hover { background: %2; }"
             "QPushButton:pressed { background: %3; }"
-        ).arg(dangerColor(), dangerHover(), "#b71c1c");
+        ).arg(dangerColor(), dangerHover(), dangerPressed());
     }
 
     /// 正文/标签文本色（表格单元格、表单标签等 #333 系列）
@@ -214,7 +224,7 @@ public:
             "QPushButton:pressed { background: %6; }"
         ).arg(primaryColor()).arg(Token::Radius)
          .arg(Token::FontBody).arg(Token::ControlHeightCompactInput)
-         .arg(primaryHover(), "#2e7bd6");
+         .arg(primaryHover(), primaryPressed());
     }
 
     /// 按钮组-次按钮（紧凑版 白底灰边，hover 转主色，原散落 5 处）
@@ -297,7 +307,7 @@ public:
         return QString(
             "QLineEdit {"
             "  border: 1px solid #d0d0d0; border-radius: 10px;"
-            "  padding: 0 14px; font-size: 16px; color: %1;"
+            "  padding: 0 14px; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color: %1;"
             "  background: white; min-height: 48px;"
             "}"
             "QLineEdit:focus { border-color: %2; }"
@@ -348,7 +358,7 @@ public:
               QString::number(Token::ControlHeightTouch));
     }
 
-    /// 设置页面板保存按钮（44px高，14px字体，蓝色实底对齐其他页面主操作）
+    /// 设置页面板保存按钮（44px高，14px字体，蓝色实底与其他页面主操作保持一致）
     static QString settingSaveBtn() {
         return QString(
             "QPushButton {"
@@ -361,7 +371,7 @@ public:
             "QPushButton:pressed { background: %6; }"
         ).arg(primaryColor(), QString::number(Token::Radius),
               QString::number(Token::FontBody), QString::number(Token::ControlHeight),
-              primaryHover(), QStringLiteral("#2e7bd6"));
+              primaryHover(), primaryPressed());
     }
 
 
@@ -389,12 +399,12 @@ public:
         return QString(
             "QComboBox {"
             "  border: 1px solid #d9d9d9; border-radius: 8px;"
-            "  padding: 4px 12px; font-size: 14px; color: %1;"
+            "  padding: 4px 12px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: %1;"
             "  background: white; min-height: 32px;"
             "}"
             "QComboBox:hover { border-color: %2; }"
             "QComboBox::drop-down { border: none; width: 24px; }"
-            "QComboBox QAbstractItemView { font-size: 14px; padding: 6px; }"
+            "QComboBox QAbstractItemView { " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " padding: 6px; }"
         ).arg(textColor(), primaryColor());
     }
 
@@ -403,12 +413,12 @@ public:
     static QString tableActionBtn() {
         return QString(
             "QPushButton { background: %1; color: white; border: none;"
-            "  border-radius: 8px; padding: 6px 18px; font-size: 14px;"
+            "  border-radius: 8px; padding: 6px 18px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ""
             "  font-weight: 600; min-height: 32px; }"
             "QPushButton:hover { background: %2; }"
             "QPushButton:pressed { background: %3; }"
             "QPushButton:disabled { background: #cccccc; color: #999999; }"
-        ).arg(primaryColor(), "#3d8ce0", "#2e7ad6");
+        ).arg(primaryColor(), "#3d8ce0", "#2e7bd6");
     }
 
     // ============ 全局样式表 ============

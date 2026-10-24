@@ -41,8 +41,12 @@ public:
     QList<ToolCategory> getCategories();
     QStringList categoryNames();
 
-    // 统计与机组管理
-    QJsonObject getToolStats();
+    /**
+ * @brief 查询工具统计（全系统唯一口径：位置维度计数）
+ * @param machineGroupId 机组编号：>0 只统计该机组，<=0 统计全库
+ * @return 含 inStockCount/borrowedCount/pendingCount/checkedOutCount/maintenanceCount/totalCount 的对象
+ */
+QJsonObject getToolStats(int machineGroupId = 0);
     QList<QJsonObject> getMachineGroups();
 
 private:

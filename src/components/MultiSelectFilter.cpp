@@ -212,6 +212,20 @@ void MultiSelectFilter::selectAll() {
 }
 
 /**
+ * @brief 仅选中指定选项，其余取消选中
+ * @param options 需要被选中的选项名称列表
+ */
+void MultiSelectFilter::setSelectedOptions(const QStringList& options) {
+    for (auto& pair : m_checkBoxes) {
+        if (pair.second) {
+            pair.second->setChecked(options.contains(pair.first));
+        }
+    }
+    m_selectedCache = options;
+    updateButtonText();
+}
+
+/**
  * @brief 处理筛选按钮点击事件
  */
 void MultiSelectFilter::onFilterBtnClicked() {

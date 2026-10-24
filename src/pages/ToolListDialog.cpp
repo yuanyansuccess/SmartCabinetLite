@@ -12,6 +12,7 @@
 #include "controller/ToolController.h"
 #include "utils/StyleHelper.h"
 #include "common/Constants.h"
+#include "common/AppConfig.h"
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -175,16 +176,27 @@ void ToolListDialog::loadCategories() {
 }
 
 /**
- * @brief 加载机组筛选选项（从数据库动态获取）
+ * @brief 加载机组筛选选项（从数据库动态获取），默认选中本机机组
+ * @note 默认按本机机组过滤，与统计卡片、出入库页口径统一，避免全库与本机柜数字矛盾；管理员可手动切到全部机组
  */
 void ToolListDialog::loadMachineGroups() {
     ToolController ctrl;
     m_allMachineGroups.clear();
     QList<QJsonObject> groups = ctrl.getMachineGroups();
+    int localGroupId = AppConfig::instance().localMachineGroupId();
+    QString localGroupName;
     for (const auto& g : groups) {
         m_allMachineGroups << g["groupName"].toString();
+        // 记录本机机组对应的组名，用于默认按本机机组过滤
+        if (localGroupId > 0 && g["groupId"].toInt() == localGroupId) {
+            localGroupName = g["groupName"].toString();
+        }
     }
     m_machineGroupFilter->setOptions(m_allMachineGroups);
+    // 默认按本机机组过滤（本机机组已配置时），与统计卡片、出入库页口径统一
+    if (!localGroupName.isEmpty()) {
+        m_machineGroupFilter->setSelectedOptions(QStringList() << localGroupName);
+    }
 }
 
 /**

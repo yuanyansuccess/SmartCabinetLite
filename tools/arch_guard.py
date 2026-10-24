@@ -10,16 +10,24 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "src"))
 PAGES = os.path.join(ROOT, "pages")
 COMPONENTS = os.path.join(ROOT, "components")
 SERVICES = os.path.join(ROOT, "services")
+COMMON = os.path.join(ROOT, "common")
+DB = os.path.join(ROOT, "db")
+CONTROLLER = os.path.join(ROOT, "controller")
+MODEL = os.path.join(ROOT, "model")
+UTILS = os.path.join(ROOT, "utils")
 violations = []
 # 规则2 例外：数据库备份属基础设施操作，需连接信息判断DB类型，由页面层调度
 # 注：备份已统一走 mysqldump 外部命令，不再需要直呼 DatabaseManager
 PAGE_DB_MANAGER_ALLOW = {"SystemSettingsPage.cpp"}
 
+# 生成文件前缀（由 moc/uic/rcc 产生，含 SIGNAL/SLOT 宏与裸数字，应跳过避免误报）
+GEN_PREFIXES = ("moc_", "ui_", "qrc_")
+
 
 def scan(folder, exts=(".cpp", ".h")):
     for dirpath, _d, files in os.walk(folder):
         for fn in files:
-            if fn.endswith(exts):
+            if fn.endswith(exts) and not fn.startswith(GEN_PREFIXES):
                 yield os.path.join(dirpath, fn), fn
 
 
@@ -28,51 +36,91 @@ def read(p):
         return f.read()
 
 
-# 规则1：pages 不得写 SQL
-for path, fn in scan(PAGES):
-    content = read(path)
+def strip_comments(content):
+    """去掉 /* */ 块注释与 // 行注释，保留代码与字符串字面量。
+
+    块注释替换为等量换行，避免破坏逐行匹配逻辑；行注释删除到行尾。
+    用于消除「注释里写了 DatabaseManager/TODO」之类的误报。
+    """
+    content = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), content, flags=re.S)
+    content = re.sub(r"//[^\n]*", "", content)
+    return content
+
+
+# ═══════════════════════════════════════════════════════════════
+# 性能优化：单次遍历 + 内容缓存。
+# 原本每条规则独立 read + os.walk，pages 文件被重复读取 8 次；
+# 现一次性收集「文件清单 + 内容」到缓存，所有规则复用同一份内容。
+# ═══════════════════════════════════════════════════════════════
+FILE_CACHE = {}
+
+
+def collect_files(folder):
+    files = []
+    for path, fn in scan(folder):
+        if path not in FILE_CACHE:
+            FILE_CACHE[path] = read(path)
+        files.append((path, fn, FILE_CACHE[path]))
+    return files
+
+
+PAGES_FILES = collect_files(PAGES)
+COMPONENTS_FILES = collect_files(COMPONENTS)
+SERVICES_FILES = collect_files(SERVICES)
+COMMON_FILES = collect_files(COMMON)
+DB_FILES = collect_files(DB)
+CONTROLLER_FILES = collect_files(CONTROLLER)
+MODEL_FILES = collect_files(MODEL)
+UTILS_FILES = collect_files(UTILS)
+# 全量文件（含 utils，供技术债统计与规则6/8 使用）
+ALL_FILES = (PAGES_FILES + COMPONENTS_FILES + SERVICES_FILES + COMMON_FILES
+             + DB_FILES + CONTROLLER_FILES + MODEL_FILES + UTILS_FILES)
+# 规则6 原覆盖范围不含 utils，单独列出以保持与历史一致
+RULE6_FILES = (PAGES_FILES + SERVICES_FILES + COMPONENTS_FILES
+               + DB_FILES + CONTROLLER_FILES + MODEL_FILES + COMMON_FILES)
+
+# 规则1：pages 不得写 SQL（剥注释后匹配，避免注释误报）
+for path, fn, content in PAGES_FILES:
+    code = strip_comments(content)
     for pat in (r"QSqlQuery", r"\.prepare\(", r"lastInsertId"):
-        if re.search(pat, content):
+        if re.search(pat, code):
             violations.append("[SQL] pages 禁止直接操作数据库: %s (%s)" % (fn, pat))
 
-# 规则2：pages 不得直呼 DatabaseManager
-for path, fn in scan(PAGES):
-    for line in read(path).splitlines():
-        if fn in PAGE_DB_MANAGER_ALLOW:
-            continue
+# 规则2：pages 不得直呼 DatabaseManager（剥注释后逐行匹配）
+for path, fn, content in PAGES_FILES:
+    if fn in PAGE_DB_MANAGER_ALLOW:
+        continue
+    for line in strip_comments(content).splitlines():
         if "DatabaseManager" in line and ("instance()" in line or "DatabaseManager::" in line):
             violations.append("[分层] pages 禁止直呼 DatabaseManager: %s" % fn)
             break
 
-# 规则3：禁止 Qt4 信号槽宏（应统一函数指针/lambda）
-for folder in (PAGES, COMPONENTS, SERVICES, os.path.join(ROOT, "common")):
-    for path, fn in scan(folder):
-        if re.search(r"SIGNAL\(|SLOT\(", read(path)):
-            violations.append("[信号槽] 禁止 SIGNAL/SLOT 宏: %s" % fn)
+# 规则3：禁止 Qt4 信号槽宏（应统一函数指针/lambda；剥注释后匹配）
+for path, fn, content in PAGES_FILES + COMPONENTS_FILES + SERVICES_FILES + COMMON_FILES:
+    if re.search(r"SIGNAL\(|SLOT\(", strip_comments(content)):
+        violations.append("[信号槽] 禁止 SIGNAL/SLOT 宏: %s" % fn)
 
 # 规则4：components 不得读 AppConfig（配置属基础设施，应由页面注入）
-for path, fn in scan(COMPONENTS):
-    if "AppConfig::instance()" in read(path):
+for path, fn, content in COMPONENTS_FILES:
+    if "AppConfig::instance()" in strip_comments(content):
         violations.append("[分层] components 禁止读 AppConfig（应由页面注入）: %s" % fn)
 
 # 规则5：services 不得直接取配置单例（应构造注入）
-for path, fn in scan(SERVICES):
-    if "AppConfig::instance()" in read(path):
+for path, fn, content in SERVICES_FILES:
+    if "AppConfig::instance()" in strip_comments(content):
         violations.append("[注入] services 禁止直接取配置单例: %s" % fn)
 
 # 规则6：状态值不得裸字符串比较（应走 SC:: 常量）
-# 覆盖全部层（pages/services/db/controller/model/common/components），并同时匹配 == 与 !=
+# 覆盖全部层（pages/services/db/controller/model/common），并同时匹配 == 与 !=
+# 状态串本身在字符串里，故只剥注释、保留字符串。
 STATE_RE = (r'[=!]=\s*"(scanning|capturing|success|fail|stranger|no-camera|borrowing|returned|'
             r'overdue|in_stock|pending|checked_out|maintenance|unhandled|handled|ignored)"')
-for folder in (PAGES, SERVICES, COMPONENTS,
-               os.path.join(ROOT, "db"), os.path.join(ROOT, "controller"),
-               os.path.join(ROOT, "model"), os.path.join(ROOT, "common")):
-    for path, fn in scan(folder):
-        # Constants.h 是常量定义处，DatabaseManager.cpp 为建表/播种 SQL，均不适用本规则
-        if fn in ("Constants.h", "DatabaseManager.cpp"):
-            continue
-        for m in re.finditer(STATE_RE, read(path)):
-            violations.append("[常量] 状态值禁止裸字符串（用 SC:: 常量）: %s -> %s" % (fn, m.group(0)))
+for path, fn, content in RULE6_FILES:
+    # Constants.h 是常量定义处，DatabaseManager.cpp 为建表/播种 SQL，均不适用本规则
+    if fn in ("Constants.h", "DatabaseManager.cpp"):
+        continue
+    for m in re.finditer(STATE_RE, strip_comments(content)):
+        violations.append("[常量] 状态值禁止裸字符串（用 SC:: 常量）: %s -> %s" % (fn, m.group(0)))
 
 # 规则7：字号与触屏控件高度不得裸写数字（必须走 StyleHelper::Token）
 # 只约束两类真正有触屏标准的取值：
@@ -95,44 +143,39 @@ FONT_SIZE_RE = r"set(PointSize|PixelSize)\(\s*(\d+)\s*\)"
 TOUCH_HEIGHT_RE = (r"[A-Za-z0-9_]*(?:btn|Btn|Button|button|edit|Edit|input|Input|"
                    r"combo|Combo|line|Line|spin|Spin)[A-Za-z0-9_]*\s*->\s*"
                    r"set(Minimum|Fixed)Height\(\s*(\d+)\s*\)")
-for folder in (PAGES, COMPONENTS):
-    for path, fn in scan(folder):
-        for line in read(path).splitlines():
-            if "Token" in line or line.strip().startswith("//"):
-                continue
-            hit = False
-            for m in re.finditer(FONT_SIZE_RE, line):
-                if int(m.group(2)) in TOKEN_FONT:
-                    hit = True
-            for m in re.finditer(TOUCH_HEIGHT_RE, line):
-                if int(m.group(2)) in TOKEN_HEIGHT:
-                    hit = True
-            if hit:
-                violations.append("[令牌] 该取值已有 StyleHelper::Token，禁止裸写数字: %s -> %s"
-                                  % (fn, line.strip()[:80]))
-                break
+for path, fn, content in PAGES_FILES + COMPONENTS_FILES:
+    for line in strip_comments(content).splitlines():
+        if "Token" in line or line.strip().startswith("//"):
+            continue
+        hit = False
+        for m in re.finditer(FONT_SIZE_RE, line):
+            if int(m.group(2)) in TOKEN_FONT:
+                hit = True
+        for m in re.finditer(TOUCH_HEIGHT_RE, line):
+            if int(m.group(2)) in TOKEN_HEIGHT:
+                hit = True
+        if hit:
+            violations.append("[令牌] 该取值已有 StyleHelper::Token，禁止裸写数字: %s -> %s"
+                              % (fn, line.strip()[:80]))
+            break
 
 # 统计项（不计违规）：QSS 文本串中的裸 font-size，供后续 Token 化治理参考
 FONT_PX_TOTAL = 0
-for folder in (PAGES, COMPONENTS):
-    for path, fn in scan(folder):
-        FONT_PX_TOTAL += len(re.findall(r"font-size:\s*\d+px", read(path)))
+for path, fn, content in PAGES_FILES + COMPONENTS_FILES:
+    FONT_PX_TOTAL += len(re.findall(r"font-size:\s*\d+px", strip_comments(content)))
 
 # ═══════════════════════════════════════════════════════════════
 # 规则8：禁止遗留待办标记（TODO/FIXME/XXX/HACK）
 # 待办必须记入 docs 手册的遗留待办表，而不是留在代码里腐烂。
-# 需求类问题另见"历史修改记录注释"提示项。
+# 仅查注释行（tr("TODO") 等字符串字面量不算），消除字符串误报。
 # ═══════════════════════════════════════════════════════════════
 TODO_MARK_RE = r"\b(TODO|FIXME|XXX|HACK)\b"
-for folder in (PAGES, COMPONENTS, SERVICES,
-               os.path.join(ROOT, "db"), os.path.join(ROOT, "controller"),
-               os.path.join(ROOT, "model"), os.path.join(ROOT, "common")):
-    for path, fn in scan(folder):
-        for i, line in enumerate(read(path).splitlines(), 1):
-            if re.search(TODO_MARK_RE, line):
-                violations.append("[待办] 禁止遗留 TODO/FIXME（请记入手册遗留待办表）: %s:%d"
-                                  % (fn, i))
-                break
+for path, fn, content in ALL_FILES:
+    for i, line in enumerate(content.splitlines(), 1):
+        if line.strip().startswith("//") and re.search(TODO_MARK_RE, line):
+            violations.append("[待办] 禁止遗留 TODO/FIXME（请记入手册遗留待办表）: %s:%d"
+                              % (fn, i))
+            break
 
 # ═══════════════════════════════════════════════════════════════
 # 技术债提示项：只统计不阻断。
@@ -144,32 +187,38 @@ HIST_COMMENT_RE = (r"\[V\d+(\.\d+)+\]"
                    r"|(修复|重构|新增|变更|修改|调整|改为|删除|移除)\s*[:：]\s*\S"
                    r"|已删除|已修复|历史遗留|原来是|之前是|改成了")
 SINGLE_VAR_RE = r"\b(?:int|qint64|double|float|bool|auto|QString|QStringList)\s+([a-hj-z])\s*[=;]"
-SINGLE_VAR_ALLOW = set("ijktxyzhgwrb")  # 循环索引/坐标/宽高/颜色等通行惯例
+# 循环索引/坐标/宽高/颜色/指针等通行惯例，避免把惯用单字母误计为债务
+SINGLE_VAR_ALLOW = set("ijktxyzhgwrbpceqnqsdo")
+
+# 新增技术债提示 N1：裸颜色值散落检测（#RRGGBB / #RRGGBBAA）
+# 推动硬编码颜色统一到 StyleHelper 语义方法，降低视觉不一致风险。
+COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?")
+COLOR_ALLOW = {"#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff"}
 
 debt_hist = []
 debt_single = []
 debt_author = 0
-for folder in (PAGES, COMPONENTS, SERVICES,
-               os.path.join(ROOT, "db"), os.path.join(ROOT, "controller"),
-               os.path.join(ROOT, "model"), os.path.join(ROOT, "common"),
-               os.path.join(ROOT, "utils")):
-    for path, fn in scan(folder):
-        text = read(path)
-        for line in text.splitlines():
-            s = line.strip()
-            if s.startswith("//") and re.search(HIST_COMMENT_RE, s):
-                debt_hist.append(fn)
+debt_color = 0
+for path, fn, content in ALL_FILES:
+    text = content
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("//") and re.search(HIST_COMMENT_RE, s):
+            debt_hist.append(fn)
+            break
+    for line in text.splitlines():
+        if line.strip().startswith("//"):
+            continue
+        for m in re.finditer(SINGLE_VAR_RE, line):
+            if m.group(1) not in SINGLE_VAR_ALLOW:
+                debt_single.append(fn)
                 break
-        for line in text.splitlines():
-            if line.strip().startswith("//"):
-                continue
-            for m in re.finditer(SINGLE_VAR_RE, line):
-                if m.group(1) not in SINGLE_VAR_ALLOW:
-                    debt_single.append(fn)
-                    break
-        head = "\n".join(text.splitlines()[:20])
-        if "袁燕" not in head:
-            debt_author += 1
+    head = "\n".join(text.splitlines()[:20])
+    if "袁燕" not in head:
+        debt_author += 1
+    for m in COLOR_RE.finditer(strip_comments(text)):
+        if m.group(0).lower() not in COLOR_ALLOW:
+            debt_color += 1
 
 print("=" * 56)
 print("架构守护报告 arch_guard")
@@ -186,4 +235,5 @@ print("  · 历史修改记录注释（应改功能说明）：%d 处" % len(deb
 print("  · 无意义单字母变量名              ：%d 处" % len(debt_single))
 print("  · 文件头缺「作者：袁燕」          ：%d 处" % debt_author)
 print("  · QSS 裸 font-size                ：%d 处" % FONT_PX_TOTAL)
+print("  · 裸颜色值散落（建议收口到令牌）  ：%d 处" % debt_color)
 sys.exit(0)

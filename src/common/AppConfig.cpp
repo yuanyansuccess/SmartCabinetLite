@@ -60,9 +60,12 @@ AppConfig::~AppConfig() { delete m_settings; }
 QString AppConfig::iniFilePath() const { return m_iniPath; }
 
 
-// 首次运行时创建默认INI文件（与执行文件同级）
-// 写入软件版本号 V2.00 以及各配置节的默认值，确保用户可手动编辑
-// [Qt6兼容] QTextStream::setCodec已移除，QFile::write直接写UTF-8字节流
+/**
+ * @brief 首次运行时创建默认 INI 文件（与可执行文件同级）
+ * @details 写入软件版本号与各配置节默认值，确保用户可手动编辑；
+ *          直接写 UTF-8 字节流（Qt6 不再提供 QTextStream::setCodec，需自行保证编码）
+ * @param path 要创建的 INI 文件完整路径
+ */
 void AppConfig::createDefaultIni(const QString& path) {
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -132,22 +135,27 @@ void AppConfig::createDefaultIni(const QString& path) {
 // ═══════════════════════════════════════════════
 /**
  * @brief 读取数据库主机地址
+ * @return 数据库主机地址（IP 或域名）
  */
 QString AppConfig::dbHost() const { QMutexLocker l(&m_mutex); return m_host; }
 /**
  * @brief 读取数据库端口
+ * @return 数据库端口号
  */
 int     AppConfig::dbPort() const { QMutexLocker l(&m_mutex); return m_port; }
 /**
  * @brief 读取数据库名
+ * @return 数据库名称
  */
 QString AppConfig::dbName() const { QMutexLocker l(&m_mutex); return m_name; }
 /**
  * @brief 读取数据库账号
+ * @return 数据库登录账号
  */
 QString AppConfig::dbUser() const { QMutexLocker l(&m_mutex); return m_user; }
 /**
  * @brief 读取数据库口令
+ * @return 数据库登录口令
  */
 QString AppConfig::dbPass() const { QMutexLocker l(&m_mutex); return m_pass; }
 
@@ -179,6 +187,7 @@ QString AppConfig::appVersion() const {
 // ═══════════════════════════════════════════════
 /**
  * @brief 读取本机组ID
+ * @return 本机组ID；未配置时返回 0
  */
 int AppConfig::localMachineGroupId() const {
     QMutexLocker l(&m_mutex); return m_localGroupId;
@@ -239,16 +248,19 @@ void AppConfig::setNetNetworkMode(int v)        { QMutexLocker l(&m_mutex); m_se
 int AppConfig::alertBuzzerVol() const   { QMutexLocker l(&m_mutex); return m_settings->value("Alert/buzzer_vol",       SC::ALERT_BUZZER_VOL).toInt(); }
 /**
  * @brief 设置告警蜂鸣器音量
+ * @param v 音量值，范围 0~100
  */
 void AppConfig::setAlertBuzzerVol(int v)          { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/buzzer_vol", v); }
 bool AppConfig::alertLedEnabled() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/led_enabled",      SC::ALERT_LED_ENABLED).toBool(); }
 /**
  * @brief 设置告警指示灯开关
+ * @param v true 开启告警指示灯，false 关闭
  */
 void AppConfig::setAlertLedEnabled(bool v)        { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/led_enabled", v); }
 int AppConfig::alertOverdueHours() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/overdue_hours",     SC::ALERT_OVERDUE_HOURS).toInt(); }
 /**
  * @brief 设置逾期告警阈值（小时）
+ * @param v 逾期阈值，单位小时
  */
 void AppConfig::setAlertOverdueHours(int v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/overdue_hours", v); }
 int AppConfig::alertDoorTimeout() const  { QMutexLocker l(&m_mutex); return m_settings->value("Alert/door_timeout",      SC::ALERT_DOOR_TIMEOUT).toInt(); }
@@ -260,16 +272,19 @@ void AppConfig::setAlertDoorTimeout(int v)        { QMutexLocker l(&m_mutex); m_
 bool AppConfig::alertVisionEnabled() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/vision_enabled",      SC::ALERT_VISION_ENABLED).toBool(); }
 /**
  * @brief 设置视觉异常告警开关
+ * @param v true 开启视觉异常告警，false 关闭
  */
 void AppConfig::setAlertVisionEnabled(bool v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/vision_enabled", v); }
 int AppConfig::alertPowerAlarmMode() const{ QMutexLocker l(&m_mutex); return m_settings->value("Alert/power_alarm_mode",  SC::ALERT_POWER_ALARM_MODE).toInt(); }
 /**
  * @brief 设置告警电源告警模式
+ * @param v 电源告警模式编码，具体取值见 SC::ALERT_POWER_ALARM_MODE 常量
  */
 void AppConfig::setAlertPowerAlarmMode(int v)     { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/power_alarm_mode", v); }
 bool AppConfig::alertAutoConfirm() const { QMutexLocker l(&m_mutex); return m_settings->value("Alert/auto_confirm",      SC::ALERT_AUTO_CONFIRM).toBool(); }
 /**
  * @brief 设置告警自动确认
+ * @param v true 告警自动确认，false 需人工确认
  */
 void AppConfig::setAlertAutoConfirm(bool v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Alert/auto_confirm", v); }
 
@@ -280,11 +295,13 @@ int AppConfig::borrowMaxCount() const       { QMutexLocker l(&m_mutex); return m
 int AppConfig::borrowDefaultPeriod() const  { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/default_period",    SC::BORROW_DEFAULT_PERIOD).toInt(); }
 /**
  * @brief 设置借用默认周期
+ * @param v 默认借用周期（天）
  */
 void AppConfig::setBorrowDefaultPeriod(int v)         { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/default_period", v); }
 int AppConfig::borrowReturnBuffer() const   { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/return_buffer",     SC::BORROW_RETURN_BUFFER).toInt(); }
 /**
  * @brief 设置归还缓冲时间（分钟）
+ * @param v 归还缓冲时间，单位分钟
  */
 void AppConfig::setBorrowReturnBuffer(int v)          { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/return_buffer", v); }
 
@@ -295,6 +312,7 @@ void AppConfig::setBorrowReturnBuffer(int v)          { QMutexLocker l(&m_mutex)
 int AppConfig::borrowBrightness() const     { QMutexLocker l(&m_mutex); return m_settings->value("Borrow/brightness",       SC::BORROW_BRIGHTNESS).toInt(); }
 /**
  * @brief 设置借用亮度
+ * @param v 亮度值，范围 0~100
  */
 void AppConfig::setBorrowBrightness(int v)            { QMutexLocker l(&m_mutex); m_settings->setValue("Borrow/brightness", v); }
 
@@ -304,32 +322,44 @@ void AppConfig::setBorrowBrightness(int v)            { QMutexLocker l(&m_mutex)
 bool AppConfig::backupAutoEnabled() const  { QMutexLocker l(&m_mutex); return m_settings->value("Backup/auto_enabled", SC::BACKUP_AUTO_ENABLED).toBool(); }
 /**
  * @brief 设置是否自动备份
+ * @param v true 启用定时自动备份，false 关闭
  */
 void AppConfig::setBackupAutoEnabled(bool v)       { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/auto_enabled", v); }
 int AppConfig::backupPeriod() const        { QMutexLocker l(&m_mutex); return m_settings->value("Backup/period",       SC::BACKUP_PERIOD).toInt(); }
 /**
  * @brief 设置备份周期
+ * @param v 自动备份周期值（单位以备份策略为准）
  */
 void AppConfig::setBackupPeriod(int v)             { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/period", v); }
 int AppConfig::backupCacheHours() const    { QMutexLocker l(&m_mutex); return m_settings->value("Backup/cache_hours",  SC::BACKUP_CACHE_HOURS).toInt(); }
 /**
  * @brief 设置备份缓存时长（小时）
+ * @param v 备份缓存时长，单位小时
  */
 void AppConfig::setBackupCacheHours(int v)         { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/cache_hours", v); }
 QString AppConfig::backupPath() const      { QMutexLocker l(&m_mutex); return m_settings->value("Backup/path",         SC::BACKUP_PATH).toString(); }
 
+/**
+ * @brief 读取上次执行数据库备份的日期，用来保证同一天不重复备份
+ * @return 上次备份的日期；从没备份过时返回无效日期
+ */
 QDate AppConfig::lastBackupDate() const {
     QMutexLocker l(&m_mutex);
     QString stored = m_settings->value("Backup/last_backup_date", "").toString().trimmed();
-    return stored.isEmpty() ? QDate() : QDate::fromString(stored, "yyyy-MM-dd");
+    return stored.isEmpty() ? QDate() : QDate::fromString(stored, SC::DATE_FORMAT);
 }
 
+/**
+ * @brief 记下本次备份的日期，写进配置文件供下次启动比对
+ * @param d 本次备份日期
+ */
 void AppConfig::setLastBackupDate(const QDate& d) {
     QMutexLocker l(&m_mutex);
-    m_settings->setValue("Backup/last_backup_date", d.toString("yyyy-MM-dd"));
+    m_settings->setValue("Backup/last_backup_date", d.toString(SC::DATE_FORMAT));
 }
 /**
  * @brief 设置备份路径
+ * @param v 备份文件存放目录路径
  */
 void AppConfig::setBackupPath(const QString& v)    { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/path", v); }
 
@@ -349,6 +379,8 @@ QString AppConfig::value(const QString& key, const QString& defaultValue) const 
 
 /**
  * @brief 写入配置项到内存（需调用 save 落盘）
+ * @param key 配置键名
+ * @param value 要写入的配置值（与 key 对应）
  */
 void AppConfig::setValue(const QString& key, const QString& value) {
     QMutexLocker l(&m_mutex);

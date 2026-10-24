@@ -53,7 +53,7 @@ private slots:
     void onResetPwdInDialog();
     /** 编辑对话框内人脸录入/查看：未录入打开采集流程，已录入打开查看与清除 */
     void onFaceEnrollInDialog();
-    /** 搜索框点击→弹出用户名软键盘(对齐登录页) */
+    /** 搜索框点击→弹出用户名软键盘(与登录页一致) */
     void onSearchFieldClicked();
     // 更新角色按钮组样式
     void updateRoleBtnStyles();
@@ -70,7 +70,7 @@ private slots:
 private:
     void setupUI();
     void loadUsers();
-    /** 从DB动态加载部门列表，失败降级硬编码(对齐Web版loadDepartments策略) */
+    /** 从DB动态加载部门列表，失败降级硬编码(沿用Web版loadDepartments策略) */
     void loadDepartments();
 
     /** 人脸录入对话框构建与状态机（ctx聚合本次会话全部控件与采集状态） */
@@ -88,7 +88,7 @@ private:
     QLineEdit* m_searchEdit;
     QPushButton* m_searchKeyboardBtn = nullptr;  // 搜索框⌨按钮
     QPushButton* m_deptFilterBtn;  // 部门多选按钮
-    // 动态部门列表(从DB加载,对齐Web版departmentOptions)
+    // 动态部门列表(从DB加载,沿用Web版departmentOptions)
     QStringList m_departmentOptions;
     QDialog* m_deptPopup = nullptr;  // QFrame→QDialog修复checkbox选不中问题
     QList<QPair<QString, QCheckBox*>> m_deptCheckBoxes;  // 部门复选框列表

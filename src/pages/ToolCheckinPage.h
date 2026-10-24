@@ -7,9 +7,10 @@
  *   1. 单据列表逐行添加指令，每行仅两项内容：工具名称 + 类型（入库/出库），
  *      位置由系统按对照关系自动带出（一个工具只在一个位置）
  *   2. 点击"确认出入库"先进入开箱环节（柜体打开动画 + 单据摘要）
- *   3. 用户按单据放入/取出工具后关闭柜门，系统逐项执行并检查：
- *      成功项写入记录（入库写 checkin 日志 / 出库写 checkout 日志），
- *      未完成项红字提示且不写记录，可重新执行
+ *   3. 用户按单据放入/取出工具后关闭柜门，系统进行边缘机核对：
+ *      比对全过则整单写入记录（入库写 checkin 日志 / 出库写 checkout 日志）；
+ *      未全过可【重新开柜整理】重来（上限 SC::ORDER_MAX_RETRY_ROUNDS 轮）或
+ *      【按当前实况写库】（通过项写入、未过项红字提示且不写记录）
  * 入库成功写 sys_operation_log(operation_type='checkin')，出库成功写
  * sys_operation_log(operation_type='checkout')，两个记录 Tab 分别展示历史。
  */
@@ -24,16 +25,22 @@ class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QTabWidget>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QSet>
 #include "services/ToolService.h"  // 单据与实况比对（services 层，页面经中立结构调用）
 
 class PaginationBar;  // 通用分页栏组件
-class DrawerOpeningDialog;  // 开柜/等待弹窗（识别等待态复用）
+class DrawerOpeningDialog;  // 开柜/取放工具统一弹窗（识别等待态复用）
+class QTimer;  // 关柜等待超时计时
 
 namespace Ui { class ToolCheckinPage; }  // Qt Designer 生成的静态布局
 
 class ToolCheckinPage : public QWidget {
     Q_OBJECT
 public:
+    /// 单据轮次状态（内存态）：Running=本轮核对中；Passed=本轮全部通过；
+    /// Partial=有未过项可继续整理；GivenUp=轮次用尽按当前实况写库
+    enum class RoundState { Running, Passed, Partial, GivenUp };
+
     explicit ToolCheckinPage(QWidget* parent = nullptr);
     ~ToolCheckinPage();
     void refresh();
@@ -52,11 +59,11 @@ public slots:
     void onRecognitionResult(const QString& requestId, const QList<ToolService::RecogSpot>& spots);
     /// 识别失败（超时/离线/补发放弃）：reason 为人读原因，直接提示用户
     void onRecognitionFailed(const QString& requestId, const QString& reason);
-    /// 边缘机链路心跳状态变化（周期帧驱动）：更新链路标签，等待中掉线时即时收敛
+    /// 边缘机链路心跳状态变化（周期帧驱动）：更新链路标签，等待中掉线时即时更新
     void onEdgeOnlineChanged(bool online);
     /// 开箱指令回传：requestId 非空=已发出（进入开柜等待态）；空串=未发出（离线/写入失败）
     void onOpenStarted(const QString& requestId);
-    /// 开箱成功（柜体已真实打开）：进入开箱环节（showOrderExecuteDialog）
+    /// 开箱成功（柜体已真实打开）：统一弹窗原地切换到"柜体已打开"状态（不再新弹窗）
     void onOpenFinished(const QString& requestId, bool success, const QString& message);
     /// 开箱失败（超时/离线/补发放弃）：提示并终止本次
     void onOpenFailed(const QString& requestId, const QString& reason);
@@ -67,6 +74,7 @@ private slots:
     void onBatchImportInRows();// 一键导入入库行：批量勾选待入库工具，一次生成多条入库指令
     void onSubmit();           // 确认出入库：校验单据→发开箱指令→关柜检查
     void cancelOpen();         // 开柜等待中用户取消（清状态，零写库）
+    void onCloseWaitTimeout(); // 柜体打开后等待关柜超时：关闭弹窗并提示确认柜门已关（零写库）
     void onTabChanged(int index);   // Tab切换时加载数据
     void onRecordPrevPage();   // 入库记录上一页
     void onRecordNextPage();   // 入库记录下一页
@@ -83,6 +91,7 @@ private:
         QString toolName;    // 工具名称
         QString position;    // 位置展示串（A-01-02）
         QJsonObject posInfo; // 位置原始信息（cabinetId/layer/position等，入库执行用）
+        bool borrowedOut = false; // true=该出库行是"已借出未归还"转出库（工具不在柜内，不需要开箱）
     };
 
     void setupUI();
@@ -100,20 +109,62 @@ private:
     void clearOrderTable();                              // 清空单据
 
     // ── 确认后的两段式流程 ──
-    bool validateOrderItems(const QList<OrderRow>& items); // 执行前最终校验（位置实时核对）
-    void showOrderExecuteDialog(const QList<OrderRow>& items); // 开箱环节：柜体打开+单据摘要
-    /// 关柜检查：按边缘机比对结论逐项执行并显示结果
-    /// @param items         单据指令列表（与 compareItems 同序）
-    /// @param compareItems  比对结论：Matched 项写库，其余项红字展示不写库
+    bool validateOrderItems(QList<OrderRow>& items); // 执行前最终校验（位置实时核对并回填）
+    bool orderNeedsOpening(const QList<OrderRow>& items) const; // 单据是否需要开箱
+    void submitBorrowedOutWithoutOpening(const QList<OrderRow>& items); // 整单借出转出库：不开箱直接写库并出结果页
+
+    /**
+     * @brief 构建"开柜+取放工具"统一弹窗（开柜中与柜体已打开共用同一个页面）
+     * @param items 本次要展示的出入库单据（首次=全量单据；重新开柜整理=未通过项）
+     * @return 新建弹窗指针（显示与关闭由调用方负责）
+     * @note 弹窗初始为"正在打开柜体"状态，开柜成功后由 applyOpenOpenedState 原地切换文案与按钮，
+     *       全程只有一个页面，避免两个弹窗先后出现造成画面跳闪
+     */
+    DrawerOpeningDialog* buildOpenExecuteDialog(const QList<OrderRow>& items);
+
+    /**
+     * @brief 统一弹窗切换到"柜体已打开"状态：更新标题、提示文案与按钮，并启动关柜等待计时
+     * @param dlg 统一弹窗指针（空指针直接返回，不做处理）
+     */
+    void applyOpenOpenedState(DrawerOpeningDialog* dlg);
+
+    /**
+     * @brief 关闭统一弹窗（程序内部关闭：开柜失败/链路中断等场景，不弹"用户取消"提示）
+     */
+    void closeOpenExecuteDialog();
+    /// 关柜检查：按边缘机比对结论逐项执行并显示结果（含三轮重开柜流程）
+    /// @param items         单据指令列表（与 compareItems 同序，为全量单据 m_orderItems）
+    /// @param compareItems  比对结论：Matched 项视为通过，其余项红字展示不写库
     /// @param misplaced     错放明细（结果页提示行，不写库）
+    /// @param stockOutcome  全柜核对结论（库内全量货位 vs 实况清单；diffs 为空=全柜一致）
+    /// @param round         当前轮次（从 1 开始，用于判定是否仍可重新开柜整理）
+    /// @param maxRounds     重试上限（SC::ORDER_MAX_RETRY_ROUNDS），到达后只给按实况写库
     void showCheckResultDialog(const QList<OrderRow>& items,
                                const QList<ToolService::RecogCompareItem>& compareItems,
-                               const QList<ToolService::RecogMisplaced>& misplaced);
+                               const QList<ToolService::RecogMisplaced>& misplaced,
+                               const ToolService::RecogStockOutcome& stockOutcome,
+                               int round, int maxRounds);
+
+    /**
+     * @brief 写本轮识别的操作日志（每轮一条，用于追溯"第几轮、哪些项没过"）
+     * @param round        当前轮次（从 1 开始）
+     * @param items        本轮核对的全量单据
+     * @param compareItems 本轮逐项比对结论
+     * @param misplaced    本轮错放明细
+     * @param allPassed    本轮是否全部通过
+     * @return 无。写库失败只记录日志，不影响界面
+     * @note  日志内容按约定写 JSON：{round, order[], misplaced[], unknown[], result}
+     */
+    void writeRoundLog(int round, const QList<OrderRow>& items,
+                       const QList<ToolService::RecogCompareItem>& compareItems,
+                       const QList<ToolService::RecogMisplaced>& misplaced,
+                       bool allPassed);
 
     // ── 边缘机识别两段式流程 ──
-    void startEdgeCheck(const QList<OrderRow>& items);  // 发起识别并进入等待态（链路离线则拒绝本次）
+    void startEdgeCheck();  // 发起识别并进入等待态（用全量单据 m_orderItems，链路离线则拒绝本次）
     void applyRecognitionOutcome();                     // 识别回来：比对→写库→结果页
     void exitWaitState();                               // 退出等待态（失败/取消时恢复界面可用）
+    void resetOrderSession();                            // 复位本次单据会话（全量单据/轮次/状态/在途请求）
 
     // Tab容器
     QTabWidget* m_tabWidget = nullptr;
@@ -131,10 +182,18 @@ private:
     QString m_currentRequestId;          ///< 当前在途识别请求编号（空=无在途）
     QList<OrderRow> m_pendingItems;      ///< 等待识别结果的单据（识别期间暂存）
     QList<ToolService::RecogSpot> m_lastSpots;  ///< 最近一次识别返回的全柜实况清单
+    ToolService::RecogStockOutcome m_lastStockOutcome;  ///< 最近一次全柜核对结论（结果页展示用）
+    QList<OrderRow> m_orderItems;        ///< 本轮出入库全量单据（首轮确认后固定，重开柜不重置）
+    int m_currentRound = 1;              ///< 当前重试轮次（从 1 开始，到达上限后只给按实况写库）
+    RoundState m_roundState = RoundState::Running;  ///< 本单轮次状态（内存态，控制结果页出口与文案）
     QDialog* m_waitDialog = nullptr;     ///< 识别等待框（模态，结果回来/失败时关闭）
     QString m_openRequestId;             ///< 当前在途开箱请求编号（空=无在途）
     QList<OrderRow> m_pendingOpenItems;  ///< 开箱成功后待进入开箱环节的单据（开箱期间暂存）
-    QDialog* m_openWaitDialog = nullptr; ///< 开柜等待框（模态，开箱ack回来/失败时关闭）
+    bool m_reopenPending = false;        ///< 下一次开箱属"重新开柜整理"（保留轮次与全量单据，不重置）
+    DrawerOpeningDialog* m_openExecuteDialog = nullptr; ///< 开柜+取放工具统一弹窗（开柜中→柜体已打开，同一页面原地切换）
+    bool m_openDialogOpened = false;      ///< 统一弹窗是否已切换到"柜体已打开"状态（区分开柜阶段与取放阶段）
+    bool m_openDialogInternalClose = false; ///< 统一弹窗是否为程序内部关闭（区分用户取消与程序关闭）
+    QTimer* m_closeWaitTimer = nullptr;   ///< 关柜等待超时计时（柜体打开后起算，超时提示确认柜门已关）
 
     // 状态
     QLabel* m_errorLabel = nullptr;

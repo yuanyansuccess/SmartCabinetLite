@@ -7,6 +7,7 @@
  */
 #include "CabinetSessionDialog.h"
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include "db/TaskTypeDAO.h"
 #include "common/AppConfig.h"
 #include "common/PositionFormatter.h"
@@ -153,13 +154,13 @@ void CabinetSessionDialog::buildOpenPage()
     bar->setFixedSize(5, 22);
     bar->setStyleSheet("background:#4da3ff; border-radius:3px;");
     QLabel* ptLabel = new QLabel(QStringLiteral("我的任务工具"));
-    ptLabel->setStyleSheet(QString("font-size: 20px; font-weight: 700; color: %1; background: transparent;")
+    ptLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; color: %1; background: transparent;")
                                .arg(StyleHelper::textColor()));
     QLabel* ptSub = new QLabel(QStringLiteral("按任务类型查看 · 仅供拿取时参考"));
-    ptSub->setStyleSheet("font-size: 14px; color: #8a94a6; background: transparent;");
+    ptSub->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: #8a94a6; background: transparent;");
     m_stockCountLabel = new QLabel(QString());
     m_stockCountLabel->setStyleSheet(
-        "font-size: 14px; color: #52c41a; font-weight: 600; background: #f6ffed;"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: #52c41a; font-weight: 600; background: #f6ffed;"
         "border: 1px solid #b7eb8f; padding: 3px 12px; border-radius: 999px;");
     ptRow->addWidget(bar);
     ptRow->addWidget(ptLabel);
@@ -251,7 +252,10 @@ void CabinetSessionDialog::loadMyTaskTools()
     }
 }
 
-// 切换任务类型页签：更新选中态并重建卡片区
+/**
+ * @brief 切换任务类型页签：更新选中态并重建卡片区
+ * @param idx 要选中的任务类型页签索引
+ */
 void CabinetSessionDialog::selectTypeTab(int idx)
 {
     if (idx < 0 || idx >= m_myTypes.size()) return;
@@ -274,7 +278,7 @@ void CabinetSessionDialog::rebuildToolCards()
     if (m_myTypes.isEmpty()) {
         QLabel* hint = new QLabel(QStringLiteral("暂无任务类型工具"));
         hint->setAlignment(Qt::AlignCenter);
-        hint->setStyleSheet("font-size: 18px; color: #b0b8c6; background: transparent; padding: 40px;");
+        hint->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " color: #b0b8c6; background: transparent; padding: 40px;");
         grid->addWidget(hint, 0, 0, 1, 3);
         m_stockCountLabel->setText(QStringLiteral("在库 0 件"));
     } else {
@@ -283,7 +287,7 @@ void CabinetSessionDialog::rebuildToolCards()
         if (cur.tools.isEmpty()) {
             QLabel* hint = new QLabel(QStringLiteral("该任务类型下暂无在库工具"));
             hint->setAlignment(Qt::AlignCenter);
-            hint->setStyleSheet("font-size: 18px; color: #b0b8c6; background: transparent; padding: 40px;");
+            hint->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " color: #b0b8c6; background: transparent; padding: 40px;");
             grid->addWidget(hint, 0, 0, 1, 3);
         } else {
             for (int i = 0; i < cur.tools.size(); ++i)
@@ -294,7 +298,11 @@ void CabinetSessionDialog::rebuildToolCards()
     m_toolsScroll->setWidget(host);   // QScrollArea自动销毁旧内容
 }
 
-// 构建单个只读工具卡片（工具名/编号/位置徽章，左侧绿色竖条标识在库）
+/**
+ * @brief 构建单个只读工具卡片（工具名/编号/位置徽章，左侧绿色竖条标识在库）
+ * @param row 工具数据（名称/编号/位置）
+ * @return 只读工具卡片控件
+ */
 QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
 {
     QWidget* card = new QWidget();
@@ -305,15 +313,15 @@ QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
     v->setContentsMargins(16, 12, 16, 12);
     v->setSpacing(6);
     QLabel* name = new QLabel(row.name);
-    name->setStyleSheet(QString("font-size: 18px; font-weight: 700; color: %1;"
+    name->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " font-weight: 700; color: %1;"
                                 "background: transparent; border: none;")
                             .arg(StyleHelper::textColor()));
     QLabel* code = new QLabel(QStringLiteral("编号 %1").arg(row.code));
-    code->setStyleSheet("font-size: 14px; color: #8a94a6; background: transparent; border: none;");
+    code->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: #8a94a6; background: transparent; border: none;");
     QLabel* pos = new QLabel(row.pos);
     pos->setAlignment(Qt::AlignCenter);
     pos->setFixedWidth(110);
-    pos->setStyleSheet("font-size: 15px; font-weight: 700; color: #2e7bd6; background: #e8f3ff;"
+    pos->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " font-weight: 700; color: #2e7bd6; background: #e8f3ff;"
                        "border: none; border-radius: 6px; padding: 2px 0;");
     QHBoxLayout* r2 = new QHBoxLayout();
     r2->setSpacing(8);
@@ -348,7 +356,7 @@ void CabinetSessionDialog::buildResultPage()
     borrowLay->setSpacing(10);
     QLabel* borrowTitle = new QLabel();
     borrowTitle->setAlignment(Qt::AlignCenter);
-    borrowTitle->setStyleSheet(QString("font-size: 20px; font-weight: 700; color: %1;")
+    borrowTitle->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; color: %1;")
                                    .arg(StyleHelper::warningColor()));
     borrowLay->addWidget(borrowTitle);
     m_borrowListLayout = new QVBoxLayout();
@@ -364,7 +372,7 @@ void CabinetSessionDialog::buildResultPage()
     returnLay->setSpacing(10);
     QLabel* returnTitle = new QLabel();
     returnTitle->setAlignment(Qt::AlignCenter);
-    returnTitle->setStyleSheet(QString("font-size: 20px; font-weight: 700; color: %1;")
+    returnTitle->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; color: %1;")
                                    .arg(StyleHelper::successColor()));
     returnLay->addWidget(returnTitle);
     m_returnListLayout = new QVBoxLayout();
@@ -380,7 +388,7 @@ void CabinetSessionDialog::buildResultPage()
     alertLay->setSpacing(10);
     QLabel* alertTitle = new QLabel();
     alertTitle->setAlignment(Qt::AlignCenter);
-    alertTitle->setStyleSheet(QString("font-size: 20px; font-weight: 700; color: %1;")
+    alertTitle->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; color: %1;")
                                   .arg(StyleHelper::dangerColor()));
     alertLay->addWidget(alertTitle);
     m_alertListLayout = new QVBoxLayout();
@@ -393,7 +401,7 @@ void CabinetSessionDialog::buildResultPage()
     // 无差异提示（默认隐藏）
     m_noChangeLabel = new QLabel(QStringLiteral("本次无借用、归还记录"));
     m_noChangeLabel->setAlignment(Qt::AlignCenter);
-    m_noChangeLabel->setStyleSheet(QString("font-size: 22px; color: %1;")
+    m_noChangeLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + " color: %1;")
                                        .arg(StyleHelper::textSecondary()));
     m_noChangeLabel->hide();
     lay->addWidget(m_noChangeLabel);
@@ -405,7 +413,7 @@ void CabinetSessionDialog::buildResultPage()
     confirmBtn->setStyleSheet(QString(
         "QPushButton {"
         "  background: %1; color: white; border: none; border-radius: 14px;"
-        "  font-size: 20px; font-weight: 700; min-height: 64px; min-width: 320px;"
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontHeading) + " font-weight: 700; min-height: 64px; min-width: 320px;"
         "}"
         "QPushButton:hover { background: %2; }"
         "QPushButton:pressed { background: #2e7d32; }"
@@ -436,7 +444,7 @@ void CabinetSessionDialog::buildDemoPanel()
 
     QLabel* tip = new QLabel(QStringLiteral("演示专用：点击按钮模拟工具拿走/放回，产品版由传感器自动感知"));
     tip->setWordWrap(true);
-    tip->setStyleSheet(QString("font-size: 14px; color: %1;").arg(StyleHelper::textSecondary()));
+    tip->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: %1;").arg(StyleHelper::textSecondary()));
     lay->addWidget(tip);
 
     for (int i = 0; i < m_tools.size(); ++i) {
@@ -446,7 +454,7 @@ void CabinetSessionDialog::buildDemoPanel()
         const MockTool& tool = m_tools[i];
         QLabel* info = new QLabel(QStringLiteral("%1  %2  %3")
                                       .arg(tool.name, tool.code, tool.position));
-        info->setStyleSheet(QString("font-size: 16px; color: %1;").arg(StyleHelper::textColor()));
+        info->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color: %1;").arg(StyleHelper::textColor()));
         QPushButton* statusBtn = new QPushButton();
         statusBtn->setStyleSheet(StyleHelper::buttonOutline());
         statusBtn->setFixedWidth(100);
@@ -467,6 +475,8 @@ void CabinetSessionDialog::buildDemoPanel()
 
 /**
  * @brief 位号+1生成"错放位置"（A-01-02 → A-01-03），仅演示用
+ * @param position 原货位（如 A-01-02）
+ * @return 错放演示货位（位号+1，如 A-01-03）
  */
 QString CabinetSessionDialog::bumpedPosition(const QString& position)
 {
@@ -526,6 +536,9 @@ void CabinetSessionDialog::toggleDemoPanel()
 
 /**
  * @brief 事件过滤：开柜图标在1.5秒内连点3次 → 切换演示面板
+ * @param watched 被监视对象
+ * @param event 事件
+ * @return true 表示已处理（吞掉该事件）
  */
 bool CabinetSessionDialog::eventFilter(QObject* watched, QEvent* event)
 {
@@ -566,16 +579,9 @@ void CabinetSessionDialog::onCloseCabinetClicked()
     }
 
     // 清空上次的差异行
-    auto clearRows = [](QVBoxLayout* lay) {
-        while (lay->count() > 0) {
-            QLayoutItem* item = lay->takeAt(0);
-            if (item->widget()) item->widget()->deleteLater();
-            delete item;
-        }
-    };
-    clearRows(m_borrowListLayout);
-    clearRows(m_returnListLayout);
-    clearRows(m_alertListLayout);
+    LayoutHelper::clearItemsAndDeleteWidgets(m_borrowListLayout);
+    LayoutHelper::clearItemsAndDeleteWidgets(m_returnListLayout);
+    LayoutHelper::clearItemsAndDeleteWidgets(m_alertListLayout);
 
     bool hasChange = !borrowed.isEmpty() || !returned.isEmpty() || !alerts.isEmpty();
     m_borrowBlock->setVisible(!borrowed.isEmpty());
@@ -587,7 +593,7 @@ void CabinetSessionDialog::onCloseCabinetClicked()
         for (const QString& row : rows) {
             QLabel* label = new QLabel(QStringLiteral("· %1").arg(row));
             label->setAlignment(Qt::AlignCenter);
-            label->setStyleSheet(QString("font-size: 18px; color: %1;").arg(StyleHelper::textColor()));
+            label->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontTitle) + " color: %1;").arg(StyleHelper::textColor()));
             lay->addWidget(label);
         }
     };

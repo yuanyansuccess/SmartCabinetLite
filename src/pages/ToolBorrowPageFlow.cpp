@@ -18,7 +18,7 @@
 #include "services/BorrowService.h"
 #include "common/AppConfig.h"       // 获取本机机组ID
 #include "common/Constants.h"       // 分页常量
-#include "services/AlertService.h"    // 告警闭环写入
+#include "services/AlertService.h"    // 告警写入
 #include "model/AlertLog.h"         // AlertLog实体
 #include "db/ToolDAO.h"            // 查询机组名称和位置映射
 #include "components/SoftKeyboard.h"
@@ -80,7 +80,7 @@ void ToolBorrowPage::onBorrowConfirm() {
                               .toString(SC::TIMESTAMP_FORMAT);
     // 校验借用总数量不超过系统设置的单次最大借出数量
     int maxBorrow = AppConfig::instance().borrowMaxCount();
-    if (maxBorrow <= 0) maxBorrow = 5;  // 兜底默认值
+    if (maxBorrow <= 0) maxBorrow = 5;  // 保底默认值
     int totalQty = 0;
     for (const auto& tool : m_selectedTools) totalQty += tool.quantity;
     if (totalQty > maxBorrow) {
@@ -290,7 +290,7 @@ void ToolBorrowPage::showToolVerifyDialog() {
     dlg.setFixedSize(520, 420);
     int result = dlg.exec();
     if (result == 2) {
-        // 忽略或倒计时结束：写告警日志（闭环）
+        // 忽略或倒计时结束：写告警日志（收尾）
         int alertToolId = 0;
         if (!m_selectedTools.isEmpty()) {
             alertToolId = m_selectedTools.first().toolId;

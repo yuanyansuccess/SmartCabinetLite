@@ -12,12 +12,14 @@
 namespace db {
 
 /**
- * @brief 新增日志
+ * @brief 新增一条人脸识别日志
+ * @param log 待写入的日志对象（含用户ID/相似度/结果等）
+ * @return true=写入成功
  */
 bool FaceRecogLogDAO::insertLog(const FaceRecogLog& log) {
     QSqlDatabase db = getDb();
 
-    // 向前兼容：补齐第二名/质量复盘字段。列已存在时 ALTER 报错可忽略，
+    // 向前兼容：补齐第二名/质量回顾字段。列已存在时 ALTER 报错可忽略，
     // 旧库/旧备份导入的表首次写入会自动加列，不破坏既有数据。
     static bool schemaReady = false;
     if (!schemaReady) {

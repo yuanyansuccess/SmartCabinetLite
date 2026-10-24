@@ -33,6 +33,10 @@ public:
     /// 设置全部选中
     void selectAll();
 
+    /// 仅选中指定选项，其余取消选中
+    /// @param options 需要被选中的选项名称列表（不在列表中的项将被取消选中）
+    void setSelectedOptions(const QStringList& options);
+
 signals:
     /// 选项变化时发射（仅在用户点确定后发射）
     void selectionChanged(const QStringList& selected);

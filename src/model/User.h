@@ -18,7 +18,7 @@ struct User {
     int     deptId       = 0;
     /// 部门名称：只读展示字段，由 dept_id 关联 sys_department 得到，不写入用户表
     QString department;
-    QString role         = "user";
+    QString role         = SC::ROLE_USER;  // 角色走 SC:: 常量，与 Constants.h 口径一致
     int     mustChangePwd = 0;    // 1=下次登录强制修改初始密码（新建/重置时置1，改密成功后清0）
     QString faceFeature;       // 人脸特征(base64)
     QString phone;

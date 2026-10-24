@@ -44,7 +44,7 @@
  */
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent),
     m_faceCamera(nullptr) {
-    // 暗蓝渐变背景 (复刻Vue版) stop0.4对齐Vue版40%断点
+    // 暗蓝渐变背景 (复刻Vue版) stop0.4与Vue版40%断点一致
     setStyleSheet("background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0d1b2a,stop:0.4 #162d45,stop:1 #1e3f5e);");
     setupUI();
 
@@ -342,7 +342,7 @@ void LoginPage::resetPageState() {
     }
     m_activeField.clear();
 
-    // 10. 延迟重新启动人脸识别（对齐构造函数中的延迟；relogin=false=首次登录场景）
+    // 10. 延迟重新启动人脸识别（与构造函数中的延迟一致；relogin=false=首次登录场景）
     QTimer::singleShot(SC::FACE_RETRY_DELAY_MS, this, [this]() { startFaceRecognition(false); });
 }
 
@@ -560,7 +560,7 @@ void LoginPage::setFaceResult(FaceResult state) {
         m_altLoginHint->setVisible(false);
         m_passwordForm->setVisible(true);
         m_tryFaceBtn->setVisible(true);
-        // 对齐Web版：失败状态红点 (dot-red)
+        // 沿用Web版：失败状态红点 (dot-red)
         setStatusDot("background:#ff4d4f;");
     } else if (state == FaceResult::NoCamera) {
         // no-camera状态隐藏整个摄像头容器 (Web版无camera-area占位)

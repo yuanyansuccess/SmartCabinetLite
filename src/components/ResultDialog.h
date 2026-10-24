@@ -34,6 +34,19 @@ public:
     void addFinishButtonCentered(const QString& text, const QString& style);
     /// 按钮行完成按钮（归还/入库/出库样式：buttonPrimary + stretch居中）
     void addFinishButtonRow(const QString& text, const QString& style, int minWidth);
+    /// 双按钮行（左=次按钮，右=主按钮），点击后关闭并记录动作标识供调用方分支
+    /// @param leftText   左侧按钮文字
+    /// @param leftStyle  左侧按钮样式
+    /// @param rightText  右侧按钮文字
+    /// @param rightStyle 右侧按钮样式
+    /// @param minWidth   按钮最小宽度
+    void addTwoButtonsRow(const QString& leftText, const QString& leftStyle,
+                          const QString& rightText, const QString& rightStyle, int minWidth);
+    /// 最近一次点击的双按钮动作（"reopen"=重新开柜整理 / "writeNow"=按当前实况写库）；单按钮完成页为空串
+    QString clickedAction() const { return m_clickedAction; }
+    /// 设置单按钮（完成类）按钮的动作标识：点击时写入 clickedAction，便于调用方区分"用户明确点了确认"与"直接关窗"
+    /// @param action 动作标识（调用方自定义，如 "writeNow"）
+    void setFinishAction(const QString& action) { m_finishAction = action; }
 
 protected:
     /// 显示时统一居中到父窗口（兼容麒麟窗口管理器）
@@ -42,4 +55,6 @@ protected:
 private:
     QVBoxLayout* m_layout = nullptr;
     QVBoxLayout* m_body = nullptr;
+    QString m_clickedAction;   ///< 双按钮点击动作标识（空=未使用双按钮）
+    QString m_finishAction;    ///< 单按钮点击动作标识（空=点了也不记录动作）
 };

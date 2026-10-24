@@ -30,9 +30,12 @@ public:
     QVBoxLayout* bodyLayout() const { return m_body; }
 
     /// 修改"下一步"按钮文案（默认"下一步 →"，页面可按场景定制，如"我已关柜，开始核对"）
+    /// @note 按钮宽度按文案自适应且只增不减：长文案不会被裁切，切换文案时宽度不跳动
     void setNextButtonText(const QString& text);
     /// 动态修改提示文案（等待态切换用，如切到"正在核对柜内工具…"）
     void setDescHtml(const QString& html);
+    /// 动态修改标题文案（同一页面切换状态用，如"正在打开柜体"切到"柜体已打开"）
+    void setTitleText(const QString& text);
     /// 启用/禁用"下一步"按钮（等待态禁用，防止重复提交）
     void setNextEnabled(bool enabled);
 
@@ -45,6 +48,7 @@ protected:
 
     QVBoxLayout* m_layout = nullptr;         // 主布局
     QVBoxLayout* m_body = nullptr;           // 页面内容槽位
+    QLabel* m_titleLabel = nullptr;          // 标题文案（setTitleText 动态切换用）
     QLabel* m_descLabel = nullptr;           // 提示文案（setDescHtml 动态切换用）
     QPushButton* m_nextBtn = nullptr;        // 下一步按钮（文案/启用态动态控制用）
     int m_spinnerHeight = 60;

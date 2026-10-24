@@ -74,21 +74,38 @@ DrawerOpeningDialog::DrawerOpeningDialog(const QString& windowTitle, const QStri
     btnRow->addWidget(nextBtn);
     m_layout->addLayout(btnRow);
 
+    m_titleLabel = titleLabel; // 留指针供 setTitleText 动态切换标题
     m_descLabel = descLabel;   // 留指针供 setDescHtml 动态切换文案
     m_nextBtn = nextBtn;       // 留指针供 setNextButtonText/setNextEnabled 使用
 }
 
 /// 修改"下一步"按钮文案（页面按场景定制，不影响其它调用方默认值）
+/// @param text 按钮要显示的文案
 void DrawerOpeningDialog::setNextButtonText(const QString& text) {
-    if (m_nextBtn) m_nextBtn->setText(text);
+    if (!m_nextBtn) return;
+    m_nextBtn->setText(text);
+    // 按钮宽度按文案自适应且只增不减：长文案（如"我已关柜，开始核对 →"）不会被裁切，
+    // 同一页面反复切换文案时按钮宽度保持不变（切换瞬间不产生宽度跳动）
+    const int needed = m_nextBtn->sizeHint().width();   // 已含样式内边距，是不裁切文字所需的宽度
+    if (needed > m_nextBtn->minimumWidth()) {
+        m_nextBtn->setMinimumWidth(needed);
+    }
 }
 
 /// 动态修改提示文案（等待态切换用）
+/// @param html 提示区要显示的富文本（HTML 片段）
 void DrawerOpeningDialog::setDescHtml(const QString& html) {
     if (m_descLabel) m_descLabel->setText(html);
 }
 
+/// 动态修改标题文案（同一页面切换状态用）
+/// @param text 标题区要显示的文案
+void DrawerOpeningDialog::setTitleText(const QString& text) {
+    if (m_titleLabel) m_titleLabel->setText(text);
+}
+
 /// 启用/禁用"下一步"按钮（等待态禁用，防止用户重复提交）
+/// @param enabled true 启用按钮，false 禁用
 void DrawerOpeningDialog::setNextEnabled(bool enabled) {
     if (m_nextBtn) m_nextBtn->setEnabled(enabled);
 }

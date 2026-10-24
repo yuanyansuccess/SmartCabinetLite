@@ -10,7 +10,7 @@
 #include "ui_ToolManagementPage.h"
 #include "components/PaginationBar.h"
 #include "utils/StyleHelper.h"
-#include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
+#include "components/FormFactory.h"  // 表单控件工厂（统一重复lambda）
 #include "controller/ToolController.h"
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"

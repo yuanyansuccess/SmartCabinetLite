@@ -1,0 +1,13 @@
+{
+  "_comment": "路径均相对于仓库根目录（SmartCabinetLite）。新人只需改 test_user 与 timeouts 即可。",
+  "host_exe": "build/Debug/QtSmartCabinet.exe",
+  "sim_exe": "tools/EdgeSimulator/release/EdgeSimulator.exe",
+  "host_workdir": "build/Debug",
+  "sim_workdir": "tools/EdgeSimulator/release",
+  "host_log_dir": "build/Debug/logs",
+  "sim_log": "tools/EdgeSimulator/release/EdgeSimulator_log.txt",
+  "edge_port": 9000,
+  "test_user": { "work_no": "001", "password": "Test@123456" },
+  "timeouts": { "app_start": 25, "connect": 15, "open": 15, "recognize": 15, "offline": 22, "reconnect": 40 },
+  "report_dir": "tools/ui_test/reports"
+}

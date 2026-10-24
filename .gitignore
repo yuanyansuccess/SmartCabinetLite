@@ -67,3 +67,6 @@ tools/EdgeSimulator/debug/
 tools/face-recognition/_tmp_*
 tools/face-recognition/server_timing*
 tools/face-recognition/test_face_sample.*
+
+tools/ui_test/__pycache__/
+tools/ui_test/reports/

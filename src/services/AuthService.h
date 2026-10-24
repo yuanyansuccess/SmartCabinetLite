@@ -15,9 +15,10 @@ class AuthService : public QObject {
 public:
     explicit AuthService(QObject* parent = nullptr);
     
-    struct LoginResult { 
-        bool success; 
-        QString message; 
+    struct LoginResult {
+        // 基础类型不写默认值会取到随机值，调用方可能把未赋值的失败结果当成成功
+        bool success = false;
+        QString message;
         QJsonObject user; 
         /// 本次失败是否恰好触发整机锁定：页面据此弹出醒目的锁定警示框
         bool locked = false;

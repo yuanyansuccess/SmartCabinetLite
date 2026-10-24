@@ -30,7 +30,7 @@
 </head>
 <body>
 <h1>工具出入库：边缘机识别后写库 — 流程设计</h1>
-<div class="meta">SmartCabinetLite · 2026-10-21 · V4 · 整体流程 + 重开柜细节 + 三轮上限 + 8 路摄像头开柜闸门 + 异常清单 + 存储设计 + 实施计划</div>
+<div class="meta">SmartCabinetLite · 2026-10-23 · V5 · 整体流程 + 重开柜细节 + 三轮上限 + 8 路摄像头开柜闸门 + 借出转出库免开箱分支 + 异常清单 + 存储设计 + 实施计划</div>
 
 <div class="legend">
   <span><b>图例</b></span>
@@ -113,6 +113,18 @@
     <text x="555" y="1334" class="node-sub">成功页 / 兜底结果页关闭后均回到①</text>
   </g>
 
+  <!-- 借出转出库免开箱分支节点（左侧留白区） -->
+  <g filter="url(#soft)">
+    <rect x="60" y="236" width="310" height="64" rx="12" fill="url(#gOrange)"/>
+    <rect x="60" y="360" width="310" height="76" rx="12" fill="url(#gGreen)"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="215" y="264" class="node-title">判断：整单都是"借出未归还"转出库？</text>
+    <text x="215" y="286" class="node-sub">这类工具不在柜内，没有取放动作</text>
+    <text x="215" y="390" class="node-title">免开箱直接出库</text>
+    <text x="215" y="412" class="node-sub">不下发开锁指令、不发识别请求、不做柜内核对</text>
+    <text x="215" y="430" class="node-sub">写库（借出→出库）+ 结清借用记录 + 操作日志</text>
+  </g>
   <!-- 主干连线 -->
   <g stroke="#7a8aa0" stroke-width="1.8" fill="none" marker-end="url(#arr)">
     <path d="M555,86 L555,126"/>
@@ -128,6 +140,17 @@
     <path d="M555,1100 L555,1176" stroke="#52c41a"/>
     <path d="M555,1240 L555,1286"/>
   </g>
+  <!-- 借出转出库分支连线 -->
+  <g stroke="#7a8aa0" stroke-width="1.6" fill="none" marker-end="url(#arr)">
+    <path d="M420,258 L392,258 L392,268 L372,268"/>
+    <path d="M370,286 L392,286 L392,358 L416,358"/>
+    <path d="M215,300 L215,356" stroke="#52c41a"/>
+    <path d="M110,436 L45,436 L45,1210 L416,1210" stroke="#52c41a"/>
+  </g>
+  <text x="374" y="280" class="branch-label" fill="#7a8aa0">否</text>
+  <text x="222" y="332" class="branch-label" fill="#52c41a">是</text>
+  <text x="55" y="1196" class="edge-label" fill="#52c41a">整单直接写入</text>
+  <text x="55" y="470" class="edge-label" fill="#52c41a">免开箱路径</text>
   <text x="570" y="1152" class="branch-label" fill="#52c41a">是</text>
 
   <!-- 右侧分支 -->
@@ -388,6 +411,9 @@
   <tr><td>2</td><td>空单据</td><td>collectOrderItems</td><td>红字"请先添加出入库指令"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>3</td><td>同工具多行入库</td><td>onSubmit 查重（QSet）</td><td>弹窗"已有多行入库指令，请删除多余行"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>4</td><td>位置被占/工具信息加载失败</td><td>validateOrderItems</td><td>弹窗指明原因，留在单据界面</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+  <tr><td rowspan="2"><b>A2 借出转出库</b><br/><span style="font-size:12px;color:#888;">免开箱路径</span></td>
+      <td>4-1</td><td>单据里借出工具已被归还或再次出库</td><td>validateOrderItems（借出行按借出状态核对）</td><td>弹窗"已不在借出中，请删除该行后重新添加"，零写库</td><td><span class="tag t-new">本次新增</span></td></tr>
+  <tr><td>4-2</td><td>借出工具与在库工具混在同一单</td><td>orderNeedsOpening</td><td>仍走开箱流程；借出行不参与柜内核对，核对结束后与在库行一并写入</td><td><span class="tag t-new">本次新增</span></td></tr>
   <tr><td rowspan="6"><b>B 通信</b><br/><span style="font-size:12px;color:#888;">流程进行中</span></td>
       <td>5</td><td>边缘机链路离线</td><td>点确认时查 m_online</td><td>拒绝本次，不写库，提示"边缘机链路离线"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>6</td><td>关柜信号超时（不关门/IO板故障）</td><td>关柜等待计时器</td><td>提示"请确认柜门已关"，提供【取消】</td><td><span class="tag t-ok">已覆盖</span></td></tr>
@@ -458,6 +484,7 @@
   <tr><td>5</td><td>src/MainWindow.{h,cpp}</td><td>构造 EdgeService 实例并注入 ToolCheckinPage（页面不自己 new，符合分层铁律）</td></tr>
   <tr><td>6</td><td>src/db/RecordDAO 或 ToolCheckinPage</td><td>轮次日志写入（insertOperationLog 复用，type 用新常量，content 组 JSON）</td></tr>
   <tr><td>7</td><td>tests/</td><td>①compareOrderWithRecognition 纯函数单测：6 场景（全过/空位/错工具/低置信/未知物品/错放）②带库 test_services 补充轮次日志断言</td></tr>
+  <tr><td>8</td><td>借出转出库（免开箱）</td><td>①<code>ToolDAO::findBorrowedOutPositions()</code>：查映射表 status='borrowed' 的位置明细（借出的工具仍占原位置记录）②出库下拉追加借出中工具并标注"免开箱"③<code>ToolCheckinPage::orderNeedsOpening()</code> 判定是否需要开箱④整单借出时 <code>submitBorrowedOutWithoutOpening()</code> 跳过开箱与识别、直接写库⑤<code>RecordDAO::finishBorrowsByCheckout()</code> 结清借用记录，避免台账显示"借用中"</td></tr>
 </table>
 <div class="note"><b>无边缘机时的测试策略</b>：现场没有真实边缘机，①"离线拒绝"路径可直接实测（EdgeService 离线→点确认→验证拒绝不写库）②真识别路径用单测 mock——把 RecognizeResult 直接喂给 compareOrderWithRecognition 验证比对与轮次推进，不依赖硬件 ③GUI 冒烟走"离线拒绝"与"我已关柜顶替"路径。</div>
 <h3 style="font-size:15px;margin:14px 0 10px;">二期（IO 板就绪后）</h3>

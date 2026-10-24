@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>边缘计算机模拟器 · 前端页面设计</title>
+<style>
+  body { font-family: "Microsoft YaHei","Noto Sans CJK SC",sans-serif; background:#f2f4f7; color:#1f2329; margin:0; padding:28px 34px; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  .sub { color:#666; font-size:14px; margin-bottom:22px; }
+  h2 { font-size:19px; margin:30px 0 10px; padding-left:10px; border-left:4px solid #4da3ff; }
+  h3 { font-size:16px; margin:18px 0 8px; }
+  table { border-collapse:collapse; width:100%; background:#fff; font-size:13.5px; }
+  th,td { border:1px solid #e3e6ea; padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#f7f9fb; font-weight:700; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:4px; font-size:12px; background:#eaf3ff; color:#2e7ad6; margin-right:4px; }
+  .tag.new { background:#eaf7ea; color:#3da33d; }
+  .tag.ok { background:#f0f0f0; color:#666; }
+  /* ---- 模拟窗口线框 ---- */
+  .win { background:#fff; border:1px solid #cfd6de; border-radius:10px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,.08); }
+  .win-title { background:#2f3640; color:#fff; padding:9px 14px; font-size:13.5px; display:flex; justify-content:space-between; }
+  .topbar { display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid #e3e6ea; background:#fafbfc; flex-wrap:wrap; }
+  .mid { display:flex; }
+  .side { width:190px; background:#f7f9fb; border-right:1px solid #e3e6ea; padding:12px 0; }
+  .side .it { padding:10px 16px; font-size:14px; border-left:3px solid transparent; }
+  .side .it.on { background:#fff; border-left-color:#4da3ff; color:#2e7ad6; font-weight:700; }
+  .work { flex:1; padding:14px 16px; }
+  .statusbar { display:flex; gap:14px; align-items:center; padding:9px 14px; background:#f0f7ff; border-bottom:1px solid #e3e6ea; font-size:13.5px; }
+  .btn { border:1px solid #cfd6de; background:#fff; border-radius:6px; padding:7px 14px; font-size:13px; }
+  .btn.p { background:#4da3ff; color:#fff; border-color:#4da3ff; }
+  .btn.g { background:#52c41a; color:#fff; border-color:#52c41a; }
+  .btn.o { background:#ff9d3d; color:#fff; border-color:#ff9d3d; }
+  .inp { border:1px solid #cfd6de; border-radius:5px; padding:6px 9px; font-size:13px; background:#fff; display:inline-block; min-width:80px; }
+  .lbl { font-size:12.5px; color:#555; }
+  .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; font-size:12px; }
+  .grid .c { border:1px solid #e3e6ea; border-radius:4px; padding:5px 6px; background:#fbfcfd; }
+  .tbl { font-size:12px; border-collapse:collapse; width:100%; }
+  .tbl th,.tbl td { border:1px solid #e3e6ea; padding:5px 6px; }
+  .tbl th { background:#f7f9fb; }
+  .ok { color:#3da33d; } .warn { color:#ff9d3d; } .err { color:#e74c3c; }
+  .log { background:#1e2229; color:#c8d0da; font-size:11.5px; padding:10px; border-radius:6px; height:190px; overflow:hidden; line-height:1.55; }
+  .log .b { color:#6fd3a0; } .log .y { color:#ffd479; } .log .r { color:#ff8b7b; } .log .g { color:#9aa7b8; }
+  .callout { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:#4da3ff; color:#fff; border-radius:50%; font-size:12px; margin-right:6px; }
+  .note { background:#fff8e6; border-left:4px solid #ff9d3d; padding:10px 12px; font-size:13.5px; margin:10px 0; }
+</style>
+</head>
+<body>
+<h1>边缘计算机模拟器 · 前端页面设计（先对齐，后落地）</h1>
+<div class="sub">目标：新手 5 分钟上手 · 每个环节都能配 · 覆盖出入库正向/逆向/异常全流程 · 数据与上位机同库同源 · 数据库口令写在 ini 不让人手输</div>
+
+<h2>一、整体布局（新版主窗口线框）</h2>
+<div class="card">
+  <p style="margin:0 0 12px;font-size:13.5px;">现有 5 个"协议页签"改成 <b>4 步工作台</b>（左栏步骤导航 + 右侧工作区 + 底部日志），每一步的界面元素与上位机出入库流程的环节一一对应：先连上→定单据→配回应→注入异常。</p>
+  <div class="win">
+    <div class="win-title"><span>边缘计算机模拟器 — 出入库联调工作台</span><span>[日志: EdgeSimulator_log.txt]</span></div>
+    <div class="topbar">
+      <span class="callout">1</span>
+      <span class="lbl">上位机</span><span class="inp">127.0.0.1</span><span class="inp">9000</span>
+      <span class="btn p">连接</span><span class="btn">断开</span>
+      <span class="lbl">状态：</span><span class="ok">● 已连接</span>
+      <span class="lbl">自动重连</span><span class="inp">☑</span>
+      <span class="lbl">收 24 / 发 18 / 坏帧 0</span>
+      <span style="flex:1"></span>
+      <span class="btn o">一键标准联调</span>
+    </div>
+    <div class="statusbar">
+      <span class="callout">2</span>
+      <span>当前生效：<b class="ok">自定义清单</b>（识别回应 = 下方「模拟清单」逐行）</span>
+      <span class="lbl">｜数据库：</span><span class="ok">已连接 smart_cabinet</span>
+      <span class="lbl">（root / 口令取自 simulator.ini，无需手输）</span>
+      <span class="lbl">｜在库货位 107 ｜工具 107</span>
+    </div>
+    <div class="mid">
+      <div class="side">
+        <div class="it on">① 连接与数据</div>
+        <div class="it">② 单据模拟</div>
+        <div class="it">③ 识别回应</div>
+        <div class="it">④ 异常注入</div>
+        <div class="it">⑤ 场景预设</div>
+      </div>
+      <div class="work">
+        <div style="margin-bottom:8px;"><span class="callout">3</span><b>② 单据模拟</b> — 定义"这一单要核对什么"</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span class="btn">从库读取工具与货位</span>
+          <span class="btn">按本单生成清单</span>
+          <span class="btn g">全部识别正常</span>
+          <span class="btn o">只保留本单行</span>
+          <span class="btn">插入行</span><span class="btn">删除选中行</span>
+        </div>
+        <table class="tbl">
+          <tr><th style="width:74px;">货位</th><th style="width:78px;">工具编号</th><th style="width:96px;">工具名</th><th style="width:118px;">本单归属</th><th style="width:104px;">识别结果</th><th style="width:60px;">置信度</th><th style="width:70px;">告警类型</th><th style="width:52px;">级别</th><th style="width:46px;">回应</th></tr>
+          <tr><td>A-01-05</td><td>JZ01-KB</td><td>9# 开口扳手</td><td><span class="tag new">本单-入库</span></td><td><span class="ok">正常</span></td><td>95</td><td>normal</td><td>1</td><td>☑</td></tr>
+          <tr><td>A-01-06</td><td>JZ01-HG</td><td>活动扳手</td><td><span class="tag new">本单-入库</span></td><td><span class="err">错放</span></td><td>91</td><td>misplaced</td><td>2</td><td>☑</td></tr>
+          <tr><td>A-02-01</td><td>JZ02-SD</td><td>手动套筒</td><td><span class="tag">本单-出库</span></td><td><span class="ok">正常</span></td><td>97</td><td>normal</td><td>1</td><td>☑</td></tr>
+          <tr><td>A-02-02</td><td>JZ02-BH</td><td>绝缘柄</td><td><span class="tag">本单-出库</span></td><td><span class="warn">低置信</span></td><td>72</td><td>low_confidence</td><td>2</td><td>☑</td></tr>
+          <tr><td>A-03-01</td><td>—</td><td>（认不出）</td><td><span class="tag ok">非本单</span></td><td><span class="err">未知物品</span></td><td>40</td><td>unknown</td><td>2</td><td>☑</td></tr>
+          <tr><td>A-03-02</td><td>JZ03-LS</td><td>扭力扳手</td><td><span class="tag ok">非本单</span></td><td><span class="ok">正常</span></td><td>96</td><td>normal</td><td>1</td><td>☑</td></tr>
+        </table>
+        <div style="margin:8px 0 14px;"><span class="callout">4</span><b>③ 识别回应</b> — 收到 <code>recognize_req</code> 时怎么答</div>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <span class="lbl">回应内容</span><span class="inp">自定义清单 ▾</span>
+          <span class="lbl">回应延迟</span><span class="inp">200 ms</span>
+          <span class="lbl">开箱回应</span><span class="inp">自动成功 ▾</span>
+          <span class="lbl">多轮序列</span><span class="inp">☑ 开</span><span class="inp">①正常 → ②部分未过 → ③按实况</span>
+        </div>
+        <div style="margin-bottom:8px;"><span class="callout">5</span><b>④ 异常注入</b> — 链路与帧级异常</div>
+        <div class="grid">
+          <div class="c">停发周期帧<br><span class="err">15s 判离线</span></div>
+          <div class="c">识别不回应<br><span class="err">测超时重发</span></div>
+          <div class="c">坏帧 JSON</div>
+          <div class="c">未知 type</div>
+          <div class="c">超长帧</div>
+          <div class="c">乱序 request_id</div>
+          <div class="c">重复回包 ×2</div>
+          <div class="c">粘包</div>
+          <div class="c">延迟回应</div>
+          <div class="c">摄像头 dirty</div>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid #e3e6ea; padding:12px 16px;">
+      <div style="margin-bottom:6px;"><span class="callout">6</span><b>⑤ 场景预设</b> — 6 个典型场景一键套用（底部日志区常驻，收发分色）</div>
+      <div class="log">
+        <span class="g">16:41:02 [事件] 已连接上位机 127.0.0.1:9000</span><br>
+        <span class="b">16:41:12 ← 收到 recognize_req id=req-7c21</span><br>
+        <span class="y">16:41:12 → 回 recognize_ack items=6 (含 misplaced×1, low_confidence×1)</span><br>
+        <span class="g">16:41:12 [事件] 场景序列推进到第 2 轮：部分未过</span>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <b>与现状的差别</b>：① 由"协议页签"改为"按上位机流程分步"；② 新增「本单归属」概念（本单-入库 / 本单-出库 / 本单-借出转出库 / 非本单），一处配置同时满足"边缘机返回全部扫描结果"与"某些工具要按出入库单据核对"；③ 数据库口令改为 ini 内置 root/root，界面不再让测试人员手输；④ 异常注入收成一个卡片网格，新手一眼看全。
+  </div>
+</div>
+
+<div class="note"><b>布局防乱的做法</b>：① 工作区（右侧）套滚动条，窗口变小或内容变多时按内容高度滚动，不会把清单表压扁、也不会让按钮行和表格叠在一起；② 长文字控件一律放"控件列"、标签列保持窄，避免把右侧控件顶出窗口；③ 长下拉框设宽度上限（最长项文字放 tooltip）；④ 各页表格与列表都有最小高度，缩放窗口不塌陷。</div>
+
+<h2>二、各步骤界面元素清单</h2>
+<div class="card">
+<table>
+  <tr><th style="width:120px;">步骤</th><th style="width:180px;">界面元素</th><th>作用与取值</th></tr>
+  <tr><td rowspan="6"><b>① 连接与数据</b></td>
+      <td>上位机地址 / 端口</td><td>默认 127.0.0.1:9000，取 ini，可改</td></tr>
+  <tr><td>连接 / 断开 按钮</td><td>连上上位机；断开后按退避策略自动重连（1/2/4/8/16/30 秒）</td></tr>
+  <tr><td>数据库：主机/端口/库名/账号/口令</td><td><b>全部读 ini，不让测试人员手输</b>；界面上只显示"已连接 smart_cabinet"，可点【改连接参数】临时改</td></tr>
+  <tr><td>【从库读取工具与货位】</td><td>读 tool_info / tool_position_mapping / tool_cabinet（与上位机同一批表、同一库），填货位与工具下拉框</td></tr>
+  <tr><td>【一键标准联调】</td><td>连接 + 读库 + 生成全量在库基线清单 + 识别回应=自定义清单 + 周期帧自动发送，一步到位</td></tr>
+  <tr><td>收发计数</td><td>收 / 发 / 坏帧 / 丢弃帧计数，排查丢帧时一眼定位</td></tr>
+
+  <tr><td rowspan="5"><b>② 单据模拟</b></td>
+      <td>清单表（主控件）</td><td>见第三节列定义；一行 = 一个货位的识别结果</td></tr>
+  <tr><td>【按本单生成清单】</td><td>在清单区先勾选"本单工具"（从库里选），点此按钮自动生成：本单-入库行 + 本单-出库行 + 非本单在库行（边缘机"全部扫描"基线）</td></tr>
+  <tr><td>【全部识别正常】</td><td>一键把全表识别结果改回 normal（造"完美通过"场景）</td></tr>
+  <tr><td>【只保留本单行】</td><td>只回应本单相关货位，模拟"边缘机只扫了本单区域"</td></tr>
+  <tr><td>【插入行】/【删除选中行】</td><td>手工补一行（货位+编号+归属+结果）或删掉误加的行</td></tr>
+
+  <tr><td rowspan="5"><b>③ 识别回应</b><br/><span style="font-size:12px;color:#888;">页顶版本/开箱，下面识别回应</span></td>
+      <td>版本查询 3.5</td><td>版本号（默认 1.2.0）+【立即回 version_ack】；上位机发 version_query 时自动回</td></tr>
+  <tr><td>开箱回应 3.7</td><td>自动成功 / 固定失败（可填原因文案）/ 不回应</td></tr>
+  <tr><td>回应内容 3.3</td><td>下拉：自定义清单 / 正常清单 / 有借有还 / 无变化 / 错放 / 未知物 / 置信度不足 / 缺失 / 不回应</td></tr>
+  <tr><td>回应延迟 ms</td><td>0 = 立即；>3000 可触发上位机超时重发（异常 #7）</td></tr>
+  <tr><td>多轮序列</td><td>按序回放：第1轮全过 → 第2轮部分未过 → 第3轮仍不过（异常 #19）</td></tr>
+  <tr><td rowspan="3"><b>④ 异常注入</b></td>
+      <td>周期帧异常</td><td>停发周期帧 N 秒（→ 15 秒判离线，异常 #5/#8）、摄像头 8 路自检状态逐路可设（异常 #25 闸门拦截）</td></tr>
+  <tr><td>帧级异常</td><td>坏帧 JSON / 未知 type / 超长帧 / 乱序 request_id / 重复回包 ×2 / 粘包（异常 #9）</td></tr>
+  <tr><td>立即动作</td><td>【立即发一帧周期帧】等调试按钮</td></tr>
+  <tr><td rowspan="2"><b>⑤ 场景预设</b></td>
+      <td>场景预设</td><td>下拉 6 项：正向全过 / 部分未过 / 三轮兜底 / 离线拒绝 / 逆向借出转出库 / 摄像头闸门；套用后清单、回应场景、多轮序列、摄像头状态同步改好，可再手动微调</td></tr>
+  <tr><td>日志区</td><td>常驻窗口底部（收发分色 + 事件行）；【保存日志】导出带时间戳文本；左侧显示收/发/坏帧计数</td></tr>
+</table>
+<div class="note"><b>新手路径</b>：启动 → 点【一键标准联调】→ 在上位机建一单出入库 → 在模拟器②里【按本单生成清单】→ 回上位机点确认 → 看日志与上位机结果页。想测异常就点④里的卡片。想保存配置就关窗口（配置自动落 ini）。</div>
+</div>
+
+<h2>三、模拟清单表（核心）列定义与生成规则</h2>
+<div class="card">
+<table>
+  <tr><th style="width:96px;">列</th><th style="width:150px;">取值</th><th>说明</th></tr>
+  <tr><td>货位</td><td>A-01-05</td><td>格式与上位机单据完全一致（复用主工程 PositionFormatter，保证两边显示同形）</td></tr>
+  <tr><td>工具编号</td><td>JZ01-KB</td><td>选货位时自动带出该货位在库的工具编号；未知物品行留空</td></tr>
+  <tr><td>工具名</td><td>9# 开口扳手</td><td>只读展示，来自库</td></tr>
+  <tr><td><b>本单归属</b></td><td>本单-入库 / 本单-出库 / <b>本单-借出转出库</b> / 非本单</td><td>决定上位机把这一行当"入库要放的位置"还是"出库要取的位置"；借出转出库＝逆向流程（免开箱、不参与柜内核对）</td></tr>
+  <tr><td><b>识别结果</b></td><td>正常 / 错放 / 未知物品 / 缺失 / 低置信 / 货位空</td><td>决定这一行回给上位机时带的 alert_type 与 tool_id 是否为空</td></tr>
+  <tr><td>置信度</td><td>0~1（表格里 0.95）</td><td>低于上位机门槛 0.85 判低置信；手动加行区按百分比填（95）</td></tr>
+  <tr><td>告警类型</td><td>none / misplaced / unknown / missing / low_confidence</td><td>协议字段，随识别结果自动带出（正常项与货位空为 none、级别 0）</td></tr>
+  <tr><td>级别</td><td>0~3</td><td>协议字段，正常项与货位空为 0，其余默认 2</td></tr>
+  <tr><td>回应</td><td>☑ / ☐</td><td>不勾的行不发给上位机（模拟"该货位没扫到"）</td></tr>
+</table>
+<h3>生成规则（一条规则对应一个业务场景）</h3>
+<table>
+  <tr><th style="width:190px;">按钮 / 操作</th><th>生成结果</th><th style="width:150px;">典型用途</th></tr>
+  <tr><td>【按本单生成清单】（本单 = 入库工具集 ∪ 出库工具集）</td><td>本单-入库行：本单目标货位 + 正确工具 + 正常<br>本单-出库行：本单原货位 + 该工具 + 正常（上位机判"已取走"靠本单出库行缺失，见下）<br>非本单行：库内其余在库货位（模拟边缘机扫全柜）</td><td>正向入库 / 正向出库 / 逆向借出转出库 三种单据一次配齐</td></tr>
+  <tr><td>【全部改正常】</td><td>非出库行统一 alert_type=none、级别 0、置信度 0.95（出库行保持"货位空"，那是已取走的意思）</td><td>造"全部通过、整单写库"</td></tr>
+  <tr><td>【只保留本单行】</td><td>背景行取消勾选回应（行仍留在表里，方便看清排除了哪些货位）</td><td>边缘机只覆盖本单区域</td></tr>
+  <tr><td>选中一行改"识别结果=错放"</td><td>该行 alert_type=misplaced，且可指定"实际在哪个货位"</td><td>异常 #13 错放</td></tr>
+  <tr><td>选中一行改"未知物品"</td><td>tool_id 留空、alert_type=unknown</td><td>异常 #14 未知物品</td></tr>
+  <tr><td>选中一行改"缺失"</td><td>该货位不出现，alert_type=missing 记在别处</td><td>异常 #15 在库工具缺失</td></tr>
+  <tr><td>选中一行改"低置信"</td><td>置信度 &lt; 85</td><td>异常 #12 部分未过</td></tr>
+  <tr><td>【清空清单】</td><td>清单为空</td><td>异常 #10 识别清单为空（整单判未检测到）</td></tr>
+</table>
+<div class="note"><b>出库语义提醒</b>：上位机判"出库这行通过"= <b>该货位在识别实况里不再出现该工具</b>（工具已被取出）。因此出库场景的正确做法是：清单里保留该货位行但把工具编号置空（= 货位已空），或直接不勾该行；同时【按本单生成清单】会自动把出库行置为"货位空"。</div>
+<div class="note"><b>候选列表排序</b>：②页三个候选列表（待入库 / 在库 / 借出中）一律<b>按货位顺序</b>排列（柜号-层号-位号），从上往下扫一眼就知道柜里摆了什么；已实测生效。</div>
+</div>
+
+<h2>四、与出入库流程图的异常覆盖矩阵（25 项逐项落到界面控件）</h2>
+<div class="card">
+<table>
+<tr><th style="width:44px;">#</th><th style="width:210px;">异常场景</th><th style="width:200px;">界面操作位置</th><th>说明</th></tr>
+<tr><td>1</td><td>行未选工具</td><td class="lbl">上位机侧（模拟器不造）</td><td>单据校验在上位机，模拟器无法也不必造</td></tr>
+<tr><td>2</td><td>空单据</td><td class="lbl">上位机侧</td><td>同上</td></tr>
+<tr><td>3</td><td>同工具多行入库</td><td class="lbl">上位机侧</td><td>同上</td></tr>
+<tr><td>4</td><td>位置被占 / 工具加载失败</td><td class="lbl">上位机侧</td><td>同上</td></tr>
+<tr><td>4-1</td><td>借出工具已归还或再次出库</td><td>②【按本单生成清单】· 归属选"本单-借出转出库"</td><td>清单里把该工具去掉即可复现</td></tr>
+<tr><td>4-2</td><td>借出工具与在库工具混在同一单</td><td>②清单同时存在两种归属行</td><td>上位机仍走开箱，借出行不参与核对</td></tr>
+<tr><td>5</td><td>边缘机链路离线</td><td>①【断开】／④ 停发周期帧 15s</td><td>两种方式：真断链 / 只停心跳</td></tr>
+<tr><td>6</td><td>关柜信号超时</td><td>③ 开箱回应=不回应</td><td>上位机等不到关柜信号</td></tr>
+<tr><td>7</td><td>识别请求超时</td><td>③ 回应内容=不回应 ／ 延迟 &gt;3000ms</td><td>测上位机重发</td></tr>
+<tr><td>8</td><td>在途请求期间链路中断</td><td>① 识别发出后立即【断开】</td><td>恢复后按原 request_id 补发</td></tr>
+<tr><td>9</td><td>坏帧 / 半帧 / 超长</td><td>④ 坏帧 JSON ／ 未知 type ／ 超长帧</td><td>链路层丢弃并计数</td></tr>
+<tr><td>10</td><td>识别清单为空</td><td>②【清空清单】</td><td>整单判"未检测到"，进整理闭环</td></tr>
+<tr><td>11</td><td>全部通过</td><td>②【按本单生成】+【全部识别正常】</td><td>正向主路径</td></tr>
+<tr><td>12</td><td>部分未过</td><td>② 把某一行改"低置信"或"货位空"</td><td>结果页红字 + 双出口</td></tr>
+<tr><td>13</td><td>错放 misplaced</td><td>② 行改"错放"</td><td>结果页提示行，不自动挪动</td></tr>
+<tr><td>14</td><td>未知物品 unknown</td><td>② 行改"未知物品"</td><td>该货位若属本单则该行失败</td></tr>
+<tr><td>15</td><td>在库工具缺失 missing</td><td>② 把非本单行删掉</td><td>仅提示不拦本单</td></tr>
+<tr><td>16</td><td>等待态点取消</td><td class="lbl">上位机侧</td><td>用户操作</td></tr>
+<tr><td>17</td><td>开柜不操作直接关柜</td><td>② 出库行置"货位空"</td><td>目标位全空 → 全失败 → 第 1 轮整理</td></tr>
+<tr><td>18</td><td>整理中途又开柜（反悔）</td><td>③ 开箱回应=自动成功，再手动【立即发一帧周期帧】</td><td>上位机放弃本轮识别</td></tr>
+<tr><td>19</td><td>3 轮仍不全过</td><td>③ 多轮序列：①正常 → ②部分未过 → ③仍不过</td><td>第 3 轮按实况写库兜底</td></tr>
+<tr><td>20</td><td>页面关闭时有在途请求</td><td class="lbl">上位机侧</td><td>实现层防护</td></tr>
+<tr><td>21</td><td>DB 断连 / 事务失败</td><td>① 数据库参数改成不可达地址</td><td>系统错 → 提示写入失败可重试</td></tr>
+<tr><td>22</td><td>部分写成功</td><td class="lbl">机制保证</td><td>上位机单事务，不会发生</td></tr>
+<tr><td>23</td><td>结果页开着时他人开柜</td><td class="lbl">上位机侧</td><td>不影响本次</td></tr>
+<tr><td>24</td><td>关闭结果页后改单据再确认</td><td class="lbl">上位机侧</td><td>自然重走全流程</td></tr>
+<tr><td>25</td><td>摄像头自检异常</td><td>④ 周期帧里把某路 CAM 设为 dirty / offline</td><td>两端一致：拒绝开柜，零写库</td></tr>
+</table>
+<div class="note"><b>覆盖结论</b>：25 项中 13 项由模拟器界面直接造（4-1/4-2/5/6/7/8/9/10/12/13/14/15/17/19/21/25），其余 12 项属上位机内部校验或用户操作，模拟器不重复造。上表同时作为《测试规程》第 5 章"场景预配置清单"的界面依据。</div>
+</div>
+
+<h2>五、配置文件 simulator.ini（口令内置，测试人员零输入）</h2>
+<div class="card">
+<table>
+<tr><th style="width:190px;">键</th><th style="width:190px;">默认值</th><th>说明</th></tr>
+<tr><td>[edge] host / port</td><td>127.0.0.1 / 9000</td><td>上位机监听地址</td></tr>
+<tr><td>[edge] auto_reconnect</td><td>true</td><td>断链自动退避重连</td></tr>
+<tr><td>[db] host / port / name</td><td>127.0.0.1 / 3306 / smart_cabinet</td><td>与上位机同一个库</td></tr>
+<tr><td>[db] user / password</td><td><b>root / root</b></td><td><b>内置默认，界面不再要求手输</b>；仅本机联调库使用</td></tr>
+<tr><td>[db] load_on_start</td><td>true</td><td>启动即读库并填好工具/货位下拉框</td></tr>
+<tr><td>[recog] scene / delay_ms</td><td>custom_list / 200</td><td>识别回应内容与延迟</td></tr>
+<tr><td>[recog] seq_enabled / seq</td><td>false / 空</td><td>多轮序列开关与场景序列</td></tr>
+<tr><td>[open] policy / fail_message</td><td>auto_ok / （空）</td><td>开箱回应策略</td></tr>
+<tr><td>[list] items</td><td>（清单文本）</td><td>模拟清单落盘，重启不丢</td></tr>
+</table>
+<div class="note"><b>口令说明</b>：本次按袁总要求把 root/root 写进 ini（仅本机联调库口令）。工具随测试包分发时 ini 里就是 root/root，请勿用于生产库口令。</div>
+</div>
+
+<h2>六、袁总拍板结论与落地结果</h2>
+<div class="card">
+<table>
+<tr><th style="width:44px;">#</th><th style="width:230px;">事项</th><th>袁总结论</th><th style="width:190px;">落地情况</th></tr>
+<tr><td>1</td><td>整体改版幅度</td><td>按设计稿整体改，接口上的所有能力都要具备，页面尽量让人去选</td><td>已落地：5 步工作台，协议 3.3/3.4/3.5/3.6/3.7 与第 5 章能力全部保留并可选</td></tr>
+<tr><td>2</td><td>清单表"本单归属"分类</td><td>就这四类，够用</td><td>已落地：本单-入库 / 本单-出库 / 本单-借出转出库 / 非本单</td></tr>
+<tr><td>3</td><td>出库行的表达方式</td><td>由【按本单生成】自动置好</td><td>已落地：出库行自动置"货位空"（工具编号留空），上位机判"已取走"即通过</td></tr>
+<tr><td>4</td><td>数据库口令</td><td>root/root 写进 ini，测试人员不用手输</td><td>已落地：simulator.ini 存 db/user=root、db/password=root，界面预填且启动即读库</td></tr>
+<tr><td>5</td><td>旧"自定义帧"页签</td><td>保留</td><td>已落地：挪进④异常注入页的"自定义帧"子页签</td></tr>
+<tr><td>6</td><td>场景预设清单</td><td>全部落地</td><td>已落地：6 个预设（正向全过 / 部分未过 / 三轮兜底 / 离线拒绝 / 逆向借出转出库 / 摄像头闸门）</td></tr>
+<tr><td>7</td><td>候选列表排序</td><td>按位置（货位）排</td><td>已落地：三个候选列表一律按柜号-层号-位号排序，实测生效</td></tr>
+</table>
+<div class="note"><b>验证结论</b>：模拟器 Release 编译 0 错；主工程 7 套单测全过（含 test_edge 直接引用模拟器源码）；启动后日志实测"已从数据库读取工具 107 条、货位 107 条""本单候选：待入库 0、在库 103、借出中 4"，一键标准联调后清单 103 行、识别回应切自定义清单、周期帧已开。</div>
+</div>
+</body>
+</html>

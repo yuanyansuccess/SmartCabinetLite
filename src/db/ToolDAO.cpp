@@ -58,10 +58,17 @@ ToolInfo ToolDAO::fromQuery(const QSqlQuery& q) {
     return t;
 }
 
-// 位置维度查询：每个在库位置一行
-// 设计理念：一个工具可在多个位置入库，出库/借用列表按位置分行显示
-// FROM tool_position_mapping JOIN tool_info，按映射表status筛选
-// 返回每项含mappingId（唯一标识，用于选中）和toolId（用于出库操作）
+/**
+ * @brief 位置维度查询工具列表（每个在库位置一行）
+ * @param keyword 工具名称/编号关键字，为空时不筛选
+ * @param category 分类筛选，为空时不筛选
+ * @param status 位置状态筛选（如 in_stock/pending）
+ * @param cabinetId 柜体ID，<=0 时不筛选
+ * @param page 页码（从 1 开始）
+ * @param pageSize 每页条数
+ * @param machineGroupId 机组ID，>0 时启用机组隔离
+ * @return 分页结果对象（含列表与总数）
+ */
 QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& category,
                                         const QString& status, int cabinetId, int page, int pageSize,
                                         int machineGroupId) {
@@ -154,9 +161,15 @@ QJsonObject ToolDAO::findAllByPosition(const QString& keyword, const QString& ca
     return result;
 }
 
-// 按工具种类聚合查询在库工具（借用页面用）
-// 设计理念：借用列表按工具种类显示，同一工具一行，availableQty=可用位置数
-// 用户选择数量后，借用时自动从映射表分配对应数量的in_stock位置
+/**
+ * @brief 按工具种类聚合查询在库工具（借用页面用）
+ * @param keyword 工具名称/编号关键字，为空时不筛选
+ * @param category 分类筛选，为空时不筛选
+ * @param page 页码（从 1 开始）
+ * @param pageSize 每页条数
+ * @param machineGroupId 机组ID，>0 时启用机组隔离
+ * @return 分页结果对象，每项 availableQty 为该工具可用位置数
+ */
 QJsonObject ToolDAO::findAllInStockByTool(const QString& keyword, const QString& category,
                                            int page, int pageSize, int machineGroupId) {
     QSqlDatabase db = getDb();
@@ -290,8 +303,8 @@ bool ToolDAO::update(int toolId, const QJsonObject& ups) {
     keyMap["supplier"]="supplier";  // 供应商映射
     keyMap["unit"]="unit";  // 单位映射
     // 注意：dbCols 需覆盖供应商与单位，否则入库时更新不到这两个字段
-    // 位置列(cabinet_id/layer/position)已移除冗余写入，位置权威数据源为 tool_position_mapping
-    // 注：current_qty 已从 dbCols 移除——该列只由 tool_position_mapping 触发器维护，禁止经 update() 手改
+    // 位置只认 tool_position_mapping 表，这里不写 cabinet_id/layer/position
+    // current_qty 由映射表的触发器维护，不允许在这里改
     QStringList dbCols={"tool_name","spec","tool_code","category_id","machine_group_id","total_qty","vision_tag","status","supplier","unit","recognition_method","document_path"};
     for(const auto& col:dbCols){
         QString val;

@@ -50,7 +50,7 @@ endif()
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network)
 
 # ── 平台特定配置 ──
-# [2026-06-21] 麒麟适配：Linux下启用Qt Multimedia摄像头支持
+# 麒麟适配：Linux下启用Qt Multimedia摄像头支持
 if(KYLIN_ARM OR KYLIN_X86)
     find_package(Qt6 COMPONENTS Multimedia MultimediaWidgets QUIET)
     if(Qt6Multimedia_FOUND AND Qt6MultimediaWidgets_FOUND)
@@ -72,7 +72,7 @@ endif()
 if(WIN32)
     set(MYSQL_LIBS libmysql)
     find_path(MYSQL_INCLUDE_DIR mysql.h PATH_SUFFIXES mysql)
-    # [V2.02 2026-06-28] 添加/FS标志解决MSVC多进程编译PDB争用(C1041)
+    # 添加/FS标志解决MSVC多进程编译PDB争用(C1041)
     add_compile_options(/FS)
 else()
     find_library(MYSQL_CLIENT_LIB mysqlclient)
@@ -118,10 +118,10 @@ set(DB_SOURCES
     src/db/DepartmentDAO.cpp
 )
 
-# [V6.9 2026-06-24] dao/层已全部合并到db/，此变量保留为空以兼容
+# dao/层已全部合并到db/，此变量保留为空以兼容
 set(DAO_SOURCES)
 
-# [V1.00.9.1 架构修复] 添加controller层（统一通过controller访问业务逻辑） —— 作者：袁燕
+# 添加controller层（统一通过controller访问业务逻辑） —— 作者：袁燕
 set(CONTROLLER_SOURCES
     src/controller/ToolController.cpp
     src/controller/UserController.cpp
@@ -196,8 +196,8 @@ set(PAGE_SOURCES
 set(UTILS_SOURCES
     src/utils/StyleHelper.cpp
     src/utils/DeviceProfile.cpp
-    src/utils/PinyinDict.cpp        # [2026-10-17] 内置全量常用字拼音静态词库
-    src/utils/PinyinInput.cpp        # [2026-10-17] 拼音输入引擎（与界面解耦的纯逻辑层）
+    src/utils/PinyinDict.cpp        # 内置全量常用字拼音静态词库
+    src/utils/PinyinInput.cpp       # 拼音输入引擎（与界面解耦的纯逻辑层）
 )
 
 # 组件层 (版本A的触屏组件)
@@ -241,7 +241,7 @@ set(ALL_SOURCES
     resources/resources.qrc
 )
 
-# [v4.1] Windows程序图标资源文件
+# Windows程序图标资源文件
 if(WIN32)
     list(APPEND ALL_SOURCES resources/app.rc)
 endif()
@@ -299,7 +299,7 @@ set(ALL_HEADERS
     src/pages/ForgotPasswordDialog.h
     src/pages/RoleSelectDialog.h
     src/pages/UserManagementPage.h
-    src/pages/BatchImportDialog.h      # [2026-06-26] 批量导入用户对话框
+    src/pages/BatchImportDialog.h      # 批量导入用户对话框
     src/pages/ToolManagementPage.h
     src/pages/ToolListDialog.h
     src/pages/ToolBorrowPage.h
@@ -311,17 +311,18 @@ set(ALL_HEADERS
     src/pages/SystemSettingsPage.h
     # Utils (版本B)
     src/utils/StyleHelper.h
+    src/utils/LayoutHelper.h       # 布局清理工具（统一清空布局的写法）
     src/utils/DeviceProfile.h
     src/utils/ScreenFit.h           # 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
-    src/utils/PinyinDict.h          # [2026-10-17] 拼音词库接口
-    src/utils/PinyinInput.h         # [2026-10-17] 拼音输入引擎接口
-    src/utils/PinyinDictData.h      # [2026-10-17] 拼音词库数据（自动生成）
-    src/utils/PinyinPhraseData.h    # [2026-10-17] 拼音词组联想数据（自动生成）
+    src/utils/PinyinDict.h          # 拼音词库接口
+    src/utils/PinyinInput.h         # 拼音输入引擎接口
+    src/utils/PinyinDictData.h      # 拼音词库数据（自动生成）
+    src/utils/PinyinPhraseData.h    # 拼音词组联想数据（自动生成）
     # Components (版本A)
     src/components/SoftKeyboard.h
-    src/components/NumKeypad.h        # [2026-06-26] 独立数字软键盘
+    src/components/NumKeypad.h        # 独立数字软键盘
     src/components/FaceCameraWidget.h
-    src/components/DeepFaceExtractor.h  # [V8.0] 深度学习人脸特征提取
+    src/components/DeepFaceExtractor.h  # 深度学习人脸特征提取
     src/components/TopBar.h
     src/components/MultiSelectFilter.h
     src/components/SingleSelectFilter.h
@@ -340,7 +341,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/comm     # V2.1 与边缘计算机通信接口
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common   # DatabaseManager优先使用common版本
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/db       # [V6.9] 统一DAO层 namespace db::
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/db       # 统一DAO层 namespace db::
     ${CMAKE_CURRENT_SOURCE_DIR}/src/controller  # 版本A控制器
     ${CMAKE_CURRENT_SOURCE_DIR}/src/services
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pages
@@ -349,7 +350,7 @@ include_directories(
 )
 
 # ═══════════════════════════════════════════
-# [V5.4修复] VS解决方案资源管理器文件夹分组 —— 作者：袁燕
+# VS解决方案资源管理器文件夹分组 —— 作者：袁燕
 # 使用source_group TREE让VS按目录树显示源文件，消除同名文件(如两个AlertDAO.cpp)显示混淆
 # db/DatabaseManager.cpp/.h已删除（未参与编译的废弃文件）
 # ═══════════════════════════════════════════
@@ -359,7 +360,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "Header" FILES ${ALL_HEADER
 # ═══════════════════════════════════════════
 # 可执行文件
 # ═══════════════════════════════════════════
-# [2026-06-21] 麒麟适配：WIN32标志仅在Windows下使用，Linux下移除
+# 麒麟适配：WIN32标志仅在Windows下使用，Linux下移除
 if(WIN32)
     add_executable(QtSmartCabinet WIN32 ${ALL_SOURCES} ${ALL_HEADERS})
 else()

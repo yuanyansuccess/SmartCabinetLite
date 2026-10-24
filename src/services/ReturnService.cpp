@@ -120,7 +120,12 @@ ReturnService::Result ReturnService::returnTools(const QList<int>& recordIds, in
     return r;
 }
 
-// 所有位置的待归还记录（不限userId，管理员可查看全部）
+/**
+ * @brief 查询所有位置处于借用中的待归还记录（不限用户，管理员视图）
+ * @param page 页码（从 1 开始）
+ * @param pageSize 每页条数
+ * @return 分页结果对象（含待归还记录列表与总数）
+ */
 QJsonObject ReturnService::getAllBorrowingRecords(int page, int pageSize) {
     RecordDAO dao;
     return dao.findAll(0, 0, SC::RECORD_BORROWING, "", "", page, pageSize);

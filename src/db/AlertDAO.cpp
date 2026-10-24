@@ -104,7 +104,7 @@ QJsonObject AlertDAO::findAllPaged(const QString& type, const QString& level,
     }
 
     // 数据查询：待处理优先 → 级别严重优先 → 时间倒序（复用 ALERT_SORT_ORDER）
-    // 位置优先从 tool_position_mapping 取（按 t.tool_id 关联），无映射兜底 tool_info 冗余列
+    // 位置优先从 tool_position_mapping 取（按 t.tool_id 关联），无映射保底 tool_info 冗余列
     QString sql = "SELECT a.alert_id, a.type_id, a.content, a.created_at, "
                   "  a.status, t.tool_code, a.user_id, "
                   "  at.type_code, at.type_name, at.alert_level, "
@@ -192,7 +192,10 @@ int AlertDAO::insertAlert(const AlertLog& alert) {
 }
 
 
-// 获取所有启用的告警类型列表，按sort_order排序
+/**
+ * @brief 获取所有启用的告警类型列表（按 sort_order 升序）
+ * @return 告警类型对象数组，每项含 type_id/type_code/type_name/alert_level
+ */
 QJsonArray AlertDAO::getAlertTypes() {
     QJsonArray arr;
     QSqlDatabase db = getDb();
@@ -213,7 +216,11 @@ QJsonArray AlertDAO::getAlertTypes() {
 }
 
 
-// 按type_code查询type_id，找不到返回-1
+/**
+ * @brief 按 type_code 查询告警类型ID
+ * @param typeCode 告警类型编码（如 "login_fail"），空串直接返回 -1
+ * @return 类型ID；未找到或编码为空时返回 -1
+ */
 int AlertDAO::findTypeIdByCode(const QString& typeCode)
 {
     if (typeCode.isEmpty()) return -1;

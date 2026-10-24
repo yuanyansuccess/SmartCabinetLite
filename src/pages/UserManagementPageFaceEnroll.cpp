@@ -15,6 +15,7 @@
 #include "components/DeepFaceExtractor.h"  // 人脸方位检测
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include "controller/UserController.h"
 #include "services/AuthService.h"
 #include "services/SettingService.h"
@@ -58,7 +59,7 @@ struct PostureTarget {
 // yaw: 正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
 // pitch: 正值=低头，负值=抬头
 // 归一化基准为人脸框宽高，阈值经实测校准。
-// pitch 判定阈值由0.15放宽到0.10：与底层"居中"定义(|pitch|<0.10)对齐，
+// pitch 判定阈值由0.15放宽到0.10：与底层"居中"定义(|pitch|<0.10)一致，
 // 自然轻微低头(pitch≈0.08~0.12)即可判定低头，不再误判"居中"。
 const PostureTarget POSTURE_TARGETS[5] = {
     { QStringLiteral("居中"), QStringLiteral("请面向摄像头，保持正脸"),          -0.15, 0.15, -0.15, 0.15 },
@@ -117,7 +118,7 @@ void UserManagementPage::onFaceEnroll(int userId) {
     auto* dlg = new BaseDialog(this, 520);
     dlg->setDialogTitle(QStringLiteral("人脸信息录入"));
     // 620：视频框(260)+横幅+说明行+按钮区在 1028×768 小分辨率下不再挤压重叠的最低高度
-    dlg->setMinimumHeight(620);
+    dlg->setMinimumHeight(710);
 
     // ctx 必须堆分配：异步HTTP回调(onFacePostureReply)用引用捕获它，
     // 若栈分配，对话框关闭函数返回后ctx即析构，飞行中的回复到达即野指针崩溃(0xC0000005)。
@@ -196,6 +197,7 @@ void UserManagementPage::buildFaceEnrollBody(FaceEnrollCtx& ctx, QVBoxLayout* cl
     camera->setDetectInterval(80);  // 加快检测频率
     cl->addWidget(camera, 0, Qt::AlignCenter);
     ctx.camera = camera;
+    cl->addStretch(1);
 
     // 方位大字提示标签：36px醒目显示，实时方位反馈
     auto* directionLabel = new QLabel(QStringLiteral("选择开始录入"));
@@ -209,6 +211,7 @@ void UserManagementPage::buildFaceEnrollBody(FaceEnrollCtx& ctx, QVBoxLayout* cl
     auto* instructionLabel = new QLabel(QStringLiteral("点击「开始录入」启动摄像头"));
     instructionLabel->setAlignment(Qt::AlignCenter);
     instructionLabel->setWordWrap(true);
+    instructionLabel->setMinimumHeight(52);
     instructionLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";color:#666;padding:4px 0;background:transparent;");
     cl->addWidget(instructionLabel);
     ctx.instructionLabel = instructionLabel;
@@ -228,10 +231,7 @@ void UserManagementPage::buildFaceEnrollBody(FaceEnrollCtx& ctx, QVBoxLayout* cl
 void UserManagementPage::buildFaceEnrollButtons(FaceEnrollCtx& ctx) {
     // 按钮区（通过 BaseDialog::buttonLayout()）
     auto* bl = ctx.dlg->buttonLayout();
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
 
     auto* startBtn = new QPushButton(QStringLiteral("开始人脸录入"));
     startBtn->setFixedHeight(StyleHelper::Token::ControlHeightTouch);
@@ -414,7 +414,7 @@ void UserManagementPage::onFacePostureTick(FaceEnrollCtx& ctx) {
 
     qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - ctx.postureStartTime;
     if (elapsed > 30000) {
-        ctx.instructionLabel->setText(QStringLiteral("⚠ 方位超时，将采集当前帧作为兜底"));
+        ctx.instructionLabel->setText(QStringLiteral("⚠ 方位超时，将采集当前帧作为保底"));
         ctx.instructionLabel->setStyleSheet(
             "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:bold;color:#ff4d4f;padding:4px 0;background:transparent;");
         ctx.postureTimer->stop();
@@ -480,7 +480,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
 
     if (!postureOk) {
         ctx.postureHttpFailCount++;
-        // 不因HTTP失败切简易模式，本地估算兜底继续工作
+        // 不因HTTP失败切简易模式，本地估算保底继续工作
         // 只有连续15次失败才切简易模式（服务真的挂了）
         if (ctx.postureHttpFailCount >= 15) {
             ctx.instructionLabel->setText(QStringLiteral("⚠ 方位识别服务异常，切换简易模式..."));
@@ -491,7 +491,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
             ctx.simpleTimer->start(1000);
             return;
         }
-        // HTTP失败，用本地估算兜底
+        // HTTP失败，用本地估算保底
         QRect fr = ctx.camera->faceRect();
         ctx.camera->estimatePosture(fr, yaw, pitch);
     } else {
@@ -527,7 +527,7 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         ctx.postureMatchCount = 0;
         ctx.postureFirstMatchTime = 0;
         QString hint;
-        // 阈值0.10（与底层"居中"定义对齐，轻微动作即有反馈，不再0.08~0.14区间误判居中）
+        // 阈值0.10（与底层"居中"定义一致，轻微动作即有反馈，不再0.08~0.14区间误判居中）
         if (yaw > 0.10) hint = QStringLiteral("当前：右转(露右脸)");
         else if (yaw < -0.10) hint = QStringLiteral("当前：左转(露左脸)");
         else if (pitch > 0.10) hint = QStringLiteral("当前：低头");
@@ -687,7 +687,7 @@ void UserManagementPage::showFaceDuplicateHint(FaceEnrollCtx& ctx,
         "background:#ff4d4f; border-radius:14px; padding:10px 20px;");
     // 一行说清两件事（这张脸属于谁、要替换找谁）：
     // 1028×768 等小分辨率下对话框内容区高度有限，多行叠层会挤压摄像头预览区，
-    // 且原"未保存"状态行与横幅语义重复，全部收敛到本行
+    // 且原"未保存"状态行与横幅语义重复，全部归到本行
     ctx.instructionLabel->setText(
         QStringLiteral("未保存：该人脸已属于「%1」，如需替换请联系管理员").arg(ownerText));
     ctx.instructionLabel->setStyleSheet(
@@ -770,10 +770,7 @@ void UserManagementPage::onFaceEnrolledClick(int userId, const QString& realName
 
     // 按钮区（通过 BaseDialog::buttonLayout()）
     auto* bl = dlg->buttonLayout();
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 
     auto* clearBtn = new QPushButton(QStringLiteral("清除人脸信息"));

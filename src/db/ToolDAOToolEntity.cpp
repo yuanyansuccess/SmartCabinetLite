@@ -36,7 +36,7 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     // 一个工具可在多个位置入库，tool_info只存基础信息
     // 位置维度查询必须包含mapping_id字段
     // 根因：原posSql缺少mpm.mapping_id，fromQuery读不到mappingId→onDetailTool中t.mappingId=0
-    // →走兜底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
+    // →走保底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
     // 注意：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
     QString posSql = "SELECT "
                   "  mpm.mapping_id, "
@@ -199,6 +199,11 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
 
 /**
  * @brief 统计符合条件的工具数量
+ * @param keyword 工具名称/编号关键字，为空时不筛选
+ * @param cat 分类筛选，为空时不筛选
+ * @param cab 柜体筛选，为空时不筛选
+ * @param status 状态筛选，为空时不筛选
+ * @param machineGroup 机组筛选，为空时不筛选
  * @return 工具总数；筛选条件与 findAllTools 保持一致
  */
 int ToolDAO::countTools(const QString& keyword, const QString& cat,
@@ -371,8 +376,13 @@ bool ToolDAO::deleteToolById(int toolId) {
     return execute("DELETE FROM tool_info WHERE tool_id = ?", {toolId});
 }
 
-// 轻量更新文档路径 — 详情页上传文档专用
-// 只更新document_path一个字段，避免全字段updateTool的副作用
+/**
+ * @brief 轻量更新工具文档路径（详情页上传文档专用）
+ * @param toolId 工具ID
+ * @param docPath 上传文档的本地路径
+ * @return true=更新成功
+ * @note 只更新 document_path 一个字段，避免全字段 updateTool 的副作用
+ */
 bool ToolDAO::updateDocumentPath(int toolId, const QString& docPath) {
     return execute("UPDATE tool_info SET document_path=? WHERE tool_id=?",
                    {docPath, toolId});

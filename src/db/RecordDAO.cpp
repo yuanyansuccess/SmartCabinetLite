@@ -19,6 +19,33 @@ namespace {
 const char* const BORROW_RECORD_ORDER =
     "ORDER BY CASE r.status WHEN 'borrowing' THEN 0 WHEN 'overdue' THEN 0 ELSE 1 END, "
     "r.borrow_time DESC ";
+
+// 借用记录查询的公共列清单与表关联：按工具查、按位置查两处共用，
+// 改列时只改这一处，避免漏改一处造成字段错位
+const char* const BORROW_RECORD_SELECT =
+    "SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
+    "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
+    "FROM tool_borrow_record r "
+    "LEFT JOIN sys_user u ON r.user_id = u.user_id ";
+
+/**
+ * @brief 把借用记录查询的一行组装成结果对象
+ * @param query 已执行到当前行的查询，取值列与 BORROW_RECORD_SELECT 的列一致
+ * @return 含借用时间/预计归还/数量/原因/状态/实际归还/借用人的对象
+ */
+QJsonObject borrowRecordRowFromQuery(const QSqlQuery& query)
+{
+    QJsonObject item;
+    item["borrowTime"]        = query.value("borrow_time").toString();
+    item["expectedReturnTime"] = query.value("expected_return_time").toString();
+    item["borrowQty"]         = query.value("borrow_qty").toInt();
+    item["borrowReason"]      = query.value("borrow_reason").toString();
+    item["status"]            = query.value("status").toString();
+    item["actualReturnTime"]  = query.value("actual_return_time").toString();
+    item["userName"]          = query.value("user_name").toString();
+    item["userWorkNo"]        = query.value("user_work_no").toString();
+    return item;
+}
 }
 
 // ═══════════════════════════════════════════════
@@ -196,66 +223,53 @@ QJsonObject RecordDAO::findAll(int userId, int toolId, const QString& status,
     return result;
 }
 
-// 入参：toolId 工具ID，limit 返回记录数(默认5)
-// 返回：QJsonArray，每项含 borrowTime/borrowerName/borrowQty/borrowReason/status/expectedReturnTime
-// 排序优化：借用中/逾期优先，已归还在后，确保两种状态都能显示
-//   要求详情页借用记录既体现借用中也体现已归还
+/**
+ * @brief 按工具ID查询其借用记录（工具详情页用）
+ * @param toolId 工具ID
+ * @param limit 最多返回条数（默认5）
+ * @return 借用记录数组，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName；
+ *         借用中/逾期在前、已归还在后，确保两种状态都能显示
+ */
 QJsonArray RecordDAO::findByToolId(int toolId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    q.prepare(QString("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
-                      "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
-                      "FROM tool_borrow_record r "
-                      "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-                      "WHERE r.tool_id = :tid ") + BORROW_RECORD_ORDER + "LIMIT :lim");
+    q.prepare(QString(BORROW_RECORD_SELECT)
+              + "WHERE r.tool_id = :tid " + BORROW_RECORD_ORDER + "LIMIT :lim");
     q.bindValue(":tid", toolId);
     q.bindValue(":lim", limit);
     QJsonArray list;
     if (!safeExec(q)) return list;
     while (q.next()) {
-        QJsonObject item;
-        item["borrowTime"] = q.value("borrow_time").toString();
-        item["expectedReturnTime"] = q.value("expected_return_time").toString();
-        item["borrowQty"] = q.value("borrow_qty").toInt();
-        item["borrowReason"] = q.value("borrow_reason").toString();
-        item["status"] = q.value("status").toString();
-        item["actualReturnTime"] = q.value("actual_return_time").toString();
-        item["userName"] = q.value("user_name").toString();
-        item["userWorkNo"] = q.value("user_work_no").toString();
-        list.append(item);
+        list.append(borrowRecordRowFromQuery(q));
     }
     return list;
 }
 
-// 按位置映射ID查询借用记录（工具详情按位置过滤）
-// 入参：mappingId 位置映射ID，limit 返回记录数
-// 返回：QJsonArray，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName
+/**
+ * @brief 按位置映射ID查询借用记录（工具详情按位置过滤）
+ * @param mappingId 位置映射ID
+ * @param limit 最多返回条数
+ * @return 借用记录数组，每项含 borrowTime/borrowQty/borrowReason/status/expectedReturnTime/userName
+ */
 QJsonArray RecordDAO::findByMappingId(int mappingId, int limit) {
     QSqlDatabase db = getDb(); QSqlQuery q(db);
-    q.prepare(QString("SELECT r.borrow_time, r.expected_return_time, r.borrow_qty, r.borrow_reason, "
-                      "r.status, r.actual_return_time, u.real_name AS user_name, u.work_no AS user_work_no "
-                      "FROM tool_borrow_record r "
-                      "LEFT JOIN sys_user u ON r.user_id = u.user_id "
-                      "WHERE r.mapping_id = :mid ") + BORROW_RECORD_ORDER + "LIMIT :lim");
+    q.prepare(QString(BORROW_RECORD_SELECT)
+              + "WHERE r.mapping_id = :mid " + BORROW_RECORD_ORDER + "LIMIT :lim");
     q.bindValue(":mid", mappingId);
     q.bindValue(":lim", limit);
     QJsonArray list;
     if (!safeExec(q)) return list;
     while (q.next()) {
-        QJsonObject item;
-        item["borrowTime"] = q.value("borrow_time").toString();
-        item["expectedReturnTime"] = q.value("expected_return_time").toString();
-        item["borrowQty"] = q.value("borrow_qty").toInt();
-        item["borrowReason"] = q.value("borrow_reason").toString();
-        item["status"] = q.value("status").toString();
-        item["actualReturnTime"] = q.value("actual_return_time").toString();
-        item["userName"] = q.value("user_name").toString();
-        item["userWorkNo"] = q.value("user_work_no").toString();
-        list.append(item);
+        list.append(borrowRecordRowFromQuery(q));
     }
     return list;
 }
 
-// 查询工具的最新一条操作日志（入库/出库），返回操作人和时间
+/**
+ * @brief 查询工具最新一条操作日志（入库/出库），取操作人与时间
+ * @param toolCode 工具编号
+ * @param operationType 操作类型（如 checkin/checkout）
+ * @return 含 time/operator 的对象；无记录时字段为空
+ */
 QJsonObject RecordDAO::findLastOperationLog(const QString& toolCode, const QString& operationType) {
     QJsonObject result;
     QSqlDatabase db = getDb(); QSqlQuery q(db);
@@ -273,7 +287,14 @@ QJsonObject RecordDAO::findLastOperationLog(const QString& toolCode, const QStri
     return result;
 }
 
-// 查询工具的操作日志列表（入库/出库），支持按位置关键字过滤
+/**
+ * @brief 查询工具的操作日志列表（入库/出库），支持按位置关键字过滤
+ * @param toolCode 工具编号
+ * @param operationType 操作类型
+ * @param positionKeyword 位置关键字（模糊匹配日志内容）
+ * @param limit 最多返回条数
+ * @return 操作日志数组，每项含 time/content/operator
+ */
 QJsonArray RecordDAO::findOperationLogs(const QString& toolCode, const QString& operationType,
                                          const QString& positionKeyword, int limit) {
     QJsonArray list;
@@ -322,6 +343,27 @@ bool RecordDAO::completeReturn(int recordId, const QString& returnTime,
 }
 
 /**
+ * @brief 借出转出库：把该工具仍在借的记录结清（状态置已归还，备注写明是转出库）
+ * @param toolId 工具ID
+ * @param operatorId 操作人ID
+ * @param remark 写入备注的结清说明（如"转出库免开箱"）
+ * @return true=执行成功（该工具当前没有在借记录也算成功）；false=写库失败
+ * @note  借出的工具被直接转出库后，借用关系同时结束：不清会让台账一直显示"借用中"，
+ *        与工具已出库的状态自相矛盾
+ */
+bool RecordDAO::finishBorrowsByCheckout(int toolId, int operatorId, const QString& remark) {
+    if (toolId <= 0) return true;
+    QSqlDatabase db = getDb(); QSqlQuery q(db);
+    q.prepare("UPDATE tool_borrow_record SET actual_return_time=NOW(), status='returned', "
+              "operator_id=:oid, remark=CONCAT(IFNULL(remark,''),' | 转出库:',:rmk) "
+              "WHERE tool_id=:tid AND status IN ('borrowing','overdue')");
+    q.bindValue(":oid", operatorId);
+    q.bindValue(":rmk", remark);
+    q.bindValue(":tid", toolId);
+    return safeExec(q);
+}
+
+/**
  * @brief 查询指定用户的借用记录
  * @param userId 用户ID
  * @param limit 最多返回条数
@@ -339,7 +381,11 @@ QList<BorrowRecord> RecordDAO::findBorrowsByUser(int userId, int limit) {
     return list;
 }
 
-// 通过借用记录ID查询关联工具信息，返回 {toolId, toolCode}
+/**
+ * @brief 通过借用记录ID查询关联工具信息
+ * @param recordId 借用记录ID
+ * @return 对象含 toolId/toolCode；记录不存在时字段为空
+ */
 QJsonObject RecordDAO::findToolInfoByRecordId(int recordId)
 {
     QSqlDatabase db = getDb();
@@ -355,7 +401,16 @@ QJsonObject RecordDAO::findToolInfoByRecordId(int recordId)
     return obj;
 }
 
-// 写入操作日志，返回log_id
+/**
+ * @brief 写入一条操作日志
+ * @param userId 操作人ID（≤0 时回落为 1）
+ * @param operationType 操作类型
+ * @param targetType 操作对象类型
+ * @param targetId 操作对象ID
+ * @param content 日志正文
+ * @param ipAddress 操作来源IP
+ * @return 新写入日志的 log_id；写库失败返回 -1
+ */
 int RecordDAO::insertOperationLog(int userId, const QString& operationType,
                                    const QString& targetType, const QString& targetId,
                                    const QString& content, const QString& ipAddress)
@@ -379,7 +434,13 @@ int RecordDAO::insertOperationLog(int userId, const QString& operationType,
     return q.lastInsertId().toInt();
 }
 
-// 分页查询操作日志（含操作人信息）
+/**
+ * @brief 分页查询指定类型的操作日志（含操作人信息）
+ * @param operationType 操作类型
+ * @param page 页码（从1开始）
+ * @param pageSize 每页条数
+ * @return 对象含 total（总数）与 list（本页数据）
+ */
 QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int page, int pageSize)
 {
     QSqlDatabase db = getDb();
@@ -424,7 +485,12 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
     return result;
 }
 
-// 分页查询全部类型操作日志（含操作人信息）
+/**
+ * @brief 分页查询全部类型的操作日志（含操作人信息）
+ * @param page 页码（从1开始）
+ * @param pageSize 每页条数
+ * @return 对象含 total 与 list（列表项附 operation_type 供展示层中文映射）
+ */
 QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
 {
     QSqlDatabase db = getDb();
@@ -464,7 +530,12 @@ QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
     return result;
 }
 
-// 入库记录查询（含位置JOIN）— 入库记录Tab专用
+/**
+ * @brief 入库记录分页查询（含位置信息，入库记录Tab专用）
+ * @param page 页码（从1开始）
+ * @param pageSize 每页条数
+ * @return 对象含 total 与 list
+ */
 QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 {
     QSqlDatabase db = getDb();
@@ -533,7 +604,7 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
  *         + categoryStats（按品类件数）+ departmentStats（按部门）
  */
 QJsonObject RecordDAO::getLedgerStats() {
-    // 字段名对齐LedgerStatsPage期望：
+    // 字段名与LedgerStatsPage期望一致：
     // totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
     // 同时保留旧字段totalBorrow/totalReturn/activeUsers向后兼容
     QJsonObject s;

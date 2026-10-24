@@ -68,7 +68,7 @@ void NumKeypad::ensurePanel()
     // ── 全屏半透明遮罩 ──
     // WA_TranslucentBackground必须为true+setAutoFillBackground必须为false
     // 否则rgba半透明不生效，显示为纯黑→造成黑屏闪烁。
-    // 与SoftKeyboard遮罩方案完全对齐。
+    // 与 SoftKeyboard 的遮罩做法保持一致。
     m_overlay = new QWidget(nullptr);
     m_overlay->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     m_overlay->setAttribute(Qt::WA_TranslucentBackground, true);

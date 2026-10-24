@@ -76,7 +76,7 @@ void HelpManualDialog::setupUI() {
         m_browser->setHtml(QString::fromUtf8(manualFile.readAll()));
         manualFile.close();
     } else {
-        // 资源加载失败的兜底提示（正常打包下不会出现）
+        // 资源加载失败的保底提示（正常打包下不会出现）
         m_browser->setHtml(QStringLiteral("<h2>手册资源加载失败，请联系维护人员。</h2>"));
     }
     lay->addWidget(m_browser, 1);

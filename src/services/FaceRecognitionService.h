@@ -18,16 +18,17 @@ public:
     explicit FaceRecognitionService(QObject* parent = nullptr);
 
     struct FaceMatchResult {
-        bool success;
-        bool isStranger;
-        int userId;
+        // 识别结果直接决定能否登录，基础类型必须给确定初值，不能靠调用方记得赋值
+        bool success = false;
+        bool isStranger = false;
+        int userId = 0;
         QString username;
         QString realName;
         QString workNo;
         QString department;
         QString role;  // 从DB读取真实角色，防止硬编码"user"导致权限错误
         int mustChangePwd = 0;  // 1=该用户仍使用初始口令，登录后须提示修改
-        double similarity;
+        double similarity = 0.0;
         QString message;
     };
 
@@ -50,9 +51,9 @@ public:
     //    必须高于跨人上限 0.9551，第一名才可能是"本人明确胜出"而非"跨人撞线"
     // 2. singleFaceThreshold 0.96（库内仅 1 人脸时的最低门槛，陌生人撞线实测可达 0.955）
     // 3. maxEuclideanDist 0.80（欧氏距离第二道防线）
-    // 同人低质量帧（0.9403~0.96）在 0.96 门槛下会被拒，由多帧取最优与重试兜回；
-    // 原 margin 0.15 相对差距判定已废弃：相像的两人与本人帧差距仅约 0.012，
-    // margin 会把真人误拒（日志 #565 实证），以第二名绝对值判定代替 margin 相对差距判定。
+    // 本人低质量帧（相似度 0.9403~0.96）会被 0.96 门槛拒掉，靠多帧取最优与重试补回。
+    // 第二名按相似度绝对值判定，不按与第一名差多少来判：长相相近的两人与本人帧差距仅约 0.012，
+    // 按差距判会把真人误拒。
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,

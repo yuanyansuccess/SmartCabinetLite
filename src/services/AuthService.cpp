@@ -71,7 +71,7 @@ bool AuthService::isPasswordLoginLockedAt(qint64 nowTick, qint64* remainMs) {
  * @param nowTick 单调时钟毫秒数
  * @return true=本次失败触发了锁定（调用方据此写告警日志）
  * @note 滑动窗口：先剔除滑出观察窗口的旧失败，窗口内累计达到阈值即锁定；
- *       已在锁定中时不再累计（锁定期内页面不发起校验，此处为兜底）
+ *       已在锁定中时不再累计（锁定期内页面不发起校验，这里只做保底）
  */
 bool AuthService::recordPasswordFailureAt(qint64 nowTick) {
     if (isPasswordLoginLockedAt(nowTick)) return false;
@@ -136,7 +136,7 @@ QString AuthService::lockRemainText(qint64 remainMs) {
 /**
  * @brief 触发整机锁定时写一条"登录失败"告警（管理员在告警日志页可查）
  * @note 告警写库失败只记警告日志，不影响锁定本身；
- *       告警类型按编码查 sys_alert_type，查不到时 DAO 内自动用系统类型兜底
+ *       告警类型按编码查 sys_alert_type，查不到时 DAO 内自动用系统类型保底
  */
 void AuthService::recordLockAlert() {
     db::AlertDAO alertDao;

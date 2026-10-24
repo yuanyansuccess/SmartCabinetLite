@@ -16,7 +16,6 @@
 #include "services/AuthService.h"
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
-#include "common/DatabaseManager.h"     // DB写入机组配置
 #include "common/Constants.h"           // SC::NET_* 网络默认值
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -31,7 +30,7 @@
 #include <QComboBox>
 
 /**
- * @brief
+ * @brief 构建网络配置面板：本机 IP/子网掩码/网关/DNS、网卡速率、组网模式与服务器地址。
  * @return 构建并返回的界面控件，由调用方负责布局到页面
  */
 QWidget* SystemSettingsPage::createNetworkPanel() {
@@ -156,7 +155,6 @@ QWidget* SystemSettingsPage::createNetworkPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // installFocusEvents已移除
     return panel;
 }
 

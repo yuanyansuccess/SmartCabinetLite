@@ -54,16 +54,16 @@ QWidget* SystemSettingsPage::createTaskConfigPanel() {
     m_taskTypeCombo = new QComboBox();
     m_taskTypeCombo->setMinimumHeight(StyleHelper::Token::ControlHeight);
     m_taskTypeCombo->setStyleSheet(
-        "QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; font-size: 16px; color: #1a1a2e; background: white; min-height: 48px; }\n"
+        "QComboBox { border: 1px solid #d0d0d0; border-radius: 10px; padding: 0 14px; " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color: #1a1a2e; background: white; min-height: 48px; }\n"
         "QComboBox:focus { border-color: #4da3ff; }\n"
         "QComboBox::drop-down { border: none; width: 36px; }\n"
-        "QComboBox QAbstractItemView { font-size: 16px; padding: 8px; }");
+        "QComboBox QAbstractItemView { " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " padding: 8px; }");
     m_addTaskToolBtn = new QPushButton(QStringLiteral("+ 新增任务工具"));
     m_addTaskToolBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
     m_addTaskToolBtn->setMaximumWidth(140);
     m_addTaskToolBtn->setCursor(Qt::PointingHandCursor);
     m_addTaskToolBtn->setStyleSheet(
-        "QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 28px; font-size: 14px; font-weight: 700; min-height: 44px; min-width: 100px; }\n"
+        "QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 28px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 700; min-height: 44px; min-width: 100px; }\n"
         "QPushButton:hover { background: #3d8ae0; }\n"
         "QPushButton:pressed { background: #2e7bd6; }\n"
         "QPushButton:disabled { background: #cccccc; color: #888888; }");
@@ -103,7 +103,7 @@ QWidget* SystemSettingsPage::createTaskConfigPanel() {
     m_taskSaveBtn = new QPushButton(QStringLiteral("保存配置"));
     m_taskSaveBtn->setCursor(Qt::PointingHandCursor);
     m_taskSaveBtn->setStyleSheet(
-        "QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 24px; font-size: 14px; font-weight: 700; min-height: 44px; }\n"
+        "QPushButton { background: #4da3ff; color: white; border: none; border-radius: 10px; padding: 10px 24px; " + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " font-weight: 700; min-height: 44px; }\n"
         "QPushButton:hover { background: #3d8ae0; }\n"
         "QPushButton:pressed { background: #2e7bd6; }");
     saveLayout->addWidget(m_taskSaveBtn);
@@ -309,10 +309,11 @@ void SystemSettingsPage::onAddTaskTool() {
         toolCombo->clear();
         if (categoryId <= 0) return;
         db::ToolDAO dao;
-        QJsonArray tools = dao.allToolsSimple();
+        // 只加载对应分类下的工具：分类筛选在 DAO 层完成（单一数据源），
+        // 避免页面层重复过滤导致下拉框展示出不属于该分类的工具
+        QJsonArray tools = dao.allToolsSimple(categoryId);
         for (int i = 0; i < tools.size(); ++i) {
             QJsonObject obj = tools[i].toObject();
-            // 只加载对应分类的工具
             toolCombo->addItem(QStringLiteral("%1 - %2").arg(obj["toolCode"].toString(), obj["toolName"].toString()), obj["toolId"].toInt());
         }
     };

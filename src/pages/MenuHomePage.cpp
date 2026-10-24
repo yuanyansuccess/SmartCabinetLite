@@ -15,6 +15,7 @@
 #include <QSizePolicy>
 
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 
 /**
  * @brief 构造函数，初始化 MenuHomePage 对象并连接信号槽
@@ -100,11 +101,7 @@ void MenuHomePage::setCards(const QList<MenuCard>& cards)
 void MenuHomePage::rebuildCards()
 {
     // 清空旧卡片
-    while (m_cardGrid->count() > 0) {
-        QLayoutItem* item = m_cardGrid->takeAt(0);
-        if (item->widget()) item->widget()->deleteLater();
-        delete item;
-    }
+    LayoutHelper::clearItemsAndDeleteWidgets(m_cardGrid);
 
     const int columns = 4;
     const QSize cs = computeCardSize();

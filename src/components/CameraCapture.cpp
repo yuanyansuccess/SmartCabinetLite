@@ -31,6 +31,10 @@ CameraCapture::~CameraCapture() { stop(); }
 
 // ==================== 公开方法 ====================
 
+/**
+ * @brief 判断本机是否接了可用的摄像头
+ * @return true=至少有一个摄像头可用；false=没有摄像头，或枚举设备失败
+ */
 #ifndef HAS_QT_MULTIMEDIA
 bool CameraCapture::hasCamera() {
 #ifdef _WIN32
@@ -95,7 +99,12 @@ QStringList CameraCapture::availableCameras() {
 #endif // HAS_QT_MULTIMEDIA
 
 /**
- * @brief 启动摄像头采集
+ * @brief 按指定的分辨率与帧率启动采集，已经在采集时直接返回成功
+ * @param width 采集画面宽度（像素）
+ * @param height 采集画面高度（像素）
+ * @param fps 每秒采集帧数
+ * @return true=启动成功（或本来就在采集）；false=初始化失败或平台不支持，
+ *         具体原因通过 cameraError 信号带出
  */
 #ifndef HAS_QT_MULTIMEDIA
 bool CameraCapture::start(int width, int height, int fps) {
@@ -122,7 +131,7 @@ bool CameraCapture::start(int width, int height, int fps) {
 #endif // HAS_QT_MULTIMEDIA
 
 /**
- * @brief 停止摄像头采集
+ * @brief 停止采集并释放底层采集资源；本来就没在采集时直接返回，重复调用无副作用
  */
 #ifndef HAS_QT_MULTIMEDIA
 void CameraCapture::stop() {
@@ -143,6 +152,11 @@ bool CameraCapture::isRunning() const { return m_running; }
 
 // ==================== 内部实现 ====================
 
+/**
+ * @brief 定时器到点取一帧画面并广播出去
+ * @note 取帧和发信号都不加锁：画面是值拷贝，加锁没有意义，
+ *       反而会让"在槽里回调取帧"的接收方自死锁
+ */
 #ifndef HAS_QT_MULTIMEDIA
 void CameraCapture::onCaptureTimer() {
 #ifdef _WIN32
@@ -351,9 +365,13 @@ QImage CameraCapture::grabMFFrame() {
     return img;
 }
 
-// ── NV12 → RGB24 转换 ──
-// NV12布局：Y平面 (W×H) + 交错UV平面 (W×H/2, 每2字节=U,V)
-// YUV→RGB公式：R=Y+1.402*(V-128), G=Y-0.344*(U-128)-0.714*(V-128), B=Y+1.772*(U-128)
+/**
+ * @brief 将 NV12 格式帧转换为 RGB 图像
+ * @param data NV12 数据指针（Y 平面 + 交错 UV 平面）
+ * @param width 图像宽度（像素）
+ * @param height 图像高度（像素）
+ * @return 转换后的 RGB32 图像
+ */
 QImage CameraCapture::nv12ToRgb(const unsigned char* data, int width, int height) {
     QImage rgb(width, height, QImage::Format_RGB32);
     const unsigned char* yPlane = data;
@@ -380,8 +398,13 @@ QImage CameraCapture::nv12ToRgb(const unsigned char* data, int width, int height
     return rgb;
 }
 
-// ── YUY2 → RGB24 转换 ──
-// YUY2布局：每2像素4字节 [Y0,U,Y1,V]，macro-pixel=2像素
+/**
+ * @brief 将 YUY2 格式帧转换为 RGB 图像
+ * @param data YUY2 数据指针（每 2 像素 4 字节 [Y0,U,Y1,V]）
+ * @param width 图像宽度（像素）
+ * @param height 图像高度（像素）
+ * @return 转换后的 RGB32 图像
+ */
 QImage CameraCapture::yuy2ToRgb(const unsigned char* data, int width, int height) {
     QImage rgb(width, height, QImage::Format_RGB32);
 
@@ -418,6 +441,10 @@ QImage CameraCapture::yuy2ToRgb(const unsigned char* data, int width, int height
 
 // ==================== Linux/麒麟 Qt Multimedia 实现 ====================
 
+/**
+ * @brief 判断本机是否存在可用摄像头（麒麟 Qt Multimedia 后端）
+ * @return true 存在可用摄像头，false 无
+ */
 bool CameraCapture::hasCamera() {
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
     return !cameras.isEmpty();
@@ -439,6 +466,10 @@ QStringList CameraCapture::availableCameras() {
 
 /**
  * @brief 启动摄像头采集
+ * @param width 采集宽度（像素）
+ * @param height 采集高度（像素）
+ * @param fps 目标帧率
+ * @return true 启动成功，false 无摄像头或已在运行
  */
 bool CameraCapture::start(int width, int height, int fps) {
     if (m_running) return true;

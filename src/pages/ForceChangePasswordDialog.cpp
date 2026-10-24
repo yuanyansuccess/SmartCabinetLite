@@ -10,6 +10,7 @@
 #include "common/Constants.h"
 #include "common/UserInputValidator.h"  // 密码规则与提示文案
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -83,10 +84,7 @@ void ForceChangePasswordDialog::setupContent() {
 
     // 底部按钮
     auto* bl = buttonLayout();
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 
     auto* exitBtn = new QPushButton(QStringLiteral("退出登录"));

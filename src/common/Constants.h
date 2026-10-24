@@ -12,7 +12,13 @@ namespace SC {
 const QString APP_VERSION = "V2.00";
 
 // ── 通用格式（时间/正则等单一来源，避免重复字面量漂移） ──
+// 三种时间格式各管一处，改显示精度时只动这里：
+//   带秒  用于数据库读写与日志，保证排序与回读一致
+//   到分钟用于界面展示，省掉对用户无意义的秒
+//   纯日期用于只需年月日的场景（日期标签、每日一次的备份判断）
 const QString TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss";  // 数据库与界面统一使用的时间戳格式
+const QString DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm";     // 界面展示用，精确到分钟
+const QString DATE_FORMAT      = "yyyy-MM-dd";           // 只要年月日的场景
 
 // ── 数据库配置（默认值，运行时可修改） ──
 const QString DB_HOST     = "127.0.0.1";
@@ -53,7 +59,7 @@ const QString OP_CHECKIN  = "checkin";
 const QString OP_CHECKOUT = "checkout";
 
 // ── 出入库识别流程（边缘机识别后写库） ──
-// 重开柜整理轮次上限：每轮识别有未过项时可重新开柜整理，达到上限仍不全过则按当前实况写库兜底
+// 重开柜整理轮次上限：每轮识别有未过项时可重新开柜整理，达到上限仍没全部通过就按当前实况写库
 const int ORDER_MAX_RETRY_ROUNDS = 3;
 // 入库项"正确放入"的识别置信度门槛：货位上识别出的工具置信度达到该值才判定为放入正确
 const double RECOG_MIN_CONFIDENCE = 0.85;
@@ -61,7 +67,7 @@ const double RECOG_MIN_CONFIDENCE = 0.85;
 const QString ORDER_ROUND_OP_CHECKIN  = "checkin_round";
 const QString ORDER_ROUND_OP_CHECKOUT = "checkout_round";
 // 关柜等待超时（毫秒）：开箱后等待 IO 板"已关柜"信号的上限，超时提示用户确认柜门已关
-const int CABINET_CLOSE_WAIT_MS = 5 * 60 * 1000;
+const int CABINET_CLOSE_WAIT_MS = 2 * 60 * 1000;
 
 // ── 工具状态 ──
 const QString TOOL_IN_STOCK    = "in_stock";
@@ -102,7 +108,7 @@ const QString RECORD_OVERDUE   = "overdue";      // 已逾期
 
 // ── 人脸识别结果（face_recog_log.result）──
 // 写入方：FaceRecognitionService（识别判定）、LoginPage::faceResultName（枚举转字符串）
-// 使用方：FaceRecognitionService（识别判定写入）、LoginPage::faceResultName（枚举转字符串）；原统计方法FaceRecogLogDAO::getStats已删除
+// 使用方：FaceRecognitionService（识别判定写入）、LoginPage::faceResultName（枚举转字符串）
 const QString FACE_RESULT_SUCCESS  = "success";   // 识别成功
 const QString FACE_RESULT_STRANGER = "stranger";  // 陌生人
 const QString FACE_RESULT_REJECTED = "rejected";  // 相似度不足被拒
@@ -110,7 +116,6 @@ const QString FACE_RESULT_ERROR    = "error";     // 识别过程异常
 
 // ── 告警处理状态 ──
 const QString ALERT_UNHANDLED = "unhandled";     // 待处理
-const QString ALERT_HANDLED   = "handled";       // 已处理
 
 // ── 识别方式 全系统统一为视觉识别 ──
 const QString RECOGNITION_VISION = "vision";  // 视觉识别
@@ -175,8 +180,8 @@ const int FACE_RECOVER_SIZE = 85;   // 滞回：超过此值才判定已靠近
 // 单次登录最多比对的帧数与最长等待时间(毫秒)。
 // 远距离或角度不佳时特征相似度天然偏低，"多帧取最优"可在不降低任何阈值的
 // 前提下提升可用性——判定标准不变，陌生人仍无法通过，安全性不受影响。
-// 阈值0.94后大部分用户1~2帧通过，8帧/6秒兜底足够；
-// 12帧/12秒的兜底让用户误以为"卡死"，甲方反馈太慢故收紧一半。
+// 阈值定在 0.94 后，多数人 1~2 帧就能通过，留 8 帧 / 6 秒作为上限已经够用。
+// 上限放到 12 帧 / 12 秒时，用户会以为界面卡死，等待体验太差，所以收紧一半。
 const int  FACE_MATCH_MAX_FRAMES = 8;
 const int  FACE_MATCH_MAX_WAIT_MS = 6000;
 
@@ -236,7 +241,6 @@ const int  BORROW_FACE_SENSITIVITY = 0;
 const int FACE_RETRY_DELAY_MS        = 500;    // 人脸识别重试延迟
 
 // ── UI延迟配置 ──
-const int UI_CPU_STATS_DELAY_MS      = 500;    // CPU统计刷新延迟
 const int UI_LOGIN_FAIL_KEYBOARD_DELAY_MS = 500; // 登录失败后重弹密码键盘延迟
 const int UI_LOCK_COUNTDOWN_MS      = 1000;  // 密码锁定倒计时刷新间隔
 const bool    BACKUP_AUTO_ENABLED = true;

@@ -71,6 +71,7 @@ private:
     QLabel* m_labelInStock = nullptr;
     QLabel* m_labelBorrowed = nullptr;
     QLabel* m_labelCheckedOut = nullptr;
+    QLabel* m_statsScopeHint = nullptr;  ///< 统计口径说明行（写明统计范围，避免各页数字对不上被误解）
 
     // 新增/编辑工具表单弹窗（统一圆角风格）
     BaseDialog* m_toolDialog = nullptr;

@@ -66,6 +66,16 @@ CheckoutService::CheckoutResult CheckoutService::executeCheckout(
                 .arg(it.quantity)
                 .arg(it.position)
                 .arg(it.reason);
+            // 借出转出库：结清该工具仍在借的借用记录，避免台账一直显示"借用中"
+            if (it.fromBorrow) {
+                stepOk = recDao.finishBorrowsByCheckout(it.toolId, userId,
+                                                        QStringLiteral("转出库（免开箱）"));
+                if (!stepOk) {
+                    failedNames.append(it.toolName.isEmpty() ? it.toolCode : it.toolName);
+                    return false;
+                }
+                content += QStringLiteral("（原为借出未归还，本次转移出库）");
+            }
             // insertOperationLog 返回日志ID（>0 表示成功）
             stepOk = recDao.insertOperationLog(
                 userId, SC::OP_CHECKOUT, "tool", it.toolCode, content) > 0;

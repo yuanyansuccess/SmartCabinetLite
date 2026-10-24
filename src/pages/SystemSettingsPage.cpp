@@ -48,7 +48,7 @@ void SystemSettingsPage::setupUI() {
     mainLayout->setContentsMargins(24, 24, 24, 24);  // 24对齐其他页面
     mainLayout->setSpacing(16);  // 16对齐其他页面
 
-    // 标题栏：对齐其他页面 20px标题 + 蓝色实底主操作按钮
+    // 标题栏：与其他页面 20px标题一致 + 蓝色实底主操作按钮
     auto* titleBar = new QHBoxLayout();
     titleBar->setContentsMargins(0, 0, 0, 0);
     titleBar->setSpacing(12);
@@ -71,7 +71,7 @@ void SystemSettingsPage::setupUI() {
     titleBar->addWidget(m_saveAllBtn);
     mainLayout->addLayout(titleBar);
 
-    // 选项卡栏：对齐借用页QTabWidget风格（灰底白选中+主色下划线）
+    // 选项卡栏：与借用页QTabWidget风格一致（灰底白选中+主色下划线）
     auto* tabContainer = new QFrame();
     tabContainer->setAttribute(Qt::WA_StyledBackground, true);
     tabContainer->setStyleSheet(
@@ -92,11 +92,9 @@ void SystemSettingsPage::setupUI() {
         tab->setAlignment(Qt::AlignCenter);
         tab->installEventFilter(this);
         m_tabLabels.append(tab);
-        //yy 隐藏告警日志
-        if (i != 1)
-        {
-            tabBar->addWidget(tab);
-        }        
+        // 全部选项卡均加入标签栏：告警参数面板配置蜂鸣器/LED/逾期/柜门/断电/自动确认，
+        // 是系统设置必需功能，必须保持可达（历史上曾误隐藏，导致配置项无法访问）
+        tabBar->addWidget(tab);
     }
     tabBar->addStretch();
     mainLayout->addWidget(tabContainer);
@@ -137,7 +135,7 @@ void SystemSettingsPage::setupUI() {
  * @brief 按当前选中项刷新各选项卡的样式
  */
 void SystemSettingsPage::updateTabStyles() {
-    // Tab样式对齐借用页QTabWidget：灰底白选中+主色下划线，去渐变胶囊
+    // Tab样式与借用页QTabWidget一致：灰底白选中+主色下划线，去渐变胶囊
     for (int i = 0; i < m_tabLabels.size(); ++i) {
         if (i == m_activeTabIndex) {
             m_tabLabels[i]->setStyleSheet(
@@ -205,7 +203,8 @@ bool SystemSettingsPage::eventFilter(QObject* watched, QEvent* event) {
 // 小米工程师优化：标签36px高/form 8px间距/面板24,12边距，紧凑美观大气
 
 /**
- * @brief ==================== 告警参数面板 ====================
+ * @brief 构建告警参数面板：蜂鸣器音量、LED 告警灯、逾期告警阈值、柜门未关告警、
+ *        视觉识别异常告警、断电告警方式、告警自动确认等开关与阈值。
  * @return 构建并返回的界面控件，由调用方负责布局到页面
  */
 QWidget* SystemSettingsPage::createAlertPanel() {
@@ -327,7 +326,6 @@ QWidget* SystemSettingsPage::createAlertPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // installFocusEvents已移除
     return panel;
 }
 
@@ -349,7 +347,6 @@ void SystemSettingsPage::refresh() {
 void SystemSettingsPage::onSaveAll() {
     // 保存全部配置到本地INI文件
     if (saveConfigToIni()) {
-        m_savedFlag = true;
         MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("全部设置已保存到本地配置文件"));
     }
 }
@@ -405,7 +402,7 @@ void SystemSettingsPage::onSaveNetwork() {
     cfg.setNetSpeedMode(m_speedMode);
     cfg.setNetNetworkMode(m_networkMode);
     cfg.save();
-    m_savedFlag = true;
+
     snapshotSettings();
     // 保存网络配置后自动应用到系统有线网卡（Windows+麒麟跨平台，异步执行）
     applyNetworkConfig(ip, mask, gateway, dns, m_speedMode);
@@ -427,7 +424,7 @@ void SystemSettingsPage::onSaveAlert() {
     cfg.setAlertPowerAlarmMode(m_powerAlarmMode);
     cfg.setAlertAutoConfirm(m_autoConfirmCheck->isChecked());
     cfg.save();
-    m_savedFlag = true;
+
     snapshotSettings();
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("告警设置已保存到本地配置文件"));
 }
@@ -442,7 +439,7 @@ void SystemSettingsPage::onSaveBorrow() {
     cfg.setBorrowReturnBuffer(m_returnBufferSpin->value());
     cfg.setBorrowBrightness(m_brightnessSlider->value());
     cfg.save();
-    m_savedFlag = true;
+
     snapshotSettings();
     applyDisplayBrightness(m_brightnessSlider->value());
     MessageDialog::showSuccess(this, QStringLiteral("成功"), QStringLiteral("借还设置已保存到本地配置文件"));
@@ -459,7 +456,7 @@ void SystemSettingsPage::onSaveBackup() {
     cfg.setBackupCacheHours(m_cacheHoursSpin->value());
     cfg.setBackupPath(m_backupPathEdit->text());
     cfg.save();
-    m_savedFlag = true;
+
     snapshotSettings();
     // 保存备份设置后立即执行一次备份，并注册定时备份任务
     if (m_autoBackupCheck->isChecked()) {
@@ -484,6 +481,10 @@ static bool shouldRunAutoBackup(int period, const QDate& lastBackup, const QDate
     }
 }
 
+/**
+ * @brief 启动自动备份定时器：每小时轮询一次，并在启动后立即检查一次
+ * @note 立即检查是为了覆盖"今天该备份、但程序在设定的备份时刻之后才打开"的情况
+ */
 void SystemSettingsPage::initBackupScheduler() {
     if (m_backupTimer) return;
     m_backupTimer = new QTimer(this);
@@ -494,6 +495,9 @@ void SystemSettingsPage::initBackupScheduler() {
     QTimer::singleShot(0, this, &SystemSettingsPage::onBackupTimerTick);
 }
 
+/**
+ * @brief 定时器到点时判断要不要备份：备份开关开着、且今天到了备份周期才执行
+ */
 void SystemSettingsPage::onBackupTimerTick() {
     auto& cfg = AppConfig::instance();
     if (!cfg.backupAutoEnabled()) return;
@@ -503,20 +507,28 @@ void SystemSettingsPage::onBackupTimerTick() {
 }
 
 /**
+ * @brief 统一设置一组按钮的选中态样式
+ * @param buttons 按钮数组（元素可为空指针，空指针自动跳过）
+ * @param count 数组内按钮个数
+ * @param selectedIndex 选中项下标；其余按钮显示为默认色
+ * @return 无
+ */
+void SystemSettingsPage::applyButtonGroupStyle(QPushButton* const* buttons, int count, int selectedIndex) {
+    for (int i = 0; i < count; ++i) {
+        if (!buttons[i]) continue;
+        const bool selected = (i == selectedIndex);
+        buttons[i]->setChecked(selected);
+        buttons[i]->setStyleSheet(selected ? StyleHelper::buttonGroupPrimary()
+                                          : StyleHelper::buttonGroupDefault());
+    }
+}
+
+/**
  * @brief 断电告警方式按钮组样式更新 — 44px高统一风格
  */
 void SystemSettingsPage::updatePowerAlarmBtnStyles() {
     QPushButton* btns[3] = { m_powerAlarmBtn1, m_powerAlarmBtn2, m_powerAlarmBtn3 };
-    for (int i = 0; i < 3; ++i) {
-        if (!btns[i]) continue;
-        bool sel = (i == m_powerAlarmMode);
-        btns[i]->setChecked(sel);
-        if (sel) {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
-        } else {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
-        }
-    }
+    applyButtonGroupStyle(btns, 3, m_powerAlarmMode);
 }
 
 /**
@@ -524,16 +536,7 @@ void SystemSettingsPage::updatePowerAlarmBtnStyles() {
  */
 void SystemSettingsPage::updateSpeedBtnStyles() {
     QPushButton* btns[2] = { m_speedBtn1, m_speedBtn2 };
-    for (int i = 0; i < 2; ++i) {
-        if (!btns[i]) continue;
-        bool sel = (i == m_speedMode);
-        btns[i]->setChecked(sel);
-        if (sel) {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
-        } else {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
-        }
-    }
+    applyButtonGroupStyle(btns, 2, m_speedMode);
 }
 
 /**
@@ -541,16 +544,7 @@ void SystemSettingsPage::updateSpeedBtnStyles() {
  */
 void SystemSettingsPage::updateModeBtnStyles() {
     QPushButton* btns[2] = { m_modeBtn1, m_modeBtn2 };
-    for (int i = 0; i < 2; ++i) {
-        if (!btns[i]) continue;
-        bool sel = (i == m_networkMode);
-        btns[i]->setChecked(sel);
-        if (sel) {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
-        } else {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
-        }
-    }
+    applyButtonGroupStyle(btns, 2, m_networkMode);
 }
 
 /**
@@ -558,16 +552,7 @@ void SystemSettingsPage::updateModeBtnStyles() {
  */
 void SystemSettingsPage::updateBackupPeriodBtnStyles() {
     QPushButton* btns[3] = { m_backupBtn1, m_backupBtn2, m_backupBtn3 };
-    for (int i = 0; i < 3; ++i) {
-        if (!btns[i]) continue;
-        bool sel = (i == m_backupPeriod);
-        btns[i]->setChecked(sel);
-        if (sel) {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupPrimary());
-        } else {
-            btns[i]->setStyleSheet(StyleHelper::buttonGroupDefault());
-        }
-    }
+    applyButtonGroupStyle(btns, 3, m_backupPeriod);
 }
 
 /**
@@ -576,7 +561,6 @@ void SystemSettingsPage::updateBackupPeriodBtnStyles() {
  */
 void SystemSettingsPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    m_savedFlag = false;
     loadConfigFromIni();  // 从本地INI文件加载配置到UI
     snapshotSettings();      // 再备份快照
 }
@@ -586,7 +570,9 @@ void SystemSettingsPage::showEvent(QShowEvent* event) {
  * @param event 事件对象，由 Qt 事件系统传入
  */
 void SystemSettingsPage::hideEvent(QHideEvent* event) {
-    if (!m_savedFlag && isDirty()) {
+    // 只要存在未保存改动（与进入页面时的快照不一致）就提示，避免静默丢失用户设置。
+    // 不依赖"是否点过保存按钮"：点过某分项保存后仍改了其它项，关闭时同样需要提示。
+    if (isDirty()) {
         // 有未保存修改 → 弹窗询问（保存 / 不保存，无取消按钮）
         int choice = MessageDialog::showDirtyConfirm(
             this,
@@ -594,9 +580,8 @@ void SystemSettingsPage::hideEvent(QHideEvent* event) {
             QStringLiteral("系统设置有修改，是否保存到本地配置文件？")
         );
         if (choice == 1) {
-            // 用户点击"保存"
+            // 用户点击"保存"：写入全部当前 UI 值（含尚未单独保存的其它面板）
             saveConfigToIni();
-            m_savedFlag = true;
         }
         // choice == 0 → "不保存"，直接离开
     }

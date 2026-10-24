@@ -29,7 +29,7 @@ struct ImportRow {
     QString department;  // 部门
     QString role;        // 角色 (管理员/普通用户)
     QString status;      // 状态 (启用/禁用)
-    int     lineNumber;  // Excel行号(用于报错定位)
+    int     lineNumber = 0;  // Excel行号(用于报错定位)
 };
 
 struct ImportResult {

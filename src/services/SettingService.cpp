@@ -1,7 +1,7 @@
 /**
  * @file SettingService.cpp
  * @brief 系统设置服务实现 — 告警日志、台账统计、系统配置
- *        本层只做业务编排，SQL 统一在 db/ 层（AlertDAO/RecordDAO/DepartmentDAO）
+ *        本层只做业务组织，SQL 统一在 db/ 层（AlertDAO/RecordDAO/DepartmentDAO）
  * @author 袁燕
  */
 #include "SettingService.h"
@@ -28,7 +28,7 @@ SettingService::SettingService(QObject* parent) : QObject(parent) {}
  */
 QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& type,
                                            const QString& level, const QString& keyword) {
-    // AlertLogsPage数据源：SQL 已下沉 AlertDAO::findAllPaged（含JOIN与筛选），
+    // AlertLogsPage数据源：SQL 已下放到 AlertDAO::findAllPaged（含JOIN与筛选），
     // level 由 DAO 内经 SC::alertLevelCodeFromText 统一做显示值→库值映射
     AlertDAO alertDao;
     return alertDao.findAllPaged(type, level, keyword, page, pageSize);
@@ -39,7 +39,7 @@ QJsonObject SettingService::getAllAlerts(int page, int pageSize, const QString& 
  * @return 含借用总次数、归还总次数、逾期数与活跃用户数的对象
  */
 QJsonObject SettingService::getLedgerStats() {
-    // SQL 已下沉 RecordDAO::getLedgerStats（含分类/部门维度统计）
+    // SQL 已下放到 RecordDAO::getLedgerStats（含分类/部门维度统计）
     RecordDAO dao;
     return dao.getLedgerStats();
 }

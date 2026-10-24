@@ -13,7 +13,7 @@ class SettingService : public QObject {
 public:
     explicit SettingService(QObject* parent = nullptr);
     // 告警写域与详情/统计/类型查询已迁移至 AlertService；
-    // 本方法保留 AlertLogsPage 数据源入口，SQL 实现已下沉 db/AlertDAO::findAllPaged
+    // 本方法保留 AlertLogsPage 数据源入口，SQL 实现已下放到 db/AlertDAO::findAllPaged
     QJsonObject getAllAlerts(int page = 1, int pageSize = 200,  // 获取告警分页列表（含JOIN关联信息）
                             const QString& type = "", const QString& level = "",
                             const QString& keyword = "");  // 返回QJsonObject含total

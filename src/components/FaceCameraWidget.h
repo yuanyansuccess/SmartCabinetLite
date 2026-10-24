@@ -38,7 +38,7 @@ public:
         double minAspectRatio        = 0.6;   ///< 人脸框宽高比下限
         double maxAspectRatio        = 2.2;   ///< 人脸框宽高比上限
         double boxInsetRatio         = 0.08;  ///< 人脸框内缩比例（使框紧贴人脸）
-        // 检测循环内的置信度估算（实时反馈用，系数与采集兜底路径不同）
+        // 检测循环里估算置信度用（只用于实时反馈，系数与正式采集那一步不同）
         double loopBaseConfidence    = 0.45;
         double loopAreaWeight        = 3.0;
     };

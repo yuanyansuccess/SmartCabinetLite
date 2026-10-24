@@ -14,7 +14,7 @@
 #include "services/BorrowService.h"
 #include "common/AppConfig.h"       // 获取本机机组ID
 #include "common/Constants.h"       // 分页常量
-#include "services/AlertService.h"    // 告警闭环写入
+#include "services/AlertService.h"    // 告警写入
 #include "db/ToolDAO.h"            // 查询机组名称和位置映射
 #include "components/SoftKeyboard.h"
 // 通过BorrowService访问数据
@@ -76,13 +76,13 @@ void ToolBorrowPage::setupUI() {
     // 不创建独立的推荐表格，全部工具统一在 m_allToolTable 中显示
 
     // 日期初始值
-    m_dateLabel->setText(QDate::currentDate().toString("yyyy-MM-dd"));
+    m_dateLabel->setText(QDate::currentDate().toString(SC::DATE_FORMAT));
 
     // 预计归还时间：从AppConfig读取默认借用期限(小时)，自动计算归还时间
     int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
     if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;
     QDateTime returnTime = QDateTime::currentDateTime().addSecs(defaultPeriodHours * 3600);
-    m_returnTimeLabel->setText(returnTime.toString("yyyy-MM-dd HH:mm"));
+    m_returnTimeLabel->setText(returnTime.toString(SC::DATE_TIME_FORMAT));
 
     // 信号槽连接
     connect(m_taskTypeBtn, &QPushButton::clicked, this, &ToolBorrowPage::onTaskTypeBtnClicked);
@@ -222,7 +222,7 @@ void ToolBorrowPage::refresh() {
     } else {
         m_deptLabel->setText(QStringLiteral("未配置"));
     }
-    m_dateLabel->setText(QDate::currentDate().toString("yyyy-MM-dd"));
+    m_dateLabel->setText(QDate::currentDate().toString(SC::DATE_FORMAT));
 
     // 流水号在用户选择任务类型后才生成，默认显示--
     m_flowNoDisplay->setText("--");
@@ -456,7 +456,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         // 按工具种类选中，用toolId，availableQty=可用库存数
         int availableQty = t["availableQty"].toInt();
         QString unit = t["unit"].toString().isEmpty() ? QStringLiteral("件") : t["unit"].toString();
-        // 推荐行浅蓝底，对齐 #4da3ff 蓝色主调
+        // 推荐行浅蓝底，与#4da3ff 蓝色主调一致
         QString rowBg = isRecommended ? QStringLiteral("#e6f4ff") : QStringLiteral("white");
 
         // 判断是否已选中及数量
@@ -469,7 +469,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
         }
 
         // Col 0: 选择复选框
-        // checkbox选中整体填充蓝色（非边框），圆角4px对齐StyleHelper::tableCheckBox
+        // checkbox选中整体填充蓝色（非边框），圆角4px与StyleHelper::tableCheckBox一致
         auto* checkBox = new QCheckBox();
         checkBox->setStyleSheet(
             "QCheckBox { background: transparent; }"
@@ -608,7 +608,7 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
             }
         }
 
-        // Col 7: 操作按钮 — 配色对齐人员管理蓝色 #4da3ff，缩小尺寸
+        // Col 7: 操作按钮 — 配色与人员管理蓝色 #4da3ff一致，缩小尺寸
         {
             QPushButton* opBtn;
             if (isSelected) {
@@ -729,7 +729,7 @@ void ToolBorrowPage::loadBorrowRecords() {
         statusFont.setBold(true);
         statusItem->setFont(statusFont);
         m_recordTable->setItem(i, 3, statusItem);
-        // 操作按钮（对齐UserManagementPage实色块风格 64x36）
+        // 操作按钮（与UserManagementPage实色块风格 64x36一致）
         // 已归还状态按钮灰色禁用，其他状态点击跳转归还页面
         bool isReturned = (status == SC::RECORD_RETURNED || status == QStringLiteral("已归还"));
         auto* returnBtn = new QPushButton(QStringLiteral("归还"));
@@ -744,7 +744,7 @@ void ToolBorrowPage::loadBorrowRecords() {
             );
         } else {
             // 借用中/已逾期：蓝色(#4da3ff)，点击跳转归还页面并自动选中对应工具
-            // 颜色对齐人员管理编辑按钮#4da3ff
+            // 颜色与人员管理编辑按钮#4da3ff一致
             returnBtn->setStyleSheet(
                 "QPushButton{background:#4da3ff;color:white;border:none;border-radius:8px;"
                 "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";font-weight:700;}"

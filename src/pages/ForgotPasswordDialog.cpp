@@ -12,6 +12,7 @@
 #include "common/Constants.h"
 #include "common/UserInputValidator.h"  // 密码规则与提示文案
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -64,10 +65,7 @@ void ForgotPasswordDialog::setupContent() {
 
     // 底部按钮：两页共用（验证页为取消，设密页为确认重置）
     auto* bl = buttonLayout();
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 }
 

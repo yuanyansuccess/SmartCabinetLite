@@ -57,6 +57,8 @@ void PaginationBar::setupUI() {
 
 /**
  * @brief 设置页面信息
+ * @param currentPage 当前页码（从 1 开始）
+ * @param totalPages 总页数
  */
 void PaginationBar::setPageInfo(int currentPage, int totalPages) {
     const int safeTotal = qMax(1, totalPages);
@@ -67,6 +69,7 @@ void PaginationBar::setPageInfo(int currentPage, int totalPages) {
 
 /**
  * @brief 设置总数记录
+ * @param totalRecords 记录总数，用于显示"共 N 条"
  */
 void PaginationBar::setTotalRecords(int totalRecords) {
     m_totalLabel->setText(QStringLiteral("共 %1 条").arg(totalRecords));

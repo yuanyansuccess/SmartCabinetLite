@@ -61,7 +61,7 @@ CleanupResult ensureFreePercent(const QString& targetDir,
     int freePercent = freePercentOf(targetDir);
     result.freePercent = freePercent;
     if (freePercent < 0 || freePercent >= minFreePercent) {
-        // 磁盘信息不可用（网络盘/权限受限）时放行，由写文件自身的错误提示兜底
+        // 磁盘信息读不出来（网络盘或权限受限）时先放行，真写不进去由写文件那一步负责报错
         result.spaceOk = true;
         return result;
     }

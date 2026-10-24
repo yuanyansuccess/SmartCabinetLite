@@ -119,7 +119,8 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
 // 实体类API（Controller层使用）— 从dao/TaskTypeDAO.cpp合并
 // ═══════════════════════════════════════════════
 /**
- * @brief 查询全部
+ * @brief 查询全部已启用的任务类型
+ * @return 任务类型列表（按 sort_order 升序）
  */
 QList<TaskType> TaskTypeDAO::findAll() {
     QList<TaskType> list;
@@ -128,10 +129,12 @@ QList<TaskType> TaskTypeDAO::findAll() {
     return list;
 }
 
-// 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
-// JOIN映射表取实际在库位置（一个位置一个工具），供开柜页"我的任务工具"只读展示
-// 入参：typeId 任务类型ID；machineGroupId 机组ID（>0时启用机组隔离）
-// 返回：[{toolName, toolCode, cabinetName, layer, position}]
+/**
+ * @brief 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
+ * @param typeId 任务类型ID
+ * @param machineGroupId 机组ID，大于 0 时启用机组隔离
+ * @return 在库工具对象数组，每项含 toolName/toolCode/cabinetName/layer/position
+ */
 QJsonArray TaskTypeDAO::findInStockToolsByType(int typeId, int machineGroupId)
 {
     QSqlDatabase db = getDb();

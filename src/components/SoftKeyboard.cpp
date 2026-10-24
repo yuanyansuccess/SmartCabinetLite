@@ -147,7 +147,7 @@ void SoftKeyboard::setupUI() {
     dispLayout->addWidget(m_displayCount);
     m_mainLayout->addWidget(m_displayArea);
 
-    // ═══════ 中文候选条（仅中文模式显示，同款灰底圆角对齐NumKeypad） ═══════
+    // ═══════ 中文候选条（仅中文模式显示，同款灰底圆角与NumKeypad一致） ═══════
     m_candBar = new QWidget();
     m_candBar->setAutoFillBackground(true);
     m_candBar->setFixedHeight(44);

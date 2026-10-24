@@ -16,13 +16,13 @@
 #include "services/AuthService.h"
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
-#include "common/DatabaseManager.h"     // DB写入机组配置
 #include "components/MessageDialog.h"
 #include <QDebug>
 #include <QProcess>  // 调用PowerShell设置显示器亮度
 
 /**
  * @brief 应用显示亮度
+ * @param percent 目标亮度，范围 0~100
  */
 void SystemSettingsPage::applyDisplayBrightness(int percent) {
     // 输入校验：亮度值范围 0-100
@@ -35,7 +35,13 @@ void SystemSettingsPage::applyDisplayBrightness(int percent) {
 #endif
 }
 
-/** 亮度调整日志（Windows写项目temp目录，麒麟写/tmp） */
+/**
+ * @brief 亮度调整日志（Windows 写程序数据目录，麒麟写 /tmp）
+ * @param percent 目标亮度
+ * @param method 调用方式（如 WMI / xrandr）
+ * @param result 命令输出内容
+ * @param exitCode 进程退出码
+ */
 void SystemSettingsPage::writeBrightnessLog(int percent, const QString& method, const QString& result, int exitCode) {
     // 日志路径统一走 Logger 目录（程序数据目录/logs，跨平台且自动创建）
     QString logPath = Log::logDirectory() + "/brightness.log";
@@ -46,7 +52,10 @@ void SystemSettingsPage::writeBrightnessLog(int percent, const QString& method, 
 }
 
 #ifdef Q_OS_WIN
-/** Windows亮度调整：PowerShell + WMI 异步执行不阻塞UI */
+/**
+ * @brief Windows 亮度调整：PowerShell + WMI 异步执行不阻塞 UI
+ * @param percent 目标亮度，范围 0~100
+ */
 void SystemSettingsPage::applyBrightnessWindows(int percent) {
     // PowerShell: (Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, <percent>)
     QString psScript = QStringLiteral(
@@ -84,7 +93,10 @@ void SystemSettingsPage::applyBrightnessWindows(int percent) {
 }
 
 #else
-/** 麒麟Linux亮度调整：三级降级链 backlight内核接口 → xrandr → brightnessctl */
+/**
+ * @brief 麒麟Linux亮度调整：三级降级链 backlight内核接口 → xrandr → brightnessctl
+ * @param percent 目标亮度百分比，取值范围 0~100
+ */
 void SystemSettingsPage::applyBrightnessLinux(int percent) {
     auto writeLog = [this, percent](const QString& method, const QString& result, int exitCode) {
         writeBrightnessLog(percent, method, result, exitCode);

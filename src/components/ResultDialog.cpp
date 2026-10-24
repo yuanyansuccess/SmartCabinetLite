@@ -58,6 +58,7 @@ void ResultDialog::showEvent(QShowEvent* event)
 
 /**
  * @brief 设置提示
+ * @param text 提示文案
  */
 void ResultDialog::setHint(const QString& text) {
     auto* hintLabel = new QLabel(text);
@@ -92,8 +93,51 @@ void ResultDialog::addFinishButtonRow(const QString& text, const QString& style,
     finishBtn->setCursor(Qt::PointingHandCursor);
     finishBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
     if (minWidth > 0) finishBtn->setMinimumWidth(minWidth);
-    connect(finishBtn, &QPushButton::clicked, this, &QDialog::accept);
+    connect(finishBtn, &QPushButton::clicked, this, [this]() {
+        m_clickedAction = m_finishAction;   // 记录动作标识：区分"点了确认"与"直接关窗"
+        accept();
+    });
     btnRow->addWidget(finishBtn);
+    btnRow->addStretch();
+    m_layout->addLayout(btnRow);
+}
+
+/**
+ * @brief 在对话框底部添加一行双按钮（左次右主），点击关闭并记录动作标识
+ * @param leftText   左侧按钮文字
+ * @param leftStyle  左侧按钮样式
+ * @param rightText  右侧按钮文字
+ * @param rightStyle 右侧按钮样式
+ * @param minWidth   按钮最小宽度（<=0 表示不限定）
+ */
+void ResultDialog::addTwoButtonsRow(const QString& leftText, const QString& leftStyle,
+                                    const QString& rightText, const QString& rightStyle, int minWidth) {
+    m_clickedAction.clear();
+    auto* btnRow = new QHBoxLayout();
+    btnRow->addStretch();
+
+    auto* leftBtn = new QPushButton(leftText);
+    leftBtn->setStyleSheet(leftStyle);
+    leftBtn->setCursor(Qt::PointingHandCursor);
+    leftBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
+    if (minWidth > 0) leftBtn->setMinimumWidth(minWidth);
+    connect(leftBtn, &QPushButton::clicked, this, [this]() {
+        m_clickedAction = QStringLiteral("reopen");
+        accept();
+    });
+    btnRow->addWidget(leftBtn);
+
+    auto* rightBtn = new QPushButton(rightText);
+    rightBtn->setStyleSheet(rightStyle);
+    rightBtn->setCursor(Qt::PointingHandCursor);
+    rightBtn->setMinimumHeight(StyleHelper::Token::ControlHeight);
+    if (minWidth > 0) rightBtn->setMinimumWidth(minWidth);
+    connect(rightBtn, &QPushButton::clicked, this, [this]() {
+        m_clickedAction = QStringLiteral("writeNow");
+        accept();
+    });
+    btnRow->addWidget(rightBtn);
+
     btnRow->addStretch();
     m_layout->addLayout(btnRow);
 }

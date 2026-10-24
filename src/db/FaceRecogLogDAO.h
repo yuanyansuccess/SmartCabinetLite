@@ -21,7 +21,7 @@ struct FaceRecogLog {
     int     candidateCnt = 0;
     int     elapsedMs = 0;
     QString matchedUser;   // 命中工号（stranger/error为空）
-    double  secondSim = 0;  // 第二名候选余弦相似度（补近邻复盘盲区：张育诚误识可看"对本人/对旁人"分差）
+    double  secondSim = 0;  // 第二名候选余弦相似度（补近邻回顾盲区：张育诚误识可看"对本人/对旁人"分差）
     QString secondUser;    // 第二名候选工号（单人脸/无候选时为空）
     double  quality = 0;    // 采集质量分（由采集端透传，暂占位0，后续补透传）
 };

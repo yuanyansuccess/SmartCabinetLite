@@ -34,6 +34,10 @@ public:
     // 归还确认：写入归还时间/状态/操作人，返回是否成功
     bool        completeReturn(int recordId, const QString& returnTime,
                                const QString& condition, int operatorId, const QString& remark);
+    // 借出转出库：把该工具仍在借（借用中/已逾期）的记录一并结清
+    // 入参：toolId工具ID, operatorId操作人ID, remark写入备注（说明结清原因）
+    // 返回：true=执行成功（无在借记录也算成功）；false=写库失败
+    bool        finishBorrowsByCheckout(int toolId, int operatorId, const QString& remark);
     // 查询某工具的最近N条借用记录（用于工具详情对话框展示）
     QJsonArray  findByToolId(int toolId, int limit = 5);
     // 按位置映射ID查询借用记录（工具详情按位置过滤）

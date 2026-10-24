@@ -100,11 +100,7 @@ int main(int argc, char* argv[]) {
     // （识别结果/开箱结果/链路状态转发给入库页），此处不再重复接线
     EdgeService* edgeService = new EdgeService(&app);
     EdgeConfig edgeCfg;
-    // 仿真模式仅由命令行 --sim 控制（不持久化到 system.ini，避免生产环境误开仿真）
-    if (app.arguments().contains(QStringLiteral("--sim"))) {  // 加 --sim 启用内置假边缘机，无需硬件/模拟器
-        edgeCfg.simulate = true;
-    }
-    edgeService->start(edgeCfg);   // 端口9000；simulate=true 时内置假边缘机，无需硬件/模拟器
+    edgeService->start(edgeCfg);   // 端口9000；边缘机未接入时仅出入库核对功能不可用，其余功能正常
 
     // ── 主窗口 ──
     // 触屏智能柜系统强制全屏模式运行

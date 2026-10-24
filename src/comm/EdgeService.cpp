@@ -26,26 +26,45 @@
 #include <QJsonDocument>
 
 namespace {
+/**
+ * @brief 取当前毫秒时间戳，用于计算帧超时、重发间隔这类时间判断
+ * @return 从 1970 年 1 月 1 日起经过的毫秒数
+ */
 inline qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
 
 /**
  * @brief 从 recognize_ack 的 items 数组解析识别结果清单（协议3.3字段表）
  * @param arr items 数组（JSON）
- * @return 识别结果清单；字段缺失时取默认值（空串/0），不抛异常
+ * @return 识别结果清单；货位为空的项跳过并告警，其余字段按协议默认值补齐
+ * @note  协议约定一项一货位且 6 个字段必填：缺 confidence 曾让"数据没给"伪装成
+ *        "识别置信度不足"，故这里逐项补齐并跳过无法定位的货位
  */
 QList<RecognizeItem> parseItems(const QJsonArray& arr)
 {
     QList<RecognizeItem> out;
+    int skipped = 0;
     for (const QJsonValue& v : arr) {
         const QJsonObject o = v.toObject();
         RecognizeItem it;
         it.position   = o["position"].toString();
+        if (it.position.isEmpty()) {
+            // 货位是上位机比对的唯一依据，缺了就无法定位，整项作废
+            ++skipped;
+            continue;
+        }
         it.toolId     = o["tool_id"].toString();
         it.classId    = o["class_id"].toString();
         it.confidence = o["confidence"].toDouble();
         it.alertType  = o["alert_type"].toString(QStringLiteral("none"));
         it.alertLevel = o["alert_level"].toInt();
+        // present 缺省 true：老边缘机不带该字段时按"已覆盖"处理，
+        // 否则全柜核对会把全部货位误报成"未覆盖"
+        it.present    = o.contains("present") ? o["present"].toBool(true) : true;
         out.append(it);
+    }
+    if (skipped > 0) {
+        qWarning() << "[EdgeService] recognize_ack 有" << skipped
+                   << "项缺货位已跳过（协议3.3要求每项必填货位）";
     }
     return out;
 }
@@ -95,27 +114,17 @@ void EdgeService::start(const EdgeConfig& cfg)
     stop();  // 重复调用安全：先停干净上一次的资源再启动
 
     m_cfg = cfg;
-    m_sim = cfg.simulate;
     m_online = false;
     m_activeClient = 0;
     m_lastPeriodicMs = 0;
     m_pending.clear();
     m_lastCamStatus.clear();   // 摄像头状态基线重建：首帧只建基线，不把旧连接的状态当变化上报
 
-    if (!m_sim) {
-        m_link = new EdgeLink(this);
-        connect(m_link, &EdgeLink::clientConnected, this, &EdgeService::onClientConnected);
-        connect(m_link, &EdgeLink::clientDisconnected, this, &EdgeService::onClientDisconnected);
-        connect(m_link, &EdgeLink::frameReceived, this, &EdgeService::onFrameReceived);
-        m_link->start(cfg);   // 失败仅边缘机功能不可用，服务继续跑
-    } else {
-        // 仿真模式：内置假边缘机，自动上线 + 周期帧 + 自动回应开箱/识别，无需真实硬件/模拟器
-        m_activeClient = 1;   // 假活跃连接，使在线/请求前置校验通过
-        connect(&m_simTimer, &QTimer::timeout, this, &EdgeService::onSimPeriodic);
-        m_simTimer.start(3000);                       // 每3秒一帧 periodic
-        QTimer::singleShot(300, this, [this] { onSimPeriodic(); });  // 首帧：模拟接入后先上线
-        qInfo() << "[EdgeService] 仿真模式已开启（内置假边缘机，无需真实硬件/模拟器）";
-    }
+    m_link = new EdgeLink(this);
+    connect(m_link, &EdgeLink::clientConnected, this, &EdgeService::onClientConnected);
+    connect(m_link, &EdgeLink::clientDisconnected, this, &EdgeService::onClientDisconnected);
+    connect(m_link, &EdgeLink::frameReceived, this, &EdgeService::onFrameReceived);
+    m_link->start(cfg);   // 失败仅边缘机功能不可用，服务继续跑
 
     m_scanTimer.start(200);      // 请求超时/重发扫描
     m_offlineTimer.start(1000);  // 链路离线扫描（周期3秒×5条=15秒口径）
@@ -123,18 +132,17 @@ void EdgeService::start(const EdgeConfig& cfg)
 
 /**
  * @brief 停止服务：停扫描器、断链路、清登记表
- * @return 无。停止时若处于在线状态，先通知界面收敛（否则订阅方状态悬空）
+ * @return 无。停止时若处于在线状态，先通知界面把状态更新掉（否则订阅方拿到的状态一直悬着）
  */
 void EdgeService::stop()
 {
-    // 在线状态下先通知界面收敛（否则订阅方状态悬空）
+    // 在线时先通知界面把状态更新掉（否则订阅方拿到的状态一直悬着）
     if (m_online) {
         m_online = false;
         emit onlineChanged(false);
     }
     m_scanTimer.stop();
     m_offlineTimer.stop();
-    m_simTimer.stop();
     if (m_link) {
         m_link->deleteLater();
         m_link = nullptr;
@@ -254,9 +262,11 @@ QString EdgeService::requestRecognize()
     m_pending.insert(requestId, p);
 
     if (!sendToEdge(frame)) {
-        // 写入失败：条目保留等待链路恢复补发（第5章③），本次通知上层未发出
+        // 写入失败：条目保留等待链路恢复补发（第5章③）。
+        // 失败通知用空串编号，与"离线未发出"同一口径：上层据此统一弹提示，
+        // 否则上层按编号配对失败会直接丢弃原因，用户点了"我已关柜"界面毫无反应
         m_pending[requestId].failed = true;
-        emit recognizeFailed(requestId, QStringLiteral("识别请求写入失败，已保留待链路恢复补发"));
+        emit recognizeFailed(QString(), QStringLiteral("识别请求发送失败，已保留待链路恢复后自动补发。\n请检查边缘计算机连接后重试。"));
         return QString();
     }
     return requestId;
@@ -276,7 +286,7 @@ QString EdgeService::requestOpen()
         return QString();
     }
 
-    // 安全闸门：周期帧上报的 8 路摄像头任一异常则禁止开柜（货位识别可信度下降，袁总安全策略）
+    // 安全闸门：8 路摄像头任一异常时禁止开柜，摄像头异常说明柜内识别结果不可信
     if (!allCamerasOk()) {
         emit openFailed(QString(), QStringLiteral("以下摄像头状态异常，禁止开柜：%1").arg(cameraAbnormalText()));
         return QString();
@@ -300,9 +310,10 @@ QString EdgeService::requestOpen()
     m_pending.insert(requestId, p);
 
     if (!sendToEdge(frame)) {
-        // 写入失败：条目保留等待链路恢复补发（第5章③），本次通知上层未发出
+        // 写入失败：条目保留等待链路恢复补发（第5章③）；失败通知用空串编号，
+        // 与"离线未发出"同一口径，上层才能统一把真实原因弹给用户
         m_pending[requestId].failed = true;
-        emit openFailed(requestId, QStringLiteral("开箱请求写入失败，已保留待链路恢复补发"));
+        emit openFailed(QString(), QStringLiteral("开箱请求发送失败，已保留待链路恢复后自动补发。\n请检查边缘计算机连接后重试。"));
         return QString();
     }
     return requestId;
@@ -347,7 +358,7 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
     if (type == QStringLiteral("recognize_ack")) {
         const QString id = frame["request_id"].toString();
         if (!m_pending.contains(id)) {
-            // 3.6-②/③：重复回应（第一次已移除）或认不出的id → 丢弃并计数
+            // 同一编号的重复回应，或认不出的编号：丢弃并计数
             ++m_dropCount;
             qWarning() << "[EdgeService] 丢弃帧 #" << m_dropCount << ":" << id;
             return;
@@ -365,7 +376,7 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
     if (type == QStringLiteral("open_ack")) {
         const QString id = frame["request_id"].toString();
         if (!m_pending.contains(id)) {
-            // 3.6-②/③：重复回应（第一次已移除）或认不出的id → 丢弃并计数
+            // 同一编号的重复回应，或认不出的编号：丢弃并计数
             ++m_dropCount;
             qWarning() << "[EdgeService] 丢弃帧 #" << m_dropCount << ":" << id;
             return;
@@ -431,7 +442,7 @@ void EdgeService::onScanTimeout()
                 ++it;
             }
         } else if (p.requeued) {
-            // 第5章④闭环：恢复补发一次后仍无回应 → 放弃，转人工处理
+            // 第5章④：一来一回走完仍无回应（恢复后补发一次）→ 放弃，转人工处理
             const QString id = it.key();
             it = m_pending.erase(it);
             if (isOpen)
@@ -469,61 +480,15 @@ void EdgeService::onOfflineScan()
     }
 }
 
-/**
- * @brief 仿真模式周期帧：内置假边缘机持续发送 periodic，维持在线态
- * @note  首帧由 start() 的 singleShot 触发（模拟接入后先上线），之后每3秒一帧
- */
-void EdgeService::onSimPeriodic()
-{
-    QJsonObject frame;
-    frame["type"] = QStringLiteral("periodic");
-    frame["uptime_sec"] = (QDateTime::currentMSecsSinceEpoch() / 1000) % 100000;
-    // 内置假边缘机：8 路摄像头自检全正常（与真实边缘机 8 路一致，使开柜闸门常态生效）
-    QJsonArray cams;
-    for (int i = 1; i <= 8; ++i) {
-        QJsonObject c;
-        c["camera_id"] = QStringLiteral("CAM%1").arg(i);
-        c["status"] = QStringLiteral("ok");
-        cams.append(c);
-    }
-    frame["camera_status"] = cams;
-    onFrameReceived(0, frame);
-}
-
 // ─────────────────────── 私有辅助 ───────────────────────
 
 /**
  * @brief 向当前边缘机连接发送一帧
  * @param frame 待发送的JSON帧
- * @return true=已写入socket；false=无连接或写入失败（扫描器会兜底重发）
+ * @return true=已写入socket；false=无连接或写入失败（扫描器会自动重发）
  */
 bool EdgeService::sendToEdge(const QJsonObject& frame)
 {
-    if (m_sim) {
-        // 仿真模式：内置假边缘机，延时回应开箱/识别请求
-        const QString type = frame["type"].toString();
-        const QString requestId = frame["request_id"].toString();
-        if (type == QStringLiteral("open_req")) {
-            QTimer::singleShot(200, this, [this, requestId] {
-                QJsonObject ack;
-                ack["type"] = QStringLiteral("open_ack");
-                ack["request_id"] = requestId;
-                ack["result"] = 1;                 // 仿真：开锁成功
-                ack["message"] = QString();
-                onFrameReceived(0, ack);
-            });
-        } else if (type == QStringLiteral("recognize_req")) {
-            QTimer::singleShot(200, this, [this, requestId] {
-                QJsonObject ack;
-                ack["type"] = QStringLiteral("recognize_ack");
-                ack["request_id"] = requestId;
-                ack["items"] = QJsonArray();        // 仿真：无变化（空柜）
-                onFrameReceived(0, ack);
-            });
-        }
-        return true;
-    }
-
     if (m_activeClient == 0) {
         qWarning() << "[EdgeService] 发送失败：无边缘机连接";
         return false;

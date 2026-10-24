@@ -36,7 +36,7 @@ private:
     void setupUI();
     void loadRecords();
     void updateReturnBtn();
-    // 归还确认四步流程（与借用页风格对齐）
+    // 归还确认四步流程（与借用页风格一致）
     void showReturnConfirmDialog();                                    // 步骤1：归还清单确认
     void showReturnDrawerOpeningDialog();                              // 步骤2：抽屉打开中（动画）
     void showReturnErrorDialog();                                      // 步骤3：工具未放好异常（假异常）
@@ -45,7 +45,7 @@ private:
 
     QJsonObject m_user;
 
-  // 用户信息条（横向布局对齐ToolBorrowPage）
+  // 用户信息条（横向布局与ToolBorrowPage一致）
     QLabel* m_userNameLabel;           // 归还人
     QLabel* m_workNoLabel;             // 工号
     QLabel* m_deptLabel = nullptr;     // 所属机组

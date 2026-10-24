@@ -36,6 +36,7 @@ BaseDialog::BaseDialog(QWidget* parent, int cardWidth)
 
 /**
  * @brief 构建对话框基础结构：标题栏、内容区与按钮区
+ * @param cardWidth 卡片宽度（像素），决定对话框整体宽度
  */
 void BaseDialog::buildBaseUI(int cardWidth)
 {
@@ -101,6 +102,7 @@ void BaseDialog::buildBaseUI(int cardWidth)
 
 /**
  * @brief 设置对话框标题
+ * @param title 标题文本；为空时隐藏标题栏
  */
 void BaseDialog::setDialogTitle(const QString& title)
 {
@@ -164,7 +166,7 @@ void BaseDialog::centerOnParent(QWidget* dialog)
     // 尺寸取对话框自身的 size()：无边框窗口的 frameGeometry 在窗口映射完成前，
     // 部分平台（如麒麟窗口管理器）会返回空尺寸，此时"父窗口中心减尺寸一半"会退化成
     // 直接用父窗口中心定位，弹窗整体偏向右下、底部按钮被屏幕边缘裁掉。
-    // 取不到有效尺寸时按 adjustSize、sizeHint 逐级兜底；仍无效则不强行定位。
+    // 取不到有效尺寸时按 adjustSize、sizeHint 逐级尝试；都算不出来就不强行定位。
     QSize mySize = dialog->size();
     if (mySize.width() <= 0 || mySize.height() <= 0) {
         dialog->adjustSize();

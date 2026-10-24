@@ -35,7 +35,7 @@ protected:
 public:
   /// 重置所有登录状态，清除上一用户的残留信息
     void resetPageState();
-    /// 公开停止摄像头方法，供MainWindow在登录成功后兜底调用
+    /// 公开停止摄像头方法，供MainWindow在登录成功后保底调用
     void stopFaceRecognitionPublic() { stopFaceRecognition(); }
     /// 注销后抑制自动刷脸登录：人未离开画面时不自动回登，onFaceLost清除
     /// 抑制时长由 kLogoutSuppressWindowMs 控制，当前为 0（不抑制）；
@@ -191,8 +191,8 @@ private:
     struct FaceSample {
         QString descriptor;
         QImage image;
-        double confidence;
-        double quality;
+        double confidence = 0.0;
+        double quality = 0.0;
     };
     QVector<FaceSample> m_samples;
 

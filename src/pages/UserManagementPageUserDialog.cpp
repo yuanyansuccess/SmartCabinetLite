@@ -15,6 +15,7 @@
 #include "components/DeepFaceExtractor.h"  // 人脸方位检测
 #include "components/SingleSelectFilter.h"  // 通用单选筛选组件
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include "controller/UserController.h"
 #include "db/UserDAO.h"        // 用户实体查询（读取操作）
 #include "db/DepartmentDAO.h"  // 部门下拉数据源（部门ID + 名称）
@@ -242,10 +243,7 @@ void UserManagementPage::createUserDialog() {
     // 底部按钮（通过 BaseDialog::buttonLayout() 添加）
     auto* bl = m_userDialog->buttonLayout();
     // 清空 stretch
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
@@ -501,6 +499,6 @@ void UserManagementPage::onFaceEnrollInDialog() {
     }
 }
 
-/** 搜索框点击→弹出用户名软键盘(对齐登录页ModeEn模式) */
+/** 搜索框点击→弹出用户名软键盘(与登录页ModeEn模式一致) */
 
 // ==============================================================

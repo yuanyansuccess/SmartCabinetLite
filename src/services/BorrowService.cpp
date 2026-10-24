@@ -120,7 +120,12 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     return r;
 }
 
-// 所有借用记录（不限userId）
+/**
+ * @brief 查询全部借用记录（不限用户，管理员视图）
+ * @param page 页码（从 1 开始）
+ * @param pageSize 每页条数
+ * @return 分页结果对象（含借用记录列表与总数）
+ */
 QJsonObject BorrowService::getAllRecords(int page, int pageSize) {
     RecordDAO dao;
     return dao.findAll(0, 0, "", "", "", page, pageSize);

@@ -30,7 +30,7 @@
 #include <QAbstractItemView>  // scrollToItem需要
 #include <QTimer>  // 抽屉打开动画
 #include <QTableWidget>  // 归还清单表格
-#include "services/AlertService.h"  // 告警闭环写入
+#include "services/AlertService.h"  // 告警写入
 #include "model/AlertLog.h"  // AlertLog实体
 #include "common/Constants.h"
 
@@ -73,7 +73,7 @@ void ToolReturnPage::refresh() {
             m_deptLabel->setText(QStringLiteral("未配置"));
         }
     }
-    m_dateLabel->setText(QDate::currentDate().toString("yyyy-MM-dd"));
+    m_dateLabel->setText(QDate::currentDate().toString(SC::DATE_FORMAT));
     loadRecords();
 }
 
@@ -91,7 +91,7 @@ void ToolReturnPage::setupUI() {
     m_selectAllBtn = ui->selectAllBtn;
 
     // 日期初始值（refresh()中随用户信息更新）
-    m_dateLabel->setText(QDate::currentDate().toString("yyyy-MM-dd"));
+    m_dateLabel->setText(QDate::currentDate().toString(SC::DATE_FORMAT));
 
     // 表格列宽策略：选择列固定60px，其余拉伸
     m_table->horizontalHeader()->setStretchLastSection(false);
@@ -177,8 +177,8 @@ void ToolReturnPage::loadRecords() {
 
         m_table->setItem(i, 4, new QTableWidgetItem(QString::number(r["borrowQty"].toInt())));
 
-        // 任务类型：字段名对齐DAO返回的borrowReason（原误用reason导致永远显示--）
-        // 空值显示"--"（不兜底"任务借用"，让数据真实性可见）
+        // 任务类型：字段名与DAO返回的borrowReason一致（原误用reason导致永远显示--）
+        // 空值显示"--"（不默认填成"任务借用"，让数据真实性可见）
         QString borrowReason = r["borrowReason"].toString();
         if (borrowReason.isEmpty()) borrowReason = QStringLiteral("--");
         m_table->setItem(i, 5, new QTableWidgetItem(borrowReason));
@@ -444,7 +444,7 @@ void ToolReturnPage::showReturnErrorDialog() {
     int result = dlg.exec();
 
     if (result == 2) {
-        // 忽略或倒计时结束：写告警日志（闭环）
+        // 忽略或倒计时结束：写告警日志（收尾）
         int alertToolId = 0;
         if (!m_checkedRecordIds.isEmpty()) {
             db::RecordDAO recDao;

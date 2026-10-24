@@ -8,6 +8,7 @@
 #include "controller/UserController.h"
 #include "components/MessageDialog.h"
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include "db/UserDAO.h"
 #include "db/DepartmentDAO.h"  // 校验导入部门是否存在于部门表
 #include "common/DatabaseManager.h"
@@ -223,10 +224,7 @@ void BatchImportDialog::setupContent()
     // ── 底部按钮（通过 BaseDialog::buttonLayout() 添加） ──
     auto* bl = buttonLayout();
     // 清空 stretch
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 
     m_cancelBtn = new QPushButton(QStringLiteral("取消"));

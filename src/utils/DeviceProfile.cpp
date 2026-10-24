@@ -24,6 +24,12 @@
 qreal DeviceProfile::s_scale = 1.0;
 bool  DeviceProfile::s_smallScreen = false;
 
+/**
+ * @brief 算出全局界面缩放比例并写入环境变量，必须在界面对象创建之前调用
+ * @param argc 命令行参数个数，用于推算程序所在目录
+ * @param argv 命令行参数数组，用第 0 个参数定位同目录下的配置文件
+ * @note 手工配置优先于自动计算；算出的比例会被限制在 0.5~3.0 之间
+ */
 void DeviceProfile::applyScale(int argc, char** argv) {
     const qreal cfg = readConfigUiScale(argc, argv);
     const QSize screen = detectScreenLogicalSize();
@@ -49,6 +55,10 @@ void DeviceProfile::applyScale(int argc, char** argv) {
             << "| => QT_SCALE_FACTOR" << scale;
 }
 
+/**
+ * @brief 探测主屏的逻辑分辨率，口径与 Qt 的逻辑坐标保持一致
+ * @return 主屏逻辑尺寸（宽x高）；探测不到时返回设计基准尺寸作为保底
+ */
 QSize DeviceProfile::detectScreenLogicalSize() {
 #ifdef Q_OS_WIN
     // per-monitor DPI aware 下 GetSystemMetrics 返回主屏【物理】像素，
@@ -78,6 +88,12 @@ QSize DeviceProfile::detectScreenLogicalSize() {
 #endif
 }
 
+/**
+ * @brief 读取配置文件里手工指定的界面缩放比例
+ * @param argc 命令行参数个数
+ * @param argv 命令行参数数组，用于找到程序同级目录下的 system.ini
+ * @return 配置的有效比例；没配或配了非法值时返回 0，表示交给自动计算
+ */
 qreal DeviceProfile::readConfigUiScale(int argc, char** argv) {
     // 构造前轻量读取 system.ini [UI] uiScale，不依赖 QApplication
     QString exeDir;
@@ -88,10 +104,14 @@ qreal DeviceProfile::readConfigUiScale(int argc, char** argv) {
     QSettings ini(exeDir + "/system.ini", QSettings::IniFormat);
     ini.setFallbacksEnabled(false);
     bool ok = false;
-    const qreal v = ini.value("UI/uiScale", 0).toDouble(&ok);
-    return (ok && v > 0) ? v : 0.0;
+    const qreal uiScale = ini.value("UI/uiScale", 0).toDouble(&ok);
+    return (ok && uiScale > 0) ? uiScale : 0.0;
 }
 
+/**
+ * @brief 采集屏幕物理尺寸与缩放信息写入日志，并判定本机是否属于小屏设备
+ * @note 判定结果影响界面布局取舍：对角线小于 11 英寸按小屏处理
+ */
 void DeviceProfile::logDeviceInfo() {
     if (QGuiApplication::screens().isEmpty())
         return;

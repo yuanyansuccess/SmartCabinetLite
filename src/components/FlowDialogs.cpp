@@ -25,6 +25,10 @@ const int kTableHeaderHeight = 38;   // 清单表格表头高度(px)
 
 /**
  * @brief 创建对话框
+ * @param parent 父窗口
+ * @param setup 对话框配置（标题/尺寸/边距等，详见 Setup 结构）
+ * @param body 可选输出参数，返回主布局指针供调用方添加内容
+ * @return 新建的对话框实例
  */
 QDialog* FlowDialogs::createDialog(QWidget* parent, const Setup& setup, QVBoxLayout** body) {
     QDialog* dlg = new QDialog(parent);
@@ -45,6 +49,9 @@ QDialog* FlowDialogs::createDialog(QWidget* parent, const Setup& setup, QVBoxLay
 
 /**
  * @brief 添加标题
+ * @param body 目标垂直布局
+ * @param icon 标题前的图标字符
+ * @param title 标题文本
  */
 void FlowDialogs::addTitle(QVBoxLayout* body, const QString& icon, const QString& title) {
     QHBoxLayout* titleBar = new QHBoxLayout();
@@ -60,6 +67,8 @@ void FlowDialogs::addTitle(QVBoxLayout* body, const QString& icon, const QString
 
 /**
  * @brief 创建列表表格
+ * @param headers 表头文本列表
+ * @return 新建的表格控件
  */
 QTableWidget* FlowDialogs::createListTable(const QStringList& headers) {
     auto* table = new QTableWidget();

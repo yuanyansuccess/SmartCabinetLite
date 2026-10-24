@@ -47,7 +47,7 @@ public:
         if (q.numRowsAffected() > 0) {
             QVariant id = q.lastInsertId();
             if (id.isValid()) return id.toInt();
-            // 兜底：部分 ODBC 驱动对 MySQL 不返回 lastInsertId，改查会话级自增ID
+            // 保底：部分 ODBC 驱动对 MySQL 不返回 lastInsertId，改查会话级自增ID
             QSqlQuery q2 = query("SELECT LAST_INSERT_ID()");
             if (q2.next()) return q2.value(0).toInt();
         }

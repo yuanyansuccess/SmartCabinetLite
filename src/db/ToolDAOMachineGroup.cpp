@@ -17,24 +17,41 @@
 namespace db {
 
 /**
- * @brief 统计工具总数与各状态数量
- * @return 含 total、inStock、borrowed、checkedOut 等指标的对象
+ * @brief 统计工具总数与各状态数量（全系统"工具数量"的唯一取数入口，各页面共用同一口径）
+ * @param machineGroupId 机组编号：>0 只统计该机组的工具，<=0 统计全库
+ * @return 含 inStockCount/borrowedCount/pendingCount/checkedOutCount/maintenanceCount/totalCount 的对象
+ * @note  口径统一按位置维度（映射表是位置占用的权威数据源）：
+ *        在库=映射表 in_stock 位置数；已借出=映射表 borrowed 位置数；待入库=映射表 pending 位置数；
+ *        已出库/维护中取 tool_info 状态（这两类工具不在位置上）；
+ *        工具总数=在库+已借出+待入库+已出库（不含维护中）
  */
-QJsonObject ToolDAO::getToolStats() {
+QJsonObject ToolDAO::getToolStats(int machineGroupId) {
     QJsonObject stats;
-    // 统计按映射表status计算
-    // 在库 = 映射表status='in_stock'
-    // 已借出 = 映射表status='borrowed'
-    // 待入库 = 映射表status='pending'
-    // 已出库 = tool_info中checked_out状态（不在位置上）
-    QSqlQuery q = query(
+    // 位置维度统计统一按机组过滤：不传机组（<=0）时统计全库，与页面"全部机组"的口径一致
+    const QString posGroupCond = machineGroupId > 0
+        ? QStringLiteral(" JOIN tool_info gti ON gti.tool_id = m.tool_id AND gti.machine_group_id = ?")
+        : QString();
+    const QString toolGroupCond = machineGroupId > 0
+        ? QStringLiteral(" WHERE machine_group_id = ?") : QStringLiteral(" WHERE 1=1");
+
+    QString sql = QStringLiteral(
         "SELECT "
-        "  (SELECT COUNT(*) FROM tool_position_mapping WHERE status='in_stock') AS in_stock_count, "
-        "  (SELECT COUNT(*) FROM tool_position_mapping WHERE status='borrowed') AS borrowed_count, "
-        "  (SELECT COUNT(*) FROM tool_position_mapping WHERE status='pending') AS pending_count, "
-        "  (SELECT COUNT(*) FROM tool_info WHERE status='checked_out') AS checked_out_count, "
-        "  (SELECT COUNT(*) FROM tool_info WHERE status='maintenance') AS maintenance_count"
-    );
+        "  (SELECT COUNT(*) FROM tool_position_mapping m%1 WHERE m.status='in_stock') AS in_stock_count, "
+        "  (SELECT COUNT(*) FROM tool_position_mapping m%1 WHERE m.status='borrowed') AS borrowed_count, "
+        "  (SELECT COUNT(*) FROM tool_position_mapping m%1 WHERE m.status='pending')  AS pending_count, "
+        "  (SELECT COUNT(*) FROM tool_info%2 AND status='checked_out')  AS checked_out_count, "
+        "  (SELECT COUNT(*) FROM tool_info%2 AND status='maintenance') AS maintenance_count"
+    ).arg(posGroupCond, toolGroupCond);
+
+    // 统一走 BaseDAO 的 query()：内部取带数据库连接的查询对象，并按位置顺序绑定 ? 占位符
+    QVariantList params;
+    if (machineGroupId > 0) {
+        // 位置维度 3 处 + tool_info 2 处，按顺序各绑定一次机组编号
+        for (int i = 0; i < 5; ++i) {
+            params << machineGroupId;
+        }
+    }
+    QSqlQuery q = query(sql, params);
     if (q.next()) {
         int inStock = q.value("in_stock_count").toInt();
         int borrowed = q.value("borrowed_count").toInt();
@@ -51,7 +68,10 @@ QJsonObject ToolDAO::getToolStats() {
     return stats;
 }
 
-// 工程机组列表
+/**
+ * @brief 查询工程全部机组列表（含关联部门与工具计数）
+ * @return 机组信息对象列表
+ */
 QList<QJsonObject> ToolDAO::allMachineGroups() {
     QList<QJsonObject> list;
     QSqlQuery q = query(
@@ -78,7 +98,11 @@ QList<QJsonObject> ToolDAO::allMachineGroups() {
     return list;
 }
 
-// 机组详情
+/**
+ * @brief 查询单个机组详情（含关联部门与工具计数）
+ * @param groupId 机组ID
+ * @return 机组信息对象
+ */
 QJsonObject ToolDAO::getMachineGroupById(int groupId) {
     QJsonObject obj;
     QSqlQuery q = query(

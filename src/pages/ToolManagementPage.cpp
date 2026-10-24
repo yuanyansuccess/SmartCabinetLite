@@ -10,6 +10,7 @@
 #include "ui_ToolManagementPage.h"
 #include "ToolListDialog.h"
 #include "controller/ToolController.h"
+#include "common/AppConfig.h"
 #include "common/Constants.h"
 #include <QLabel>
 #include <QFrame>
@@ -85,6 +86,15 @@ void ToolManagementPage::setupStatsCards() {
  * @brief 构建页面界面：读取 .ui 静态布局并补充动态控件
  */
 void ToolManagementPage::setupUI() {
+    // 口径说明行：统计数字与借用/出入库页走同一口径（本机组），写清楚范围避免被当成"数据对不上"
+    m_statsScopeHint = new QLabel();
+    m_statsScopeHint->setWordWrap(true);
+    m_statsScopeHint->setAlignment(Qt::AlignCenter);
+    m_statsScopeHint->setStyleSheet(QString(
+        "QLabel{font-size:%1px;color:#888;background:transparent;padding:6px 12px;}"
+    ).arg(SC::FONT_SIZE_SMALL));
+    ui->mainLayout->insertWidget(0, m_statsScopeHint);
+
     // 统计卡片装入.ui容器（2x2田字居中布局，间隔24px，由.ui弹性spacer垂直居中）
     setupStatsCards();
     ui->statsLayout->addWidget(m_statsCardAll, 0, 0);
@@ -141,8 +151,18 @@ void ToolManagementPage::refresh() {
  * @brief 按工具件数统计（total_qty/current_qty/borrowed_qty），不按种类数 加载统计数据
  */
 void ToolManagementPage::loadStats() {
+    // 与借用/出入库页同一口径：只统计本机组（本机柜里的工具），
+    // 未配置本机机组时才退化为全库统计，并在说明行写明
+    const int groupId = AppConfig::instance().localMachineGroupId();
     ToolController ctrl;
-    QJsonObject stats = ctrl.getToolStats();
+    QJsonObject stats = ctrl.getToolStats(groupId);
+
+    if (m_statsScopeHint) {
+        const QString scope = groupId > 0
+            ? QStringLiteral("本机组（编号 %1）").arg(groupId)
+            : QStringLiteral("全部机组（未配置本机机组）");
+        m_statsScopeHint->setText(QStringLiteral("统计范围：%1 · 与借用/出入库页一致 · 工具总数=在库+已借出").arg(scope));
+    }
     // 统计按位置维度计算：工具总数 = 在库 + 已借出
     int total = stats["inStockCount"].toInt() + stats["borrowedCount"].toInt();
 

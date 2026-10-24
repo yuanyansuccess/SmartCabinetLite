@@ -10,7 +10,8 @@
 #include "ui_ToolManagementPage.h"
 #include "components/PaginationBar.h"
 #include "utils/StyleHelper.h"
-#include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
+#include "utils/LayoutHelper.h"
+#include "components/FormFactory.h"  // 表单控件工厂（统一重复lambda）
 #include "controller/ToolController.h"
 #include "components/SoftKeyboard.h"
 #include "components/MultiSelectFilter.h"
@@ -89,7 +90,7 @@ ToolInfo ToolManagementPage::resolveToolInfo(const ToolInfo& toolInfo) {
     if (t.toolId == 0) return t;
     // 用位置维度查询的位置信息覆盖（findAllTools的位置来自映射表，是权威数据源）
     // 必须覆盖mappingId，否则getToolById返回mappingId=0
-    // → 操作记录走兜底findByToolId → 显示所有位置的借用记录（不按位置过滤）
+    // → 操作记录走保底 findByToolId → 显示所有位置的借用记录（不按位置过滤）
     t.mappingId = toolInfo.mappingId;
     t.cabinetId = toolInfo.cabinetId;
     t.cabinetName = toolInfo.cabinetName;
@@ -141,7 +142,7 @@ QTabWidget* ToolManagementPage::createDetailTabWidget() {
     tabWidget->setStyleSheet(QString(
         "QTabWidget::pane { border: none; background: transparent; }"
         "QTabBar::tab { background: #f0f2f5; color: #666; padding: 10px 24px; "
-        "  font-size: 15px; font-weight: 600; border-radius: 10px 10px 0 0; "
+        "  " + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " font-weight: 600; border-radius: 10px 10px 0 0; "
         "  min-height: 40px; margin-right: 4px; }"
         "QTabBar::tab:selected { background: white; color: %1; border-bottom: 3px solid %1; }"
         "QTabBar::tab:hover { background: #e8f0fe; }"
@@ -202,7 +203,7 @@ void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
     infoLayout->addWidget(FormFactory::fieldValue(QStringLiteral("视觉识别")), row++, 1);
 
     infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("创建时间")), row, 0);
-    infoLayout->addWidget(FormFactory::fieldValue(t.createdAt.isValid() ? t.createdAt.toString("yyyy-MM-dd HH:mm") : QStringLiteral("-")), row++, 1);
+    infoLayout->addWidget(FormFactory::fieldValue(t.createdAt.isValid() ? t.createdAt.toString(SC::DATE_TIME_FORMAT) : QStringLiteral("-")), row++, 1);
 
     infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("借用人")), row, 0);
     infoLayout->addWidget(FormFactory::fieldValue(t.latestOpUser.isEmpty() ? QStringLiteral("无") : t.latestOpUser), row++, 1);
@@ -251,7 +252,11 @@ void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
     ctx.tabWidget->addTab(detailTab, QStringLiteral("📋 工具详情"));
 }
 
-/** 收集操作记录：借用/入库/出库合并为统一列表，按时间降序排序 */
+/**
+ * @brief 收集操作记录：借用/入库/出库合并为统一列表，按时间降序排序
+ * @param ctx 工具详情上下文（含当前工具、DAO 引用与已载入的借用记录）
+ * @return 合并排序后的操作记录对象列表
+ */
 QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ctx) {
     const ToolInfo& t = ctx.t;
 
@@ -260,7 +265,7 @@ QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ct
     if (t.mappingId > 0) {
         borrowRecords = ctx.recDao.findByMappingId(t.mappingId, 20);
     } else {
-        // 旧数据无mappingId，兜底用toolId查
+        // 旧数据无mappingId，保底用toolId查
         borrowRecords = ctx.recDao.findByToolId(t.toolId, 20);
     }
 
@@ -496,8 +501,7 @@ void ToolManagementPage::finalizeDetailDialog(ToolDetailCtx& ctx) {
 
     auto* btnLayout = ctx.dlg->buttonLayout();
     // 清除默认stretch后重新居中布局
-    QLayoutItem* item;
-    while ((item = btnLayout->takeAt(0)) != nullptr) delete item;
+    LayoutHelper::clearItems(btnLayout);
     btnLayout->addStretch();
     btnLayout->addWidget(closeBtn);
     btnLayout->addStretch();

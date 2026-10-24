@@ -2,7 +2,7 @@
  * @file ToolBorrowPage.h
  * @brief 工具借用页面（1:1复刻BS端ToolBorrow.vue）
  * @author 袁燕
- * 搜索框集成SoftKeyboard + 表格内边距对齐Web
+ * 搜索框集成SoftKeyboard + 表格内边距与Web一致
  * 借用确认流程优化：确认对话框→工具核对→写入记录
  * 推荐工具默认勾选 + 多工具借用 + 全部工具列表中标记推荐
  * 添加分页功能（全部工具表+借用记录表）

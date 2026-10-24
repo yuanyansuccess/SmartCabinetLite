@@ -5,8 +5,8 @@
  *
  * 用法：EdgeSimulator [--auto-connect] [--host IP] [--port N] [--tab N]
  *   --auto-connect  启动后自动连接（免点按钮，快速验证/自动化测试用）
- *   --tab N         启动后直接显示指定页签（0=周期帧 1=识别回应
- *                   2=版本/异常 3=自定义帧），用于截图与演示
+ *   --tab N         启动后直接显示指定步骤页（0=连接与数据 1=单据模拟
+ *                   2=识别回应 3=异常注入 4=场景预设），用于截图与演示
  */
 #include <QApplication>
 #include <QCommandLineParser>
@@ -34,6 +34,12 @@ int main(int argc, char* argv[])
     EdgeSimulator w;
     w.show();
 
+    // 命令行指定的上位机地址优先于配置文件里的值（不指定就用 ini/界面上的）
+    const QString cliHost = parser.isSet(QStringLiteral("host")) ? parser.value(QStringLiteral("host")) : QString();
+    const int cliPort = parser.isSet(QStringLiteral("port")) ? parser.value(QStringLiteral("port")).toInt() : 0;
+    if (!cliHost.isEmpty() || cliPort > 0) {
+        w.setPeerAddress(cliHost, cliPort);
+    }
     if (parser.isSet(QStringLiteral("tab"))) {
         w.showTab(parser.value(QStringLiteral("tab")).toInt());
     }

@@ -204,16 +204,17 @@ void LoginPage::setScanStatus(const QString& text, int level) {
     m_cameraStatusText->setText(text);
     static const QStringList kStyles = {
         // 0 常规：浅灰蓝（#888 视觉柔和，避免深色看起来像黑字）
-        QStringLiteral("font-size:14px; color:#888888; font-weight:600; background:transparent;"),
-        QStringLiteral("font-size:15px; color:#fa8c16; font-weight:700; background:transparent;"),
-        QStringLiteral("font-size:15px; color:#389e0d; font-weight:700; background:transparent;"),
-        QStringLiteral("font-size:15px; color:#e53935; font-weight:700; background:transparent;"),
+        ("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color:#888888; font-weight:600; background:transparent;"),
+        ("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " color:#fa8c16; font-weight:700; background:transparent;"),
+        ("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " color:#389e0d; font-weight:700; background:transparent;"),
+        ("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + " color:#e53935; font-weight:700; background:transparent;"),
     };
     m_cameraStatusText->setStyleSheet(kStyles.value(qBound(0, level, 3)));
 }
 
 /**
  * @brief 更新"请靠近"距离提示：人脸过远时提示，过近后自动消除
+ * @return true=本次新显示了"请靠近"提示（用于节流，避免每帧重设样式），false=不显示或已显示过
  */
 bool LoginPage::keepDistanceHint() {
     if (m_passwordMode) return false;  // 密码登录模式不显示距离提示
@@ -228,7 +229,9 @@ bool LoginPage::keepDistanceHint() {
 }
 
 /**
- * @brief 处理人脸
+ * @brief 处理摄像头采集到的人脸帧，触发本地比对验证
+ * @param image 摄像头采集的人脸帧图像
+ * @param confidence 人脸检测置信度
  */
 void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     // 密码登录模式或识别已停止：切换/停止后异步在途的采集回调仍会到达，必须整体丢弃。
@@ -325,7 +328,7 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     // 自适应早退：质量合格的帧立即比对(第1帧即验)。
     //   - 成功(sim>=0.965 且非双高候选)：直接通过，恢复"1帧"速度，体感不再慢；
     //   - 失败/陌生人(临界帧 0.94~0.965 或双高候选)：不立即判失败，继续采集第2帧
-    //     择优兜底，保留"多帧取最优"对未识别率的改善。
+    //     择优保底，保留"多帧取最优"对未识别率的改善。
     // 阈值0.965保持不变（张育诚误识红线不受影响）；好帧sim多在0.97+可1帧通过。
     if (descDim >= 128) {
         collectBestSample();
@@ -363,11 +366,11 @@ void LoginPage::collectBestSample() {
     verifyFace(best.descriptor, best.image, best.quality);
 }
 
-/// 人脸验证 — 直接本地比对，不走8088后端
-/// @author 袁燕 - 架构简化：去掉8088 C++后端依赖，Qt客户端直接连MySQL比对
-/// 原方案：HTTP POST 8088/api/auth/face → 后端比对 → 返回结果（异步+降级复杂）
-/// 新方案：直接调用 FaceRecognitionService 本地比对（同步，简洁可靠）
-/// 现场无Web前端，8088后端不需要部署
+/// 人脸验证 — 直接本地比对，不走独立后端服务
+/// 由 FaceRecognitionService 完成本地特征比对（同步，简洁可靠）
+/// @param descriptor 人脸特征向量字符串
+/// @param image 采集到的人脸帧（当前实现未使用）
+/// @param quality 图像质量评分，低于阈值时比对会被拒绝
 void LoginPage::verifyFace(const QString& descriptor, const QImage& image, double quality) {
     Q_UNUSED(image);
     // 竞态防护：已登录成功则不重复验证
@@ -423,7 +426,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
         handleFaceStranger(resp);
     } else {
         // 自适应早退：仅第1帧(尚不足2帧)比对失败时，不立即判失败，
-        // 继续采集第2帧择优兜底，避免临界帧(0.94~0.965)被单帧误拒抬高未识别率。
+        // 继续采集第2帧择优保底，避免临界帧(0.94~0.965)被单帧误拒抬高未识别率。
         if (m_captureCount < 2) {
             m_isVerifying = false;
             m_faceCamera->reset();
@@ -437,6 +440,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
 }
 
 /// 人脸识别成功处理 (HTTP和本地共用)
+/// @param resp 比对返回的用户结果对象（含 userId/realName/token 等字段）
 void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
     // 双重调用防护：已成功则忽略
     if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
@@ -487,6 +491,7 @@ void LoginPage::handleFaceSuccess(const QJsonObject& resp) {
 }
 
 /// 陌生人处理 (HTTP和本地共用)
+/// @param resp 比对返回的结果对象（含匹配到的相似账户提示信息）
 void LoginPage::handleFaceStranger(const QJsonObject& resp) {
     // 竞态防护：已登录成功则忽略陌生人回调
     if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
@@ -524,8 +529,9 @@ void LoginPage::handleFaceStranger(const QJsonObject& resp) {
 }
 
 /// 处理验证失败，尝试备用帧
-/// 致命Bug：用户切回密码登录时onPasswordLoginClicked()清空了m_samples，
-/// 但之前人脸验证的异步HTTP回调可能尚未到达，导致removeFirst()在空列表上断言崩溃
+/// 防御说明：用户切回密码登录时可能清空采集样本，而此前人脸验证的异步回调尚未到达，
+/// 若在空列表上取帧会断言崩溃，故此处需配合竞态防护跳过已登录态
+/// @param errMsg 验证失败原因描述
 void LoginPage::handleVerifyFailure(const QString& errMsg) {
     // 竞态防护：已登录成功则忽略验证失败回调
     // 场景：handleFaceSuccess→stopFaceRecognition→异步captureReady到达→验证→失败→此处
@@ -575,7 +581,8 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
 }
 
 /**
- * @brief 处理异常
+ * @brief 处理摄像头异常，切换为密码登录兜底
+ * @param msg 摄像头故障详情（仅记录日志，不展示给用户）
  */
 void LoginPage::onCameraError(const QString& msg) {
     m_hasCamera = false;
@@ -593,7 +600,8 @@ void LoginPage::onCameraError(const QString& msg) {
 }
 
 /**
- * @brief 处理状态
+ * @brief 人脸检测状态变化回调（预留扩展，当前实现为空）
+ * @param state 新的检测状态枚举值
  */
 void LoginPage::onFaceStateChanged(int state) {}
 

@@ -215,7 +215,10 @@ QString DatabaseManager::lastError() const {
     return m_db.lastError().text();
 }
 
-// 优先直连MySQL（127.0.0.1:3306/smart_cabinet），使用QODBC驱动
+/**
+ * @brief 依次尝试 QODBC / QMYSQL 驱动建立数据库连接
+ * @return true=连接成功并选定可用驱动；false=所有驱动均不可用
+ */
 bool DatabaseManager::tryMysql() {
     static const QStringList drivers = {"QODBC", "QMYSQL"};
     for (const QString& driver : drivers) {
@@ -258,7 +261,10 @@ bool DatabaseManager::tryMysql() {
 // 纯 MySQL 模式：不提供 SQLite 回退，连接失败即视为数据库不可用
 
 
-// 兼容版本B的services/DAOs
+/**
+ * @brief 返回当前数据库连接句柄，供 services/DAOs 兼容调用
+ * @return 当前 QSqlDatabase 连接对象
+ */
 QSqlDatabase DatabaseManager::getConnection() const {
     return database();
 }

@@ -17,7 +17,6 @@
 #include "common/AppConfig.h"  // 机组名称配置
 #include "common/Logger.h"     // 统一日志写入入口（Log::appendLog）
 #include "common/DiskSpaceGuard.h"  // 导出前磁盘容量保护
-#include "common/DatabaseManager.h"     // DB写入机组配置
 #include "components/MessageDialog.h"
 #include <QDebug>
 #include <QProcess>  // 调用PowerShell设置显示器亮度
@@ -114,11 +113,14 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
     });
     // 重定向输出到备份文件
     proc->setStandardOutputFile(backupFile);
-    proc->start("mysqldump", QStringList()
-                << QStringLiteral("-h%1").arg(cfg.dbHost())
-                << QStringLiteral("-u%1").arg(cfg.dbUser())
-                << QStringLiteral("-p%1").arg(cfg.dbPass())
-                << cfg.dbName());
+    // 密码为空时不附加 -p 参数，否则 mysqldump 会交互式等待输入而卡死
+    QStringList dumpArgs;
+    dumpArgs << QStringLiteral("-h%1").arg(cfg.dbHost())
+             << QStringLiteral("-u%1").arg(cfg.dbUser());
+    if (!cfg.dbPass().isEmpty())
+        dumpArgs << QStringLiteral("-p%1").arg(cfg.dbPass());
+    dumpArgs << cfg.dbName();
+    proc->start("mysqldump", dumpArgs);
     if (!proc->waitForStarted(3000)) {
         QFile::remove(backupFile);
         writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),

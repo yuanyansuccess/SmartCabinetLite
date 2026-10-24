@@ -14,6 +14,47 @@
 
 namespace db {
 
+namespace {
+// 用户主信息的公共列清单与表关联：按账号查、按用户ID查两处共用，
+// 改字段时只改这一处，避免漏改一处造成字段错位。
+// 部门名称统一用 department_name 作列别名，与实体转换 fromQuery 保持一致。
+const char* const USER_SELECT =
+    "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
+    "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department_name, "
+    "u.phone, u.email, u.face_feature, u.status, "
+    "u.last_login_at, u.created_at, u.updated_at "
+    "FROM sys_user u "
+    "LEFT JOIN sys_department d ON u.dept_id = d.dept_id ";
+
+/**
+ * @brief 把用户查询的一行组装成结果对象
+ * @param query 已执行到当前行的查询，取值列与 USER_SELECT 的列一致
+ * @return 含用户各字段（userId/username/realName/department 等）的对象
+ */
+QJsonObject userJsonFromQuery(const QSqlQuery& query)
+{
+    QJsonObject user;
+    user["userId"]        = query.value("user_id").toInt();
+    user["username"]      = query.value("username").toString();
+    user["passwordHash"]  = query.value("password_hash").toString();
+    user["passwordSalt"]  = query.value("password_salt").toString();
+    user["realName"]      = query.value("real_name").toString();
+    user["role"]          = query.value("role").toString();
+    user["mustChangePwd"] = query.value("must_change_pwd").toInt();
+    user["workNo"]        = query.value("work_no").toString();
+    user["deptId"]        = query.value("dept_id").toInt();
+    user["department"]    = query.value("department_name").toString();
+    user["phone"]         = query.value("phone").toString();
+    user["email"]         = query.value("email").toString();
+    user["faceFeature"]   = query.value("face_feature").toString();
+    user["status"]        = query.value("status").toString();
+    user["lastLoginAt"]   = query.value("last_login_at").toString();
+    user["createdAt"]     = query.value("created_at").toString();
+    user["updatedAt"]     = query.value("updated_at").toString();
+    return user;
+}
+}
+
 /**
  * @brief 查询结果行转换为用户实体
  * @param q 已定位到有效行的查询结果
@@ -64,37 +105,11 @@ int UserDAO::resolveDeptId(int deptId, const QString& deptName) {
 QJsonObject UserDAO::findByUsername(const QString& username) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
-    query.prepare(
-        "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
-        "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department, "
-        "u.phone, u.email, u.face_feature, u.status, "
-        "u.last_login_at, u.created_at, u.updated_at "
-        "FROM sys_user u "
-        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
-        "WHERE u.username = :username AND u.status != 'deleted'"
-    );
+    query.prepare(QString(USER_SELECT)
+                  + "WHERE u.username = :username AND u.status != 'deleted'");
     query.bindValue(":username", username);
     if (!safeExec(query) || !query.next()) return QJsonObject();
-
-    QJsonObject user;
-    user["userId"] = query.value("user_id").toInt();
-    user["username"] = query.value("username").toString();
-    user["passwordHash"] = query.value("password_hash").toString();
-    user["passwordSalt"] = query.value("password_salt").toString();
-    user["realName"] = query.value("real_name").toString();
-    user["role"] = query.value("role").toString();
-    user["mustChangePwd"] = query.value("must_change_pwd").toInt();
-    user["workNo"] = query.value("work_no").toString();
-    user["deptId"] = query.value("dept_id").toInt();
-    user["department"] = query.value("department").toString();
-    user["phone"] = query.value("phone").toString();
-    user["email"] = query.value("email").toString();
-    user["faceFeature"] = query.value("face_feature").toString();
-    user["status"] = query.value("status").toString();
-    user["lastLoginAt"] = query.value("last_login_at").toString();
-    user["createdAt"] = query.value("created_at").toString();
-    user["updatedAt"] = query.value("updated_at").toString();
-    return user;
+    return userJsonFromQuery(query);
 }
 
 /**
@@ -105,37 +120,11 @@ QJsonObject UserDAO::findByUsername(const QString& username) {
 QJsonObject UserDAO::findById(int userId) {
     QSqlDatabase db = getDb();
     QSqlQuery query(db);
-    query.prepare(
-        "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
-        "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department, "
-        "u.phone, u.email, u.face_feature, u.status, "
-        "u.last_login_at, u.created_at, u.updated_at "
-        "FROM sys_user u "
-        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
-        "WHERE u.user_id = :id AND u.status != 'deleted'"
-    );
+    query.prepare(QString(USER_SELECT)
+                  + "WHERE u.user_id = :id AND u.status != 'deleted'");
     query.bindValue(":id", userId);
     if (!safeExec(query) || !query.next()) return QJsonObject();
-
-    QJsonObject user;
-    user["userId"] = query.value("user_id").toInt();
-    user["username"] = query.value("username").toString();
-    user["passwordHash"] = query.value("password_hash").toString();
-    user["passwordSalt"] = query.value("password_salt").toString();
-    user["realName"] = query.value("real_name").toString();
-    user["role"] = query.value("role").toString();
-    user["mustChangePwd"] = query.value("must_change_pwd").toInt();
-    user["workNo"] = query.value("work_no").toString();
-    user["deptId"] = query.value("dept_id").toInt();
-    user["department"] = query.value("department").toString();
-    user["phone"] = query.value("phone").toString();
-    user["email"] = query.value("email").toString();
-    user["faceFeature"] = query.value("face_feature").toString();
-    user["status"] = query.value("status").toString();
-    user["lastLoginAt"] = query.value("last_login_at").toString();
-    user["createdAt"] = query.value("created_at").toString();
-    user["updatedAt"] = query.value("updated_at").toString();
-    return user;
+    return userJsonFromQuery(query);
 }
 
 /**
@@ -167,6 +156,7 @@ bool UserDAO::deleteFace(int userId) {
 
 /**
  * @brief 查询全部已录入人脸特征的用户
+ * @param activeOnly true=仅启用账户（登录匹配用）；false=全部未注销账户（录入查重用）
  * @return 元素含 userId、realName、faceFeature 的数组；无人脸数据时返回空数组
  */
 QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
@@ -175,7 +165,7 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
     // activeOnly=true：仅启用账户（登录匹配用，禁用账户由登录流程的状态检查单独拦截）；
     // false：全部未注销账户（人脸录入查重用，禁用账户的人脸同样参与通盘比对）
     QString sql = "SELECT u.user_id, u.username, u.real_name, u.work_no, "
-                  "d.dept_name AS department, u.face_feature "
+                  "d.dept_name AS department_name, u.face_feature "
                   "FROM sys_user u LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
                   "WHERE u.face_feature IS NOT NULL AND u.face_feature != ''";
     sql += activeOnly ? " AND u.status = :st" : " AND u.status != :st";
@@ -189,7 +179,7 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
         item["username"] = query.value("username").toString();
         item["realName"] = query.value("real_name").toString();
         item["workNo"] = query.value("work_no").toString();
-        item["department"] = query.value("department").toString();
+        item["department"] = query.value("department_name").toString();
         item["faceFeature"] = query.value("face_feature").toString();
         arr.append(item);
     }
@@ -422,7 +412,10 @@ bool UserDAO::setMustChangePwd(int userId, int mustChange) {
     return execute("UPDATE sys_user SET must_change_pwd = ? WHERE user_id = ?", {mustChange, userId});
 }
 
-// 查询DB中最大数字工号，返回下一个可用工号（001起步，3位补零，超999自然进位4位）
+/**
+ * @brief 查询数据库中最大数字工号，生成下一个可用工号
+ * @return 下一个工号字符串（001 起步，3 位补零，超过 999 自然进位为 4 位）
+ */
 QString UserDAO::generateNextWorkNo()
 {
     QSqlDatabase db = getDb();

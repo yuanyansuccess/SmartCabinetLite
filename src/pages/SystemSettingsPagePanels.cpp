@@ -29,7 +29,7 @@
 
 
 /**
- * @brief
+ * @brief 构建借还设置面板：默认借用期限、归还缓冲时间、显示屏亮度。
  * @return 构建并返回的界面控件，由调用方负责布局到页面
  */
 QWidget* SystemSettingsPage::createBorrowPanel() {
@@ -110,7 +110,6 @@ QWidget* SystemSettingsPage::createBorrowPanel() {
     saveBarLayout->addWidget(saveBtn);
     layout->addWidget(saveBar);
 
-    // installFocusEvents已移除
     return panel;
 }
 

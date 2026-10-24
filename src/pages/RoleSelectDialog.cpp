@@ -5,6 +5,7 @@
  */
 #include "RoleSelectDialog.h"
 #include "utils/StyleHelper.h"
+#include "utils/LayoutHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -109,10 +110,7 @@ void RoleSelectDialog::setupContent() {
 
     // 底部取消按钮：放弃本次登录回到登录页
     auto* bl = buttonLayout();
-    while (bl->count() > 0) {
-        QLayoutItem* item = bl->takeAt(0);
-        delete item;
-    }
+    LayoutHelper::clearItems(bl);
     bl->addStretch();
 
     auto* cancelBtn = new QPushButton(QStringLiteral("退出登录"));

@@ -108,9 +108,10 @@ public:
     // ═══════════════════════════════════════════════
     // 统计与机组查询
     // ═══════════════════════════════════════════════
-    // 工具统计（总数/在库/已借用/维护中）
-    // 返回：QJsonObject含total/inStock/borrowed/maintaining等字段
-    QJsonObject getToolStats();
+    // 工具统计（总数/在库/已借出/待入库/已出库/维护中）——全系统"工具数量"唯一口径
+    // 入参：machineGroupId机组（>0只统计该机组，<=0统计全库）
+    // 返回：QJsonObject含inStockCount/borrowedCount/pendingCount/checkedOutCount/maintenanceCount/totalCount
+    QJsonObject getToolStats(int machineGroupId = 0);
     // 工程机组列表
     // 返回：QList<QJsonObject> 各机组{groupId,groupName,...}
     QList<QJsonObject> allMachineGroups();
@@ -193,7 +194,8 @@ public:
     // ═══════════════════════════════════════════════
     // 工具下拉列表
     // 返回：QJsonArray 每项{toolId,toolCode,toolName}
-    QJsonArray  allToolsSimple();
+    // 入参：categoryId 大于 0 时只返回该分类下的工具，否则返回全部（向后兼容默认参数）
+    QJsonArray  allToolsSimple(int categoryId = 0);
     // 检查位置对照关系是否存在
     // 入参：cabinetId/layer/position定位
     // 返回：QJsonObject含exists(bool)与已有信息
@@ -206,6 +208,10 @@ public:
     // 入参：machineGroupId机组
     // 返回：QJsonArray 每项{mappingId,toolId,toolCode,toolName,cabinetName,layer,position,posDisplay}
     QJsonArray  findAllInStockPositions(int machineGroupId);
+    // 已借出未归还的位置明细（出库下拉用；借出工具转出库不需要开箱）
+    // 入参：machineGroupId机组（<=0 表示不限机组）
+    // 返回：QJsonArray 字段与 findAllInStockPositions 一致
+    QJsonArray  findBorrowedOutPositions(int machineGroupId);
 
     // 从查询结果构造ToolInfo实体
     // 入参：q已定位到某行的查询对象

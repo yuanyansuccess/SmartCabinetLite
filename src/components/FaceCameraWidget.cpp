@@ -242,7 +242,8 @@ QString FaceCameraWidget::captureFaceFeature()
 }
 
 /**
- * @brief 判断摄像头
+ * @brief 判断摄像头是否可用
+ * @return true=摄像头可用，false=不可用（设备缺失或初始化失败）
  */
 bool FaceCameraWidget::hasCamera() const { return CameraCapture::hasCamera(); }
 
@@ -429,7 +430,8 @@ void FaceCameraWidget::reset()
 // ════════════════════════════════════════
 
 /**
- * @brief 处理边框
+ * @brief 处理新采集到的一帧画面，缓存并按需触发人脸检测与叠加层更新
+ * @param frame 摄像头采集的当前帧图像，为空或控件未激活时直接返回
  */
 void FaceCameraWidget::onNewFrame(const QImage& frame)
 {
@@ -592,6 +594,8 @@ static void morphOpenInPlace(unsigned char* mask, int w, int h, int ksize)
 
 /**
          * @brief 在当前帧中检测人脸
+         * @param rgbImage 当前摄像头帧（RGB格式），用于肤色与人脸区域分析
+         * @return 检测到的最大人脸矩形区域；未检测到时返回空矩形 QRect()
          * @note 本地检测不联网：基于肤色分割与连通域分析，服务不可用时仍能画出人脸框
          */
 QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
@@ -724,6 +728,8 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
 
 /**
          * @brief 从人脸区域提取特征向量
+         * @param frame 当前摄像头帧图像
+         * @param faceRect 已检测出的人脸矩形区域（深度学习模式下未使用，内部自行检测）
          * @return 128维特征；提取失败时返回空向量
          */
 QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceRect)
@@ -791,6 +797,8 @@ void FaceCameraWidget::normalizeL2(QVector<double>& v)
 
 /**
          * @brief 更新预览画面上的状态叠加层
+         * @param faceRect 当前人脸矩形区域，为空时直接返回
+         * @param confidence 人脸匹配置信度，用于叠加层颜色提示
          */
 void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
 {
@@ -869,6 +877,7 @@ void FaceCameraWidget::updateOverlay(const QRect& faceRect, double confidence)
 
 /**
          * @brief 检出人脸时的处理：绘制人脸框并判断是否自动采集
+         * @param confidence 当前人脸匹配置信度
          */
 void FaceCameraWidget::handleFaceDetected(double confidence)
 {
@@ -947,6 +956,12 @@ void FaceCameraWidget::tryAutoCapture()
 // 正值=低头(脸下移)，负值=抬头(脸上移)
 // 用人脸框宽高归一化（比画面宽度更稳定，不受分辨率影响）
 // pitch放大2倍：上下偏移量天然较小，需放大提高灵敏度
+/**
+ * @brief 估算人脸姿态角（偏航与俯仰），判断用户是否正对摄像头
+ * @param faceRect 已检测出的人脸矩形区域，过窄或为空时直接输出 0
+ * @param yaw 输出参数：偏航角（左右转头），归一化到 [-1, 1]
+ * @param pitch 输出参数：俯仰角（上下点头），归一化到 [-1, 1]
+ */
 void FaceCameraWidget::estimatePosture(const QRect& faceRect, double& yaw, double& pitch) {
     if (faceRect.isEmpty() || faceRect.width() < 10) {
         yaw = 0; pitch = 0;

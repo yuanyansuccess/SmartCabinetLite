@@ -35,6 +35,14 @@ ToolController::PageResult ToolController::getToolList(int page, int pageSize,
  */
 ToolInfo ToolController::getToolById(int toolId) { return m_toolDao.findToolById(toolId); }
 
+/**
+ * @brief 新建工具档案并同时把它放到指定货位，两步要么都成要么都不做
+ * @param tool 待建档的工具信息
+ * @param cabinetId 柜体ID，必须大于 0
+ * @param layer 层号
+ * @param position 位号
+ * @return 新工具ID；编号校验不过或货位写不进去时返回 -1（已建的主档会被删掉，不留半成品）
+ */
 int ToolController::addToolWithPosition(const ToolInfo& tool, int cabinetId,
                                         const QString& layer, const QString& position)
 {
@@ -53,6 +61,11 @@ int ToolController::addToolWithPosition(const ToolInfo& tool, int cabinetId,
     return id;
 }
 
+/**
+ * @brief 按柜体字母编号查出柜体ID
+ * @param cabLetter 柜体字母编号，如 "A"
+ * @return 柜体ID；没有对应柜体时返回 -1
+ */
 int ToolController::resolveCabinetId(const QString& cabLetter)
 {
     return m_toolDao.findCabinetIdByPrefix(cabLetter);
@@ -75,16 +88,24 @@ bool ToolController::updateTool(const ToolInfo& tool) {
  */
 bool ToolController::deleteTool(int toolId) { return m_toolDao.deleteToolById(toolId); }
 
-// 详情页上传文档 — 更新工具文档路径
-// 供ToolManagementPage详情页上传文档后调用
+/**
+ * @brief 更新工具关联文档的存储路径
+ * @param toolId 工具ID
+ * @param docPath 上传文档的本地路径
+ * @return true=更新成功
+ */
 bool ToolController::updateToolDocument(int toolId, const QString& docPath) {
     return m_toolDao.updateDocumentPath(toolId, docPath);
 }
 
-// 注意：借用/归还已由 BorrowService / ReturnService 承接（含事务兜底与失败明细），
+// 注意：借用/归还已由 BorrowService / ReturnService 承接（含事务保底与失败明细），
 // Controller 层不再保留第二套借还实现，避免"两套逻辑"导致规则漂移。
 
 // ══ 分类/柜体 ══
+/**
+ * @brief 查询全部分类（含分类对象列表）
+ * @return 分类对象列表
+ */
 QList<ToolCategory> ToolController::getCategories() { return m_toolDao.allCategories(); }
 /**
  * @brief 查询全部分类名称
@@ -92,10 +113,17 @@ QList<ToolCategory> ToolController::getCategories() { return m_toolDao.allCatego
  */
 QStringList ToolController::categoryNames() { return m_toolDao.allCategoryNames(); }
 
-// 统计数据
-QJsonObject ToolController::getToolStats() { return m_toolDao.getToolStats(); }
+/**
+ * @brief 查询工具统计指标（按机组隔离口径）
+ * @param machineGroupId 当前机组ID，保证与借用/出入库页同一数据口径
+ * @return 统计指标对象（总数/在库/借出等）
+ */
+QJsonObject ToolController::getToolStats(int machineGroupId) { return m_toolDao.getToolStats(machineGroupId); }
 
-// 工程机组列表
+/**
+ * @brief 查询工程全部机组列表
+ * @return 机组信息对象列表
+ */
 QList<QJsonObject> ToolController::getMachineGroups() { return m_toolDao.allMachineGroups(); }
 
 /**

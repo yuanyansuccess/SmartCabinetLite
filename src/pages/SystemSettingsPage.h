@@ -52,6 +52,8 @@ private:
     void updateSpeedBtnStyles();
     void updateModeBtnStyles();
     void updateBackupPeriodBtnStyles();
+    // 统一设置一组按钮的选中态样式（选中用主色，其余用默认色）
+    void applyButtonGroupStyle(QPushButton* const* buttons, int count, int selectedIndex);
 
     // 创建四个面板
     QWidget* createNetworkPanel();
@@ -167,21 +169,21 @@ private:
     bool isDirty();  // 检测UI值是否与快照不同
     void loadConfigFromIni();  // 从本地INI文件加载配置到UI
     bool saveConfigToIni();  // 将当前UI值写入本地INI文件，返回是否成功
-    bool m_savedFlag = false;     // 是否已点击过保存按钮
 
     // ── 设置快照（进入页面时备份，未保存离开时还原）──
+    // 基础类型一律给初值：快照若带着随机值，还原时会把随机值写回界面
     struct SettingsSnapshot {
         // 网络配置
         QString ip, mask, gateway, dns, server;
-        int speedMode, networkMode;
+        int speedMode = 0, networkMode = 0;
         // 告警参数
-        int buzzerVol, overdueHours, doorTimeoutSec, powerAlarmMode;
-        bool ledAlert, visionAlert, autoConfirm;
+        int buzzerVol = 0, overdueHours = 0, doorTimeoutSec = 0, powerAlarmMode = 0;
+        bool ledAlert = false, visionAlert = false, autoConfirm = false;
         // 借还设置
-        int defaultPeriod, returnBuffer, brightness;
+        int defaultPeriod = 0, returnBuffer = 0, brightness = 0;
         // 备份管理
-        bool autoBackup;
-        int backupPeriod, cacheHours;
+        bool autoBackup = false;
+        int backupPeriod = 0, cacheHours = 0;
         QString backupPath;
     } m_snapshot;
 };

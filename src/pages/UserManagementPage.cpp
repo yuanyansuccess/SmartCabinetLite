@@ -98,7 +98,7 @@ void UserManagementPage::setupUI() {
     deptPopupLayout->setSpacing(4);
     m_deptPopup->setLayout(deptPopupLayout);  // 确保布局已关联,loadDepartments可重建
 
-    // 部门列表由loadDepartments()动态加载(对齐Web版异步加载策略)
+    // 部门列表由loadDepartments()动态加载(沿用Web版异步加载策略)
     loadDepartments();
 
     // 角色筛选 - CheckBox样式单选组件（自定义组件装入.ui槽位）
@@ -129,7 +129,7 @@ void UserManagementPage::setupUI() {
  * @brief 刷新页面数据与统计显示
  */
 void UserManagementPage::refresh() {
-    loadDepartments();  // 每次刷新重新加载部门列表(对齐Web版onMounted)
+    loadDepartments();  // 每次刷新重新加载部门列表(沿用Web版onMounted)
     loadUsers();
 }
 

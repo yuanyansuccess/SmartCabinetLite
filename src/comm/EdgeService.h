@@ -119,7 +119,6 @@ private slots:
     void onClientDisconnected(quintptr clientId); ///< 边缘机断开
     void onScanTimeout();      ///< 请求超时扫描（200ms）
     void onOfflineScan();      ///< 链路离线扫描（1s）
-    void onSimPeriodic();      ///< 仿真模式周期帧（内置假边缘机，模拟 periodic）
 
 private:
     /**
@@ -145,8 +144,6 @@ private:
     QHash<QString, Pending> m_pending;   ///< 在途请求登记表，key=request_id
     QTimer      m_scanTimer;             ///< 请求超时扫描器（200ms）
     QTimer      m_offlineTimer;          ///< 链路离线扫描器（1s）
-    QTimer      m_simTimer;              ///< 仿真模式周期帧定时器（仿真时启用）
-    bool        m_sim = false;           ///< 仿真模式开关（内置假边缘机）
     qint64      m_lastPeriodicMs = 0;    ///< 最近一帧periodic到达时刻（离线判定基准）
     int         m_dropCount = 0;         ///< 异常帧丢弃计数（协议3.6-②）
 };
