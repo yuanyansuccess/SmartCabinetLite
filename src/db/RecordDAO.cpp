@@ -454,6 +454,7 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
     if (countQ.next()) total = countQ.value(0).toInt();
     result["total"] = total;
     // 分页数据
+    // log.target_id 存放的是工具编号（写入方统一传入 tool_code），故按 tool_code 关联工具表
     int offset = (page - 1) * pageSize;
     QSqlQuery q(db);
     q.prepare(
@@ -461,7 +462,7 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
         "       t.tool_code, u.real_name, u.work_no "
         "FROM sys_operation_log log "
         "LEFT JOIN sys_user u ON log.user_id = u.user_id "
-        "LEFT JOIN tool_info t ON log.target_id = CAST(t.tool_id AS CHAR) "
+        "LEFT JOIN tool_info t ON t.tool_code = log.target_id "
         "WHERE log.operation_type = ? "
         "ORDER BY log.created_at DESC "
         "LIMIT ? OFFSET ?"
@@ -552,20 +553,26 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
     QSqlQuery q(db);
     // 位置一律从 tool_position_mapping 取（按 tool_id 关联，避免用 ti 冗余列反查 mpm 产生漂移）
     // 列顺序/别名保持与 C++ 读取一致（ti_* 与 mpm_* 现在都填映射表的值）
+    // 关联条件用 MIN(mapping_id) 而非直接关联 tool_id：一个工具可能占多个货位，
+    // 直接关联会让同一条日志膨胀成多行，取最小 mapping_id 可保证每条日志至多一行
     q.prepare(
         "SELECT log.created_at, log.content, log.target_id, "
         "       u.real_name, u.work_no, "
-        "       (SELECT mpm.cabinet_id FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_cab_id, "
-        "       (SELECT mpm_cb.cabinet_name FROM tool_position_mapping mpm JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_cab_name, "
-        "       (SELECT mpm.layer FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_layer, "
-        "       (SELECT mpm.position FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS ti_pos, "
-        "       (SELECT mpm.cabinet_id FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_cab_id, "
-        "       (SELECT mpm_cb.cabinet_name FROM tool_position_mapping mpm JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_cab_name, "
-        "       (SELECT mpm.layer FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_layer, "
-        "       (SELECT mpm.position FROM tool_position_mapping mpm WHERE mpm.tool_id = ti.tool_id AND mpm.status='in_stock' LIMIT 1) AS mpm_pos "
+        "       mpm.cabinet_id  AS ti_cab_id, "
+        "       cb.cabinet_name AS ti_cab_name, "
+        "       mpm.layer       AS ti_layer, "
+        "       mpm.position    AS ti_pos, "
+        "       mpm.cabinet_id  AS mpm_cab_id, "
+        "       cb.cabinet_name AS mpm_cab_name, "
+        "       mpm.layer       AS mpm_layer, "
+        "       mpm.position    AS mpm_pos "
         "FROM sys_operation_log log "
         "LEFT JOIN sys_user u ON log.user_id = u.user_id "
         "LEFT JOIN tool_info ti ON ti.tool_code = log.target_id "
+        "LEFT JOIN tool_position_mapping mpm "
+        "       ON mpm.mapping_id = (SELECT MIN(m.mapping_id) FROM tool_position_mapping m "
+        "                            WHERE m.tool_id = ti.tool_id AND m.status = 'in_stock') "
+        "LEFT JOIN tool_cabinet cb ON mpm.cabinet_id = cb.cabinet_id "
         "WHERE log.operation_type = 'checkin' "
         "ORDER BY log.created_at DESC "
         "LIMIT ? OFFSET ?"

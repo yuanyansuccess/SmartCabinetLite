@@ -83,6 +83,14 @@ private:
     void refreshAllToolTable();
     // 从缓存重建工具表格 — 勾选跳页专用，不查DB效率高
     void rebuildToolTableFromCache();
+    // 以下为 rebuildToolTableFromCache 拆分出的私有辅助方法
+    QJsonArray sortToolsForDisplay(const QJsonArray& allList);   // 推荐/已选/普通三类排序
+    void populateToolTableRow(int row, const QJsonObject& t, bool isRecommended);  // 单行渲染
+    int totalSelectedQty() const;                 // 已选工具总件数
+    void refreshBorrowButtonText();               // 同步"确认借用(共N件)"文案
+    void addSelectedTool(int toolId, const QString& toolName, const QString& toolCode,
+                         const QString& position, int stock, int qty);  // 加入/更新选中
+    void removeSelectedTool(int toolId);          // 移出选中
 
     // 借用确认流程四步走（原三步基础上增加"抽屉打开"步骤）
     void showBorrowConfirmDialog();   // 第一步：确认借用信息（清单+借用人+归还时间）

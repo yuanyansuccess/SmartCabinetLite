@@ -411,8 +411,37 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
     m_toolPaginationBar->setPageInfo(m_toolCurrentPage, totalPages);
     m_toolPaginationBar->setTotalRecords(m_toolTotalRecords);
 
-    // 第一步：对全量数据做三类排序（先排序，再分页）
-    // 排序顺序：1.推荐工具(自动勾选) → 2.用户手动勾选的工具 → 3.普通未勾选工具
+    // 排序（推荐→已选→普通）后再分页切片
+    QJsonArray sortedList = sortToolsForDisplay(allList);
+    int startIdx = (m_toolCurrentPage - 1) * m_toolPageSize;
+    int endIdx = qMin(startIdx + m_toolPageSize, sortedList.size());
+    QJsonArray list;
+    for (int i = startIdx; i < endIdx; ++i) {
+        list.append(sortedList[i]);
+    }
+    m_allToolTable->setRowCount(list.size());
+
+    // 填充当前页数据（已排序+分页后的 list）
+    for (int i = 0; i < list.size(); ++i) {
+        QJsonObject t = list[i].toObject();
+        int toolId = t["toolId"].toInt();  // 用toolId判断推荐
+        bool isRecommended = m_recommendedToolIds.contains(toolId);
+        populateToolTableRow(i, t, isRecommended);
+    }
+
+    refreshBorrowButtonText();
+
+    // 恢复表格重绘和信号
+    m_allToolTable->blockSignals(false);
+    m_allToolTable->setUpdatesEnabled(true);
+}
+
+/**
+ * @brief 对工具列表做三类排序：推荐工具 → 用户手动勾选 → 普通未勾选
+ * @param allList 全量工具缓存
+ * @return 排序后的列表（尚未分页）
+ */
+QJsonArray ToolBorrowPage::sortToolsForDisplay(const QJsonArray& allList) {
     QJsonArray recommendedList;
     QJsonArray selectedList;     // 用户手动勾选的非推荐工具
     QJsonArray normalList;
@@ -430,254 +459,245 @@ void ToolBorrowPage::rebuildToolTableFromCache() {
             normalList.append(t);
         }
     }
+    QJsonArray sorted;
+    for (const auto& t : recommendedList) sorted.append(t);
+    for (const auto& t : selectedList) sorted.append(t);
+    for (const auto& t : normalList) sorted.append(t);
+    return sorted;
+}
 
-    // 合并为排序后的完整列表
-    QJsonArray sortedList;
-    for (const auto& t : recommendedList) sortedList.append(t);
-    for (const auto& t : selectedList) sortedList.append(t);
-    for (const auto& t : normalList) sortedList.append(t);
+/**
+ * @brief 渲染工具表格的单个行（含复选框、数量下拉、操作按钮及其信号连接）
+ * @param row 行号
+ * @param t 该工具的数据对象
+ * @param isRecommended 是否为推荐工具（影响底色与徽标）
+ */
+void ToolBorrowPage::populateToolTableRow(int row, const QJsonObject& t, bool isRecommended) {
+    int toolId = t["toolId"].toInt();
+    QString toolName = t["toolName"].toString();
+    // 按工具种类选中，用toolId，availableQty=可用库存数
+    int availableQty = t["availableQty"].toInt();
+    QString unit = t["unit"].toString().isEmpty() ? QStringLiteral("件") : t["unit"].toString();
+    // 推荐行浅蓝底，与#4da3ff 蓝色主调一致
+    QString rowBg = isRecommended ? QStringLiteral("#e6f4ff") : QStringLiteral("white");
 
-    // 第二步：对排序后的数据做分页切片
-    int startIdx = (m_toolCurrentPage - 1) * m_toolPageSize;
-    int endIdx = qMin(startIdx + m_toolPageSize, sortedList.size());
-    QJsonArray list;
-    for (int i = startIdx; i < endIdx; ++i) {
-        list.append(sortedList[i]);
+    // 判断是否已选中及数量
+    bool isSelected = m_selectedToolIds.contains(toolId);
+    int savedQty = 1;
+    if (isSelected) {
+        for (const auto& sel : m_selectedTools) {
+            if (sel.toolId == toolId) { savedQty = sel.quantity; break; }
+        }
     }
 
-    int totalRows = list.size();
-    m_allToolTable->setRowCount(totalRows);
+    // Col 0: 选择复选框
+    // checkbox选中整体填充蓝色（非边框），圆角4px与StyleHelper::tableCheckBox一致
+    auto* checkBox = new QCheckBox();
+    checkBox->setStyleSheet(
+        "QCheckBox { background: transparent; }"
+        "QCheckBox::indicator { width: 22px; height: 22px; border-radius: 4px; "
+        "  border: 2px solid #d0d0d0; background: white; }"
+        "QCheckBox::indicator:hover { border-color: #4da3ff; }"
+        "QCheckBox::indicator:checked { background: #4da3ff; border-color: #4da3ff; }"
+    );
+    checkBox->setChecked(isSelected);
 
-    auto populateRow = [this](int row, const QJsonObject& t, bool isRecommended) {
-        int toolId = t["toolId"].toInt();
-        QString toolName = t["toolName"].toString();
-        int currentQty = t["currentQty"].toInt();
-        int totalQty = t["totalQty"].toInt();
-        // 按工具种类选中，用toolId，availableQty=可用库存数
-        int availableQty = t["availableQty"].toInt();
-        QString unit = t["unit"].toString().isEmpty() ? QStringLiteral("件") : t["unit"].toString();
-        // 推荐行浅蓝底，与#4da3ff 蓝色主调一致
-        QString rowBg = isRecommended ? QStringLiteral("#e6f4ff") : QStringLiteral("white");
-
-        // 判断是否已选中及数量
-        bool isSelected = m_selectedToolIds.contains(toolId);
-        int savedQty = 1;
-        if (isSelected) {
-            for (const auto& sel : m_selectedTools) {
-                if (sel.toolId == toolId) { savedQty = sel.quantity; break; }
+    // Col 4: 数量下拉框（1/availableQty, 2/availableQty...格式）
+    // 数量上限为availableQty（可用位置数）
+    auto* qtyCombo = new QComboBox();
+    int maxQty = qMax(1, availableQty);
+    for (int qty = 1; qty <= maxQty; ++qty) {
+        qtyCombo->addItem(QStringLiteral("%1/%2").arg(qty).arg(maxQty), qty);
+    }
+    qtyCombo->setCurrentIndex(isSelected ? (savedQty - 1) : 0);
+    qtyCombo->setStyleSheet(QString(
+        "QComboBox{border:1px solid #d9d9d9;border-radius:8px;padding:6px 12px;"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";min-height:36px;min-width:90px;background:white;color:#333;font-weight:500;}"
+        "QComboBox:hover{border-color:#4da3ff;}"
+        "QComboBox::drop-down{width:24px;border:none;}"
+        "QComboBox QAbstractItemView{background:#fff;border:1px solid #d9d9d9;"
+        "selection-background-color:#4da3ff;selection-color:#fff;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";padding:4px;}"
+    ));
+    // 数量变化时更新选中列表
+    connect(qtyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this, toolId, qtyCombo](int idx) {
+            int qty = qtyCombo->itemData(idx).toInt();
+            for (auto& sel : m_selectedTools) {
+                if (sel.toolId == toolId) { sel.quantity = qty; break; }
             }
-        }
-
-        // Col 0: 选择复选框
-        // checkbox选中整体填充蓝色（非边框），圆角4px与StyleHelper::tableCheckBox一致
-        auto* checkBox = new QCheckBox();
-        checkBox->setStyleSheet(
-            "QCheckBox { background: transparent; }"
-            "QCheckBox::indicator { width: 22px; height: 22px; border-radius: 4px; "
-            "  border: 2px solid #d0d0d0; background: white; }"
-            "QCheckBox::indicator:hover { border-color: #4da3ff; }"
-            "QCheckBox::indicator:checked { background: #4da3ff; border-color: #4da3ff; }"
-        );
-        checkBox->setChecked(isSelected);
-
-        // 辅助函数：计算当前已选总件数
-        auto calcTotalSelected = [this]() {
-            int total = 0;
-            for (const auto& s : m_selectedTools) total += s.quantity;
-            return total;
-        };
-
-        // 辅助函数：刷新底部按钮"共X件"
-        auto refreshBorrowBtn = [this, calcTotalSelected]() {
-            m_borrowBtn->setText(QStringLiteral("确认借用(共%1件)").arg(calcTotalSelected()));
-        };
-
-        // Col 4: 数量下拉框（1/availableQty, 2/availableQty...格式）
-        // 数量上限为availableQty（可用位置数）
-        auto* qtyCombo = new QComboBox();
-        int maxQty = qMax(1, availableQty);
-        for (int qty = 1; qty <= maxQty; ++qty) {
-            qtyCombo->addItem(QStringLiteral("%1/%2").arg(qty).arg(maxQty), qty);
-        }
-        qtyCombo->setCurrentIndex(isSelected ? (savedQty - 1) : 0);
-        qtyCombo->setStyleSheet(QString(
-            "QComboBox{border:1px solid #d9d9d9;border-radius:8px;padding:6px 12px;"
-            "" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";min-height:36px;min-width:90px;background:white;color:#333;font-weight:500;}"
-            "QComboBox:hover{border-color:#4da3ff;}"
-            "QComboBox::drop-down{width:24px;border:none;}"
-            "QComboBox QAbstractItemView{background:#fff;border:1px solid #d9d9d9;"
-            "selection-background-color:#4da3ff;selection-color:#fff;" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";padding:4px;}"
-        ));
-        // 数量变化时更新选中列表
-        connect(qtyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            [this, toolId, qtyCombo, refreshBorrowBtn](int idx) {
-                int qty = qtyCombo->itemData(idx).toInt();
-                for (auto& sel : m_selectedTools) {
-                    if (sel.toolId == toolId) { sel.quantity = qty; break; }
-                }
-                refreshBorrowBtn();
-            });
-
-        // checkbox toggle 回调
-        // 按工具种类选中，用toolId
-        QString toolCode = t["toolCode"].toString();
-        QString position = t["position"].toString();
-        connect(checkBox, &QCheckBox::toggled, this, [this, toolId, toolName, toolCode, position, availableQty, qtyCombo, refreshBorrowBtn](bool checked) {
-            int qty = qtyCombo->currentData().toInt();
-            if (checked) {
-                m_selectedToolIds.insert(toolId);
-                bool found = false;
-                for (auto& sel : m_selectedTools) {
-                    if (sel.toolId == toolId) { sel.quantity = qty; found = true; break; }
-                }
-                if (!found) {
-                    SelectedToolInfo info;
-                    info.toolId = toolId;
-                    info.toolName = toolName;
-                    info.toolCode = toolCode;
-                    info.position = position;
-                    info.stock = availableQty;
-                    info.quantity = qty;
-                    m_selectedTools.append(info);
-                }
-            } else {
-                m_selectedToolIds.remove(toolId);
-                m_selectedTools.erase(
-                    std::remove_if(m_selectedTools.begin(), m_selectedTools.end(),
-                        [toolId](const SelectedToolInfo& s) { return s.toolId == toolId; }),
-                    m_selectedTools.end());
-            }
-            refreshBorrowBtn();
-            // 恢复跳首页：已选工具排序靠前，跳到第一页可见
-            // 用QTimer延迟执行，避免在toggled信号回调中同步销毁发出信号的checkbox
-            // 用rebuildToolTableFromCache从缓存重建，不查DB效率高
-            m_toolCurrentPage = 1;
-            QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
+            refreshBorrowButtonText();
         });
-        m_allToolTable->setCellWidget(row, 0, checkBox);
 
-        // Col 1: 工具编号
-        m_allToolTable->setItem(row, 1, new QTableWidgetItem(t["toolCode"].toString()));
-
-        // Col 2: 工具名称 + 推荐标识
-        {
-            auto* nameWidget = new QWidget();
-            nameWidget->setStyleSheet(QString("background:%1;").arg(rowBg));
-            auto* nameLayout = new QHBoxLayout(nameWidget);
-            nameLayout->setContentsMargins(4, 0, 4, 0);
-            nameLayout->setSpacing(6);
-            auto* nameLabel = new QLabel(toolName);
-            nameLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 600));
-            nameLayout->addWidget(nameLabel);
-            if (isRecommended) {
-                auto* badge = new QLabel(QStringLiteral("推荐"));
-                badge->setStyleSheet(
-                    "background:#4da3ff;color:#fff;font-size:11px;"
-                    "padding:3px 10px;border-radius:6px;font-weight:600;"
-                );
-                nameLayout->addWidget(badge);
-            }
-            nameLayout->addStretch();
-            m_allToolTable->setCellWidget(row, 2, nameWidget);
+    // checkbox toggle 回调
+    // 按工具种类选中，用toolId
+    QString toolCode = t["toolCode"].toString();
+    QString position = t["position"].toString();
+    connect(checkBox, &QCheckBox::toggled, this, [this, toolId, toolName, toolCode, position, availableQty, qtyCombo](bool checked) {
+        int qty = qtyCombo->currentData().toInt();
+        if (checked) {
+            addSelectedTool(toolId, toolName, toolCode, position, availableQty, qty);
+        } else {
+            removeSelectedTool(toolId);
         }
+    });
+    m_allToolTable->setCellWidget(row, 0, checkBox);
 
-        // Col 3: 规格
-        m_allToolTable->setItem(row, 3, new QTableWidgetItem(t["spec"].toString()));
+    // Col 1: 工具编号
+    m_allToolTable->setItem(row, 1, new QTableWidgetItem(t["toolCode"].toString()));
 
-        // Col 4: 数量（QComboBox 已创建）
-        m_allToolTable->setCellWidget(row, 4, qtyCombo);
-
-        // Col 5: 单位
-        m_allToolTable->setItem(row, 5, new QTableWidgetItem(unit));
-
-        // Col 6: 状态
-        {
-            auto* statusItem = new QTableWidgetItem(QStringLiteral("在库"));
-            statusItem->setForeground(QColor("#43a047"));
-            QFont f = statusItem->font();
-            f.setBold(true);
-            statusItem->setFont(f);
-            m_allToolTable->setItem(row, 6, statusItem);
-        }
-
-        // 推荐工具行高亮
+    // Col 2: 工具名称 + 推荐标识
+    {
+        auto* nameWidget = new QWidget();
+        nameWidget->setStyleSheet(QString("background:%1;").arg(rowBg));
+        auto* nameLayout = new QHBoxLayout(nameWidget);
+        nameLayout->setContentsMargins(4, 0, 4, 0);
+        nameLayout->setSpacing(6);
+        auto* nameLabel = new QLabel(toolName);
+        nameLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textColor(), 600));
+        nameLayout->addWidget(nameLabel);
         if (isRecommended) {
-            for (int col = 0; col < 8; col++) {
-                auto* item = m_allToolTable->item(row, col);
-                if (item) item->setBackground(QColor(rowBg));
-            }
+            auto* badge = new QLabel(QStringLiteral("推荐"));
+            badge->setStyleSheet(
+                "background:#4da3ff;color:#fff;font-size:11px;"
+                "padding:3px 10px;border-radius:6px;font-weight:600;"
+            );
+            nameLayout->addWidget(badge);
         }
-
-        // Col 7: 操作按钮 — 配色与人员管理蓝色 #4da3ff一致，缩小尺寸
-        {
-            QPushButton* opBtn;
-            if (isSelected) {
-                // 已添加：浅蓝底+蓝字
-                opBtn = new QPushButton(QStringLiteral("✓ 已添加"));
-                opBtn->setEnabled(false);
-                opBtn->setStyleSheet(
-                    "QPushButton{background:#e6f4ff;color:#4da3ff;border:1px solid #91caff;"
-                    "border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
-                    "QPushButton:disabled{color:#91caff;}"
-                );
-            } else {
-                // 添加：纯蓝实底
-                opBtn = new QPushButton(QStringLiteral("＋ 添加"));
-                opBtn->setCursor(Qt::PointingHandCursor);
-                opBtn->setStyleSheet(
-                    "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:6px;"
-                    "" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
-                    "QPushButton:hover{background:#3d8ae0;}"
-                    "QPushButton:pressed{background:#2e7ad6;}"
-                );
-                connect(opBtn, &QPushButton::clicked, this, [this, toolId, toolName, toolCode, position, availableQty, qtyCombo, refreshBorrowBtn](bool) {
-                    int qty = qtyCombo->currentData().toInt();
-                    m_selectedToolIds.insert(toolId);  // QSet同步
-                    bool found = false;
-                    for (auto& sel : m_selectedTools) {
-                        if (sel.toolId == toolId) { sel.quantity = qty; found = true; break; }
-                    }
-                    if (!found) {
-                        SelectedToolInfo info;
-                        info.toolId = toolId;
-                        info.toolName = toolName;
-                        info.toolCode = toolCode;
-                        info.position = position;
-                        info.stock = availableQty;
-                        info.quantity = qty;
-                        m_selectedTools.append(info);
-                    }
-                    refreshBorrowBtn();
-                    // 恢复跳首页：已选工具排序靠前，跳到第一页可见
-                    // 从缓存重建不查DB，QTimer延迟避免信号回调中销毁widget
-                    m_toolCurrentPage = 1;
-                    QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
-                });
-            }
-            opBtn->setMinimumHeight(StyleHelper::Token::ControlHeightCompactInput);
-            m_allToolTable->setCellWidget(row, 7, opBtn);
-        }
-
-        // 行高加大到64px，确保操作按钮完整显示
-        m_allToolTable->setRowHeight(row, 64);
-    };
-
-    // 填充当前页数据（已排序+分页后的 list）
-    for (int i = 0; i < list.size(); ++i) {
-        QJsonObject t = list[i].toObject();
-        int toolId = t["toolId"].toInt();  // 用toolId判断推荐
-        bool isRecommended = m_recommendedToolIds.contains(toolId);
-        populateRow(i, t, isRecommended);
+        nameLayout->addStretch();
+        m_allToolTable->setCellWidget(row, 2, nameWidget);
     }
 
-    // 更新底部按钮 — 总件数 = 所有已选工具 quantity 之和
-    int totalQty = 0;
-    for (const auto& s : m_selectedTools) totalQty += s.quantity;
-    m_borrowBtn->setText(QStringLiteral("确认借用(共%1件)").arg(totalQty));
+    // Col 3: 规格
+    m_allToolTable->setItem(row, 3, new QTableWidgetItem(t["spec"].toString()));
 
-    // 恢复表格重绘和信号
-    m_allToolTable->blockSignals(false);
-    m_allToolTable->setUpdatesEnabled(true);
+    // Col 4: 数量（QComboBox 已创建）
+    m_allToolTable->setCellWidget(row, 4, qtyCombo);
+
+    // Col 5: 单位
+    m_allToolTable->setItem(row, 5, new QTableWidgetItem(unit));
+
+    // Col 6: 状态
+    {
+        auto* statusItem = new QTableWidgetItem(QStringLiteral("在库"));
+        statusItem->setForeground(QColor("#43a047"));
+        QFont f = statusItem->font();
+        f.setBold(true);
+        statusItem->setFont(f);
+        m_allToolTable->setItem(row, 6, statusItem);
+    }
+
+    // 推荐工具行高亮
+    if (isRecommended) {
+        for (int col = 0; col < 8; col++) {
+            auto* item = m_allToolTable->item(row, col);
+            if (item) item->setBackground(QColor(rowBg));
+        }
+    }
+
+    // Col 7: 操作按钮 — 配色与人员管理蓝色 #4da3ff一致，缩小尺寸
+    {
+        QPushButton* opBtn;
+        if (isSelected) {
+            // 已添加：浅蓝底+蓝字
+            opBtn = new QPushButton(QStringLiteral("✓ 已添加"));
+            opBtn->setEnabled(false);
+            opBtn->setStyleSheet(
+                "QPushButton{background:#e6f4ff;color:#4da3ff;border:1px solid #91caff;"
+                "border-radius:6px;" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
+                "QPushButton:disabled{color:#91caff;}"
+            );
+        } else {
+            // 添加：纯蓝实底
+            opBtn = new QPushButton(QStringLiteral("＋ 添加"));
+            opBtn->setCursor(Qt::PointingHandCursor);
+            opBtn->setStyleSheet(
+                "QPushButton{background:#4da3ff;color:#fff;border:none;border-radius:6px;"
+                "" + StyleHelper::fontSize(StyleHelper::Token::FontCaption) + ";font-weight:600;padding:5px 12px;}"
+                "QPushButton:hover{background:#3d8ae0;}"
+                "QPushButton:pressed{background:#2e7ad6;}"
+            );
+            connect(opBtn, &QPushButton::clicked, this, [this, toolId, toolName, toolCode, position, availableQty, qtyCombo](bool) {
+                int qty = qtyCombo->currentData().toInt();
+                addSelectedTool(toolId, toolName, toolCode, position, availableQty, qty);
+            });
+        }
+        opBtn->setMinimumHeight(StyleHelper::Token::ControlHeightCompactInput);
+        m_allToolTable->setCellWidget(row, 7, opBtn);
+    }
+
+    // 行高加大到64px，确保操作按钮完整显示
+    m_allToolTable->setRowHeight(row, 64);
+}
+
+/**
+ * @brief 已选工具总件数（所有选中工具 quantity 之和）
+ */
+int ToolBorrowPage::totalSelectedQty() const {
+    int total = 0;
+    for (const auto& s : m_selectedTools) total += s.quantity;
+    return total;
+}
+
+/**
+ * @brief 同步底部"确认借用(共N件)"按钮文案
+ */
+void ToolBorrowPage::refreshBorrowButtonText() {
+    m_borrowBtn->setText(QStringLiteral("确认借用(共%1件)").arg(totalSelectedQty()));
+}
+
+/**
+ * @brief 加入或更新一个已选工具，并触发跳页重建
+ * @param toolId 工具种类ID
+ * @param toolName 工具名称（展示用）
+ * @param toolCode 工具编号（写入用）
+ * @param position 存放位置（写入用）
+ * @param stock 可用库存数
+ * @param qty 本次选择的借用数量
+ */
+void ToolBorrowPage::addSelectedTool(int toolId, const QString& toolName, const QString& toolCode,
+                                     const QString& position, int stock, int qty) {
+    m_selectedToolIds.insert(toolId);
+    bool found = false;
+    for (auto& sel : m_selectedTools) {
+        if (sel.toolId == toolId) {
+            sel.quantity = qty;
+            sel.stock = stock;
+            sel.toolName = toolName;
+            sel.toolCode = toolCode;
+            sel.position = position;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        SelectedToolInfo info;
+        info.toolId = toolId;
+        info.toolName = toolName;
+        info.toolCode = toolCode;
+        info.position = position;
+        info.stock = stock;
+        info.quantity = qty;
+        m_selectedTools.append(info);
+    }
+    // 恢复跳首页：已选工具排序靠前，跳到第一页可见
+    // 用QTimer延迟执行，避免在信号回调中同步销毁发出信号的widget
+    refreshBorrowButtonText();
+    m_toolCurrentPage = 1;
+    QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
+}
+
+/**
+ * @brief 移出一个已选工具，并触发跳页重建
+ */
+void ToolBorrowPage::removeSelectedTool(int toolId) {
+    m_selectedToolIds.remove(toolId);
+    m_selectedTools.erase(
+        std::remove_if(m_selectedTools.begin(), m_selectedTools.end(),
+            [toolId](const SelectedToolInfo& s) { return s.toolId == toolId; }),
+        m_selectedTools.end());
+    refreshBorrowButtonText();
+    m_toolCurrentPage = 1;
+    QTimer::singleShot(0, this, [this]() { rebuildToolTableFromCache(); });
 }
 
 /**

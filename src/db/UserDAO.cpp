@@ -15,16 +15,28 @@
 namespace db {
 
 namespace {
-// 用户主信息的公共列清单与表关联：按账号查、按用户ID查两处共用，
+/**
+ * @brief 生成部门名称的查询列表达式
+ * @return 可直接拼在 SELECT 列表中的 department_name 列表达式，
+ *         用户未分配部门或部门名为空时回填占位文案
+ */
+QString deptNameColumn()
+{
+    return QStringLiteral("COALESCE(NULLIF(d.dept_name, ''), '%1') AS department_name ")
+        .arg(QStringLiteral("未分配"));
+}
+
+// 用户主信息的公共列清单与表关联：按账号查、按用户ID查、按实体查多处共用，
 // 改字段时只改这一处，避免漏改一处造成字段错位。
 // 部门名称统一用 department_name 作列别名，与实体转换 fromQuery 保持一致。
-const char* const USER_SELECT =
-    "SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
-    "u.role, u.must_change_pwd, u.work_no, u.dept_id, d.dept_name AS department_name, "
-    "u.phone, u.email, u.face_feature, u.status, "
-    "u.last_login_at, u.created_at, u.updated_at "
-    "FROM sys_user u "
-    "LEFT JOIN sys_department d ON u.dept_id = d.dept_id ";
+const QString USER_SELECT =
+    QStringLiteral("SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
+                   "u.role, u.must_change_pwd, u.work_no, u.dept_id, ") +
+    deptNameColumn() +
+    QStringLiteral("u.phone, u.email, u.face_feature, u.status, "
+                   "u.last_login_at, u.created_at, u.updated_at "
+                   "FROM sys_user u "
+                   "LEFT JOIN sys_department d ON u.dept_id = d.dept_id ");
 
 /**
  * @brief 把用户查询的一行组装成结果对象
@@ -165,7 +177,8 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
     // activeOnly=true：仅启用账户（登录匹配用，禁用账户由登录流程的状态检查单独拦截）；
     // false：全部未注销账户（人脸录入查重用，禁用账户的人脸同样参与通盘比对）
     QString sql = "SELECT u.user_id, u.username, u.real_name, u.work_no, "
-                  "d.dept_name AS department_name, u.face_feature "
+                  + deptNameColumn() +
+                  "u.face_feature "
                   "FROM sys_user u LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
                   "WHERE u.face_feature IS NOT NULL AND u.face_feature != ''";
     sql += activeOnly ? " AND u.status = :st" : " AND u.status != :st";
@@ -207,8 +220,7 @@ bool UserDAO::recordLoginSuccess(int userId, const QString&) {
  * @return 用户实体；不存在时返回默认构造的空实体
  */
 User UserDAO::findUserById(int userId) {
-    QSqlQuery q = query("SELECT u.*, d.dept_name AS department_name FROM sys_user u "
-                        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE u.user_id = ?", {userId});
+    QSqlQuery q = query(USER_SELECT + "WHERE u.user_id = ?", {userId});
     if (q.next()) return fromQuery(q);
     return User();
 }
@@ -219,8 +231,7 @@ User UserDAO::findUserById(int userId) {
  * @return 用户实体；不存在时返回默认构造的空实体
  */
 User UserDAO::findUserByWorkNo(const QString& workNo) {
-    QSqlQuery q = query("SELECT u.*, d.dept_name AS department_name FROM sys_user u "
-                        "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE u.work_no = ?", {workNo});
+    QSqlQuery q = query(USER_SELECT + "WHERE u.work_no = ?", {workNo});
     if (q.next()) return fromQuery(q);
     return User();
 }
@@ -237,10 +248,9 @@ User UserDAO::findUserByWorkNo(const QString& workNo) {
  */
 QList<User> UserDAO::findAllUsers(int page, int pageSize, const QString& keyword,
                                    const QString& dept, const QString& status, const QString& role) {
-    static const QString FALLBACK = QString::fromUtf8("\xe6\x9c\xaa\xe5\x88\x86\xe9\x85\x8d");
-    QString sql = QString("SELECT u.*, COALESCE(NULLIF(d.dept_name,''), '%1') AS department_name "
+    QString sql = "SELECT u.*, " + deptNameColumn() +
                   "FROM sys_user u "
-                  "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE 1=1").arg(FALLBACK);
+                  "LEFT JOIN sys_department d ON u.dept_id = d.dept_id WHERE 1=1";
     QVariantList params;
     if (!keyword.isEmpty()) {
         sql += " AND (u.real_name LIKE ? OR u.work_no LIKE ? OR u.username LIKE ?)";
