@@ -33,7 +33,7 @@ const QString USER_SELECT =
     QStringLiteral("SELECT u.user_id, u.username, u.password_hash, u.password_salt, u.real_name, "
                    "u.role, u.must_change_pwd, u.work_no, u.dept_id, ") +
     deptNameColumn() +
-    QStringLiteral("u.phone, u.email, u.face_feature, u.status, "
+    QStringLiteral(", u.phone, u.email, u.face_feature, u.status, "
                    "u.last_login_at, u.created_at, u.updated_at "
                    "FROM sys_user u "
                    "LEFT JOIN sys_department d ON u.dept_id = d.dept_id ");
@@ -178,7 +178,7 @@ QJsonArray UserDAO::getAllFaceFeatures(bool activeOnly) {
     // false：全部未注销账户（人脸录入查重用，禁用账户的人脸同样参与通盘比对）
     QString sql = "SELECT u.user_id, u.username, u.real_name, u.work_no, "
                   + deptNameColumn() +
-                  "u.face_feature "
+                  ", u.face_feature "
                   "FROM sys_user u LEFT JOIN sys_department d ON u.dept_id = d.dept_id "
                   "WHERE u.face_feature IS NOT NULL AND u.face_feature != ''";
     sql += activeOnly ? " AND u.status = :st" : " AND u.status != :st";
