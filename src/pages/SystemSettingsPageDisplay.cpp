@@ -94,30 +94,24 @@ void SystemSettingsPage::applyBrightnessWindows(int percent) {
 
 #else
 /**
- * @brief 麒麟Linux亮度调整：三级降级链 backlight内核接口 → xrandr → brightnessctl
+ * @brief 麒麟Linux亮度调整：多级降级链
+ *        顺序：backlight内核接口(硬件级，尝试pkexec/sudo提权) → xrandr(软件伽马,X11) → brightnessctl
+ *        任一方法成功即停止并写日志；全部失败弹窗提示，避免"屏幕无变化却无任何反馈"的误判
  * @param percent 目标亮度百分比，取值范围 0~100
  */
 void SystemSettingsPage::applyBrightnessLinux(int percent) {
     auto writeLog = [this, percent](const QString& method, const QString& result, int exitCode) {
         writeBrightnessLog(percent, method, result, exitCode);
     };
-    // ═══════════ 麒麟Linux平台：三级降级方案 ═══════════
-    // 方案A：/sys/class/backlight/ 内核接口（硬件级亮度，需root权限）
-    // 1) 遍历 /sys/class/backlight/ 找到第一个设备目录
-    // 2) 读取 max_brightness 计算实际值 = percent * max / 100
-    // 3) 用 pkexec/sudo 提权写入 brightness 文件
-    // 方案B：xrandr X11 Gamma调整（软件级，无需root，所有X11桌面环境通用）
-    // xrandr --output <display> --brightness <0.1~1.0>
-    // 方案C：brightnessctl 命令（部分发行版预装）
-    // brightnessctl set <percent>%
 
-    // 封装异步执行+日志的Lambda
+    // 异步执行单个命令；finished 后写日志。isLast=true 时若仍失败则弹窗提示
     auto runAsync = [this, percent, writeLog](const QString& method,
                                                const QString& program,
-                                               const QStringList& args) {
+                                               const QStringList& args,
+                                               bool isLast) {
         auto* proc = new QProcess(this);
         connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, method, percent, writeLog](int exitCode, QProcess::ExitStatus) {
+                this, [this, method, percent, writeLog, isLast](int exitCode, QProcess::ExitStatus) {
             auto* p = qobject_cast<QProcess*>(sender());
             if (!p) return;
             QString output = p->readAllStandardOutput().trimmed();
@@ -132,6 +126,10 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
                 qInfo() << "[Brightness]" << method << "applied:" << percent << "%";
             } else {
                 qWarning() << "[Brightness]" << method << "failed:" << result;
+                if (isLast) {
+                    MessageDialog::showWarning(this, QStringLiteral("亮度调整失败"),
+                        QStringLiteral("系统不支持当前亮度调节方式，详细原因见 brightness.log"));
+                }
             }
         });
 
@@ -140,28 +138,51 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
             qWarning() << "[Brightness] Failed to start" << program;
             writeLog(method, QStringLiteral("START_FAILED"), -1);
             proc->deleteLater();
-            return false;
+            if (isLast) {
+                MessageDialog::showWarning(this, QStringLiteral("亮度调整失败"),
+                    QStringLiteral("系统不支持当前亮度调节方式，详细原因见 brightness.log"));
+            }
         }
-        return true;
     };
 
-    // 方案A：尝试 /sys/class/backlight/ 内核接口
-    // 用 sh 脚本检测设备并写入，通过 pkexec 提权（麒麟默认安装）
+    // xrandr 软件级亮度脚本：解析"已连接"的显示器名称（避免误取显示器数量），
+    // 用awk计算亮度比例（不依赖bc），仅当至少一台显示器设置成功才返回XRANDR_OK标记
+    auto buildXrandrScript = [percent]() -> QString {
+        return QStringLiteral(
+            "displays=$(xrandr 2>/dev/null | awk '/ connected/{print $1}'); "
+            "if [ -z \"$displays\" ]; then echo 'NO_DISPLAY'; exit 1; fi; "
+            "b=$(awk -v p=%1 'BEGIN{ v=p/100; printf \"%.2f\", v }'); "
+            "ok=0; for d in $displays; do xrandr --output \"$d\" --brightness \"$b\" 2>/dev/null && ok=1; done; "
+            "if [ \"$ok\" = \"1\" ]; then echo 'XRANDR_OK'; else echo 'XRANDR_FAIL'; exit 1; fi"
+        ).arg(percent);
+    };
+
+    // 方案A：backlight 内核接口（硬件级亮度）
+    // 直接写（root场景即可生效）；普通用户权限不足时依次尝试 pkexec/sudo 提权写入
     QString backlightScript = QStringLiteral(
         "for dev in /sys/class/backlight/*/; do "
-        "  if [ -f \"${dev}max_brightness\" ] && [ -w \"${dev}brightness\" ]; then "
+        "  if [ -f \"${dev}max_brightness\" ]; then "
         "    max=$(cat \"${dev}max_brightness\"); "
         "    val=$(( %1 * max / 100 )); "
-        "    echo $val > \"${dev}brightness\"; "
-        "    echo 'BACKLIGHT_OK'; exit 0; "
+        "    if echo \"$val\" > \"${dev}brightness\" 2>/dev/null; then echo 'BACKLIGHT_OK'; exit 0; fi; "
+        "    if command -v pkexec >/dev/null 2>&1 && echo \"$val\" | pkexec tee \"${dev}brightness\" >/dev/null 2>&1; then echo 'BACKLIGHT_OK'; exit 0; fi; "
+        "    if command -v sudo >/dev/null 2>&1 && echo \"$val\" | sudo -n tee \"${dev}brightness\" >/dev/null 2>&1; then echo 'BACKLIGHT_OK'; exit 0; fi; "
         "  fi; "
         "done; "
         "echo 'NO_BACKLIGHT_DEV'; exit 1"
     ).arg(percent);
 
+    // 方案C-2：brightnessctl（最后一级，失败则弹窗）
+    auto tryBrightnessctl = [runAsync, percent]() {
+        runAsync(QStringLiteral("brightnessctl"),
+                 QStringLiteral("brightnessctl"),
+                 QStringList() << "set" << QStringLiteral("%1%").arg(percent),
+                 true);
+    };
+
     auto* procA = new QProcess(this);
     connect(procA, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, percent, writeLog, runAsync](int exitCodeA, QProcess::ExitStatus) {
+            this, [this, percent, writeLog, tryBrightnessctl, buildXrandrScript](int exitCodeA, QProcess::ExitStatus) {
         auto* pA = qobject_cast<QProcess*>(sender());
         if (!pA) return;
         QString outputA = pA->readAllStandardOutput().trimmed();
@@ -177,21 +198,11 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
         qWarning() << "[Brightness] backlight failed, trying xrandr...";
 
         // 方案B：xrandr X11 Gamma调整（软件级，percent映射到0.1~1.0）
-        // 先获取显示器列表，再逐个设置
-        QString xrandrScript = QStringLiteral(
-            "displays=$(xrandr --listmonitors 2>/dev/null | grep -oP '(?<=Monitors: ).*' | tr ' ' '\\n'); "
-            "if [ -z \"$displays\" ]; then "
-            "  displays=$(xrandr 2>/dev/null | grep -E ' connected' | awk '{print $1}'); "
-            "fi; "
-            "if [ -z \"$displays\" ]; then echo 'NO_DISPLAY'; exit 1; fi; "
-            "brightness=$(echo \"scale=2; %1 / 100\" | bc); "
-            "for d in $displays; do xrandr --output $d --brightness $brightness 2>/dev/null; done; "
-            "echo 'XRANDR_OK'"
-        ).arg(percent);
+        QString xrandrScript = buildXrandrScript();
 
         auto* procB = new QProcess(this);
         connect(procB, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, percent, writeLog, runAsync](int exitCodeB, QProcess::ExitStatus) {
+                this, [this, percent, writeLog, tryBrightnessctl](int exitCodeB, QProcess::ExitStatus) {
             auto* pB = qobject_cast<QProcess*>(sender());
             if (!pB) return;
             QString outputB = pB->readAllStandardOutput().trimmed();
@@ -205,11 +216,7 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
             }
 
             qWarning() << "[Brightness] xrandr failed, trying brightnessctl...";
-
-            // 方案C：brightnessctl 命令（最后降级方案）
-            runAsync(QStringLiteral("brightnessctl"),
-                     QStringLiteral("brightnessctl"),
-                     QStringList() << "set" << QStringLiteral("%1%").arg(percent));
+            tryBrightnessctl();
         });
 
         procB->start(QStringLiteral("sh"), QStringList() << "-c" << xrandrScript);
@@ -217,43 +224,33 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
             qWarning() << "[Brightness] Failed to start xrandr";
             writeLog(QStringLiteral("xrandr"), QStringLiteral("START_FAILED"), -1);
             procB->deleteLater();
-            // 直接尝试方案C
-            runAsync(QStringLiteral("brightnessctl"),
-                     QStringLiteral("brightnessctl"),
-                     QStringList() << "set" << QStringLiteral("%1%").arg(percent));
+            tryBrightnessctl();
         }
     });
 
-    // 启动方案A：用pkexec提权尝试写入backlight（麒麟系统polkit已集成）
-    // 如果pkexec不可用则直接用sh（无root时可能失败，会自动降级到方案B）
     procA->start(QStringLiteral("sh"), QStringList() << "-c" << backlightScript);
     if (!procA->waitForStarted(3000)) {
         qWarning() << "[Brightness] Failed to start backlight script";
         writeLog(QStringLiteral("backlight"), QStringLiteral("START_FAILED"), -1);
         procA->deleteLater();
         // 直接尝试方案B
-        QString xrandrScript = QStringLiteral(
-            "displays=$(xrandr --listmonitors 2>/dev/null | grep -oP '(?<=Monitors: ).*' | tr ' ' '\\n'); "
-            "if [ -z \"$displays\" ]; then "
-            "  displays=$(xrandr 2>/dev/null | grep -E ' connected' | awk '{print $1}'); "
-            "fi; "
-            "if [ -z \"$displays\" ]; then echo 'NO_DISPLAY'; exit 1; fi; "
-            "brightness=$(echo \"scale=2; %1 / 100\" | bc); "
-            "for d in $displays; do xrandr --output $d --brightness $brightness 2>/dev/null; done; "
-            "echo 'XRANDR_OK'"
-        ).arg(percent);
+        QString xrandrScript = buildXrandrScript();
         auto* procB = new QProcess(this);
         connect(procB, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this, percent, writeLog](int exitCodeB, QProcess::ExitStatus) {
+                this, [this, percent, writeLog, tryBrightnessctl](int exitCodeB, QProcess::ExitStatus) {
             auto* pB = qobject_cast<QProcess*>(sender());
             if (!pB) return;
             QString outputB = pB->readAllStandardOutput().trimmed();
             pB->deleteLater();
             writeLog(QStringLiteral("xrandr"), outputB, exitCodeB);
+            if (exitCodeB != 0 || !outputB.contains(QStringLiteral("XRANDR_OK"))) {
+                tryBrightnessctl();
+            }
         });
         procB->start(QStringLiteral("sh"), QStringList() << "-c" << xrandrScript);
         if (!procB->waitForStarted(3000)) {
             procB->deleteLater();
+            tryBrightnessctl();
         }
     }
 }
