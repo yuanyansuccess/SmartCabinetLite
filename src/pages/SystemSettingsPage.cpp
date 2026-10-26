@@ -730,16 +730,5 @@ void SystemSettingsPage::snapshotSettings() {
     m_snapshot.autoBackup = m_autoBackupCheck ? m_autoBackupCheck->isChecked() : true;
     m_snapshot.backupPeriod = m_backupPeriod;
     m_snapshot.cacheHours = m_cacheHoursSpin ? m_cacheHoursSpin->value() : 4;
-    m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::BACKUP_PATH;
+    m_snapshot.backupPath = m_backupPathEdit ? m_backupPathEdit->text() : SC::defaultBackupPath();
 }
-
-// 跨平台设置显示器亮度（Windows + 麒麟Linux自适应）
-// Windows方案：PowerShell + WMI (WmiMonitorBrightnessMethods.WmiSetBrightness)
-// 麒麟方案A：/sys/class/backlight/<dev>/brightness 内核接口（硬件级，需root）
-// 麒麟方案B：xrandr --output <dev> --brightness <val> X11 Gamma调整（软件级，无需root）
-// 麒麟方案C：brightnessctl set <val>% 命令（需安装）
-// 异步执行不阻塞UI，失败静默处理并降级尝试下一方案
-
-
-
-

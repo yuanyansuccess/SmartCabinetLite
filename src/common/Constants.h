@@ -6,6 +6,7 @@
 #pragma once
 #include <QString>
 #include <QStringList>
+#include <QStandardPaths>  // 备份默认路径按平台落到用户主目录（麒麟普通用户无 /mnt 写入权限）
 
 namespace SC {
 // ── 应用信息 ──
@@ -247,6 +248,21 @@ const bool    BACKUP_AUTO_ENABLED = true;
 const int     BACKUP_PERIOD       = 0;   // 0=每日
 const int     BACKUP_CACHE_HOURS  = 4;
 const QString BACKUP_PATH         = "/mnt/backup";
+
+/**
+ * @brief 备份目录默认值（分平台，保证开箱即用可写）
+ * @return 备份文件存放目录路径
+ * @note 麒麟普通用户对 /mnt 无写入权限，默认落到用户主目录下；
+ *       Windows 沿用 /mnt/backup（运行时落在 <盘符>:\mnt\backup，开发机可写）。
+ */
+inline QString defaultBackupPath() {
+#ifdef Q_OS_LINUX
+    return QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
+           + QStringLiteral("/smartcabinet_backup");
+#else
+    return BACKUP_PATH;
+#endif
+}
 
 // ── 磁盘容量保护（导出/备份/日志/文档写入前自动清理，用户无感知，见 DiskSpaceGuard） ──
 // 磁盘可用比例低于该百分比时，先清理目标目录下最旧的文件再执行写操作

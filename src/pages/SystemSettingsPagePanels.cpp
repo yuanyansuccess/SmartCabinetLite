@@ -201,7 +201,7 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
     updateBackupPeriodBtnStyles();
     form->addRow(FormFactory::formLabel(QStringLiteral("备份周期")), backupBtnGroup);
 
-    m_backupPathEdit = new QLineEdit(SC::BACKUP_PATH);
+    m_backupPathEdit = new QLineEdit(SC::defaultBackupPath());
     m_backupPathEdit->setStyleSheet(StyleHelper::settingLineEdit());
     form->addRow(FormFactory::formLabel(QStringLiteral("备份存储路径")), m_backupPathEdit);
 

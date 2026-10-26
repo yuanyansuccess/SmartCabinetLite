@@ -85,7 +85,8 @@ private:
     /**
      * @brief 启动一次 mysqldump 导出，异步执行不阻塞界面
      * @param backupPath 备份文件存放目录（不存在时自动创建）
-     * @param onFinished 完成回调：参数1=true 表示导出成功，参数2=备份文件完整路径（失败为空串）
+     * @param onFinished 完成回调：参数1=true 表示导出成功；
+     *                    参数2 成功时为备份文件完整路径，失败时为失败原因说明
      */
     void startMysqlDumpBackup(const QString& backupPath,
                               const std::function<void(bool, const QString&)>& onFinished);

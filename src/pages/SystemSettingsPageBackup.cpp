@@ -20,9 +20,37 @@
 #include "components/MessageDialog.h"
 #include <QDebug>
 #include <QProcess>  // 调用PowerShell设置显示器亮度
+#include <QStandardPaths>  // mysqldump 路径探测（跨平台）
 #include <QFile>  // WMI结果日志记录
 #include <QDateTime>  // 亮度日志时间戳
 #include <QDir>  // 备份目录操作
+
+/**
+ * @brief 解析 mysqldump 可执行文件路径，兼容麒麟/Windows/离线部署环境
+ * @return mysqldump 可执行文件的绝对路径或命令名
+ * @note 优先从系统 PATH 查找（部署脚本已 apt 安装 mysql-client）；
+ *       未命中时按常见安装位置探测；都失败则回退为命令名 mysqldump（依赖运行时 PATH）。
+ */
+static QString resolveMysqldumpPath() {
+    // 优先 PATH 查找：麒麟 apt 安装的 mysql-client 默认落在 /usr/bin/mysqldump
+    QString fromPath = QStandardPaths::findExecutable("mysqldump");
+    if (!fromPath.isEmpty()) return fromPath;
+
+    // PATH 未命中时按常见绝对路径探测（开发机、离线柜机、自定义安装目录）
+    QStringList candidates = {
+        QStringLiteral("/usr/bin/mysqldump"),
+        QStringLiteral("/usr/local/bin/mysqldump"),
+        QStringLiteral("/usr/local/mysql/bin/mysqldump"),
+        QStringLiteral("/opt/mysql/bin/mysqldump"),
+        QStringLiteral("C:/Program Files/MySQL/MySQL Server 5.7/bin/mysqldump.exe"),
+        QStringLiteral("C:/Program Files/MySQL/MySQL Server 8.0/bin/mysqldump.exe")
+    };
+    for (const QString& candidate : candidates) {
+        if (QFile::exists(candidate)) return candidate;
+    }
+    // 兜底：依赖运行时 PATH（保持旧行为，启动失败时日志会明确提示）
+    return QStringLiteral("mysqldump");
+}
 
 /**
  * @brief 执行一次数据库自动备份（保存备份设置时立即导出，用于验证备份路径可用）
@@ -54,7 +82,8 @@ void SystemSettingsPage::performDatabaseBackup() {
 /**
  * @brief 启动一次 mysqldump 全库导出，异步执行不阻塞界面
  * @param backupPath 备份文件存放目录，不存在时自动创建
- * @param onFinished 完成回调：参数1=true 表示导出成功，参数2=备份文件完整路径（失败为空串）
+ * @param onFinished 完成回调：参数1=true 表示导出成功；
+ *                    参数2 成功时为备份文件完整路径，失败时为失败原因说明
  */
 void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
                                               const std::function<void(bool, const QString&)>& onFinished) {
@@ -71,7 +100,8 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
         writeBackupLog(QStringLiteral("CREATE_DIR"), QStringLiteral("FAIL"),
                        QStringLiteral("cannot create: %1").arg(backupPath));
         qWarning() << "[Backup] Cannot create backup dir:" << backupPath;
-        if (onFinished) onFinished(false, QString());
+        if (onFinished) onFinished(false,
+            QStringLiteral("备份目录创建失败：%1（请检查路径是否存在、当前用户是否有写入权限）").arg(backupPath));
         return;
     }
 
@@ -107,9 +137,11 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
         // 导出失败时删除残留文件，避免留下内容不完整的假备份
         QFile::remove(backupFile);
         writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                       QStringLiteral("mysqldump exitCode=%1").arg(exitCode));
+                       QStringLiteral("mysqldump exitCode=%1 err=%2")
+                           .arg(exitCode).arg(QString::fromLocal8Bit(errOutput)));
         qWarning() << "[Backup] MySQL backup failed, exitCode:" << exitCode << errOutput;
-        if (onFinished) onFinished(false, QString());
+        if (onFinished) onFinished(false,
+            QStringLiteral("mysqldump 执行失败（退出码=%1）。数据库服务可能未启动，或账号/密码错误。").arg(exitCode));
     });
     // 重定向输出到备份文件
     proc->setStandardOutputFile(backupFile);
@@ -120,14 +152,16 @@ void SystemSettingsPage::startMysqlDumpBackup(const QString& backupPath,
     if (!cfg.dbPass().isEmpty())
         dumpArgs << QStringLiteral("-p%1").arg(cfg.dbPass());
     dumpArgs << cfg.dbName();
-    proc->start("mysqldump", dumpArgs);
+    QString mysqlDumpPath = resolveMysqldumpPath();
+    proc->start(mysqlDumpPath, dumpArgs);
     if (!proc->waitForStarted(3000)) {
         QFile::remove(backupFile);
         writeBackupLog(QStringLiteral("BACKUP"), QStringLiteral("FAIL"),
-                       QStringLiteral("cannot start mysqldump"));
-        qWarning() << "[Backup] Cannot start mysqldump";
+                       QStringLiteral("cannot start mysqldump: %1").arg(mysqlDumpPath));
+        qWarning() << "[Backup] Cannot start mysqldump:" << mysqlDumpPath;
         proc->deleteLater();
-        if (onFinished) onFinished(false, QString());
+        if (onFinished) onFinished(false,
+            QStringLiteral("无法启动 mysqldump（未安装或不在 PATH 中，或当前用户无执行权限）。请确认已安装 mysql-client，或在系统设置中指定 mysqldump 路径。"));
     }
 }
 
@@ -167,7 +201,7 @@ void SystemSettingsPage::onManualBackupClicked() {
                                        QStringLiteral("数据库已备份到：\n%1").arg(backupFile));
         } else {
             MessageDialog::showError(this, QStringLiteral("备份失败"),
-                                     QStringLiteral("数据库备份未完成，请检查备份路径是否可写、数据库服务是否正常。"));
+                                     QStringLiteral("数据库备份未完成：%1").arg(backupFile));
         }
     });
 }

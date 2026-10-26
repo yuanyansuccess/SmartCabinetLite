@@ -55,6 +55,15 @@ if ! ldconfig -p | grep -q "libmysqlclient"; then
     fi
 fi
 
+# 安装 mysqldump 命令行工具（mysql-client 提供，libmysqlclient 库包不含该工具）
+if ! command -v mysqldump &> /dev/null; then
+    echo "未检测到 mysqldump，尝试安装 mysql-client ..."
+    sudo apt-get install -y mysql-client || echo "警告：mysql-client 安装失败，请手动执行 sudo apt-get install mysql-client"
+else
+    echo "mysqldump 已存在"
+fi
+echo
+
 echo "依赖检查通过"
 echo
 

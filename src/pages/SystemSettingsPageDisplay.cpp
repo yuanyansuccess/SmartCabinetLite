@@ -95,7 +95,7 @@ void SystemSettingsPage::applyBrightnessWindows(int percent) {
 #else
 /**
  * @brief 麒麟Linux亮度调整：多级降级链
- *        顺序：backlight内核接口(硬件级，尝试pkexec/sudo提权) → xrandr(软件伽马,X11) → brightnessctl
+ *        顺序：backlight内核接口(硬件级，尝试pkexec/sudo提权) → xrandr(软件伽马,X11) → light → brightnessctl
  *        任一方法成功即停止并写日志；全部失败弹窗提示，避免"屏幕无变化却无任何反馈"的误判
  * @param percent 目标亮度百分比，取值范围 0~100
  */
@@ -182,7 +182,7 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
 
     auto* procA = new QProcess(this);
     connect(procA, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, percent, writeLog, tryBrightnessctl, buildXrandrScript](int exitCodeA, QProcess::ExitStatus) {
+            this, [this, percent, writeLog, runAsync, tryBrightnessctl, buildXrandrScript](int exitCodeA, QProcess::ExitStatus) {
         auto* pA = qobject_cast<QProcess*>(sender());
         if (!pA) return;
         QString outputA = pA->readAllStandardOutput().trimmed();
@@ -215,8 +215,31 @@ void SystemSettingsPage::applyBrightnessLinux(int percent) {
                 return;  // 方案B成功
             }
 
-            qWarning() << "[Brightness] xrandr failed, trying brightnessctl...";
-            tryBrightnessctl();
+            qWarning() << "[Brightness] xrandr failed, trying light...";
+
+            // 方案C-1：light 命令（backlight 专用，需root/sudo；失败再降级）
+            auto* procLight = new QProcess(this);
+            connect(procLight, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                    this, [this, percent, writeLog, tryBrightnessctl](int exitCodeL, QProcess::ExitStatus) {
+                auto* pL = qobject_cast<QProcess*>(sender());
+                if (!pL) return;
+                QString outputL = pL->readAllStandardOutput().trimmed();
+                pL->deleteLater();
+                writeLog(QStringLiteral("light"), outputL, exitCodeL);
+                if (exitCodeL == 0) {
+                    qInfo() << "[Brightness] light applied:" << percent << "%";
+                    return;
+                }
+                qWarning() << "[Brightness] light failed, trying brightnessctl...";
+                tryBrightnessctl();
+            });
+            procLight->start(QStringLiteral("light"), QStringList() << "-S" << QString::number(percent));
+            if (!procLight->waitForStarted(3000)) {
+                qWarning() << "[Brightness] Failed to start light";
+                writeLog(QStringLiteral("light"), QStringLiteral("START_FAILED"), -1);
+                procLight->deleteLater();
+                tryBrightnessctl();
+            }
         });
 
         procB->start(QStringLiteral("sh"), QStringList() << "-c" << xrandrScript);

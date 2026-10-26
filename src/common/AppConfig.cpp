@@ -118,7 +118,7 @@ void AppConfig::createDefaultIni(const QString& path) {
     content += "auto_enabled=" + QString(SC::BACKUP_AUTO_ENABLED ? "true" : "false") + "\n";
     content += "period=" + QString::number(SC::BACKUP_PERIOD) + "\n";
     content += "cache_hours=" + QString::number(SC::BACKUP_CACHE_HOURS) + "\n";
-    content += "path=" + SC::BACKUP_PATH + "\n";
+    content += "path=" + SC::defaultBackupPath() + "\n";
     content += "last_backup_date=\n";  // 上次成功备份日期，空=从未备份（自动备份按周期去重用）
 
     // UTF-8 BOM (QSettings IniFormat识别BOM确保中文不乱码)
@@ -337,7 +337,7 @@ int AppConfig::backupCacheHours() const    { QMutexLocker l(&m_mutex); return m_
  * @param v 备份缓存时长，单位小时
  */
 void AppConfig::setBackupCacheHours(int v)         { QMutexLocker l(&m_mutex); m_settings->setValue("Backup/cache_hours", v); }
-QString AppConfig::backupPath() const      { QMutexLocker l(&m_mutex); return m_settings->value("Backup/path",         SC::BACKUP_PATH).toString(); }
+QString AppConfig::backupPath() const      { QMutexLocker l(&m_mutex); return m_settings->value("Backup/path",         SC::defaultBackupPath()).toString(); }
 
 /**
  * @brief 读取上次执行数据库备份的日期，用来保证同一天不重复备份
