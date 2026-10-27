@@ -154,8 +154,8 @@ void EdgeService::stop()
 
 
 /**
- * @brief 发起边缘机软件版本查询（验收留痕/运维，协议3.5）
- * @return 请求编号，含义同 requestRecognize；离线时返回空串且不发送（日志留痕）
+ * @brief 发起边缘机软件版本查询（运维排查用，协议3.5）
+ * @return 请求编号，含义同 requestRecognize；离线时返回空串且不发送（记录离线日志）
  * @note  异步：结果通过 versionReceived 信号返回
  */
 

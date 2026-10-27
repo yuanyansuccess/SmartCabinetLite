@@ -69,7 +69,7 @@ private:
     /// key = socket 指针值（连接存续期唯一，重连即新编号）
     QHash<quintptr, QTcpSocket*> m_clients;
     EdgeConfig m_cfg;
-    int m_badFrames = 0;   ///< 累计坏帧数（日志留痕，观察链路质量）
+    int m_badFrames = 0;   ///< 累计坏帧数（用于观察链路质量）
     /// 已切分但尚未上抛的帧队列（first=连接编号，second=帧内容）
     QQueue<QPair<quintptr, QJsonObject>> m_frameQueue;
     bool m_drainScheduled = false;   ///< 排空动作是否已在排队中

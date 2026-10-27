@@ -110,7 +110,7 @@ signals:
 
     /**
      * @brief 收到边缘机版本回应（协议3.5）
-     * @param version 边缘机软件版本号，验收交付留痕
+     * @param version 边缘机软件版本号，随版本回应帧上报
      */
     void versionReceived(const QString& version);
 

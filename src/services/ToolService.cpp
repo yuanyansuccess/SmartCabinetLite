@@ -159,7 +159,7 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
         if (it.type == QStringLiteral("in")) {
             auto spot = spotByPos.constFind(it.position);
             if (spot != spotByPos.constEnd()) {
-                cmp.confidence = spot->confidence;   // 该货位识别置信度（轮次日志留痕用）
+                cmp.confidence = spot->confidence;   // 该货位识别置信度（写入轮次操作日志）
             }
             if (spot == spotByPos.constEnd()) {
                 cmp.result = RecogItemResult::Empty;

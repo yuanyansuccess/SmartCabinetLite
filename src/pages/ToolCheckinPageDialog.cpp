@@ -331,7 +331,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         QSet<int> allIdx; for (int i = 0; i < items.size(); ++i) allIdx.insert(i);
         QSet<int> okIdx = commitByIndices(allIdx);
         bool allWriteOk = (okIdx.size() == items.size());
-        // 本轮识别留痕（每轮一条）：结果与逐项结论写入操作日志
+        // 每轮识别写一条操作日志：记录结果与逐项结论
         writeRoundLog(round, items, compareItems, misplaced, allWriteOk);
         m_roundState = allWriteOk ? RoundState::Passed : RoundState::Partial;
 
@@ -430,7 +430,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
     action = dlg.clickedAction();
 
     if (action == QStringLiteral("reopen")) {
-        // 本轮整理留痕（操作人 / 第几轮 / 待修正项清单），内容按约定写 JSON
+        // 本轮整理记录（操作人 / 第几轮 / 待修正项清单），内容按约定写 JSON
         writeRoundLog(m_currentRound, items, compareItems, misplaced, false);
         ++m_currentRound;
         m_roundState = RoundState::Running;
@@ -454,7 +454,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
 
     // 按当前实况写库（本轮通过项写入，未过项保持原状）
     QSet<int> okIdx = commitByIndices(matchedIdx);
-    // 保底轮次同样留痕：结果记 fail，便于事后追溯为何按实况写入
+    // 保底轮次同样写日志：结果记 fail，便于事后追溯为何按实况写入
     writeRoundLog(round, items, compareItems, misplaced, false);
     // 保底结果如实呈现：一项未写也必须明确告知，避免操作人误以为已入库
     const int expectWrite = matchedIdx.size();

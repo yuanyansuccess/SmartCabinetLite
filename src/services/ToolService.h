@@ -63,7 +63,7 @@ public:
         QString toolCode;                                   ///< 工具编号
         QString toolName;                                   ///< 工具名称
         QString position;                                   ///< 目标货位
-        double  confidence = 0.0;                           ///< 该货位识别置信度（0=未识别到，轮次日志留痕用）
+        double  confidence = 0.0;                           ///< 该货位识别置信度（0=未识别到，写入轮次操作日志）
         QString detail;                                     ///< 附加说明（货位上为XX/置信度xx%）
     };
 
