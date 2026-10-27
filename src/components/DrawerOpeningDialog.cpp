@@ -110,6 +110,24 @@ void DrawerOpeningDialog::setNextEnabled(bool enabled) {
     if (m_nextBtn) m_nextBtn->setEnabled(enabled);
 }
 
+/// 切换到"失败态"：提示失败原因并把下一步按钮改为"重新核对"，点击发出重试信号
+/// @param title 失败态标题
+/// @param desc 失败原因文案（人读）
+/// @param retryText 下一步按钮文案（如"重新核对"）
+void DrawerOpeningDialog::showFailureState(const QString& title, const QString& desc,
+                                            const QString& retryText) {
+    if (!m_nextBtn) return;
+    setTitleText(title);
+    setDescHtml(desc);
+    setNextButtonText(retryText);
+    setNextEnabled(true);
+    // 下一步按钮正常流程连到 accept（如"我已关柜"），失败态改为发出 retryRequested，
+    // 由页面决定重试动作；先断开两种可能的旧连接再连，避免重复连接累积
+    disconnect(m_nextBtn, &QPushButton::clicked, this, &QDialog::accept);
+    disconnect(m_nextBtn, &QPushButton::clicked, this, &DrawerOpeningDialog::retryRequested);
+    connect(m_nextBtn, &QPushButton::clicked, this, &DrawerOpeningDialog::retryRequested);
+}
+
 /**
  * @brief 构建开柜等待动画：旋转指示器与提示文字
  * @return 动画区域控件

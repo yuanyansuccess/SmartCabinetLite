@@ -1108,7 +1108,7 @@ void ToolCheckinPage::onRecognitionResult(const QString& requestId,
 }
 
 /**
- * @brief 识别失败（超时/链路中断/补发放弃）：关闭等待框并询问是否重新核对
+ * @brief 识别失败（超时/链路中断/补发放弃）：在等待框内提示失败并提供重新核对
  * @param requestId 失败请求编号；空串=未发出（链路离线，本分支直接按 reason 提示）
  * @param reason    失败原因（人读，直接提示）
  */
@@ -1124,19 +1124,28 @@ void ToolCheckinPage::onRecognitionFailed(const QString& requestId, const QStrin
     if (requestId != m_currentRequestId) return;
 
     if (m_waitDialog) {
-        m_waitDialog->accept();  // 仅作关闭手段（不触发取消语义）
-        m_waitDialog = nullptr;
-    }
-    m_currentRequestId.clear();
-
-    // 柜门已关、工具已放好，只是没识别上：提供【重新核对】重发请求，不用重新开箱
-    const bool retry = MessageDialog::showQuestion(this, QStringLiteral("核对失败"),
-        QStringLiteral("%1\n\n是否重新核对？（不用重新开箱）").arg(reason));
-    if (retry) {
-        startEdgeCheck();   // 重发走统一入口：清上轮实况缓存并按全量单据重新核对
+        // 不弹顶层问答：把失败原因与【重新核对】按钮收进"核对中"等待框内，
+        // 用户点"重新核对"即重发识别请求（不用重新开箱），点"取消"走 exitWaitState 零写库
+        m_waitDialog->showFailureState(QStringLiteral("核对失败"), reason, QStringLiteral("重新核对"));
+        disconnect(m_retryConnection);   // 先断开上轮残留（对话框已重建/已删时句柄失效，返回 false 无副作用）
+        m_retryConnection = connect(m_waitDialog, &DrawerOpeningDialog::retryRequested, this, [this]() {
+            if (m_waitDialog) {
+                m_waitDialog->accept();   // 关闭旧框（不触发取消语义）
+                m_waitDialog = nullptr;
+            }
+            startEdgeCheck();   // 重发走统一入口：清上轮实况缓存并按全量单据重新核对
+        });
     } else {
-        exitWaitState();
+        // 等待框已不存在（极端情况）：保留顶层问答兜底
+        const bool retry = MessageDialog::showQuestion(this, QStringLiteral("核对失败"),
+            QStringLiteral("%1\n\n是否重新核对？（不用重新开箱）").arg(reason));
+        if (retry) {
+            startEdgeCheck();
+        } else {
+            exitWaitState();
+        }
     }
+    m_currentRequestId.clear();   // 本次在途请求已作废，待用户点"重新核对"时由 startEdgeCheck 重新编号
 }
 
 /**

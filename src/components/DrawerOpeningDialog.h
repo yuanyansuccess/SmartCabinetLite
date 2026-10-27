@@ -39,6 +39,18 @@ public:
     /// 启用/禁用"下一步"按钮（等待态禁用，防止重复提交）
     void setNextEnabled(bool enabled);
 
+    /// 切换到"失败态"：把下一步按钮从正常流程（如"我已关柜"）改为"重新核对"，
+    /// 点击时发出 retryRequested 信号，由页面决定重试动作（如重新下发识别请求），
+    /// 避免弹出顶层问答框打断流程。标题与提示文案同步替换为失败信息。
+    /// @param title 失败态标题（如"核对失败"）
+    /// @param desc 失败原因文案（人读，直接提示用户）
+    /// @param retryText 下一步按钮文案（如"重新核对"）
+    void showFailureState(const QString& title, const QString& desc, const QString& retryText);
+
+signals:
+    /// 失败态下用户点击"重新核对"按钮时发出，页面需 connect 到具体重试动作
+    void retryRequested();
+
 private:
     void buildSpinner();
 

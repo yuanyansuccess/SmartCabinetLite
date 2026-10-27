@@ -186,7 +186,8 @@ private:
     QList<OrderRow> m_orderItems;        ///< 本轮出入库全量单据（首轮确认后固定，重开柜不重置）
     int m_currentRound = 1;              ///< 当前重试轮次（从 1 开始，到达上限后只给按实况写库）
     RoundState m_roundState = RoundState::Running;  ///< 本单轮次状态（内存态，控制结果页出口与文案）
-    QDialog* m_waitDialog = nullptr;     ///< 识别等待框（模态，结果回来/失败时关闭）
+    DrawerOpeningDialog* m_waitDialog = nullptr;     ///< 识别等待框（等待态，结果回来/失败时关闭）
+    QMetaObject::Connection m_retryConnection{};    ///< 失败态【重新核对】连接句柄（对话框重建时先断开旧连接，避免重复触发）
     QString m_openRequestId;             ///< 当前在途开箱请求编号（空=无在途）
     QList<OrderRow> m_pendingOpenItems;  ///< 开箱成功后待进入开箱环节的单据（开箱期间暂存）
     bool m_reopenPending = false;        ///< 下一次开箱属"重新开柜整理"（保留轮次与全量单据，不重置）
