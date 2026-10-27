@@ -274,7 +274,7 @@ QWidget* MainWindow::createSidebar() {
 }
 
 /**
- * @brief 按页面名称切换主显示区页面，并按角色执行权限收敛
+ * @brief 按页面名称切换主显示区页面，并按角色限制可访问的页面
  * @param name 目标页面注册名（如 "tools"/"settings"），未知名称回退到工具管理页
  */
 void MainWindow::showPage(const QString& name) {
@@ -634,7 +634,7 @@ void MainWindow::onMenuCardClicked(const QString& key) {
     if (key == kActionBorrowReturn) { startCabinetSession(); return; }
     if (key == kActionQuery)        { showUserBorrowDetail(); return; }
     if (key == kActionOpLog)        { showUserOperationLog(); return; }
-    navigateToPage(key);  // 页面注册名：走统一跳转链路（刷新/遮罩动画/权限收敛）
+    navigateToPage(key);  // 页面注册名：走统一跳转链路（刷新/遮罩动画、按角色限制可访问页面）
 }
 
 /**

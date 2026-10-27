@@ -1,6 +1,6 @@
 /**
  * @file User.h
- * @brief 用户实体，字段对齐 sys_user，含角色、状态与人脸特征
+ * @brief 用户实体，字段与 sys_user 表对应，含角色、状态与人脸特征
  * @author 袁燕
  */
 #pragma once

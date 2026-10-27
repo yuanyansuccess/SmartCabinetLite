@@ -216,7 +216,7 @@ void SystemSettingsPage::buildBackupForm(QVBoxLayout* layout) {
 }
 
 /**
- * @brief 构建备份设置保存栏（对齐Web端.save-bar）
+ * @brief 构建备份设置保存栏（与网页端 save-bar 一致）
  * @param layout 布局对象，本函数向其添加构建好的子控件
  */
 void SystemSettingsPage::buildBackupSaveBar(QVBoxLayout* layout) {

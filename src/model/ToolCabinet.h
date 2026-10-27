@@ -1,6 +1,6 @@
 /**
  * @file ToolCabinet.h
- * @brief 柜体实体，字段对齐 tool_cabinet
+ * @brief 柜体实体，字段与 tool_cabinet 表对应
  * @author 袁燕
  */
 #pragma once

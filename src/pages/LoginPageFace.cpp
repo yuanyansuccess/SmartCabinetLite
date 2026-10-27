@@ -581,7 +581,7 @@ void LoginPage::handleVerifyFailure(const QString& errMsg) {
 }
 
 /**
- * @brief 处理摄像头异常，切换为密码登录兜底
+ * @brief 处理摄像头异常，退化为密码登录
  * @param msg 摄像头故障详情（仅记录日志，不展示给用户）
  */
 void LoginPage::onCameraError(const QString& msg) {

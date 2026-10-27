@@ -1,6 +1,6 @@
 /**
  * @file ToolInfo.h
- * @brief 工具实体，字段对齐 tool_info，含位置映射与识别方式等扩展信息
+ * @brief 工具实体，字段与 tool_info 表对应，含位置映射与识别方式等扩展信息
  * @author 袁燕
  */
 #pragma once

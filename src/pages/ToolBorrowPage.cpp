@@ -631,6 +631,7 @@ void ToolBorrowPage::populateToolTableRow(int row, const QJsonObject& t, bool is
 
 /**
  * @brief 已选工具总件数（所有选中工具 quantity 之和）
+ * @return 选中工具 quantity 之和，未选任何工具时返回 0
  */
 int ToolBorrowPage::totalSelectedQty() const {
     int total = 0;
@@ -688,6 +689,7 @@ void ToolBorrowPage::addSelectedTool(int toolId, const QString& toolName, const 
 
 /**
  * @brief 移出一个已选工具，并触发跳页重建
+ * @param toolId 要移除的已选工具编号
  */
 void ToolBorrowPage::removeSelectedTool(int toolId) {
     m_selectedToolIds.remove(toolId);

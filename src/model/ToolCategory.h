@@ -1,6 +1,6 @@
 /**
  * @file ToolCategory.h
- * @brief 工具分类实体，字段对齐 tool_category
+ * @brief 工具分类实体，字段与 tool_category 表对应
  * @author 袁燕
  */
 #pragma once

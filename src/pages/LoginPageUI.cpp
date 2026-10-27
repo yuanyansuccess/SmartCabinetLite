@@ -111,7 +111,7 @@ void LoginPage::setupUI() {
 
     auto* leftLayout = new QVBoxLayout(leftWidget);
 
-    leftLayout->setContentsMargins(40, 60, 40, 40);  // 上边距60让中间内容视觉下沉更均衡，下边距40配合stretch布局
+    leftLayout->setContentsMargins(40, 60, 40, 40);  // 上边距60让中间内容整体下移更均衡，下边距40配合stretch布局
 
     leftLayout->setAlignment(Qt::AlignCenter);
 
@@ -282,7 +282,7 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
     // 弹性空间 - 将描述文字推至底部区域，视觉更大气
 
-    layout->addStretch(4);  // 4 加大弹性比例，描述文字更下沉
+    layout->addStretch(4);  // 4 加大弹性比例，描述文字位置更靠下
 
 
 
@@ -294,7 +294,7 @@ void LoginPage::setupLeftPanel(QVBoxLayout* layout) {
 
     desc->setWordWrap(true);
 
-    desc->setStyleSheet("color:rgba(255,255,255,0.8); " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; background:transparent; line-height:1.8; margin-bottom:12px;");  // 字号16，行高1.8，视觉下沉更沉稳
+    desc->setStyleSheet("color:rgba(255,255,255,0.8); " + StyleHelper::fontSize(StyleHelper::Token::FontInput) + "; background:transparent; line-height:1.8; margin-bottom:12px;");  // 字号16，行高1.8，整体更沉稳
 
     layout->addWidget(desc);
 

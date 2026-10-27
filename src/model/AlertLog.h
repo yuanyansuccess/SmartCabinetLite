@@ -1,6 +1,6 @@
 /**
  * @file AlertLog.h
- * @brief 告警记录实体，字段对齐 sys_alert 及其关联字典表
+ * @brief 告警记录实体，字段与 sys_alert 及其关联字典表对应
  * @author 袁燕
  */
 #pragma once

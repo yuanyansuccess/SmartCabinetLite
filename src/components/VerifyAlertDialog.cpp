@@ -93,7 +93,7 @@ VerifyAlertDialog::VerifyAlertDialog(const QString& windowTitle, const QString& 
  */
 void VerifyAlertDialog::buildCountdown(QHBoxLayout* topRow) {
     int bufferMinutes = m_bufferMinutes;
-    if (bufferMinutes <= 0) bufferMinutes = 30;  // 兜底默认30分钟
+    if (bufferMinutes <= 0) bufferMinutes = 30;  // 未配置时默认30分钟
     m_remainSeconds = bufferMinutes * 60;
 
     m_countdownLabel = new QLabel(QStringLiteral("⏱ %1:00").arg(bufferMinutes));

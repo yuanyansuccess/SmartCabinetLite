@@ -1136,7 +1136,7 @@ void ToolCheckinPage::onRecognitionFailed(const QString& requestId, const QStrin
             startEdgeCheck();   // 重发走统一入口：清上轮实况缓存并按全量单据重新核对
         });
     } else {
-        // 等待框已不存在（极端情况）：保留顶层问答兜底
+        // 等待框已不存在（极端情况）：继续由最上层问答处理
         const bool retry = MessageDialog::showQuestion(this, QStringLiteral("核对失败"),
             QStringLiteral("%1\n\n是否重新核对？（不用重新开箱）").arg(reason));
         if (retry) {

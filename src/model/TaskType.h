@@ -1,6 +1,6 @@
 /**
  * @file TaskType.h
- * @brief 任务类型实体，字段对齐 task_type
+ * @brief 任务类型实体，字段与 task_type 表对应
  * @author 袁燕
  */
 #pragma once

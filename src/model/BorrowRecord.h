@@ -1,6 +1,6 @@
 /**
  * @file BorrowRecord.h
- * @brief 借用记录实体，字段对齐 tool_borrow_record
+ * @brief 借用记录实体，字段与 tool_borrow_record 表对应
  * @author 袁燕
  */
 #pragma once
