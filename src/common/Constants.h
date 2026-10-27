@@ -58,6 +58,8 @@ const int PWD_LOCK_MS         = 5 * 60 * 1000;   // 5分钟
 // ── 操作日志类型（sys_operation_log.operation_type） ──
 const QString OP_CHECKIN  = "checkin";
 const QString OP_CHECKOUT = "checkout";
+const QString OP_BORROW   = "borrow";    // 借用归还会话：自助借用
+const QString OP_RETURN   = "return";    // 借用归还会话：自助归还
 
 // ── 出入库识别流程（边缘机识别后写库） ──
 // 重开柜整理轮次上限：每轮识别有未过项时可重新开柜整理，达到上限仍没全部通过就按当前实况写库

@@ -1,19 +1,31 @@
 /**
  * @file CabinetSessionDialog.cpp
- * @brief 普通用户智能柜会话对话框实现 - 开柜提示(含任务工具只读面板) + 关柜差异清单（演示版）
+ * @brief 普通用户智能柜会话对话框实现 - 真实硬件闭环（开柜→关柜→识别→比对→写库）
  * @author 袁燕
- * @说明 开柜页"我的任务工具"面板读库展示本机组任务类型在库工具（只读）；
- *   关柜差异清单仍为内存模拟数据，产品化时差异来源改为柜体传感器上报。
+ * @说明 复用出入库侧既有能力：EdgeService（开箱/识别/在线/摄像头）、
+ *       ToolService（全柜比对）、BorrowService/ReturnService（写库）、
+ *       RecordDAO（操作日志）、ToolDAO（开柜基线）、DrawerOpeningDialog（等待框）。
+ *       不新增任何通信协议帧或业务接口。
  */
 #include "CabinetSessionDialog.h"
 #include "utils/StyleHelper.h"
 #include "utils/LayoutHelper.h"
 #include "db/TaskTypeDAO.h"
+#include "db/ToolDAO.h"
+#include "db/RecordDAO.h"
 #include "common/AppConfig.h"
 #include "common/PositionFormatter.h"
-#include "components/TopBar.h"   // 会话顶栏与管理页面共用同一组件
-#include "HelpManualDialog.h"    // 顶栏"帮助"按钮打开内置操作手册
-#include "utils/ScreenFit.h"     // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
+#include "common/Constants.h"
+#include "services/BorrowService.h"
+#include "services/ReturnService.h"
+#include "services/ToolService.h"
+#include "components/TopBar.h"          // 会话顶栏与管理页面共用同一组件
+#include "components/DrawerOpeningDialog.h"
+#include "components/MessageDialog.h"
+#include "HelpManualDialog.h"            // 顶栏"帮助"按钮打开内置操作手册
+#include "utils/ScreenFit.h"             // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
+#include "model/BorrowRecord.h"
+#include "comm/EdgeService.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -23,10 +35,9 @@
 #include <QScrollArea>
 #include <QScroller>
 #include <QFrame>
-#include <QEvent>
-#include <QMouseEvent>
-#include <QEventLoop>
 #include <QApplication>
+#include <QDateTime>
+#include <QTimer>
 
 CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* parent)
     : QDialog(parent), m_user(user)
@@ -35,31 +46,8 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
     setModal(true);
     setStyleSheet(StyleHelper::dialogBackground());
 
-    // 模拟数据：8件工具，末一件开柜前已被该用户借走（用于演示"归还"场景）
-    //m_tools = {
-    // { QStringLiteral("扭力扳手"), QStringLiteral("TL-S03"), QStringLiteral("A-01-02"), true },
-    // { QStringLiteral("套筒组"), QStringLiteral("SK-17P"), QStringLiteral("A-01-05"), true },
-    // { QStringLiteral("内六角组"), QStringLiteral("HX-09S"), QStringLiteral("A-02-01"), true },
-    // { QStringLiteral("游标卡尺"), QStringLiteral("CL-150D"), QStringLiteral("A-02-04"), true },
-    // { QStringLiteral("剥线钳"), QStringLiteral("WP-06"), QStringLiteral("A-03-03"), true },
-    // { QStringLiteral("热风枪"), QStringLiteral("HG-880"), QStringLiteral("B-01-01"), true },
-    // { QStringLiteral("防静电镊"), QStringLiteral("TS-12"), QStringLiteral("B-01-06"), true },
-    // { QStringLiteral("万用表"), QStringLiteral("DM-3055"), QStringLiteral("B-02-04"), false },
-    //};
-
-    m_tools = {
-      { QStringLiteral("扭力扳手"),  QStringLiteral("TL-S03"),   QStringLiteral("A"), true  },
-      { QStringLiteral("套筒组"),    QStringLiteral("SK-17P"),   QStringLiteral("A"), true  },
-      { QStringLiteral("内六角组"),  QStringLiteral("HX-09S"),   QStringLiteral("A"), true  },
-      { QStringLiteral("游标卡尺"),  QStringLiteral("CL-150D"),  QStringLiteral("A"), true  },
-      { QStringLiteral("剥线钳"),    QStringLiteral("WP-06"),    QStringLiteral("A"), true  },
-      { QStringLiteral("热风枪"),    QStringLiteral("HG-880"),   QStringLiteral("B"), true  },
-      { QStringLiteral("防静电镊"),  QStringLiteral("TS-12"),    QStringLiteral("B"), true  },
-      { QStringLiteral("万用表"),    QStringLiteral("DM-3055"),  QStringLiteral("B"), false },
-    };
-    m_openSnapshot.clear();
-    for (const MockTool& tool : m_tools)
-        m_openSnapshot.append(tool.inCabinet);
+    m_userId = m_user["userId"].toInt();
+    m_machineGroupId = AppConfig::instance().localMachineGroupId();
 
     m_stack = new QStackedWidget(this);
     QVBoxLayout* outer = new QVBoxLayout(this);
@@ -100,21 +88,80 @@ CabinetSessionDialog::CabinetSessionDialog(const QJsonObject& user, QWidget* par
  * @brief 全屏启动会话并阻塞，直到用户确认关闭智能柜
  * @note 窗口几何直接铺满屏幕，不依赖窗口管理器的全屏能力：
  *       麒麟等窗口管理器可能忽略无边框对话框的全屏请求，窗口会退回内容尺寸并居中，
- *       导致顶栏被挤出屏幕、内容显示不全
+ *       导致顶栏被挤出屏幕、内容显示不全。
+ *       进入即自动自检（边缘机在线 + 8 路摄像头）：不通过仅弹明原因，全屏会话窗口不出现；
+ *       通过才显示全屏会话并直接下发开锁指令进入取放环节——开柜全程零手动确认。
  */
 void CabinetSessionDialog::startSession()
 {
+    // 自检前置：失败只在主界面上弹原因，不闪现全屏会话
+    if (!passEntryGate()) {
+        reject();
+        return;
+    }
     UiFit::showFullScreenFit(this, parentWidget());
+    onOpenCabinetClicked();   // 自检已通过：直接开柜（重试态由等待框的"重新开柜"承接）
     QEventLoop loop;
     connect(this, &QDialog::finished, &loop, &QEventLoop::quit);
     loop.exec();
 }
 
 /**
- * @brief 页面0：开柜提示页
- *   改版：新增"我的任务工具"只读面板（方案B：任务类型横排页签+工具卡片三列）
- *   用户可按本机组任务类型查看在库工具及其位置（仅供拿取参考，不可操作），适配8寸屏
+ * @brief 进入会话前自动自检：边缘机服务、链路在线、8 路摄像头逐项检查
+ * @return true=全部通过；false=有不合格项（已弹窗说明原因，弹窗挂在主界面上）
  */
+bool CabinetSessionDialog::passEntryGate()
+{
+    if (!m_edge) {
+        MessageDialog::showWarning(parentWidget(), QStringLiteral("无法进入会话"),
+            QStringLiteral("未接入边缘计算机服务，暂时无法借用归还。请联系管理员。"));
+        return false;
+    }
+    if (!m_edge->isOnline()) {
+        MessageDialog::showWarning(parentWidget(), QStringLiteral("无法进入会话"),
+            QStringLiteral("边缘计算机连接已断开，暂时无法借用归还。请检查边缘计算机连接后重试。"));
+        return false;
+    }
+    if (!m_edge->allCamerasOk()) {
+        MessageDialog::showWarning(parentWidget(), QStringLiteral("无法进入会话"),
+            QStringLiteral("摄像头自检异常：") + m_edge->cameraAbnormalText()
+                + QStringLiteral("，暂时无法借用归还。请联系管理员处理。"));
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief 柜体打开后启动关柜等待计时（超时提示确认柜门已关，零写库）
+ */
+void CabinetSessionDialog::startCloseWaitTimer()
+{
+    if (!m_closeWaitTimer) {
+        m_closeWaitTimer = new QTimer(this);
+        m_closeWaitTimer->setSingleShot(true);
+        connect(m_closeWaitTimer, &QTimer::timeout, this, &CabinetSessionDialog::onCloseWaitTimeout);
+    }
+    m_closeWaitTimer->start(SC::CABINET_CLOSE_WAIT_MS);
+}
+
+/**
+ * @brief 关柜等待超时：提示用户确认柜门是否已关好（会话保留，可继续操作）
+ */
+void CabinetSessionDialog::onCloseWaitTimeout()
+{
+    if (!m_opened) return;   // 已不在"柜体打开"状态，无需提醒
+    MessageDialog::showWarning(this, QStringLiteral("等待关柜超时"),
+        QStringLiteral("已较长时间未关闭智能柜，请确认柜门是否已关好。")
+            + QStringLiteral("取放完成后请点击「关闭智能柜」完成核对。"));
+}
+
+void CabinetSessionDialog::setEdgeService(EdgeService* svc)
+{
+    m_edge = svc;
+}
+
+// ─────────────────────────── 页面0：开柜提示页 ───────────────────────────
+
 void CabinetSessionDialog::buildOpenPage()
 {
     QWidget* page = new QWidget();
@@ -122,20 +169,26 @@ void CabinetSessionDialog::buildOpenPage()
     lay->setContentsMargins(40, 22, 40, 24);
     lay->setSpacing(8);
 
-    // ── 顶部：图标+标题同行（图标连点3次 = 演示面板开关入口，保留）──
+    // 顶部：图标 + 标题
     QHBoxLayout* headRow = new QHBoxLayout();
     headRow->setSpacing(14);
     m_iconLabel = new QLabel(QStringLiteral("🔓"));
     m_iconLabel->setAlignment(Qt::AlignCenter);
     m_iconLabel->setStyleSheet("font-size: 46px; background: transparent;");
-    m_iconLabel->installEventFilter(this);
-    QLabel* titleLabel = new QLabel(QStringLiteral("智能柜已开启"));
-    titleLabel->setStyleSheet(StyleHelper::largeTitleText());
+    m_titleLabel = new QLabel(QStringLiteral("智能柜"));
+    m_titleLabel->setStyleSheet(StyleHelper::largeTitleText());
     headRow->addStretch();
     headRow->addWidget(m_iconLabel);
-    headRow->addWidget(titleLabel);
+    headRow->addWidget(m_titleLabel);
     headRow->addStretch();
     lay->addLayout(headRow);
+    lay->addSpacing(10);
+
+    // ── 取放区（开柜成功后展示）──
+    m_openReady = new QWidget();
+    QVBoxLayout* readyLay = new QVBoxLayout(m_openReady);
+    readyLay->setContentsMargins(0, 0, 0, 0);
+    readyLay->setSpacing(8);
 
     QString realName = m_user["realName"].toString();
     if (realName.isEmpty()) realName = m_user["name"].toString();
@@ -144,10 +197,10 @@ void CabinetSessionDialog::buildOpenPage()
     welcomeLabel->setAlignment(Qt::AlignCenter);
     welcomeLabel->setStyleSheet(QString("font-size: 17px; color: %1; background: transparent;")
                                     .arg(StyleHelper::textSecondary()));
-    lay->addWidget(welcomeLabel);
-    lay->addSpacing(6);
+    readyLay->addWidget(welcomeLabel);
+    readyLay->addSpacing(6);
 
-    // ── "我的任务工具"面板标题行 ──
+    // "我的任务工具"面板标题行
     QHBoxLayout* ptRow = new QHBoxLayout();
     ptRow->setSpacing(10);
     QWidget* bar = new QWidget();
@@ -167,9 +220,9 @@ void CabinetSessionDialog::buildOpenPage()
     ptRow->addWidget(ptSub);
     ptRow->addStretch();
     ptRow->addWidget(m_stockCountLabel);
-    lay->addLayout(ptRow);
+    readyLay->addLayout(ptRow);
 
-    // ── 任务类型页签行（横排胶囊，超出宽度可横向拖动）──
+    // 任务类型页签行（横排胶囊，超出宽度可横向拖动）
     QScrollArea* tabScroll = new QScrollArea();
     tabScroll->setFixedHeight(64);
     tabScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -199,19 +252,19 @@ void CabinetSessionDialog::buildOpenPage()
     tabLay->addStretch();
     tabScroll->setWidget(tabHost);
     QScroller::grabGesture(tabScroll->viewport(), QScroller::LeftMouseButtonGesture);
-    lay->addWidget(tabScroll);
+    readyLay->addWidget(tabScroll);
 
-    // ── 工具卡片滚动区（三列网格，垂直滚动，触屏拖动）──
+    // 工具卡片滚动区（三列网格，垂直滚动，触屏拖动）
     m_toolsScroll = new QScrollArea();
     m_toolsScroll->setWidgetResizable(true);
     m_toolsScroll->setStyleSheet("QScrollArea { background: transparent; border: none; }");
     QScroller::grabGesture(m_toolsScroll->viewport(), QScroller::LeftMouseButtonGesture);
-    lay->addWidget(m_toolsScroll, 1);
+    readyLay->addWidget(m_toolsScroll, 1);
     rebuildToolCards();
 
-    // ── 底部：关闭智能柜按钮（原有流程不变）──
-    QPushButton* closeBtn = new QPushButton(QStringLiteral("关 闭 智 能 柜"));
-    closeBtn->setStyleSheet(QString(
+    // 底部：关闭智能柜按钮
+    m_closeBtn = new QPushButton(QStringLiteral("关 闭 智 能 柜"));
+    m_closeBtn->setStyleSheet(QString(
         "QPushButton {"
         "  background: %1; color: white; border: none; border-radius: 14px;"
         "  font-size: 21px; font-weight: 700; min-height: 68px; min-width: 420px;"
@@ -219,14 +272,18 @@ void CabinetSessionDialog::buildOpenPage()
         "QPushButton:hover { background: %2; }"
         "QPushButton:pressed { background: #b71c1c; }"
     ).arg(StyleHelper::dangerColor(), StyleHelper::dangerHover()));
-    connect(closeBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onCloseCabinetClicked);
-    lay->addWidget(closeBtn, 0, Qt::AlignCenter);
+    // 待办（协议未定）：IO 板下位机「已关柜」信号协议定稿后，改由该硬件信号触发 onCloseCabinetClicked()，
+    //           替代当前"关闭智能柜"按钮手动触发；协议帧与 EdgeService 接线待定。
+    connect(m_closeBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onCloseCabinetClicked);
+    readyLay->addWidget(m_closeBtn, 0, Qt::AlignCenter);
+
+    lay->addWidget(m_openReady);
+    m_openReady->hide();
 
     m_stack->addWidget(page);
 }
 
 // 读库：本机组全部启用任务类型及各自在库工具（位置维度）
-// 输入：无（机组ID取AppConfig本机机组）；输出：填充m_myTypes
 void CabinetSessionDialog::loadMyTaskTools()
 {
     m_myTypes.clear();
@@ -252,10 +309,6 @@ void CabinetSessionDialog::loadMyTaskTools()
     }
 }
 
-/**
- * @brief 切换任务类型页签：更新选中态并重建卡片区
- * @param idx 要选中的任务类型页签索引
- */
 void CabinetSessionDialog::selectTypeTab(int idx)
 {
     if (idx < 0 || idx >= m_myTypes.size()) return;
@@ -265,7 +318,6 @@ void CabinetSessionDialog::selectTypeTab(int idx)
     rebuildToolCards();
 }
 
-// 按当前页签重建工具卡片网格（三列；空态显示灰色提示）
 void CabinetSessionDialog::rebuildToolCards()
 {
     if (!m_toolsScroll) return;
@@ -298,11 +350,6 @@ void CabinetSessionDialog::rebuildToolCards()
     m_toolsScroll->setWidget(host);   // QScrollArea自动销毁旧内容
 }
 
-/**
- * @brief 构建单个只读工具卡片（工具名/编号/位置徽章，左侧绿色竖条标识在库）
- * @param row 工具数据（名称/编号/位置）
- * @return 只读工具卡片控件
- */
 QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
 {
     QWidget* card = new QWidget();
@@ -333,9 +380,8 @@ QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
     return card;
 }
 
-/**
- * @brief 页面1：关柜清单页（借用/归还差异 + 确认关闭）
- */
+// ─────────────────────────── 页面1：关柜清单页 ───────────────────────────
+
 void CabinetSessionDialog::buildResultPage()
 {
     QWidget* page = new QWidget();
@@ -349,7 +395,7 @@ void CabinetSessionDialog::buildResultPage()
                                   .arg(StyleHelper::textColor()));
     lay->addWidget(titleLabel);
 
-    // ── 借用清单区块 ──
+    // 借用清单区块
     m_borrowBlock = new QWidget();
     QVBoxLayout* borrowLay = new QVBoxLayout(m_borrowBlock);
     borrowLay->setContentsMargins(0, 0, 0, 0);
@@ -365,7 +411,7 @@ void CabinetSessionDialog::buildResultPage()
     borrowLay->addLayout(m_borrowListLayout);
     lay->addWidget(m_borrowBlock);
 
-    // ── 归还清单区块 ──
+    // 归还清单区块
     m_returnBlock = new QWidget();
     QVBoxLayout* returnLay = new QVBoxLayout(m_returnBlock);
     returnLay->setContentsMargins(0, 0, 0, 0);
@@ -381,7 +427,7 @@ void CabinetSessionDialog::buildResultPage()
     returnLay->addLayout(m_returnListLayout);
     lay->addWidget(m_returnBlock);
 
-    // ── 告警区块（工具放错位置，红色醒目提示）──
+    // 告警区块（错放/未登记工具，红色醒目提示）
     m_alertBlock = new QWidget();
     QVBoxLayout* alertLay = new QVBoxLayout(m_alertBlock);
     alertLay->setContentsMargins(0, 0, 0, 0);
@@ -408,6 +454,19 @@ void CabinetSessionDialog::buildResultPage()
 
     lay->addStretch(1);
 
+    // 重新开柜整理（错放≤3轮时出现）
+    m_reopenBtn = new QPushButton(QStringLiteral("重 新 开 柜 整 理"));
+    m_reopenBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "  background: %1; color: white; border: none; border-radius: 14px;"
+        "  font-size: 19px; font-weight: 700; min-height: 60px; min-width: 360px;"
+        "}"
+        "QPushButton:hover { background: %2; }"
+        "QPushButton:pressed { background: #1565c0; }"
+    ).arg(StyleHelper::primaryColor(), StyleHelper::primaryHover()));
+    connect(m_reopenBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onReopenClicked);
+    m_reopenBtn->hide();
+
     // 确认关闭按钮
     QPushButton* confirmBtn = new QPushButton(QStringLiteral("确 认 关 闭"));
     confirmBtn->setStyleSheet(QString(
@@ -419,7 +478,15 @@ void CabinetSessionDialog::buildResultPage()
         "QPushButton:pressed { background: #2e7d32; }"
     ).arg(StyleHelper::successColor(), StyleHelper::successHover()));
     connect(confirmBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onConfirmCloseClicked);
-    lay->addWidget(confirmBtn, 0, Qt::AlignCenter);
+
+    // 两个按钮左右排布一行；重新开柜整理隐藏时确认关闭仍居中（隐藏控件不占布局空间）
+    QHBoxLayout* btnRow = new QHBoxLayout;
+    btnRow->addStretch(1);
+    btnRow->addWidget(m_reopenBtn);
+    btnRow->addSpacing(24);
+    btnRow->addWidget(confirmBtn);
+    btnRow->addStretch(1);
+    lay->addLayout(btnRow);
 
     // 填充区块标题文字（借用/归还件数在进入本页时更新）
     m_borrowBlock->findChild<QLabel*>()->setText(QStringLiteral("本次借用了"));
@@ -428,166 +495,244 @@ void CabinetSessionDialog::buildResultPage()
     m_stack->addWidget(page);
 }
 
-/**
- * @brief 演示专用面板：工具列表，点击行按钮切换在柜/已取走（模拟拿走/放回）
- */
-void CabinetSessionDialog::buildDemoPanel()
+// ─────────────────────────── 等待框 ───────────────────────────
+
+void CabinetSessionDialog::showWait(const QString& windowTitle, const QString& title, const QString& desc)
 {
-    m_demoPanel = new QDialog(this);
-    m_demoPanel->setWindowTitle(QStringLiteral("演示专用 · 模拟柜内拿取/放回"));
-    m_demoPanel->setStyleSheet("QDialog { background: white; }");
-    m_demoPanel->setFixedSize(560, 560);
-
-    QVBoxLayout* lay = new QVBoxLayout(m_demoPanel);
-    lay->setContentsMargins(20, 16, 20, 16);
-    lay->setSpacing(8);
-
-    QLabel* tip = new QLabel(QStringLiteral("演示专用：点击按钮模拟工具拿走/放回，产品版由传感器自动感知"));
-    tip->setWordWrap(true);
-    tip->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + " color: %1;").arg(StyleHelper::textSecondary()));
-    lay->addWidget(tip);
-
-    for (int i = 0; i < m_tools.size(); ++i) {
-        QWidget* row = new QWidget();
-        QHBoxLayout* rowLay = new QHBoxLayout(row);
-        rowLay->setContentsMargins(8, 0, 8, 0);
-        const MockTool& tool = m_tools[i];
-        QLabel* info = new QLabel(QStringLiteral("%1  %2  %3")
-                                      .arg(tool.name, tool.code, tool.position));
-        info->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontInput) + " color: %1;").arg(StyleHelper::textColor()));
-        QPushButton* statusBtn = new QPushButton();
-        statusBtn->setStyleSheet(StyleHelper::buttonOutline());
-        statusBtn->setFixedWidth(100);
-        connect(statusBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onDemoToolToggled);
-        // 错放按钮：模拟工具放回错误位置（触发关柜告警演示）
-        QPushButton* wrongBtn = new QPushButton();
-        wrongBtn->setFixedWidth(100);
-        connect(wrongBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onDemoWrongPlaceToggled);
-        rowLay->addWidget(info, 1);
-        rowLay->addWidget(statusBtn);
-        rowLay->addWidget(wrongBtn);
-        lay->addWidget(row);
-        m_demoStatusBtns.append(statusBtn);
-        m_demoWrongBtns.append(wrongBtn);
-    }
-    updateDemoRows();
+    closeWait();
+    auto* dlg = new DrawerOpeningDialog(windowTitle, title, desc, 32, 48, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setNextButtonText(QStringLiteral("处理中…"));
+    dlg->setNextEnabled(false);
+    dlg->setFixedSize(520, 380);
+    m_waitDlg = dlg;
+    dlg->show();
 }
 
-/**
- * @brief 位号+1生成"错放位置"（A-01-02 → A-01-03），仅演示用
- * @param position 原货位（如 A-01-02）
- * @return 错放演示货位（位号+1，如 A-01-03）
- */
-QString CabinetSessionDialog::bumpedPosition(const QString& position)
+void CabinetSessionDialog::closeWait()
 {
-    QStringList parts = position.split('-');
-    if (parts.size() == 3) {
-        int pos = parts[2].toInt() + 1;
-        parts[2] = QString("%1").arg(pos, 2, 10, QChar('0'));
-        return parts.join('-');
+    if (m_waitDlg) {
+        m_waitDlg->accept();
+        m_waitDlg = nullptr;
     }
-    return position;
 }
 
-/**
- * @brief 刷新演示面板各行按钮：状态（在柜/已取走）+ 错放标记
- */
-void CabinetSessionDialog::updateDemoRows()
+// ─────────────────────────── 开柜 ───────────────────────────
+
+void CabinetSessionDialog::onOpenCabinetClicked()
 {
-    for (int i = 0; i < m_demoStatusBtns.size(); ++i) {
-        QPushButton* statusBtn = m_demoStatusBtns[i];
-        QPushButton* wrongBtn = m_demoWrongBtns[i];
-        if (m_tools[i].inCabinet) {
-            statusBtn->setText(QStringLiteral("在柜"));
-            statusBtn->setStyleSheet(StyleHelper::buttonOutline());
-        } else {
-            statusBtn->setText(QStringLiteral("已取走"));
-            statusBtn->setStyleSheet(StyleHelper::buttonDanger());
+    if (!m_edge) {
+        MessageDialog::showWarning(this, QStringLiteral("无法开柜"), QStringLiteral("未接入边缘机服务"));
+        return;
+    }
+    if (!m_edge->isOnline()) {
+        MessageDialog::showWarning(this, QStringLiteral("无法开柜"), QStringLiteral("边缘机离线，无法开柜"));
+        return;
+    }
+    if (!m_edge->allCamerasOk()) {
+        MessageDialog::showWarning(this, QStringLiteral("无法开柜"),
+            QStringLiteral("摄像头自检异常：") + m_edge->cameraAbnormalText());
+        return;
+    }
+    m_openRequestId = m_edge->requestOpen();
+    onOpenStarted(m_openRequestId);
+}
+
+void CabinetSessionDialog::onOpenStarted(const QString& requestId)
+{
+    if (requestId.isEmpty()) return;   // requestOpen 离线拒发时已先发 openFailed，原因随后提示
+    showWait(QStringLiteral("开柜中"), QStringLiteral("正在打开智能柜"),
+             QStringLiteral("系统正在打开智能柜，请稍候…"));
+}
+
+void CabinetSessionDialog::onOpenFinished(const QString& requestId, bool success, const QString& message)
+{
+    if (requestId != m_openRequestId) return;
+    if (success) {
+        closeWait();
+        // 采集开柜基线：本机组当前全部在库货位（与关柜识别结果比对）
+        m_baselineStock.clear();
+        db::ToolDAO tdao;
+        const QJsonArray arr = tdao.findAllInStockPositions(m_machineGroupId);
+        for (const auto& v : arr) {
+            const QJsonObject o = v.toObject();
+            StockItem s;
+            s.mappingId = o["mappingId"].toInt();
+            s.toolId    = o["toolId"].toInt();
+            s.toolCode  = o["toolCode"].toString();
+            s.toolName  = o["toolName"].toString();
+            s.position  = common::formatPosition(o["cabinetName"].toString(),
+                                                 o["layer"].toString(), o["position"].toString());
+            m_baselineStock.append(s);
         }
-        // 错放按钮仅在"在柜"时可用，再点一次恢复正确位置
-        wrongBtn->setEnabled(m_tools[i].inCabinet);
-        if (!m_tools[i].inCabinet) {
-            wrongBtn->setText(QStringLiteral("错放"));
-            wrongBtn->setStyleSheet(StyleHelper::buttonDefault());
-        } else if (m_tools[i].misplaced) {
-            wrongBtn->setText(QStringLiteral("已错放"));
-            wrongBtn->setStyleSheet(StyleHelper::buttonDanger());
-        } else {
-            wrongBtn->setText(QStringLiteral("错放"));
-            wrongBtn->setStyleSheet(StyleHelper::buttonDefault());
-        }
+        m_opened = true;
+        m_openReady->show();
+        m_titleLabel->setText(QStringLiteral("智能柜已开启"));
+        m_stack->setCurrentIndex(0);
+        startCloseWaitTimer();   // 柜体已打开：启动关柜等待计时（含重新开柜整理后的再次进入）
+    } else if (m_waitDlg) {
+        m_waitDlg->showFailureState(QStringLiteral("开柜失败"), message, QStringLiteral("重新开柜"));
+        connect(m_waitDlg, &DrawerOpeningDialog::retryRequested, this, &CabinetSessionDialog::onOpenCabinetClicked);
     }
 }
 
-/**
- * @brief 显示/隐藏演示面板（首次调用时构建）
- */
-void CabinetSessionDialog::toggleDemoPanel()
+void CabinetSessionDialog::onOpenFailed(const QString& requestId, const QString& reason)
 {
-    if (!m_demoPanel) buildDemoPanel();
-    if (m_demoPanel->isVisible()) {
-        m_demoPanel->hide();
-    } else {
-        m_demoPanel->move(QDialog::x() + (QDialog::width() - m_demoPanel->width()) / 2,
-                          QDialog::y() + (QDialog::height() - m_demoPanel->height()) / 2);
-        m_demoPanel->show();
+    if (requestId.isEmpty()) {   // 离线拒发：requestOpen 内部已先发本信号，reason 即真实原因
+        MessageDialog::showWarning(this, QStringLiteral("无法开柜"), reason);
+        return;
+    }
+    if (requestId != m_openRequestId) return;
+    if (m_waitDlg) {
+        m_waitDlg->showFailureState(QStringLiteral("开柜失败"), reason, QStringLiteral("重新开柜"));
+        connect(m_waitDlg, &DrawerOpeningDialog::retryRequested, this, &CabinetSessionDialog::onOpenCabinetClicked);
     }
 }
 
-/**
- * @brief 事件过滤：开柜图标在1.5秒内连点3次 → 切换演示面板
- * @param watched 被监视对象
- * @param event 事件
- * @return true 表示已处理（吞掉该事件）
- */
-bool CabinetSessionDialog::eventFilter(QObject* watched, QEvent* event)
-{
-    if (watched == m_iconLabel && event->type() == QEvent::MouseButtonPress) {
-        if (!m_iconClickTimer.isValid() || m_iconClickTimer.elapsed() > 1500)
-            m_iconClickCount = 0;
-        m_iconClickTimer.start();
-        if (++m_iconClickCount >= 3) {
-            m_iconClickCount = 0;
-            toggleDemoPanel();
-        }
-        return true;
-    }
-    return QDialog::eventFilter(watched, event);
-}
+// ─────────────────────────── 关柜 + 识别 ───────────────────────────
 
-/**
- * @brief 关闭智能柜：对比开柜快照与当前状态，得出借用/归还差异
- */
 void CabinetSessionDialog::onCloseCabinetClicked()
 {
-    if (m_demoPanel) m_demoPanel->hide();
+    // 待办（协议未定）：IO 板下位机「已关柜」信号协议定稿后，由该硬件信号触发本函数，
+    //           替代"关闭智能柜"按钮手动触发。
+    if (!m_opened) { onOpenCabinetClicked(); return; }   // 防护：未开柜先开柜
+    if (m_closeWaitTimer) m_closeWaitTimer->stop();   // 用户已主动关柜，结束等待计时
+    if (!m_edge) {
+        MessageDialog::showWarning(this, QStringLiteral("无法核对"), QStringLiteral("未接入边缘机服务"));
+        return;
+    }
+    m_recognizeRequestId = m_edge->requestRecognize();
+    onRecognitionStarted(m_recognizeRequestId);
+}
 
-    QStringList borrowed, returned, alerts;
-    for (int i = 0; i < m_tools.size(); ++i) {
-        const MockTool& tool = m_tools[i];
-        QString desc = QStringLiteral("%1（%2）").arg(tool.name, tool.position);
-        if (m_openSnapshot[i] && !tool.inCabinet)
-            borrowed.append(desc);      // 开柜在柜 → 关柜不在：借用
-        else if (!m_openSnapshot[i] && tool.inCabinet)
-            returned.append(desc);      // 开柜不在 → 关柜在柜：归还
-        // 错放告警：工具在柜但位置不对（借用/归还判定不受影响）
-        //if (tool.inCabinet && tool.misplaced)
-        // alerts.append(QStringLiteral("%1：应放 %2，实际放 %3")
-        // .arg(tool.name, tool.position, tool.wrongPosition));
-        if (tool.inCabinet && tool.misplaced)
-            alerts.append(QStringLiteral("%1：识别错误请检查").arg(tool.name));
+void CabinetSessionDialog::onRecognitionStarted(const QString& requestId)
+{
+    if (requestId.isEmpty()) return;   // requestRecognize 离线拒发时已先发 recognizeFailed
+    showWait(QStringLiteral("核对中"), QStringLiteral("正在核对柜内工具"),
+             QStringLiteral("系统正在与边缘计算机核对柜内工具，请稍候…"));
+}
+
+void CabinetSessionDialog::onRecognitionResult(const QString& requestId, const QList<ToolService::RecogSpot>& spots)
+{
+    if (requestId != m_recognizeRequestId) return;   // 编号对不上说明这份结果来晚了，丢弃
+    m_spots = spots;
+    m_recognizeRequestId.clear();
+    closeWait();
+    // 比对写库逻辑排到事件循环下一轮：避免在通信回调栈上弹出模态结果页
+    QTimer::singleShot(0, this, &CabinetSessionDialog::applyResult);
+}
+
+void CabinetSessionDialog::onRecognitionFailed(const QString& requestId, const QString& reason)
+{
+    if (requestId.isEmpty()) {
+        MessageDialog::showWarning(this, QStringLiteral("无法核对"), reason);
+        return;
+    }
+    if (requestId != m_recognizeRequestId) return;
+    if (m_waitDlg) {
+        m_waitDlg->showFailureState(QStringLiteral("核对失败"), reason, QStringLiteral("重新核对"));
+        connect(m_waitDlg, &DrawerOpeningDialog::retryRequested, this, &CabinetSessionDialog::onCloseCabinetClicked);
+    }
+}
+
+void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
+{
+    if (!online && m_waitDlg) {
+        closeWait();
+        MessageDialog::showWarning(this, QStringLiteral("链路中断"),
+            QStringLiteral("边缘机链路已断开，请检查边缘计算机连接后重试。"));
+    }
+}
+
+// ─────────────────────────── 比对 + 渲染 ───────────────────────────
+
+void CabinetSessionDialog::applyResult()
+{
+    // 基线 → ToolService 比对入参（页面中立结构，不碰通信层类型）
+    QList<ToolService::RecogStockItem> stocks;
+    for (const StockItem& s : m_baselineStock) {
+        ToolService::RecogStockItem it;
+        it.mappingId = s.mappingId;
+        it.toolId    = s.toolId;
+        it.toolCode  = s.toolCode;
+        it.toolName  = s.toolName;
+        it.position  = s.position;
+        stocks.append(it);
+    }
+    // 全柜核对（复用出入库侧既有比对纯函数）
+    ToolService::RecogStockOutcome outcome =
+        ToolService::compareStockWithRecognition(stocks, m_spots, {});
+
+    QHash<QString, StockItem> stockByPos;
+    QHash<QString, QString> codeToPos;     // toolCode → 登记货位（错放检测用）
+    QSet<QString> baselineCodes;
+    for (const StockItem& s : m_baselineStock) {
+        stockByPos[s.position] = s;
+        codeToPos[s.toolCode]  = s.position;
+        baselineCodes.insert(s.toolCode);
     }
 
-    // 清空上次的差异行
+    // 当前用户有效借用记录（用于识别"归还"）：库内已无在库记录，柜内复现即归还
+    QList<BorrowRecord> borrows = db::RecordDAO().findBorrowsByUser(m_userId, 200);
+    QHash<QString, int> borrowRecIdByCode;
+    for (const BorrowRecord& b : borrows)
+        if (b.status == SC::RECORD_BORROWING || b.status == SC::RECORD_OVERDUE)
+            borrowRecIdByCode[b.toolCode] = b.borrowId;
+
+    m_borrowItems.clear();
+    m_returnItems.clear();
+    m_alertItems.clear();
+
+    for (const ToolService::RecogStockDiff& d : outcome.diffs) {
+        if (d.type == ToolService::RecogStockDiffType::Missing ||
+            d.type == ToolService::RecogStockDiffType::Mismatch) {
+            // 在库→缺失/被换：用户借出
+            const StockItem st = stockByPos.value(d.position);
+            BorrowItem bi;
+            bi.toolId    = st.toolId;
+            bi.mappingId = st.mappingId;
+            bi.toolCode  = st.toolCode;
+            bi.toolName  = st.toolName;
+            bi.position  = d.position;
+            m_borrowItems.append(bi);
+        } else if (d.type == ToolService::RecogStockDiffType::Extra) {
+            if (borrowRecIdByCode.contains(d.toolCode)) {
+                // 用户此前借出、现柜内复现：归还
+                ReturnItem ri;
+                ri.recordId = borrowRecIdByCode[d.toolCode];
+                ri.toolCode = d.toolCode;
+                ri.toolName = d.toolName;
+                m_returnItems.append(ri);
+            } else if (!baselineCodes.contains(d.toolCode)) {
+                // 库内/借用记录均无此工具：未登记工具出现在柜内
+                m_alertItems.append(
+                    QStringLiteral("柜内识别到未登记工具 %1（位置 %2）").arg(d.toolCode, d.position));
+            }
+            // 注：baselineCodes 命中的 Extra（同一在库工具被移到别处）不在此报，
+            //     交由下方"错放"检测统一提示，避免与借用重复计数
+        }
+        // NotCovered：摄像头未覆盖该货位，无法判定，不误报借用
+    }
+
+    // 错放检测：识别到某在库工具但不在其登记货位
+    for (const ToolService::RecogSpot& s : m_spots) {
+        if (s.toolCode.isEmpty()) continue;
+        if (baselineCodes.contains(s.toolCode)) {
+            const QString exp = codeToPos.value(s.toolCode);
+            if (!exp.isEmpty() && s.position != exp)
+                m_alertItems.append(
+                    QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）").arg(s.toolCode, exp, s.position));
+        }
+    }
+
+    fillResultUI();
+}
+
+void CabinetSessionDialog::fillResultUI()
+{
     LayoutHelper::clearItemsAndDeleteWidgets(m_borrowListLayout);
     LayoutHelper::clearItemsAndDeleteWidgets(m_returnListLayout);
     LayoutHelper::clearItemsAndDeleteWidgets(m_alertListLayout);
-
-    bool hasChange = !borrowed.isEmpty() || !returned.isEmpty() || !alerts.isEmpty();
-    m_borrowBlock->setVisible(!borrowed.isEmpty());
-    m_returnBlock->setVisible(!returned.isEmpty());
-    m_alertBlock->setVisible(!alerts.isEmpty());
-    m_noChangeLabel->setVisible(!hasChange);
 
     auto addRows = [](QVBoxLayout* lay, const QStringList& rows) {
         for (const QString& row : rows) {
@@ -597,59 +742,95 @@ void CabinetSessionDialog::onCloseCabinetClicked()
             lay->addWidget(label);
         }
     };
+
+    QStringList borrowed, returned, alerts;
+    for (const BorrowItem& it : m_borrowItems)
+        borrowed.append(QStringLiteral("%1（%2）").arg(it.toolName, it.position));
+    for (const ReturnItem& it : m_returnItems)
+        returned.append(it.toolName);
+    alerts = m_alertItems;
+
+    bool hasChange = !borrowed.isEmpty() || !returned.isEmpty() || !alerts.isEmpty();
+    m_borrowBlock->setVisible(!borrowed.isEmpty());
+    m_returnBlock->setVisible(!returned.isEmpty());
+    m_alertBlock->setVisible(!alerts.isEmpty());
+    m_noChangeLabel->setVisible(!hasChange);
     addRows(m_borrowListLayout, borrowed);
     addRows(m_returnListLayout, returned);
     addRows(m_alertListLayout, alerts);
 
-    // 区块标题带上件数（每个区块第一个子控件为标题QLabel）
     QLabel* borrowTitle = m_borrowBlock->findChild<QLabel*>();
-    if (borrowTitle)
-        borrowTitle->setText(QStringLiteral("本次借用了 %1 件工具").arg(borrowed.size()));
+    if (borrowTitle) borrowTitle->setText(QStringLiteral("本次借用了 %1 件工具").arg(borrowed.size()));
     QLabel* returnTitle = m_returnBlock->findChild<QLabel*>();
-    if (returnTitle)
-        returnTitle->setText(QStringLiteral("本次归还了 %1 件工具").arg(returned.size()));
+    if (returnTitle) returnTitle->setText(QStringLiteral("本次归还了 %1 件工具").arg(returned.size()));
     QLabel* alertTitle = m_alertBlock->findChild<QLabel*>();
-    if (alertTitle)
-        alertTitle->setText(QStringLiteral("⚠ 告警：检测到 %1 件工具放错位置").arg(alerts.size()));
+    if (alertTitle) alertTitle->setText(QStringLiteral("⚠ 告警：%1 处异常（错放/未登记）").arg(alerts.size()));
 
+    // 错放≤3轮：有差异且未到上限，给出"重新开柜整理"
+    m_reopenBtn->setVisible(hasChange && m_round < kMaxRounds);
     m_stack->setCurrentIndex(1);
 }
 
-/**
- * @brief 清单页确认关闭：结束会话，回到登录页
- */
+// ─────────────────────────── 结果页动作 ───────────────────────────
+
+void CabinetSessionDialog::onReopenClicked()
+{
+    if (m_round >= kMaxRounds) return;   // 已达上限，不再重开
+    ++m_round;
+    onOpenCabinetClicked();   // 重新下发开箱；开柜成功后回到开柜页，用户整理后再次关柜触发识别
+}
+
 void CabinetSessionDialog::onConfirmCloseClicked()
 {
+    // 借：调用既有 BorrowService（单事务写库 + 状态更新）
+    if (!m_borrowItems.isEmpty()) {
+        BorrowService bs;
+        const QString flowNo = bs.generateFlowNo(QStringLiteral("自助借用"));
+        // 预计归还时间与工具借用页同一口径：按系统参数默认借用期限（小时）自动计算，
+        // 服务层拒绝空时间，自助会话无用户选时间入口，统一取默认期限
+        int defaultPeriodHours = AppConfig::instance().borrowDefaultPeriod();
+        if (defaultPeriodHours <= 0) defaultPeriodHours = SC::BORROW_DEFAULT_PERIOD;
+        const QString returnTime = QDateTime::currentDateTime()
+                                       .addSecs(defaultPeriodHours * 3600)
+                                       .toString(SC::TIMESTAMP_FORMAT);
+        QStringList failB;
+        for (const BorrowItem& it : m_borrowItems) {
+            BorrowService::Result r = bs.borrowTool(
+                m_userId, it.toolId, it.mappingId, 1,
+                QStringLiteral("自助借用"), returnTime, flowNo, m_machineGroupId);
+            if (r.success) {
+                db::RecordDAO().insertOperationLog(
+                    m_userId, SC::OP_BORROW, "tool", it.toolCode,
+                    QStringLiteral("自助借用工具「%1」编号[%2] 位置%3").arg(it.toolName, it.toolCode, it.position));
+            } else {
+                qWarning() << "[CabinetSessionDialog] 借用写库失败: tool=" << it.toolCode
+                           << "reason=" << r.message;
+                failB.append(it.toolName);
+            }
+        }
+        if (!failB.isEmpty())
+            MessageDialog::showWarning(this, QStringLiteral("借用写库失败"),
+                QStringLiteral("以下工具借用未成功写入，请稍后核对：\n%1").arg(failB.join("、")));
+    }
+
+    // 还：调用既有 ReturnService（整批单事务写库）
+    if (!m_returnItems.isEmpty()) {
+        QList<int> recIds;
+        for (const ReturnItem& it : m_returnItems) recIds.append(it.recordId);
+        QJsonObject info;
+        info["condition"] = QStringLiteral("正常");
+        ReturnService rs;
+        ReturnService::Result r = rs.returnTools(recIds, m_userId, info);
+        if (r.success) {
+            for (const ReturnItem& it : m_returnItems)
+                db::RecordDAO().insertOperationLog(
+                    m_userId, SC::OP_RETURN, "tool", it.toolCode,
+                    QStringLiteral("自助归还工具「%1」编号[%2]").arg(it.toolName, it.toolCode));
+        } else {
+            MessageDialog::showWarning(this, QStringLiteral("归还写库失败"), r.message);
+        }
+    }
+    // 无借无还：零写库，直接回主页
+
     accept();
-}
-
-/**
- * @brief 演示面板：切换被点按钮对应工具的在柜状态（取走时清除错放标记）
- */                                                                                                                                 
-void CabinetSessionDialog::onDemoToolToggled()
-{
-    QPushButton* statusBtn = qobject_cast<QPushButton*>(sender());
-    if (!statusBtn) return;
-    int row = m_demoStatusBtns.indexOf(statusBtn);
-    if (row < 0 || row >= m_tools.size()) return;
-    m_tools[row].inCabinet = !m_tools[row].inCabinet;
-    m_tools[row].misplaced = false;
-    m_tools[row].wrongPosition.clear();
-    updateDemoRows();
-}
-
-/**
- * @brief 演示面板：标记/取消"放错位置"（再次点击恢复正确位置）
- */
-void CabinetSessionDialog::onDemoWrongPlaceToggled()
-{
-    QPushButton* wrongBtn = qobject_cast<QPushButton*>(sender());
-    if (!wrongBtn) return;
-    int row = m_demoWrongBtns.indexOf(wrongBtn);
-    if (row < 0 || row >= m_tools.size()) return;
-    if (!m_tools[row].inCabinet) return;   // 已取走的工具无错放概念
-    m_tools[row].misplaced = !m_tools[row].misplaced;
-    m_tools[row].wrongPosition = m_tools[row].misplaced
-                                     ? bumpedPosition(m_tools[row].position) : QString();
-    updateDemoRows();
 }

@@ -645,6 +645,33 @@ void MainWindow::onMenuCardClicked(const QString& key) {
 void MainWindow::startCabinetSession() {
     CabinetSessionDialog session(m_user, this);
     connect(&session, &CabinetSessionDialog::logoutRequested, this, &MainWindow::onLogout);
+    session.setEdgeService(m_edgeService);
+    // 识别/开箱结果经 MainWindow 适配层转换后转发给会话（复用对出入库页的同款转换方式，
+    // 会话不直接包含通信层类型；识别结果先在中转层转成页面中立结构 RecogSpot）
+    if (m_edgeService) {
+        connect(m_edgeService, &EdgeService::recognizeFinished, &session,
+            [this, &session](const QString& requestId, const RecognizeResult& result) {
+                QList<ToolService::RecogSpot> spots;
+                for (const RecognizeItem& item : result.items)
+                    spots.append(ToolService::RecogSpot{item.position, item.toolId,
+                                                        item.confidence, item.present});
+                session.onRecognitionResult(requestId, spots);
+            });
+        connect(m_edgeService, &EdgeService::recognizeFailed, &session,
+            [this, &session](const QString& requestId, const QString& reason) {
+                session.onRecognitionFailed(requestId, reason);
+            });
+        connect(m_edgeService, &EdgeService::openFinished, &session,
+            [this, &session](const QString& requestId, const OpenResult& result) {
+                session.onOpenFinished(requestId, result.success, result.message);
+            });
+        connect(m_edgeService, &EdgeService::openFailed, &session,
+            [this, &session](const QString& requestId, const QString& reason) {
+                session.onOpenFailed(requestId, reason);
+            });
+        connect(m_edgeService, &EdgeService::onlineChanged, &session,
+            [this, &session](bool online) { session.onEdgeOnlineChanged(online); });
+    }
     session.startSession();
 }
 

@@ -169,6 +169,7 @@ private:
     QString customListFilePath() const;        ///< 清单文件路径（exe 同目录 custom_items.txt）
     bool openToolDatabase();                   ///< 按界面参数连上 MySQL（与上位机同一套 QODBC 连接串）
     bool loadToolsAndPositions();              ///< 读取工具与货位填入选择框（只读查询，不改任何数据）
+    void loadMachineGroups();                   ///< 从 machine_group 表读取机组填进 m_groupCombo（只读查询）
     bool isCustomListActive() const;            ///< 当前识别回应场景是否为"自定义清单"
     void updateSceneHint();                     ///< 刷新顶部状态条：这份清单到底生效没有
     void autoActivateCustomList(const QString& why); ///< 有清单且场景不是自定义清单时自动切过去（避免"配了不生效"）
@@ -241,6 +242,8 @@ private:
     bool         m_dbLoadOnStart = true;    ///< 启动即读库（实际生效值存 ini 的 db/loadOnStart）
     bool         m_tableUpdating = false;   ///< 重建清单表时为 true（屏蔽单元格联动，避免自触发）
     QLabel*      m_dbStat = nullptr;        ///< 连接与读取结果文字
+    QComboBox*   m_groupCombo = nullptr;    ///< 机组下拉（识别清单按所选机组过滤，0=全部机组）
+    int          m_selectedGroupId = 0;     ///< 当前所选机组；0 表示不过滤（全部机组）
     // 场景预设区
     QComboBox*   m_presetCombo = nullptr;   ///< 典型场景预设下拉
     QPushButton* m_btnOneClick = nullptr;   ///< 一键标准联调按钮

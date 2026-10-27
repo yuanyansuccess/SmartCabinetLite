@@ -1230,13 +1230,12 @@ void ToolCheckinPage::applyRecognitionOutcome() {
         if (!it.position.isEmpty()) ignorePositions.insert(it.position);
     }
 
-    // 全柜核对基准：库内全量在库货位（只读查询，经 DAO 取数）
-    // 刻意不限机组：边缘机摄像头扫的是整个物理柜子，不分机组；
-    // 机组隔离只约束"能借用/入库/出库哪些工具"，不约束"柜子里实际有什么"。
-    // 若按本机组过滤，别的机组放在货位上的工具会被误报成"来源不明"
+    // 全柜核对基准：本机组（localMachineGroupId）库内全部在库货位（只读查询，经 DAO 取数）
+    // 一台边缘计算机只服务一个机组的柜子，扫到的也是本机组货位；
+    // 按本机组过滤后，跨机组的货位不会混入核对，避免被误报成"来源不明"或"缺失"
     QList<ToolService::RecogStockItem> stocks;
     db::ToolDAO toolDao;
-    const QJsonArray inStock = toolDao.findAllInStockPositions(0);
+    const QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
     for (const QJsonValue& v : inStock) {
         const QJsonObject o = v.toObject();
         ToolService::RecogStockItem st;

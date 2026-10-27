@@ -387,6 +387,7 @@ void EdgeSimulator::saveConfig()
     s.setValue(QStringLiteral("db/password"), m_dbPass ? m_dbPass->text() : QStringLiteral("root"));
     // 启动即读库并把工具/货位填进选择框：测试人员不用先点一次按钮就能选数据
     s.setValue(QStringLiteral("db/loadOnStart"), m_dbLoadOnStart);
+    s.setValue(QStringLiteral("db/groupId"), m_selectedGroupId);
 }
 
 /**
@@ -439,6 +440,10 @@ void EdgeSimulator::loadConfig()
     if (m_chkLoadOnStart) {
         m_chkLoadOnStart->setChecked(m_dbLoadOnStart);
     }
+    // 默认按本机机组（与上位机 system.ini 的 Local/group_id 默认 1 对齐）推送识别清单，
+    // 避免模拟器全量推清单、而上位机只按本机组核对时，别的机组货位被误报成"来源不明"。
+    // 测试人员仍可在下拉里选"全部机组"或其他机组做全量/跨机组联调
+    m_selectedGroupId = s.value(QStringLiteral("db/groupId"), 1).toInt();
 }
 
 /**
@@ -1078,6 +1083,37 @@ bool EdgeSimulator::openToolDatabase()
 }
 
 /**
+ * @brief 从 machine_group 表读取机组列表，填入 m_groupCombo（只读查询）
+ * @return 无。连不上库时只保留"全部机组"一项，不影响其它功能
+ * @note  机组下拉用于约束识别清单的数据范围：选了具体机组后，读库生成的清单
+ *        只含该机组的工具与货位，避免把别的机组的货位一起推给上位机造成误报
+ */
+void EdgeSimulator::loadMachineGroups()
+{
+    if (!m_groupCombo) {
+        return;
+    }
+    m_groupCombo->clear();
+    m_groupCombo->addItem(QStringLiteral("全部机组"), 0);
+    if (!openToolDatabase()) {
+        return;
+    }
+    QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
+    QSqlQuery q(db);
+    if (q.exec(QStringLiteral("SELECT group_id, group_name FROM machine_group ORDER BY group_id"))) {
+        while (q.next()) {
+            m_groupCombo->addItem(q.value(1).toString(), q.value(0).toInt());
+        }
+    }
+    QSqlDatabase::removeDatabase(QStringLiteral("edge_sim_tools"));
+    // 恢复上次选择的机组
+    const int idx = m_groupCombo->findData(m_selectedGroupId);
+    if (idx >= 0) {
+        m_groupCombo->setCurrentIndex(idx);
+    }
+}
+
+/**
  * @brief 从库中读取工具与货位，填入上方两个选择框（只读查询）
  * @return true=读取成功；false=连接或查询失败，失败原因已写到状态行
  * @note  货位按主工程同一套规则格式化成 A-01-02，与上位机单据显示完全一致
@@ -1096,7 +1132,12 @@ bool EdgeSimulator::loadToolsAndPositions()
 
     // 工具：编号 + 名称 + 状态（下拉里带状态，测试人员一眼看出在库/借出/待入库）
     QSqlQuery toolQuery(db);
-    if (toolQuery.exec(QStringLiteral("SELECT tool_code, tool_name, status FROM tool_info ORDER BY tool_code"))) {
+    QString toolSql = QStringLiteral("SELECT tool_code, tool_name, status FROM tool_info");
+    if (m_selectedGroupId != 0) {
+        toolSql += QStringLiteral(" WHERE machine_group_id = %1").arg(m_selectedGroupId);
+    }
+    toolSql += QStringLiteral(" ORDER BY tool_code");
+    if (toolQuery.exec(toolSql)) {
         m_pickTool->clear();
         m_pickTool->addItem(kPickUnknownLabel, QString());   // 认不出工具（未知物场景）
         while (toolQuery.next()) {
@@ -1114,12 +1155,16 @@ bool EdgeSimulator::loadToolsAndPositions()
     // 货位：映射表 JOIN 柜体表 + 工具表，位置按主工程规则格式化
     if (err.isEmpty()) {
         QSqlQuery posQuery(db);
-        if (posQuery.exec(QStringLiteral(
+        QString posSql = QStringLiteral(
                 "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name, mpm.status "
                 "FROM tool_position_mapping mpm "
                 "LEFT JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-                "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id "
-                "ORDER BY cb.cabinet_name, mpm.layer, mpm.position"))) {
+                "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id");
+        if (m_selectedGroupId != 0) {
+            posSql += QStringLiteral(" WHERE t.machine_group_id = %1").arg(m_selectedGroupId);
+        }
+        posSql += QStringLiteral(" ORDER BY cb.cabinet_name, mpm.layer, mpm.position");
+        if (posQuery.exec(posSql)) {
             m_pickPos->clear();
             m_pickPos->addItem(kPickEmptyPosLabel, QString());  // 空货位（工具没放进去）
             while (posQuery.next()) {
@@ -1168,6 +1213,9 @@ bool EdgeSimulator::loadToolsAndPositions()
 void EdgeSimulator::onLoadToolsFromDb()
 {
     loadToolsAndPositions();
+    // 连库成功后把机组列表填进下拉：选了具体机组后，
+    // 后续读库生成的清单只含该机组工具与货位（避免跨机组误报）
+    loadMachineGroups();
 }
 
 

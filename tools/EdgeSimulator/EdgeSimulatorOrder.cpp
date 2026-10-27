@@ -507,32 +507,39 @@ bool EdgeSimulator::loadOrderCandidates()
     QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
+    // 机组过滤：选了具体机组时，三类候选只取该机组（t 是 tool_info 别名）
+    const QString gf = (m_selectedGroupId != 0)
+        ? QStringLiteral(" AND t.machine_group_id = %1").arg(m_selectedGroupId)
+        : QString();
     struct CandidateQuery {
-        const char* sql;      ///< 取数 SQL
+        QString      sql;      ///< 取数 SQL（已拼入机组过滤条件）
         QListWidget* list;    ///< 填充到的列表
         const char* tip;      ///< 选项后缀说明
     };
     const CandidateQuery queries[] = {
-        {"SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
-         "FROM tool_position_mapping mpm "
-         "JOIN tool_info t ON t.tool_id = mpm.tool_id "
-         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-         "WHERE mpm.status IN ('pending','checked_out') "
-         "ORDER BY cb.cabinet_name, mpm.layer, mpm.position",
+        {QStringLiteral(
+            "SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
+            "FROM tool_position_mapping mpm "
+            "JOIN tool_info t ON t.tool_id = mpm.tool_id "
+            "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
+            "WHERE mpm.status IN ('pending','checked_out')%1 "
+            "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
          m_inList, "（可入库位置 %1）"},
-        {"SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
-         "FROM tool_position_mapping mpm "
-         "JOIN tool_info t ON t.tool_id = mpm.tool_id "
-         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-         "WHERE mpm.status = 'in_stock' "
-         "ORDER BY cb.cabinet_name, mpm.layer, mpm.position",
+        {QStringLiteral(
+            "SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
+            "FROM tool_position_mapping mpm "
+            "JOIN tool_info t ON t.tool_id = mpm.tool_id "
+            "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
+            "WHERE mpm.status = 'in_stock'%1 "
+            "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
          m_outList, "（当前货位 %1）"},
-        {"SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
-         "FROM tool_info t "
-         "JOIN tool_position_mapping mpm ON mpm.tool_id = t.tool_id "
-         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-         "WHERE t.status = 'borrowed' "
-         "ORDER BY cb.cabinet_name, mpm.layer, mpm.position",
+        {QStringLiteral(
+            "SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
+            "FROM tool_info t "
+            "JOIN tool_position_mapping mpm ON mpm.tool_id = t.tool_id "
+            "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
+            "WHERE t.status = 'borrowed'%1 "
+            "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
          m_borrowOutList, "（原位置 %1，借出中）"}
     };
 
@@ -544,7 +551,7 @@ bool EdgeSimulator::loadOrderCandidates()
         }
         query.list->clear();
         QSqlQuery q(db);
-        if (!q.exec(QString::fromLatin1(query.sql))) {
+        if (!q.exec(query.sql)) {
             err = q.lastError().text();
             break;
         }
@@ -603,13 +610,17 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
     }
     QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
     QSqlQuery q(db);
-    const bool ok = q.exec(QStringLiteral(
+    QString stockSql = QStringLiteral(
         "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name "
         "FROM tool_position_mapping mpm "
         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
         "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id "
-        "WHERE mpm.status = 'in_stock' "
-        "ORDER BY cb.cabinet_name, mpm.layer, mpm.position"));
+        "WHERE mpm.status = 'in_stock'");
+    if (m_selectedGroupId != 0) {
+        stockSql += QStringLiteral(" AND t.machine_group_id = %1").arg(m_selectedGroupId);
+    }
+    stockSql += QStringLiteral(" ORDER BY cb.cabinet_name, mpm.layer, mpm.position");
+    const bool ok = q.exec(stockSql);
     if (ok) {
         while (q.next()) {
             CustomRow row;
@@ -850,6 +861,20 @@ QWidget* EdgeSimulator::buildDbPanel()
     dbGrid->addWidget(m_dbPass, 1, 4);
     dbGrid->addWidget(btnLoadDb, 0, 3, 1, 2);
     dbGrid->addWidget(btnLoadCand, 2, 3, 1, 2);
+
+    // 机组筛选：选了具体机组后，读库生成的候选/货位/全柜基线只含该机组，
+    // 避免把别的机组的货位一起推给上位机、在上位机全柜核对里被误报成异常
+    m_groupCombo = new QComboBox;
+    m_groupCombo->addItem(QStringLiteral("全部机组"), 0);
+    m_groupCombo->setToolTip(QStringLiteral("选具体机组后，读取的候选/货位/全柜基线只含该机组；"
+                                            "默认“全部机组”保持原有全量行为"));
+    connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) {
+                m_selectedGroupId = m_groupCombo->currentData().toInt();
+                loadToolsAndPositions();   // 切换机组后按新范围刷新货位/工具下拉
+            });
+    dbGrid->addWidget(new QLabel(QStringLiteral("机组")), 0, 5);
+    dbGrid->addWidget(m_groupCombo, 1, 5);
 
     m_dbStat = new QLabel(QStringLiteral("尚未读取；也可以直接在“单据模拟”页手填清单"));
     m_dbStat->setWordWrap(true);
