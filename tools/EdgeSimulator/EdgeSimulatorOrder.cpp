@@ -50,6 +50,7 @@ enum OrderColumn {
 const QString kBelongIn        = QStringLiteral("in");         ///< 本单-入库
 const QString kBelongOut       = QStringLiteral("out");        ///< 本单-出库
 const QString kBelongBorrowOut = QStringLiteral("borrow_out"); ///< 本单-借出转出库（免开箱）
+const QString kBelongReturn    = QStringLiteral("return");     ///< 本单-归还（借出中的工具放回柜内）
 const QString kBelongOther     = QStringLiteral("other");      ///< 非本单（背景行）
 
 /// 识别结果取值
@@ -64,6 +65,7 @@ const QString kResultEmpty     = QStringLiteral("empty");     ///< 货位空（�
 const QString kBelongLabelIn        = QStringLiteral("本单-入库");
 const QString kBelongLabelOut       = QStringLiteral("本单-出库");
 const QString kBelongLabelBorrowOut = QStringLiteral("本单-借出转出库");
+const QString kBelongLabelReturn    = QStringLiteral("本单-归还");
 const QString kBelongLabelOther     = QStringLiteral("非本单");
 
 /// 表格里显示的识别结果文案
@@ -239,6 +241,7 @@ void EdgeSimulator::fillOrderTable(const QList<CustomRow>& rows)
         belongBox->addItem(kBelongLabelIn, kBelongIn);
         belongBox->addItem(kBelongLabelOut, kBelongOut);
         belongBox->addItem(kBelongLabelBorrowOut, kBelongBorrowOut);
+        belongBox->addItem(kBelongLabelReturn, kBelongReturn);
         belongBox->addItem(kBelongLabelOther, kBelongOther);
         const int belongIndex = belongBox->findData(row.belong);
         belongBox->setCurrentIndex(belongIndex >= 0 ? belongIndex : 0);
@@ -494,7 +497,7 @@ void EdgeSimulator::onOrderRowSelected()
 }
 
 /**
- * @brief 从库读取本单候选（三类：待入库可入库位、在库工具、已借出工具）
+ * @brief 从库读取本单候选（四类：待入库可入库位、在库工具、借出中转库工具、拟归还工具）
  * @return true=读取成功；false=连不上库或查询失败，原因已写到状态行与日志
  * @note  只做 SELECT，不改任何数据；候选项的货位按主工程同一套规则格式化，
  *        保证模拟器选出来的货位与上位机单据显示完全一致
@@ -533,18 +536,31 @@ bool EdgeSimulator::loadOrderCandidates()
             "WHERE mpm.status = 'in_stock'%1 "
             "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
          m_outList, "（当前货位 %1）"},
+        // 与上位机 ToolDAO::findBorrowedOutPositions 完全对齐：借出状态写在
+        // tool_position_mapping.status 上，tool_info.status 不反映单件位置状态，
+        // 错用 tool_info 过滤会查不到任何借出工具（模拟器旧代码正是这个坑）
         {QStringLiteral(
             "SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
-            "FROM tool_info t "
-            "JOIN tool_position_mapping mpm ON mpm.tool_id = t.tool_id "
+            "FROM tool_position_mapping mpm "
+            "JOIN tool_info t ON t.tool_id = mpm.tool_id "
             "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-            "WHERE t.status = 'borrowed'%1 "
+            "WHERE mpm.status = 'borrowed'%1 "
             "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
-         m_borrowOutList, "（原位置 %1，借出中）"}
+         m_borrowOutList, "（原位置 %1，借出中）"},
+        // 同上：归还候选与借出转出库候选同源（都是借出中工具），过滤条件必须
+        // 与上位机一致用 tool_position_mapping.status='borrowed'，不能错用 tool_info
+        {QStringLiteral(
+            "SELECT t.tool_code, t.tool_name, cb.cabinet_name, mpm.layer, mpm.position "
+            "FROM tool_position_mapping mpm "
+            "JOIN tool_info t ON t.tool_id = mpm.tool_id "
+            "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
+            "WHERE mpm.status = 'borrowed'%1 "
+            "ORDER BY cb.cabinet_name, mpm.layer, mpm.position").arg(gf),
+         m_returnList, "（原位置 %1，拟归还）"}
     };
 
     QString err;
-    int inCount = 0, outCount = 0, borrowCount = 0;
+    int inCount = 0, outCount = 0, borrowCount = 0, returnCount = 0;
     for (const CandidateQuery& query : queries) {
         if (!query.list) {
             continue;
@@ -575,6 +591,7 @@ bool EdgeSimulator::loadOrderCandidates()
         if (query.list == m_inList)        inCount = query.list->count();
         if (query.list == m_outList)       outCount = query.list->count();
         if (query.list == m_borrowOutList) borrowCount = query.list->count();
+        if (query.list == m_returnList)     returnCount = query.list->count();
     }
     QApplication::restoreOverrideCursor();
     QSqlDatabase::removeDatabase(QStringLiteral("edge_sim_tools"));
@@ -587,12 +604,12 @@ bool EdgeSimulator::loadOrderCandidates()
         return false;
     }
     if (m_dbStat) {
-        m_dbStat->setText(QStringLiteral("已读取：待入库 %1、在库 %2、借出中 %3（勾选后点【按本单生成清单】）")
-                              .arg(inCount).arg(outCount).arg(borrowCount));
+        m_dbStat->setText(QStringLiteral("已读取：待入库 %1、在库 %2、借出中 %3、拟归还 %4（勾选后点【按本单生成清单】）")
+                              .arg(inCount).arg(outCount).arg(borrowCount).arg(returnCount));
     }
     updateSceneHint();   // 顶部状态条里的数据库状态同步刷新
-    logEvent(QStringLiteral("已从数据库读取本单候选：待入库 %1 条、在库 %2 条、借出中 %3 条")
-                 .arg(inCount).arg(outCount).arg(borrowCount));
+    logEvent(QStringLiteral("已从数据库读取本单候选：待入库 %1 条、在库 %2 条、借出中 %3 条、拟归还 %4 条")
+                 .arg(inCount).arg(outCount).arg(borrowCount).arg(returnCount));
     return true;
 }
 
@@ -650,6 +667,7 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
  *        本单-入库行 = 该工具的可入库位置上有这件工具、识别正常（上位机判"入库通过"）；
  *        本单-出库行 = 该货位上已经没有工具（工具编号留空、识别结果"货位空"，上位机判"已取走"）；
  *        本单-借出转出库行 = 借出中工具留在原位（上位机免开箱，不参与柜内核对）
+ *        本单-归还行 = 借出中工具放回原位（柜内识别出现该工具，上位机判归还）
  */
 void EdgeSimulator::generateOrderList()
 {
@@ -740,6 +758,29 @@ void EdgeSimulator::generateOrderList()
             row.toolCode   = data.value(QStringLiteral("toolCode")).toString();
             row.toolName   = data.value(QStringLiteral("toolName")).toString();
             row.belong     = kBelongBorrowOut;
+            row.result     = kResultNormal;
+            row.confidence = kGeneratedConfidence;
+            row.alertType  = QStringLiteral("none");
+            row.alertLevel = 0;
+            row.reply      = true;
+            rowByPosition.insert(row.position, rows.size());
+            rows.append(row);
+        }
+    }
+
+    // 本单-归还行：借出中的工具放回原位（柜内识别出现该工具，上位机判归还）
+    if (m_returnList) {
+        for (int i = 0; i < m_returnList->count(); ++i) {
+            QListWidgetItem* item = m_returnList->item(i);
+            if (!item || item->checkState() != Qt::Checked) {
+                continue;
+            }
+            const QVariantMap data = item->data(Qt::UserRole).toMap();
+            CustomRow row;
+            row.position   = data.value(QStringLiteral("position")).toString();
+            row.toolCode   = data.value(QStringLiteral("toolCode")).toString();
+            row.toolName   = data.value(QStringLiteral("toolName")).toString();
+            row.belong     = kBelongReturn;
             row.result     = kResultNormal;
             row.confidence = kGeneratedConfidence;
             row.alertType  = QStringLiteral("none");
@@ -923,6 +964,10 @@ QWidget* EdgeSimulator::buildOrderPage()
     m_borrowOutList->setToolTip(QStringLiteral("已借出工具：勾选后生成“本单-借出转出库”行（免开箱，不参与柜内核对）"));
     m_borrowOutList->setMinimumHeight(90);
     m_borrowOutList->setMaximumHeight(170);
+    m_returnList = new QListWidget;
+    m_returnList->setToolTip(QStringLiteral("已借出工具：勾选后生成“本单-归还”行（该货位上出现该工具，关柜核对判归还）"));
+    m_returnList->setMinimumHeight(90);
+    m_returnList->setMaximumHeight(170);
 
     auto* btnCand = new QPushButton(QStringLiteral("读取本单候选"));
     connect(btnCand, &QPushButton::clicked, this, &EdgeSimulator::onLoadOrderCandidates);
@@ -944,9 +989,14 @@ QWidget* EdgeSimulator::buildOrderPage()
     orderGrid->addWidget(m_outList, 0, 3);
     orderGrid->addWidget(new QLabel(QStringLiteral("本单-借出转出库\n（借出中工具）")), 0, 4);
     orderGrid->addWidget(m_borrowOutList, 0, 5);
+    orderGrid->addWidget(new QLabel(QStringLiteral("本单-归还\n（借出中工具）")), 0, 6);
+    orderGrid->addWidget(m_returnList, 0, 7);
     orderGrid->addWidget(btnCand, 1, 0, 1, 2);
     orderGrid->addWidget(btnGen, 1, 2, 1, 2);
     orderGrid->addWidget(m_bgBaseline, 1, 4, 1, 2);
+    auto* returnHint = new QLabel(QStringLiteral("归还：借出中的工具放回原位，关柜核对时上位机判为归还（需该工具确为当前用户借出）"));
+    returnHint->setWordWrap(true);
+    orderGrid->addWidget(returnHint, 1, 6, 1, 2);
     orderGrid->setRowStretch(0, 1);
     box->addWidget(orderBox);
 
