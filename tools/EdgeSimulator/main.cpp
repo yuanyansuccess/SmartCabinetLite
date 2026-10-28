@@ -6,7 +6,7 @@
  * 用法：EdgeSimulator [--auto-connect] [--host IP] [--port N] [--tab N]
  *   --auto-connect  启动后自动连接（免点按钮，快速验证/自动化测试用）
  *   --tab N         启动后直接显示指定步骤页（0=连接与数据 1=单据模拟
- *                   2=识别回应 3=异常注入 4=场景预设），用于截图与演示
+ *                   2=识别回应 3=异常注入），用于截图与演示
  */
 #include <QApplication>
 #include <QCommandLineParser>

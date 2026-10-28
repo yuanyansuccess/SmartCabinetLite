@@ -111,8 +111,7 @@ private slots:
     void onDeleteOrderRow();         ///< 删除清单表选中行
     void onInsertOrderRow();         ///< 按下方选择区内容新增一行
     void onLoadOrderCandidates();    ///< 从库读本单候选（待入库/在库/借出中）
-    // 场景与工作台（页⑤ 与 顶部）
-    void onApplyPreset(int presetId);///< 套用典型场景预设
+    // 工作台（顶部）
     void onOneClickStart();          ///< 一键标准联调：连上位机+读库+生成基线+开周期帧
     void onStepClicked(int row);     ///< 左侧步骤导航切换
     // 日志
@@ -125,7 +124,7 @@ private:
         QString position;         ///< 货位（A-01-02）
         QString toolCode;         ///< 工具编号（空串=该货位没有工具/认不出）
         QString toolName;         ///< 工具名（只读展示，来自库）
-        QString belong;           ///< 本单归属：in=本单入库 out=本单出库 borrow_out=本单借出转出库 other=非本单
+        QString belong;           ///< 本单归属：in=本单入库 out=本单出库 borrow_out=本单借出转出库 return=本单归还 other=非本单
         QString result;           ///< 识别结果：normal/misplaced/unknown/missing/low_conf/empty
         double  confidence = 0.95;///< 置信度 0~1
         QString alertType;        ///< 协议告警类型（由识别结果推导，可手改）
@@ -147,7 +146,6 @@ private:
     QWidget* buildFaultTab();       ///< 页④ 版本/异常（3.5-3.6）
     QWidget* buildCustomTab();      ///< 页④ 自定义帧（高级）
     QWidget* buildExceptionPage();  ///< 页④ 异常注入（周期帧+异常+自定义帧）
-    QWidget* buildScenePage();      ///< 页⑤ 场景与日志
     void buildStepNav();            ///< 左侧步骤导航
     // 清单处理
     QList<CustomRow> parseCustomRows(const QString& text) const; ///< 解析清单文本（兼容旧5列格式）
@@ -224,6 +222,7 @@ private:
     QListWidget* m_inList = nullptr;     ///< 本单入库候选（待入库工具 + 其可入库位置）
     QListWidget* m_outList = nullptr;    ///< 本单出库候选（在库工具 + 其当前货位）
     QListWidget* m_borrowOutList = nullptr; ///< 本单借出转出库候选（借出中工具 + 其原位置）
+    QListWidget* m_returnList = nullptr;    ///< 本单归还候选（借出中工具 + 其原位置，勾选生成“本单-归还”行）
     QCheckBox*   m_bgBaseline = nullptr; ///< 生成清单时是否附带全柜在库背景行
     // 清单选数据用的下拉与旧的选择区控件
     QComboBox*   m_pickPos = nullptr;       ///< 货位选择框（显示 A-01-01 工具名[在库]）
@@ -244,8 +243,6 @@ private:
     QLabel*      m_dbStat = nullptr;        ///< 连接与读取结果文字
     QComboBox*   m_groupCombo = nullptr;    ///< 机组下拉（识别清单按所选机组过滤，0=全部机组）
     int          m_selectedGroupId = 0;     ///< 当前所选机组；0 表示不过滤（全部机组）
-    // 场景预设区
-    QComboBox*   m_presetCombo = nullptr;   ///< 典型场景预设下拉
     QPushButton* m_btnOneClick = nullptr;   ///< 一键标准联调按钮
     QTabWidget*  m_tabs = nullptr;       ///< 异常注入页内部的分组页签（周期帧/版本异常/自定义帧）
     QTimer       m_loopTimer;            ///< 循环发送定时器

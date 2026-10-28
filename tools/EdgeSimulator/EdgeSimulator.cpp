@@ -274,14 +274,13 @@ EdgeSimulator::EdgeSimulator(QWidget* parent)
     // 左侧步骤导航 + 右侧工作区（每一步一页）
     m_stepNav = new QListWidget;
     m_stepNav->setFixedWidth(170);
-    m_stepNav->setToolTip(QStringLiteral("① 连接与数据 ② 单据模拟 ③ 识别回应 ④ 异常注入 ⑤ 场景预设"));
+    m_stepNav->setToolTip(QStringLiteral("① 连接与数据 ② 单据模拟 ③ 识别回应 ④ 异常注入"));
     connect(m_stepNav, &QListWidget::currentRowChanged, this, &EdgeSimulator::onStepClicked);
     m_stack = new QStackedWidget;
     m_stack->addWidget(buildConnectDataPage());
     m_stack->addWidget(buildOrderPage());
     m_stack->addWidget(buildRespondPage());
     m_stack->addWidget(buildExceptionPage());
-    m_stack->addWidget(buildScenePage());
     buildStepNav();
 
     m_logView = new QTextEdit;
@@ -654,6 +653,12 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     g->addWidget(btnDrop, 7, 1, 1, 1);
     g->addWidget(m_silenceAt, 8, 0);
     g->addWidget(m_silenceFor, 8, 1);
+    // 链路离线模拟当前不在界面开放：逻辑保留（停发计时仍生效），四个控件统一隐藏，
+    // 需要恢复界面时删掉下面四行 hide 即可
+    linkTitle->hide();
+    btnDrop->hide();
+    m_silenceAt->hide();
+    m_silenceFor->hide();
 
     // ── 识别回应序列（多轮流程测试：按序回放，播完回落单场景默认）──
     auto* seqBox = new QGroupBox(QStringLiteral("识别回应序列（多轮流程测试：按序回放，播完回落单场景默认）"));
@@ -1809,7 +1814,7 @@ void EdgeSimulator::refreshStat()
     m_stat->setText(QString(QStringLiteral("收帧 %1 | 发帧 %2 | 坏帧 %3")).arg(m_rx).arg(m_tx).arg(m_bad));
 }
 
-// ─────────────────────── 工作台框架与场景预设 ───────────────────────
+// ─────────────────────── 工作台框架 ───────────────────────
 
 /**
  * @brief 填充左侧步骤导航
@@ -1825,7 +1830,6 @@ void EdgeSimulator::buildStepNav()
     m_stepNav->addItem(QStringLiteral("② 单据模拟"));
     m_stepNav->addItem(QStringLiteral("③ 识别回应"));
     m_stepNav->addItem(QStringLiteral("④ 异常注入"));
-    m_stepNav->addItem(QStringLiteral("⑤ 场景预设"));
     m_stepNav->setCurrentRow(0);
 }
 
@@ -1882,64 +1886,6 @@ QWidget* EdgeSimulator::buildExceptionPage()
 }
 
 /**
- * @brief 构建页⑤：场景预设与接口能力速查
- * @return 组装完成的页面控件
- */
-QWidget* EdgeSimulator::buildScenePage()
-{
-    auto* page = new QWidget;
-    auto* box = new QVBoxLayout(page);
-
-    auto* presetBox = new QGroupBox(QStringLiteral("典型场景一键套用（选一个再点【套用场景】）"));
-    auto* presetLayout = new QVBoxLayout(presetBox);
-    m_presetCombo = new QComboBox;
-    // 下拉项文字较长，限制最小宽度，避免把整页撑宽
-    m_presetCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    m_presetCombo->setMinimumContentsLength(16);
-    m_presetCombo->addItem(QStringLiteral("正向全过：全部识别正常，整单写库"));
-    m_presetCombo->addItem(QStringLiteral("部分未过：有一项不通过，出结果页双出口"));
-    m_presetCombo->addItem(QStringLiteral("三轮兜底：3 轮仍不全过，按实况写库"));
-    m_presetCombo->addItem(QStringLiteral("离线拒绝：链路断开，禁止出入库不写库"));
-    m_presetCombo->addItem(QStringLiteral("逆向借出转出库：借出中工具免开箱"));
-    m_presetCombo->addItem(QStringLiteral("摄像头闸门：某路摄像头异常，禁止开柜"));
-    auto* btnPreset = new QPushButton(QStringLiteral("套用场景"));
-    connect(btnPreset, &QPushButton::clicked, this, [this]() {
-        onApplyPreset(m_presetCombo ? m_presetCombo->currentIndex() : 0);
-    });
-    auto* presetRow = new QHBoxLayout;
-    presetRow->addWidget(m_presetCombo, 1);
-    presetRow->addWidget(btnPreset);
-    presetLayout->addLayout(presetRow);
-    presetLayout->addWidget(new QLabel(QStringLiteral(
-        "套用后各页参数会同步改好（清单、场景、序列、摄像头状态等），可再手动微调。")));
-    box->addWidget(presetBox);
-
-    auto* guideBox = new QGroupBox(QStringLiteral("新手用法与接口能力速查"));
-    auto* guideLayout = new QVBoxLayout(guideBox);
-    auto* guide = new QTextEdit;
-    guide->setReadOnly(true);
-    guide->setMinimumHeight(140);
-    guide->setPlainText(QStringLiteral(
-        "常规联调五步：\n"
-        "1) 顶部【连接】连上上位机；到②页点【读取本单候选】；\n"
-        "2) 在②页勾选本单内容（入库/出库/借出转出库），点【按本单生成清单】；\n"
-        "3) 在③页确认“回应场景”是自定义清单；\n"
-        "4) 回上位机建单并点确认，观察等待态与结果页；\n"
-        "5) 需要异常就进④页或⑤页套用场景。\n\n"
-        "接口能力速查：\n"
-        "· 3.3 识别回应：正常/有借有还/无变化/错放/未知物/置信度不足/缺失/不回应/自定义清单\n"
-        "· 3.4 周期帧：8 路摄像头自检（ok/offline/low_light/dirty/comm_error/空）、uptime、停发\n"
-        "· 3.5 版本：version_ack 版本号可配\n"
-        "· 3.6 异常：坏帧/未知 type/超长帧/乱序 request_id/重复回包/粘包\n"
-        "· 3.7 开箱：自动成功/固定失败/不回应\n"
-        "· 第5章：停发周期帧判离线、恢复后按原 request_id 补发\n"
-        "· 断链：自动退避重连（1/2/4/8/16/30 秒）"));
-    guideLayout->addWidget(guide);
-    box->addWidget(guideBox, 1);
-    return page;
-}
-
-/**
  * @brief 左侧步骤导航切换
  * @param row 选中的步骤序号（从0开始）
  * @return 无。右侧工作区切到对应页面
@@ -1950,112 +1896,6 @@ void EdgeSimulator::onStepClicked(int row)
     if (m_stack && row >= 0 && row < m_stack->count()) {
         m_stack->setCurrentIndex(row);
     }
-}
-
-/**
- * @brief 套用典型场景预设
- * @param presetId 预设序号（与页⑤下拉项顺序一致）
- * @return 无。各页参数被同步改成该场景需要的配置
- * @note  预设只改配置不改上位机行为，测试人员可在此基础上再手动微调
- */
-void EdgeSimulator::onApplyPreset(int presetId)
-{
-    switch (presetId) {
-    case 0: {   // 正向全过
-        QList<CustomRow> rows;
-        if (!collectStockRows(rows) || rows.isEmpty()) {
-            logEvent(QStringLiteral("套用失败：读不到库内在库货位，先检查数据库连接"));
-            return;
-        }
-        fillOrderTable(rows);
-        setAllResultsNormal();
-        onCustomListActivate();
-        logEvent(QStringLiteral("已套用场景：正向全过（全柜在库基线 %1 行 + 全部识别正常 + 回应切自定义清单）").arg(rows.size()));
-        break;
-    }
-    case 1: {   // 部分未过：把第一条带工具的行改成置信度不足
-        const QList<CustomRow> rows = orderRowsFromTable();
-        int target = -1;
-        for (int i = 0; i < rows.size(); ++i) {
-            if (!rows.at(i).toolCode.isEmpty()) {
-                target = i;
-                break;
-            }
-        }
-        if (target < 0) {
-            logEvent(QStringLiteral("套用失败：清单里没有带工具编号的行，先在②页生成清单"));
-            return;
-        }
-        auto* box = qobject_cast<QComboBox*>(m_orderTable->cellWidget(target, 5));
-        const int index = box ? box->findText(QStringLiteral("置信度不足")) : -1;
-        if (!box || index < 0) {
-            logEvent(QStringLiteral("套用失败：找不到“置信度不足”选项"));
-            return;
-        }
-        box->setCurrentIndex(index);
-        onCustomListActivate();
-        logEvent(QStringLiteral("已套用场景：部分未过（第 %1 行改成置信度不足，上位机会判这一项未通过）").arg(target + 1));
-        break;
-    }
-    case 2: {   // 三轮兜底：序列回放 自定义清单 → 低置信 → 低置信
-        if (m_seqList) {
-            m_seqList->clear();
-        }
-        addSeqScene(SceneCustomList);
-        addSeqScene(SceneLowConf);
-        addSeqScene(SceneLowConf);
-        if (m_seqEnabled) {
-            m_seqEnabled->setChecked(true);
-        }
-        logEvent(QStringLiteral("已套用场景：三轮兜底（识别回应序列 = 自定义清单 → 置信度不足 → 置信度不足）"));
-        break;
-    }
-    case 3: {   // 离线拒绝：断开链路并停发周期帧
-        if (m_periodicOn && m_periodicOn->isChecked()) {
-            m_periodicOn->setChecked(false);
-        }
-        if (m_sock && m_sock->state() != QAbstractSocket::UnconnectedState) {
-            onConnectToggle();
-        }
-        logEvent(QStringLiteral("已套用场景：离线拒绝（链路已断开、周期帧已停发，上位机点确认应被拒绝且零写库）"));
-        break;
-    }
-    case 4: {   // 逆向借出转出库：勾选借出中的工具
-        loadOrderCandidates();
-        if (m_inList) {
-            for (int i = 0; i < m_inList->count(); ++i) {
-                m_inList->item(i)->setCheckState(Qt::Unchecked);
-            }
-        }
-        if (m_outList) {
-            for (int i = 0; i < m_outList->count(); ++i) {
-                m_outList->item(i)->setCheckState(Qt::Unchecked);
-            }
-        }
-        if (m_borrowOutList) {
-            for (int i = 0; i < m_borrowOutList->count(); ++i) {
-                m_borrowOutList->item(i)->setCheckState(Qt::Checked);
-            }
-        }
-        generateOrderList();
-        onCustomListActivate();
-        logEvent(QStringLiteral("已套用场景：逆向借出转出库（清单里全是借出中工具，上位机走免开箱路径）"));
-        break;
-    }
-    case 5: {   // 摄像头闸门：CAM1 置脏污
-        if (!m_camList.isEmpty()) {
-            m_camList.first()->setCurrentText(QStringLiteral("dirty"));
-        }
-        if (m_periodicOn && !m_periodicOn->isChecked()) {
-            m_periodicOn->setChecked(true);
-        }
-        logEvent(QStringLiteral("已套用场景：摄像头闸门（CAM1=dirty，上位机与模拟器两端都会拒绝开柜）"));
-        break;
-    }
-    default:
-        break;
-    }
-    updateSceneHint();
 }
 
 /**
