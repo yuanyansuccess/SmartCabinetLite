@@ -1136,12 +1136,18 @@ bool EdgeSimulator::loadToolsAndPositions()
     QString err;
 
     // 工具：编号 + 名称 + 状态（下拉里带状态，测试人员一眼看出在库/借出/待入库）
+    // 状态取位置维度：借出状态记在 tool_position_mapping.status 上，
+    // tool_info.status 不反映单件借出，直查会把已借出工具也标成"在库"；
+    // 有映射行用映射状态，无映射行（待入库/已出库）回落工具表自身状态
     QSqlQuery toolQuery(db);
-    QString toolSql = QStringLiteral("SELECT tool_code, tool_name, status FROM tool_info");
+    QString toolSql = QStringLiteral(
+        "SELECT t.tool_code, t.tool_name, COALESCE("
+        "(SELECT mpm.status FROM tool_position_mapping mpm WHERE mpm.tool_id = t.tool_id LIMIT 1),"
+        " t.status) FROM tool_info t");
     if (m_selectedGroupId != 0) {
-        toolSql += QStringLiteral(" WHERE machine_group_id = %1").arg(m_selectedGroupId);
+        toolSql += QStringLiteral(" WHERE t.machine_group_id = %1").arg(m_selectedGroupId);
     }
-    toolSql += QStringLiteral(" ORDER BY tool_code");
+    toolSql += QStringLiteral(" ORDER BY t.tool_code");
     if (toolQuery.exec(toolSql)) {
         m_pickTool->clear();
         m_pickTool->addItem(kPickUnknownLabel, QString());   // 认不出工具（未知物场景）
