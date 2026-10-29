@@ -16,9 +16,11 @@
 #include "common/AppConfig.h"
 #include "common/PositionFormatter.h"
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"
 #include "services/BorrowService.h"
 #include "services/ReturnService.h"
 #include "services/ToolService.h"
+#include "services/AlertService.h"       // 位置反馈异常落告警（alert 域统一入口）
 #include "components/TopBar.h"          // 会话顶栏与管理页面共用同一组件
 #include "components/DrawerOpeningDialog.h"
 #include "components/MessageDialog.h"
@@ -648,6 +650,20 @@ void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
 
 void CabinetSessionDialog::applyResult()
 {
+    // 反馈完整性校验：边缘机回报的货位数量必须与开柜快照（库内映射表）长度一致。
+    // 两者长度不一致即视为位置反馈不全（漏报/多报），按袁总要求本次不予识别并反馈错误
+    if (m_spots.size() != m_baselineStock.size()) {
+        // 位置反馈异常属识别故障：落系统告警便于运维排查边缘机识别漏报/多报
+        const QString detail = QStringLiteral(
+            "边缘机反馈的货位数量（%1）与库内映射表（%2）不一致，疑似位置反馈不全，本次不予识别。")
+            .arg(m_spots.size()).arg(m_baselineStock.size());
+        AlertService().recordRecogFaultAlert(m_userId,
+            QStringLiteral("借用归还核对失败：") + detail);
+        MessageDialog::showWarning(this, QStringLiteral("核对失败"), detail);
+        reject();   // 关闭警告即退出会话返回首页，本次不予识别、不写库
+        return;
+    }
+
     // 基线 → ToolService 比对入参（页面中立结构，不碰通信层类型）
     QList<ToolService::RecogStockItem> stocks;
     for (const StockItem& s : m_baselineStock) {
@@ -671,21 +687,33 @@ void CabinetSessionDialog::applyResult()
         codeToPos[s.toolCode]  = s.position;
         baselineCodes.insert(s.toolCode);
     }
+    // 借出工具的登记货位一并入映射：归还兜底取位置 + 归还错放检测（见 Extra 分支），
+    // 保证每条归还日志与归还明细都带位置
+    const QJsonArray borrowedPos = db::ToolDAO().findBorrowedOutPositions(m_machineGroupId);
+    for (const auto& v : borrowedPos) {
+        const QJsonObject o = v.toObject();
+        const QString code = o["toolCode"].toString();
+        if (!codeToPos.contains(code))
+            codeToPos[code] = common::formatPosition(o["cabinetName"].toString(),
+                                                     o["layer"].toString(), o["position"].toString());
+    }
 
-    // 当前用户有效借用记录（用于识别"归还"）：库内已无在库记录，柜内复现即归还
+    // 当前用户有效借用记录（用于识别"归还"）：库内已无在库记录，柜内复现即归还。
+    // 整条记录按编号留存：写库需要 recordId，明细展示需要工具名（识别回包不带工具名）
     QList<BorrowRecord> borrows = db::RecordDAO().findBorrowsByUser(m_userId, 200);
-    QHash<QString, int> borrowRecIdByCode;
+    QHash<QString, BorrowRecord> borrowingByCode;
     for (const BorrowRecord& b : borrows)
         if (b.status == SC::RECORD_BORROWING || b.status == SC::RECORD_OVERDUE)
-            borrowRecIdByCode[b.toolCode] = b.borrowId;
+            borrowingByCode[b.toolCode] = b;
 
     m_borrowItems.clear();
     m_returnItems.clear();
     m_alertItems.clear();
 
     for (const ToolService::RecogStockDiff& d : outcome.diffs) {
-        if (d.type == ToolService::RecogStockDiffType::Missing ||
-            d.type == ToolService::RecogStockDiffType::Mismatch) {
+        switch (d.type) {
+        case ToolService::RecogStockDiffType::Missing:
+        case ToolService::RecogStockDiffType::Mismatch: {
             // 在库→缺失/被换：用户借出
             const StockItem st = stockByPos.value(d.position);
             BorrowItem bi;
@@ -695,13 +723,19 @@ void CabinetSessionDialog::applyResult()
             bi.toolName  = st.toolName;
             bi.position  = d.position;
             m_borrowItems.append(bi);
-        } else if (d.type == ToolService::RecogStockDiffType::Extra) {
-            if (borrowRecIdByCode.contains(d.toolCode)) {
-                // 用户此前借出、现柜内复现：归还
+            break;
+        }
+        case ToolService::RecogStockDiffType::Extra:
+            if (borrowingByCode.contains(d.toolCode)) {
+                // 用户此前借出、现柜内复现：归还；工具名以借用记录（数据库）为准，
+                // 识别回包只有编号与货位、没有工具名，明细行展示不能用回包名
+                const BorrowRecord rec = borrowingByCode.value(d.toolCode);
                 ReturnItem ri;
-                ri.recordId = borrowRecIdByCode[d.toolCode];
+                ri.recordId = rec.borrowId;
                 ri.toolCode = d.toolCode;
-                ri.toolName = d.toolName;
+                ri.toolName = rec.toolName;
+                // 识别货位缺失时用登记货位兜底，归还记录不允许没有位置
+                ri.position = d.position.isEmpty() ? codeToPos.value(d.toolCode) : d.position;
                 m_returnItems.append(ri);
             } else if (!baselineCodes.contains(d.toolCode)) {
                 // 库内/借用记录均无此工具：未登记工具出现在柜内
@@ -710,9 +744,17 @@ void CabinetSessionDialog::applyResult()
             }
             // 注：baselineCodes 命中的 Extra（同一在库工具被移到别处）不在此报，
             //     交由下方"错放"检测统一提示，避免与借用重复计数
+            break;
+        case ToolService::RecogStockDiffType::NotCovered:
+        default:
+            // 摄像头未覆盖该货位，无法判定，不误报借用
+            break;
         }
-        // NotCovered：摄像头未覆盖该货位，无法判定，不误报借用
     }
+
+    // 归还错放（借出工具回归非登记货位）：与在库工具错放同一判定口径，
+    // 由静态纯函数统一计算，便于单元测试覆盖
+    m_alertItems.append(ToolService::detectReturnMisplaced(outcome.diffs, codeToPos));
 
     // 错放检测：识别到某在库工具但不在其登记货位
     for (const ToolService::RecogSpot& s : m_spots) {
@@ -747,7 +789,9 @@ void CabinetSessionDialog::fillResultUI()
     for (const BorrowItem& it : m_borrowItems)
         borrowed.append(QStringLiteral("%1（%2）").arg(it.toolName, it.position));
     for (const ReturnItem& it : m_returnItems)
-        returned.append(it.toolName);
+        returned.append(it.position.isEmpty()
+                            ? it.toolName
+                            : QStringLiteral("%1（%2）").arg(it.toolName, it.position));
     alerts = m_alertItems;
 
     bool hasChange = !borrowed.isEmpty() || !returned.isEmpty() || !alerts.isEmpty();
@@ -794,18 +838,28 @@ void CabinetSessionDialog::onConfirmCloseClicked()
                                        .addSecs(defaultPeriodHours * 3600)
                                        .toString(SC::TIMESTAMP_FORMAT);
         QStringList failB;
+        // flow_no 有唯一索引，整批共用一个流水号时第 2 件起必然冲突，
+        // 每件工具在流水号后追加序号（-01、-02…），既保持批次关联又满足唯一约束
+        const int totalBorrow = m_borrowItems.size();
+        int borrowSeq = 0;
         for (const BorrowItem& it : m_borrowItems) {
+            QString itemFlowNo = flowNo;
+            if (totalBorrow > 1)
+                itemFlowNo = QStringLiteral("%1-%2")
+                                 .arg(flowNo)
+                                 .arg(borrowSeq + 1, 2, 10, QChar('0'));
+            ++borrowSeq;
             BorrowService::Result r = bs.borrowTool(
                 m_userId, it.toolId, it.mappingId, 1,
-                QStringLiteral("自助借用"), returnTime, flowNo, m_machineGroupId);
+                QStringLiteral("自助借用"), returnTime, itemFlowNo, m_machineGroupId);
             if (r.success) {
                 db::RecordDAO().insertOperationLog(
-                    m_userId, SC::OP_BORROW, "tool", it.toolCode,
+                    m_userId, common::operationTypeToString(common::OperationType::Borrow), "tool", it.toolCode,
                     QStringLiteral("自助借用工具「%1」编号[%2] 位置%3").arg(it.toolName, it.toolCode, it.position));
             } else {
                 qWarning() << "[CabinetSessionDialog] 借用写库失败: tool=" << it.toolCode
                            << "reason=" << r.message;
-                failB.append(it.toolName);
+                failB.append(QStringLiteral("%1（%2）").arg(it.toolName, r.message));
             }
         }
         if (!failB.isEmpty())
@@ -822,10 +876,13 @@ void CabinetSessionDialog::onConfirmCloseClicked()
         ReturnService rs;
         ReturnService::Result r = rs.returnTools(recIds, m_userId, info);
         if (r.success) {
-            for (const ReturnItem& it : m_returnItems)
-                db::RecordDAO().insertOperationLog(
-                    m_userId, SC::OP_RETURN, "tool", it.toolCode,
-                    QStringLiteral("自助归还工具「%1」编号[%2]").arg(it.toolName, it.toolCode));
+            for (const ReturnItem& it : m_returnItems) {
+                // 归还日志与借用日志同口径：识别货位缺失时省略位置段，避免出现空的"位置"字样
+                const QString content = it.position.isEmpty()
+                    ? QStringLiteral("自助归还工具「%1」编号[%2]").arg(it.toolName, it.toolCode)
+                    : QStringLiteral("自助归还工具「%1」编号[%2] 位置%3").arg(it.toolName, it.toolCode, it.position);
+                db::RecordDAO().insertOperationLog(m_userId, common::operationTypeToString(common::OperationType::Return), "tool", it.toolCode, content);
+            }
         } else {
             MessageDialog::showWarning(this, QStringLiteral("归还写库失败"), r.message);
         }

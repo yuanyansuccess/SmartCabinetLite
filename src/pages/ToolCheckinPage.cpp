@@ -19,6 +19,7 @@
 #include "utils/StyleHelper.h"
 #include "common/AppConfig.h"
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
 #include "components/MessageDialog.h"
@@ -1395,7 +1396,8 @@ void ToolCheckinPage::loadCheckoutRecords() {
     if (!m_outRecordTable) return;
 
     db::RecordDAO recDao;
-    QJsonObject result = recDao.findOperationLogsByType(SC::OP_CHECKOUT, m_outRecordCurrentPage, m_outRecordPageSize);
+    QJsonObject result = recDao.findOperationLogsByType(
+        common::operationTypeToString(common::OperationType::CheckOut), m_outRecordCurrentPage, m_outRecordPageSize);
     int total = result["total"].toInt();
     QJsonArray records = result["list"].toArray();
 

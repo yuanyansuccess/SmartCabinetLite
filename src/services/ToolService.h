@@ -150,6 +150,18 @@ public:
         const QSet<QString>& ignorePositions);
 
     /**
+     * @brief 借用归还场景下，借出工具回归到非登记货位时判为错放（misplaced）
+     * @param diffs             全柜核对异常列表（仅处理 Extra 类：借出工具柜内复现）
+     * @param regPositionByCode toolCode → 登记货位（含借出在外的工具，由页面经 ToolDAO 取）
+     * @return 错放告警文案列表（每条可直接上结果页，与在库工具错放同一口径）
+     * @note  上位机不读取边缘机回包里的 misplaced 标签（RecogSpot 无 alertType 字段），
+     *        错放完全由"实际货位 ≠ 登记货位"判定；本函数即归还分支的该判定，抽为纯函数便于单测。
+     */
+    static QStringList detectReturnMisplaced(
+        const QList<RecogStockDiff>& diffs,
+        const QHash<QString, QString>& regPositionByCode);
+
+    /**
      * @brief 判断全柜核对结果里有没有"硬差异"（账实不符，需要人工确认）
      * @param outcome 全柜核对结果
      * @return true=有硬差异：库内在库工具柜内已空(Missing)、货位上工具被换(Mismatch)、

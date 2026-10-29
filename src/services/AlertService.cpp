@@ -83,3 +83,26 @@ void AlertService::recordEdgeOffline() {
     alert.status = SC::ALERT_UNHANDLED;
     dao.insertAlert(alert);
 }
+
+/**
+ * @brief 记录识别故障告警（边缘机识别结果异常，归系统告警大类）
+ * @param userId  触发会话的当前用户ID
+ * @param message 告警内容（含货位数量对比等故障细节）
+ * @note  类型编码经常量取，字典查不回 type_id（类型被停用）时只告警不写库；
+ *        与借用归还核对失败、出入库识别异常共用识别故障类型
+ */
+void AlertService::recordRecogFaultAlert(int userId, const QString& message) {
+    db::AlertDAO dao;
+    const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_RECOG_FAULT);
+    if (typeId <= 0) {
+        qWarning() << "[AlertService] 识别故障告警跳过：字典中找不到已启用类型"
+                   << SC::ALERT_TYPE_RECOG_FAULT;
+        return;
+    }
+    AlertLog alert;
+    alert.typeId = typeId;
+    alert.userId = userId;
+    alert.message = message;
+    alert.status = SC::ALERT_UNHANDLED;
+    dao.insertAlert(alert);
+}

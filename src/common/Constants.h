@@ -55,11 +55,6 @@ const int PWD_FAIL_LOCK_TIMES = 4;
 // 锁定时长(毫秒)：锁定期内拒绝一切密码登录，刷脸登录不受影响，到期自动恢复
 const int PWD_LOCK_MS         = 5 * 60 * 1000;   // 5分钟
 
-// ── 操作日志类型（sys_operation_log.operation_type） ──
-const QString OP_CHECKIN  = "checkin";
-const QString OP_CHECKOUT = "checkout";
-const QString OP_BORROW   = "borrow";    // 借用归还会话：自助借用
-const QString OP_RETURN   = "return";    // 借用归还会话：自助归还
 
 // ── 出入库识别流程（边缘机识别后写库） ──
 // 重开柜整理轮次上限：每轮识别有未过项时可重新开柜整理，达到上限仍没全部通过就按当前实况写库
@@ -67,8 +62,6 @@ const int ORDER_MAX_RETRY_ROUNDS = 3;
 // 入库项"正确放入"的识别置信度门槛：货位上识别出的工具置信度达到该值才判定为放入正确
 const double RECOG_MIN_CONFIDENCE = 0.85;
 // 轮次日志操作类型：每轮识别写一条操作日志，content 为 JSON（轮次/各项结果/错放明细）
-const QString ORDER_ROUND_OP_CHECKIN  = "checkin_round";
-const QString ORDER_ROUND_OP_CHECKOUT = "checkout_round";
 // 关柜等待超时（毫秒）：开箱后等待 IO 板"已关柜"信号的上限，超时提示用户确认柜门已关
 const int CABINET_CLOSE_WAIT_MS = 2 * 60 * 1000;
 
@@ -79,25 +72,11 @@ const QString TOOL_MAINTENANCE = "maintenance";
 const QString TOOL_CHECKED_OUT = "checked_out";  // 已出库（区别于借用）
 const QString TOOL_PENDING     = "pending";      // 待入库（配置层已建未物理入库）
 
-// ── 工具状态显示映射（全系统唯一定义点，新人改文案/颜色只改这里） ──
+// ── 工具状态显示映射（全系统唯一定义点，转发到 common/ToolStatus.h） ──
 // borrowed 状态存在历史显示差异：工具管理页="已借用"，其余页="已借出"。
 // keepLegacyBorrowText=true 时保持工具管理页旧行为，默认为新口径"已借出"。
-inline QString toolStatusText(const QString& status, bool keepLegacyBorrowText = false) {
-    if (status == TOOL_IN_STOCK)    return QStringLiteral("在库");
-    if (status == TOOL_CHECKED_OUT) return QStringLiteral("已出库");
-    if (status == TOOL_MAINTENANCE) return QStringLiteral("维护中");
-    if (status == TOOL_PENDING)     return QStringLiteral("待入库");
-    if (status == TOOL_BORROWED)    return keepLegacyBorrowText ? QStringLiteral("已借用") : QStringLiteral("已借出");
-    return status;  // 未知状态原样显示
-}
-// 工具状态对应的状态色（维护中及未知状态统一灰色）
-inline QString toolStatusColor(const QString& status) {
-    if (status == TOOL_IN_STOCK)    return QStringLiteral("#43a047");
-    if (status == TOOL_CHECKED_OUT) return QStringLiteral("#e53935");
-    if (status == TOOL_BORROWED)    return QStringLiteral("#f57c00");
-    if (status == TOOL_PENDING)     return QStringLiteral("#1890ff");
-    return QStringLiteral("#999999");
-}
+inline QString toolStatusText(const QString& status, bool keepLegacyBorrowText = false);
+inline QString toolStatusColor(const QString& status);
 // 位置状态显示（空状态视为待入库；不含"维护中"，未知状态原样）
 inline QString positionStatusText(const QString& status) {
     if (status.isEmpty() || status == TOOL_PENDING) return QStringLiteral("待入库");
@@ -132,6 +111,7 @@ const QStringList TOOL_DOC_SUFFIXES = { "doc", "docx", "pdf" };
 const QString ALERT_TYPE_LOGIN_FAIL = "login_fail";  // 登录失败（密码连续错误触发整机锁定）
 const QString ALERT_TYPE_HW_FAULT   = "hw_fault";    // 系统硬件故障（边缘机摄像头状态变化等设备类告警复用此激活类型）
 const QString ALERT_TYPE_HW_COMM    = "hw_comm";     // 硬件通讯故障（与边缘计算机链路离线等通信类告警复用此激活类型）
+const QString ALERT_TYPE_RECOG_FAULT = "recog_fault"; // 识别故障（边缘机识别结果异常：货位反馈不全等）
 
 // ── 告警大类（告警日志页两个入口共用同一页面，按类型编码集合区分显示范围）──
 // 系统告警：设备与系统状态类；操作告警：用户操作行为类（错放/未授权/登录失败等）。
@@ -140,7 +120,8 @@ const QString ALERT_TYPE_HW_COMM    = "hw_comm";     // 硬件通讯故障（与
 const QStringList ALERT_SYSTEM_TYPES = {
     "missing", "offline", "low_stock", "system", "power",
     "network_error", "door_open", "stranger",
-    "temp_high", "power_low", "sensor_fail", "hw_comm", "hw_fault"
+    "temp_high", "power_low", "sensor_fail", "hw_comm", "hw_fault",
+    "recog_fault"
 };
 const QStringList ALERT_OPERATION_TYPES = {
     "login_fail", "unauthorized", "mismatch", "rack_mismatch"
@@ -274,4 +255,17 @@ const int DISK_KEEP_NEWEST_FILES = 3;
 // 同一目录两次清理的最小间隔(毫秒)：清理后仍不达标的目录，间隔内直接放行不再扫描，
 // 避免日志高频写入时每行都做目录枚举
 const int DISK_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+} // namespace SC
+
+// ── 工具状态显示映射实现（转发到 common/ToolStatus.h，namespace 关闭后 include 避免污染 StyleHelper）──
+#include "common/ToolStatus.h"
+
+namespace SC {
+inline QString toolStatusText(const QString& status, bool keepLegacyBorrowText) {
+    const QString text = common::toolStatusText(common::toToolStatus(status), keepLegacyBorrowText);
+    return text.isEmpty() ? status : text;  // 未知状态原样显示
+}
+inline QString toolStatusColor(const QString& status) {
+    return common::toolStatusColor(common::toToolStatus(status));
+}
 } // namespace SC

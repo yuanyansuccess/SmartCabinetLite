@@ -329,6 +329,23 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
     return outcome;
 }
 
+QStringList ToolService::detectReturnMisplaced(
+    const QList<RecogStockDiff>& diffs,
+    const QHash<QString, QString>& regPositionByCode)
+{
+    QStringList alerts;
+    for (const RecogStockDiff& d : diffs) {
+        if (d.type != RecogStockDiffType::Extra)
+            continue;   // 只判归还分支：借出工具柜内复现
+        const QString regPos = regPositionByCode.value(d.toolCode);
+        // 实际货位非空、登记货位非空、且两者不一致 = 错放（与在库工具错放同一口径）
+        if (!d.position.isEmpty() && !regPos.isEmpty() && d.position != regPos)
+            alerts.append(QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）")
+                              .arg(d.toolCode, regPos, d.position));
+    }
+    return alerts;
+}
+
 /**
  * @brief 取出全柜核对结果里的硬差异明细（排除未覆盖）
  * @param outcome 全柜核对结果

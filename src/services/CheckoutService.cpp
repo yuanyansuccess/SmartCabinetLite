@@ -8,6 +8,7 @@
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"
 
 /**
  * @brief 执行出库
@@ -78,7 +79,7 @@ CheckoutService::CheckoutResult CheckoutService::executeCheckout(
             }
             // insertOperationLog 返回日志ID（>0 表示成功）
             stepOk = recDao.insertOperationLog(
-                userId, SC::OP_CHECKOUT, "tool", it.toolCode, content) > 0;
+                userId, common::operationTypeToString(common::OperationType::CheckOut), "tool", it.toolCode, content) > 0;
             if (!stepOk) {
                 failedNames.append(it.toolName.isEmpty() ? it.toolCode : it.toolName);
                 return false;

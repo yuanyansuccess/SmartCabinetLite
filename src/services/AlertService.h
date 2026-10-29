@@ -20,6 +20,15 @@ public:
     void recordVerifyAlert(int userId, int toolId, const QString& message);
 
     /**
+     * @brief 记录识别故障告警（边缘机识别结果异常，归系统告警大类）
+     * @param userId  触发会话的当前用户ID
+     * @param message 告警内容（含货位数量对比等故障细节）
+     * @note  复用已激活的识别故障类型（recog_fault），无需重复建字典；
+     *        类型字典被停用（is_active=0）时跳过写入并告警，不产生坏数据
+     */
+    void recordRecogFaultAlert(int userId, const QString& message);
+
+    /**
      * @brief 记录边缘机摄像头自检状态异常变化告警（周期帧逐帧对比触发）
      * @param cameraId   摄像头编号，如 "CAM3"
      * @param oldStatus  变化前状态（ok/offline/low_light/dirty/comm_error）

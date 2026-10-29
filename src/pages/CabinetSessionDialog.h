@@ -105,7 +105,7 @@ private:
 
     // 本次识别结论（供确认关闭写库）
     struct BorrowItem { int toolId = 0; int mappingId = 0; QString toolCode; QString toolName; QString position; };
-    struct ReturnItem { int recordId = 0; QString toolCode; QString toolName; };
+    struct ReturnItem { int recordId = 0; QString toolCode; QString toolName; QString position; };
     QList<BorrowItem> m_borrowItems;         // 借出（在库→缺失）
     QList<ReturnItem> m_returnItems;         // 归还（用户已借出→柜内复现）
     QStringList m_alertItems;                // 告警（错放/未登记工具）

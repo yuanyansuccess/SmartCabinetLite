@@ -19,6 +19,7 @@
 #include "services/ToolService.h"       // 入库落库唯一业务入口
 #include "services/CheckoutService.h"  // 出库落库唯一业务入口
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"
 #include "db/RecordDAO.h"
 #include "components/MessageDialog.h"
 #include <QVBoxLayout>
@@ -192,7 +193,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
                 if (toolSvc.checkinTool(data)) {
                     QString content = QStringLiteral("入库工具「%1」编号[%2]×1件 位置%3")
                         .arg(it.toolName, it.toolCode, it.position);
-                    recDao.insertOperationLog(userId, SC::OP_CHECKIN, "tool", it.toolCode, content);
+                    recDao.insertOperationLog(userId, common::operationTypeToString(common::OperationType::CheckIn), "tool", it.toolCode, content);
                     okIdx.insert(i);
                 }
             } else {
@@ -247,10 +248,13 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         QStringList hardTips;
         int notCovered = 0;
         for (const auto& d : stockOutcome.diffs) {
-            if (d.type == ToolService::RecogStockDiffType::NotCovered) {
+            switch (d.type) {
+            case ToolService::RecogStockDiffType::NotCovered:
                 ++notCovered;
-            } else {
+                break;
+            default:
                 hardTips << d.detail;
+                break;
             }
         }
         QString text = QStringLiteral("⚠ 全柜核对发现 %1 处异常（账实不符，需人工确认后再写库）")
@@ -543,7 +547,8 @@ void ToolCheckinPage::writeRoundLog(int round, const QList<OrderRow>& items,
     content["result"]    = allPassed ? QStringLiteral("success") : QStringLiteral("fail");
 
     db::RecordDAO recDao;
-    const QString opType = isCheckout ? SC::ORDER_ROUND_OP_CHECKOUT : SC::ORDER_ROUND_OP_CHECKIN;
+    const QString opType = isCheckout ? common::operationTypeToString(common::OperationType::CheckOutRound)
+                                        : common::operationTypeToString(common::OperationType::CheckInRound);
     recDao.insertOperationLog(userId, opType, "tool", QString(),
                                QString::fromUtf8(QJsonDocument(content).toJson(QJsonDocument::Compact)));
 }

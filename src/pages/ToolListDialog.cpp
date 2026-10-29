@@ -12,6 +12,7 @@
 #include "controller/ToolController.h"
 #include "utils/StyleHelper.h"
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"
 #include "common/AppConfig.h"
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -300,28 +301,9 @@ void ToolListDialog::loadTools() {
         posItem->setForeground(QColor(StyleHelper::textBody()));
         m_table->setItem(i, 4, posItem);
 
-        // 状态彩色标签
-        QString statusText;
-        QString statusColor;
-        if (t.status == SC::TOOL_IN_STOCK) {
-            statusText = QStringLiteral("在库");
-            statusColor = StyleHelper::successColor();
-        } else if (t.status == SC::TOOL_BORROWED) {
-            statusText = QStringLiteral("已借用");
-            statusColor = StyleHelper::warningColor();
-        } else if (t.status == SC::TOOL_CHECKED_OUT) {
-            statusText = QStringLiteral("已出库");
-            statusColor = StyleHelper::dangerColor();
-        } else if (t.status == SC::TOOL_MAINTENANCE) {
-            statusText = QStringLiteral("维护中");
-            statusColor = StyleHelper::textMuted();
-        } else if (t.status == SC::TOOL_PENDING) {
-            statusText = QStringLiteral("待入库");
-            statusColor = StyleHelper::primaryColor();
-        } else {
-            statusText = t.status;
-            statusColor = StyleHelper::textMuted();
-        }
+        // 状态彩色标签（统一走 SC::toolStatusText / SC::toolStatusColor，避免重复 if 链与口径不一致）
+        const QString statusText = SC::toolStatusText(t.status);
+        const QString statusColor = SC::toolStatusColor(t.status);
         auto* statusLabel = new QLabel(statusText);
         statusLabel->setAlignment(Qt::AlignCenter);
         statusLabel->setFixedSize(64, 28);
@@ -335,7 +317,7 @@ void ToolListDialog::loadTools() {
         auto* borrowerItem = new QTableWidgetItem(
             borrowerName.isEmpty() ? QStringLiteral("--") : borrowerName);
         borrowerItem->setTextAlignment(Qt::AlignCenter);
-        if (!borrowerName.isEmpty() && t.latestOpType == "borrow") {
+        if (!borrowerName.isEmpty() && common::toOperationType(t.latestOpType) == common::OperationType::Borrow) {
             borrowerItem->setForeground(QColor(StyleHelper::primaryColor()));
             QFont borrowerFont = borrowerItem->font();
             borrowerFont.setBold(true);

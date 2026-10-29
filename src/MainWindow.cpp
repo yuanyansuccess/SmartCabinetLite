@@ -25,6 +25,7 @@
 #include "utils/ScreenFit.h"   // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
 #include "common/AppConfig.h"  // 读取备份配置
 #include "common/Constants.h"   // SC 命名空间常量
+#include "common/StatusDisplay.h" // 操作类型/借用记录状态 中文文案与配色
 #include "common/DatabaseManager.h"  // 备份检查
 #include "common/DiskSpaceGuard.h"  // 备份前磁盘容量保护
 #include "db/RecordDAO.h"  // 普通用户查询借用明细与操作日志（读直调DAO）
@@ -843,14 +844,10 @@ void MainWindow::showUserOperationLog() {
                                     : r["createdAt"].toString();
         table->setItem(i, 0, new QTableWidgetItem(time));
 
-        // 类型中文+配色（入库绿/出库红，其余类型显示原值）
+        // 类型中文文案+配色（入库绿/出库红/借用橙/归还蓝，未知类型显示原始值）
         const QString type = r["type"].toString();
-        QString typeText = type;
-        QString typeColor = StyleHelper::textSecondary();
-        if (type == SC::OP_CHECKIN)       { typeText = QStringLiteral("入库"); typeColor = StyleHelper::successColor(); }
-        else if (type == SC::OP_CHECKOUT) { typeText = QStringLiteral("出库"); typeColor = "#e53935"; }
-        auto* typeItem = new QTableWidgetItem(typeText);
-        typeItem->setForeground(QColor(typeColor));
+        auto* typeItem = new QTableWidgetItem(common::operationTypeText(type));
+        typeItem->setForeground(QColor(common::operationTypeColor(type)));
         table->setItem(i, 1, typeItem);
 
         table->setItem(i, 2, new QTableWidgetItem(r["content"].toString()));

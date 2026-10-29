@@ -18,6 +18,7 @@
 #include "components/BaseDialog.h"     // 统一圆角对话框
 #include "common/AppConfig.h"          // 读取本机机组ID
 #include "common/Constants.h"          // 识别方式常量
+#include "common/StatusDisplay.h"       // 操作类型/借用记录状态 中文文案与配色
 #include "db/RecordDAO.h"              // 查询工具的借用记录
 #include <QApplication>                // 屏幕高度自适应
 #include <QRect>                       // 屏幕可用区域几何计算
@@ -211,7 +212,7 @@ void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
     // 已出库/入库工具显示操作人和操作时间
     {
         if (t.status == SC::TOOL_CHECKED_OUT) {
-            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, SC::OP_CHECKOUT);
+            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, common::operationTypeToString(common::OperationType::CheckOut));
             if (!log.isEmpty()) {
                 QString checkoutTime = log["time"].toString();
                 QString checkoutUser = log["operator"].toString();
@@ -221,7 +222,7 @@ void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
                 infoLayout->addWidget(FormFactory::fieldValue(checkoutTime.left(16).isEmpty() ? QStringLiteral("--") : checkoutTime.left(16)), row++, 1);
             }
         } else if (t.status == SC::TOOL_IN_STOCK) {
-            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, SC::OP_CHECKIN);
+            QJsonObject log = ctx.recDao.findLastOperationLog(t.toolCode, common::operationTypeToString(common::OperationType::CheckIn));
             if (!log.isEmpty()) {
                 QString checkinTime = log["time"].toString();
                 QString checkinUser = log["operator"].toString();
@@ -236,11 +237,7 @@ void ToolManagementPage::buildToolDetailTab(ToolDetailCtx& ctx) {
     infoLayout->addWidget(FormFactory::fieldLabel(QStringLiteral("最近操作")), row, 0);
     QString lastOpStr;
     if (!t.latestOpTime.isEmpty()) {
-        QString opType;
-        if (t.latestOpType == "borrow") opType = QStringLiteral("借用");
-        else if (t.latestOpType == SC::OP_CHECKOUT) opType = QStringLiteral("出库");
-        else if (t.latestOpType == SC::OP_CHECKIN) opType = QStringLiteral("入库");
-        else opType = QStringLiteral("操作");
+        QString opType = common::operationTypeText(t.latestOpType);
         lastOpStr = QStringLiteral("%1 %2").arg(t.latestOpTime, opType);
     } else {
         lastOpStr = QStringLiteral("暂无操作记录");
@@ -272,11 +269,11 @@ QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ct
     // 入库/出库记录从DAO层查询（通过sys_operation_log，按位置过滤）
     QString posKey = StyleHelper::formatPosition(t.cabinetName, t.layer, t.position);
 
-    QJsonArray checkinLogs = ctx.recDao.findOperationLogs(t.toolCode, SC::OP_CHECKIN, posKey, 10);
+    QJsonArray checkinLogs = ctx.recDao.findOperationLogs(t.toolCode, common::operationTypeToString(common::OperationType::CheckIn), posKey, 10);
     QJsonArray checkinRecords;
     for (const auto& log : checkinLogs) {
         QJsonObject obj = log.toObject();
-        obj["type"] = SC::OP_CHECKIN;
+        obj["type"] = common::operationTypeToString(common::OperationType::CheckIn);
         obj["status"] = "completed";
         obj["reason"] = QStringLiteral("入库");
         // 从content解析供应商
@@ -286,11 +283,11 @@ QList<QJsonObject> ToolManagementPage::collectOperationRecords(ToolDetailCtx& ct
         checkinRecords.append(obj);
     }
 
-    QJsonArray checkoutLogs = ctx.recDao.findOperationLogs(t.toolCode, SC::OP_CHECKOUT, posKey, 10);
+    QJsonArray checkoutLogs = ctx.recDao.findOperationLogs(t.toolCode, common::operationTypeToString(common::OperationType::CheckOut), posKey, 10);
     QJsonArray checkoutRecords;
     for (const auto& log : checkoutLogs) {
         QJsonObject obj = log.toObject();
-        obj["type"] = SC::OP_CHECKOUT;
+        obj["type"] = common::operationTypeToString(common::OperationType::CheckOut);
         obj["status"] = "completed";
         // 从content解析出库原因
         QRegularExpression reReason("原因：(.+)");
@@ -361,10 +358,11 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
     for (int i = 0; i < allRecords.size(); ++i) {
         const QJsonObject& rec = allRecords[i];
         QString opType = rec["type"].toString();
+        const common::OperationType opTypeEnum = common::toOperationType(opType);
 
         // 操作人（借用/归还记录使用userName+workNo，入库/出库记录使用operator）
         QString operatorName;
-        if (opType == "borrow" || opType == "return") {
+        if (opTypeEnum == common::OperationType::Borrow || opTypeEnum == common::OperationType::Return) {
             QString userName = rec["userName"].toString();
             QString workNo = rec["userWorkNo"].toString();
             operatorName = userName.isEmpty() ? QStringLiteral("--")
@@ -385,13 +383,8 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
         recordTable->setItem(i, 1, new QTableWidgetItem(timeStr.isEmpty() ? QStringLiteral("--") : timeStr));
 
         // 操作类型标签（4种彩色）：借用橙/归还蓝/入库绿/出库红
-        QString typeText;
-        QString typeColor;
-        if (opType == "borrow") { typeText = QStringLiteral("借用"); typeColor = "#fa8c16"; }
-        else if (opType == "return") { typeText = QStringLiteral("归还"); typeColor = "#4da3ff"; }
-        else if (opType == SC::OP_CHECKIN) { typeText = QStringLiteral("入库"); typeColor = "#43a047"; }
-        else if (opType == SC::OP_CHECKOUT) { typeText = QStringLiteral("出库"); typeColor = "#e53935"; }
-        else { typeText = QStringLiteral("操作"); typeColor = "#999"; }
+        const QString typeText = common::operationTypeText(opType);
+        const QString typeColor = common::operationTypeColor(opType);
         auto* typeLabel = new QLabel(typeText);
         typeLabel->setAlignment(Qt::AlignCenter);
         typeLabel->setFixedSize(64, 26);
@@ -402,9 +395,9 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
 
         // 任务类型（借用=任务类型/借用原因，入库=供应商，出库=出库原因）
         QString remark;
-        if (opType == "borrow") remark = rec["borrowReason"].toString();
-        else if (opType == SC::OP_CHECKIN) remark = rec["supplier"].toString();
-        else if (opType == SC::OP_CHECKOUT) remark = rec["reason"].toString();
+        if (opTypeEnum == common::OperationType::Borrow) remark = rec["borrowReason"].toString();
+        else if (opTypeEnum == common::OperationType::CheckIn) remark = rec["supplier"].toString();
+        else if (opTypeEnum == common::OperationType::CheckOut) remark = rec["reason"].toString();
         else remark = QStringLiteral("--");
         recordTable->setItem(i, 3, new QTableWidgetItem(remark.isEmpty() ? QStringLiteral("--") : remark));
 
@@ -412,14 +405,30 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
         QString status = rec["status"].toString();
         QString statusText;
         QString statusColor;
-        if (opType == "borrow") {
-            if (status == SC::RECORD_BORROWING) { statusText = QStringLiteral("借用中"); statusColor = "#fa8c16"; }
-            else if (status == SC::RECORD_RETURNED) { statusText = QStringLiteral("已归还"); statusColor = "#43a047"; }
-            else if (status == SC::RECORD_OVERDUE) { statusText = QStringLiteral("已逾期"); statusColor = "#e53935"; }
-            else { statusText = status.isEmpty() ? QStringLiteral("--") : status; statusColor = "#999"; }
+        if (opTypeEnum == common::OperationType::Borrow) {
+            const common::BorrowStatus bs = common::toBorrowStatus(status);
+            switch (bs) {
+            case common::BorrowStatus::Borrowing:
+                statusText = QStringLiteral("借用中");
+                statusColor = QStringLiteral("#fa8c16");
+                break;
+            case common::BorrowStatus::Returned:
+                statusText = QStringLiteral("已归还");
+                statusColor = QStringLiteral("#43a047");
+                break;
+            case common::BorrowStatus::Overdue:
+                statusText = QStringLiteral("已逾期");
+                statusColor = QStringLiteral("#e53935");
+                break;
+            case common::BorrowStatus::Unknown:
+            default:
+                statusText = status.isEmpty() ? QStringLiteral("--") : status;
+                statusColor = QStringLiteral("#999999");
+                break;
+            }
         } else {
             statusText = QStringLiteral("已完成");
-            statusColor = "#43a047";
+            statusColor = QStringLiteral("#43a047");
         }
         auto* statusItem = new QTableWidgetItem(statusText);
         statusItem->setForeground(QColor(statusColor));
