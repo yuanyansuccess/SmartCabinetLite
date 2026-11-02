@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>普通用户工具借用归还流程设计图</title>
+<style>
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#f5f7fa; margin:0; padding:32px 40px; color:#333; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  h2 { font-size:19px; margin:36px 0 14px; color:#1a1a2e; border-left:5px solid #4da3ff; padding-left:10px; }
+  .meta { font-size:13px; color:#666; margin-bottom:8px; }
+  .legend { font-size:13px; color:#555; background:#fff; border:1px solid #e8e8e8; border-radius:10px; padding:10px 16px; margin:10px 0 18px; display:flex; gap:26px; flex-wrap:wrap; align-items:center; }
+  .legend span b { font-weight:600; }
+  .lg { display:inline-block; width:26px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px; }
+  .card { background:#fff; border:1px solid #e8e8e8; border-radius:14px; padding:20px; box-shadow:0 2px 10px rgba(20,40,80,.05); }
+  text { font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+  .node-title { font-size:14px; font-weight:700; fill:#fff; }
+  .node-sub { font-size:11px; fill:rgba(255,255,255,.85); }
+  .edge-label { font-size:11px; fill:#555; }
+  .branch-label { font-size:11px; font-weight:700; }
+  table.grid { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  table.grid th { background:#f8f9fb; border:1px solid #e0e0e0; padding:8px 10px; text-align:left; font-weight:700; }
+  table.grid td { border:1px solid #e8e8e8; padding:8px 10px; vertical-align:top; }
+  .note { font-size:12.5px; color:#555; background:#f0f7ff; border:1px solid #cfe3fb; border-radius:8px; padding:10px 14px; margin-top:10px; }
+  h3 { font-size:15px; margin:4px 0 10px; }
+</style>
+</head>
+<body>
+<h1>普通用户工具借用归还 — 正式流程设计（关柜后边缘机识别，与库内记录比对）</h1>
+<div class="meta">SmartCabinetLite · 2026-10-27 · V4 · 开柜前校验边缘机在线 + 8路摄像头周期帧状态，不OK返回主页 · 关柜后由下位机IO口「已关柜」信号触发识别 · 识别结果与库内在库记录比对 · 识别接口与出入库一致 · 全图只画目标态</div>
+
+<div class="legend">
+  <span><b>图例</b></span>
+  <span><span class="lg" style="background:#4da3ff"></span>主干流程</span>
+  <span><span class="lg" style="background:#52c41a"></span>成功归宿 / 零写库分支</span>
+  <span><span class="lg" style="background:#e74c3c"></span>拒绝 / 失败分支</span>
+  <span><span class="lg" style="background:#e67e22"></span>等待 / 超时 / 错放调整分支</span>
+  <span><span class="lg" style="background:#9aa7b8;border:1.5px dashed #5a6a80"></span>灰色虚线 = 本期不实现（超期未还，待系统组定）</span>
+</div>
+
+<h2>一、主流程图（普通用户借用归还）</h2>
+<div class="card">
+<svg id="flow" width="1150" height="1380" viewBox="0 0 1150 1380">
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6db4ff"/><stop offset="1" stop-color="#2e8ae6"/></linearGradient>
+    <linearGradient id="gGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7bd07b"/><stop offset="1" stop-color="#3da33d"/></linearGradient>
+    <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f27a6e"/><stop offset="1" stop-color="#c93a2c"/></linearGradient>
+    <linearGradient id="gOrange" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5a35c"/><stop offset="1" stop-color="#d97a1e"/></linearGradient>
+    <linearGradient id="gGray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa7b8"/><stop offset="1" stop-color="#7a8aa0"/></linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/></marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c93a2c"/></marker>
+    <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97a1e"/></marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3da33d"/></marker>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a3a6a" flood-opacity="0.18"/></filter>
+  </defs>
+
+  <g filter="url(#soft)">
+    <!-- 主干13步 -->
+    <rect x="420" y="30"   width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="126"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="318"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="414"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="510"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="606"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="702"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="798"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="894"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="990"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="1086"  width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="420" y="1182" width="270" height="56" rx="12" fill="url(#gGreen)"/>
+    <rect x="420" y="1278" width="270" height="56" rx="12" fill="url(#gGreen)"/>
+    <rect x="420" y="1374" width="270" height="56" rx="12" fill="url(#gGreen)"/>
+    <!-- 右侧分支 -->
+    <rect x="830" y="526" width="290" height="50" rx="12" fill="url(#gOrange)"/>
+    <rect x="830" y="856" width="290" height="64" rx="12" fill="url(#gOrange)"/>
+    <rect x="830" y="926" width="290" height="56" rx="12" fill="url(#gGray)" stroke="#5a6a80" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="830" y="1026" width="290" height="56" rx="12" fill="url(#gGreen)"/>
+    <rect x="830" y="1116" width="290" height="74" rx="12" fill="url(#gRed)"/>
+    <rect x="420" y="222" width="270" height="56" rx="12" fill="url(#gBlue)"/>
+    <rect x="60" y="222" width="300" height="56" rx="12" fill="url(#gRed)"/>
+    <!-- 左侧判定方案说明框 -->
+    <rect x="60" y="396" width="350" height="110" rx="12" fill="url(#gBlue)"/>
+  <g text-anchor="middle">
+    <text x="555" y="55"  class="node-title">① 登录（人脸 / 账号密码）</text>
+    <text x="555" y="74"  class="node-sub">普通用户身份进入</text>
+    <text x="555" y="151" class="node-title">② 功能导航主页，点「借用归还」</text>
+    <text x="555" y="170" class="node-sub">MenuHomePage 三卡片之一</text>
+    <text x="555" y="247" class="node-title">②.5 校验边缘机在线 + 8路摄像头状态</text>
+    <text x="555" y="266" class="node-sub">周期帧自检全 OK 才下发开锁指令</text>
+    <text x="555" y="343" class="node-title">③ 上位机向IO板下发开锁指令</text>
+    <text x="555" y="362" class="node-sub">向 IO 板下发开锁（含开柜调整的再次开锁，同一通道）</text>
+    <text x="555" y="439" class="node-title">④ 开柜提示页</text>
+    <text x="555" y="458" class="node-sub">本机组在库工具面板（真实读库）</text>
+    <text x="555" y="535" class="node-title">⑤ 用户开柜 → 取放 → 关柜</text>
+    <text x="555" y="554" class="node-sub">柜门已解锁，用户开柜取放、关柜</text>
+    <text x="555" y="631" class="node-title">⑥ 收到下位机IO口「已关柜」信号</text>
+    <text x="555" y="650" class="node-sub">关柜事件触发后续识别（接口同出入库）</text>
+    <text x="555" y="727" class="node-title">⑦ 下发识别请求 + 等待态</text>
+    <text x="555" y="746" class="node-sub">recognize_req · 正在核对柜内工具…</text>
+    <text x="555" y="823" class="node-title">⑧ 边缘机返回全柜实况清单</text>
+    <text x="555" y="842" class="node-sub">recognize_ack：各货位工具清单</text>
+    <text x="555" y="919" class="node-title">⑨ 比对：识别结果 vs 库内在库记录</text>
+    <text x="555" y="938" class="node-sub">在库而柜内无=借；借出回归=还；位置不符=错放</text>
+    <text x="555" y="1015" class="node-title">⑩ 生成借/还/告警清单（关柜清单页）</text>
+    <text x="555" y="1034" class="node-sub">借/还/告警三类清单（关柜清单页）</text>
+    <text x="555" y="1111" class="node-title">⑪ 无差异？</text>
+    <text x="555" y="1130" class="node-sub">本次无任何借还变动</text>
+    <text x="555" y="1207" class="node-title">⑫ 确认关闭 → 真实落库</text>
+    <text x="555" y="1226" class="node-sub">borrowTool/returnTool + 操作日志</text>
+    <text x="555" y="1303" class="node-title">⑬ 结果提示（本次借N件/还N件）</text>
+    <text x="555" y="1399" class="node-title">⑭ 会话结束，回功能导航主页</text>
+  </g>
+  <g text-anchor="middle">
+    <text x="975" y="548" class="node-title">识别超时（3秒×3次）</text>
+    <text x="975" y="566" class="node-sub">【重新核对】重发请求，不用开柜</text>
+    <text x="975" y="881" class="node-title">放错位置：警告 + 开柜调整</text>
+    <text x="975" y="900" class="node-sub">允许开柜调整（≤3次）</text>
+    <text x="975" y="916" class="node-sub">详见「二、开柜调整细节流程」</text>
+    <text x="975" y="951" class="node-title">超期未还（本期不实现）</text>
+    <text x="975" y="970" class="node-sub">待系统组定，不画入主流程</text>
+    <text x="975" y="1051" class="node-title">无差异：零写库直接结束</text>
+    <text x="975" y="1070" class="node-sub">本次无任何借还变动，回主页</text>
+    <text x="975" y="1148" class="node-title">核对失败：货位数量不一致</text>
+    <text x="975" y="1170" class="node-sub">弹警告，点击关闭即回首页</text>
+    <text x="975" y="1188" class="node-sub">本次不予识别 · 不写库 · 落告警日志</text>
+    <text x="235" y="428" class="node-title">判定方案（已确认）</text>
+    <text x="235" y="456" class="node-sub">关柜后边缘机识别全柜实况，</text>
+    <text x="235" y="476" class="node-sub">与库内在库记录比对得出借/还</text>
+    <text x="210" y="247" class="node-title">返回功能导航主页</text>
+    <text x="210" y="266" class="node-sub">(MenuHomePage)</text>
+    <text x="235" y="498" class="node-sub">接口与出入库一致（recognize_req/ack）</text>
+  </g>
+
+  <!-- 主干连线 -->
+  <g stroke="#7a8aa0" stroke-width="1.8" fill="none" marker-end="url(#arr)">
+    <path d="M555,90 L555,122"/>
+    <path d="M555,182 L555,218"/>
+    <path d="M555,278 L555,314"/>
+    <path d="M555,378 L555,410"/>
+    <path d="M555,474 L555,506"/>
+    <path d="M555,570 L555,602"/>
+    <path d="M555,666 L555,698"/>
+    <path d="M555,762 L555,794"/>
+    <path d="M555,858 L555,890"/>
+    <path d="M555,954 L555,986"/>
+    <path d="M555,1050 L555,1082"/>
+    <path d="M555,1146 L555,1178"/>
+    <path d="M555,1242 L555,1274"/>
+    <path d="M555,1338 L555,1370"/>
+  </g>
+  <path d="M420,250 L366,250" stroke="#c93a2c" stroke-width="1.8" fill="none" marker-end="url(#arrR)"/>
+  <text x="392" y="242" class="branch-label" fill="#c93a2c" text-anchor="middle">不OK</text>
+
+  <!-- 分支连线（正交折线，标签错开） -->
+  <path d="M690,626 L760,626 L760,551 L826,551" stroke="#d97a1e" stroke-width="1.6" fill="none" marker-end="url(#arrO)"/>
+  <path d="M830,566 L730,566 L730,641 L694,641" stroke="#d97a1e" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arrO)"/>
+  <text x="760" y="516" class="edge-label" fill="#d97a1e" text-anchor="middle">超时3秒×3次 → 【重新核对】重发（不用开柜）</text>
+  <path d="M690,836 L826,881" stroke="#d97a1e" stroke-width="1.6" fill="none" marker-end="url(#arrO)"/>
+  <text x="700" y="854" class="branch-label" fill="#d97a1e">错放</text>
+  <path d="M690,926 L826,954" stroke="#9aa7b8" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+  <text x="700" y="944" class="branch-label" fill="#8a97a8">超期</text>
+  <path d="M690,1018 L826,1054" stroke="#3da33d" stroke-width="1.6" fill="none" marker-end="url(#arrG)"/>
+  <text x="700" y="1036" class="branch-label" fill="#3da33d">无差异</text>
+  <path d="M690,950 L770,950 L770,1152 L826,1152" stroke="#c93a2c" stroke-width="1.8" fill="none" marker-end="url(#arrR)"/>
+  <text x="700" y="920" class="branch-label" fill="#c93a2c" text-anchor="middle">货位数量不一致</text>
+</svg>
+</div>
+<h2>二、开柜调整细节流程（错放 → 开柜调整≤3次 → 超限写库+错误日志+操作日志）</h2>
+<div class="card">
+<svg id="reopen" width="1020" height="1310" viewBox="0 0 1020 1310">
+  <defs>
+    <linearGradient id="dBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6db4ff"/><stop offset="1" stop-color="#2e8ae6"/></linearGradient>
+    <linearGradient id="dGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7bd07b"/><stop offset="1" stop-color="#3da33d"/></linearGradient>
+    <linearGradient id="dOrange" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5a35c"/><stop offset="1" stop-color="#d97a1e"/></linearGradient>
+    <linearGradient id="dGray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa7b8"/><stop offset="1" stop-color="#7a8aa0"/></linearGradient>
+    <marker id="dArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/></marker>
+    <filter id="dSoft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a3a6a" flood-opacity="0.18"/></filter>
+  </defs>
+
+  <g filter="url(#dSoft)">
+    <rect x="360" y="30"  width="300" height="64" rx="12" fill="url(#dOrange)"/>
+    <rect x="360" y="150" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="260" width="300" height="60" rx="12" fill="url(#dOrange)"/>
+    <rect x="360" y="380" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="480" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="580" width="300" height="64" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="700" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="800" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="900" width="300" height="56" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="1000" width="300" height="60" rx="12" fill="url(#dBlue)"/>
+    <rect x="360" y="1120" width="300" height="60" rx="12" fill="url(#dOrange)"/>
+    <rect x="360" y="1230" width="300" height="56" rx="12" fill="url(#dGreen)"/>
+    <rect x="740" y="270" width="260" height="50" rx="12" fill="url(#dOrange)"/>
+    <rect x="740" y="1130" width="260" height="50" rx="12" fill="url(#dGreen)"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="510" y="55"  class="node-title">结果页 · 发现错放（暂不写库）</text>
+    <text x="510" y="73"  class="node-sub">红字提示行"X货位有异常工具（工具 应放 位置）"</text>
+    <text x="510" y="175" class="node-title">用户点【开柜调整】</text>
+    <text x="510" y="193" class="node-sub">（另一出口【确认关闭，按当前实况写库】见主图⑪）</text>
+    <text x="510" y="283" class="node-title">轮次校验：本轮 N &lt; 3 ？</text>
+    <text x="510" y="301" class="node-sub">N 从 1 开始；第3轮仍错放则不允许再调整</text>
+    <text x="510" y="403" class="node-title">记第 N 轮调整日志</text>
+    <text x="510" y="421" class="node-sub">操作人 / 第几轮 / 待修正项清单（写操作日志）</text>
+    <text x="510" y="503" class="node-title">向 IO 板下发开锁指令</text>
+    <text x="510" y="521" class="node-sub">与首次开柜同一开锁通道</text>
+    <text x="510" y="603" class="node-title">开柜提示页：用户把工具放进正确货位</text>
+    <text x="510" y="621" class="node-sub">已修正项不列入，避免重复操作</text>
+    <text x="510" y="723" class="node-title">用户调整后关柜</text>
+    <text x="510" y="741" class="node-sub">整理中途又开柜 → 放弃本轮，回等关柜</text>
+    <text x="510" y="823" class="node-title">收到IO口已关柜信号 → 重发识别请求</text>
+    <text x="510" y="841" class="node-sub">超时（3秒×3次）→【重新核对】重发，不用开柜</text>
+    <text x="510" y="923" class="node-title">比对：全部货位（不只错放项）</text>
+    <text x="510" y="941" class="node-sub">与库内在库记录比对，防已修正项被被动过未发现</text>
+    <text x="510" y="1043" class="node-title">本轮结果</text>
+    <text x="510" y="1061" class="node-sub">全过 → 写库+成功日志；仍错放 → 记失败日志</text>
+    <text x="510" y="1153" class="node-title">整单写库 + 本轮成功日志（已修正）</text>
+    <text x="510" y="1171" class="node-sub">borrowTool/returnTool + 操作日志</text>
+    <text x="510" y="1253" class="node-title">写库 + 操作日志 → 成功结果页</text>
+    <text x="510" y="1271" class="node-sub">→ 成功结果页自动弹出</text>
+    <text x="870" y="290" class="node-title">已达 3 轮上限</text>
+    <text x="870" y="308" class="node-sub">转【确认关闭，按当前实况写库】兜底（主图⑪，记错误日志）</text>
+    <text x="870" y="1150" class="node-title">整单写库 + 本轮成功日志</text>
+    <text x="870" y="1168" class="node-sub">→ 成功结果页自动弹出</text>
+  </g>
+  <g stroke="#7a8aa0" stroke-width="1.8" fill="none" marker-end="url(#dArr)">
+    <path d="M510,94 L510,146"/>
+    <path d="M510,206 L510,256"/>
+    <path d="M510,320 L510,376"/>
+    <path d="M510,436 L510,476"/>
+    <path d="M510,536 L510,576"/>
+    <path d="M510,644 L510,696"/>
+    <path d="M510,756 L510,796"/>
+    <path d="M510,856 L510,896"/>
+    <path d="M510,956 L510,996"/>
+    <path d="M510,1060 L510,1116"/>
+    <path d="M510,1180 L510,1226" stroke="#52c41a"/>
+    <path d="M660,290 L736,290"/>
+    <path d="M660,1148 L736,1148" stroke="#52c41a"/>
+  </g>
+  <text x="525" y="1210" class="branch-label" fill="#52c41a">是</text>
+  <text x="668" y="283" class="branch-label" fill="#e67e22">否（N=3）</text>
+  <text x="668" y="1141" class="branch-label" fill="#52c41a">是</text>
+  <path d="M360,1150 L180,1150 L180,62 L356,62" stroke="#e67e22" stroke-width="1.8" fill="none" stroke-dasharray="6 4" marker-end="url(#dArr)"/>
+  <text x="190" y="1138" class="edge-label" fill="#e67e22">否：仍错放 → 记本轮失败日志 → 回结果页（红字清单更新）</text>
+  <text x="190" y="50" class="edge-label" fill="#e67e22">回到结果页·发现错放（用户可再次调整或按实况写库）</text>
+  <path d="M660,812 L600,812 L600,776 L360,776" stroke="#7a8aa0" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#dArr)"/>
+  <text x="580" y="770" class="edge-label" fill="#666">又开柜 → 放弃本轮识别，回"等关柜"</text>
+</svg>
+</div>
+<h2>三、时序图（关柜后由下位机IO口「已关柜」信号触发识别）</h2>
+<div class="card">
+<svg id="seq" width="1160" height="980" viewBox="0 0 1160 980">
+  <defs>
+    <marker id="sArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a8aa0"/></marker>
+    <marker id="sArrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3da33d"/></marker>
+    <marker id="sArrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97a1e"/></marker>
+    <filter id="sSoft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1a3a6a" flood-opacity="0.18"/></filter>
+  </defs>
+
+  <rect x="20" y="86"  width="1120" height="280" rx="8" fill="#f0f7ff"/>
+  <text x="34" y="320" font-size="12" font-weight="700" fill="#c93a2c">开柜提示页之前，先校验边缘机在线 + 8路摄像头周期帧状态：全 OK 才放行开柜，否则返回功能导航主页</text>
+  <rect x="20" y="376" width="1120" height="300" rx="8" fill="#fff7ec"/>
+  <rect x="20" y="686" width="1120" height="240" rx="8" fill="#f2fbf2"/>
+  <text x="34" y="106" font-size="12" font-weight="700" fill="#2e8ae6">阶段一 · 准备（开柜 → 取放 → 关柜）</text>
+  <text x="34" y="396" font-size="12" font-weight="700" fill="#d97a1e">阶段二 · 识别通信（关柜后触发，等待态，用户无感知等待）</text>
+  <text x="34" y="706" font-size="12" font-weight="700" fill="#3da33d">阶段三 · 写库与结果（含错放≤3次开柜调整）</text>
+
+  <g filter="url(#sSoft)">
+    <rect x="30"  y="26" width="120" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="230" y="26" width="180" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="500" y="26" width="120" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="700" y="26" width="180" height="44" rx="10" fill="url(#gBlue)"/>
+    <rect x="985" y="26" width="150" height="44" rx="10" fill="url(#gBlue)"/>
+  </g>
+  <g text-anchor="middle" class="node-title" font-size="14">
+    <text x="90"  y="53">普通用户</text>
+    <text x="320" y="53">借用归还会话页</text>
+    <text x="560" y="53">IO下位机</text>
+    <text x="790" y="53">边缘机 EdgeService</text>
+    <text x="1060" y="53">MySQL</text>
+  </g>
+  <g stroke="#c9d4e3" stroke-width="1.6" stroke-dasharray="4 5">
+    <line x1="90"  y1="70" x2="90"  y2="956"/>
+    <line x1="320" y1="70" x2="320" y2="956"/>
+    <line x1="560" y1="70" x2="560" y2="956"/>
+    <line x1="790" y1="70" x2="790" y2="956"/>
+    <line x1="1060" y1="70" x2="1060" y2="956"/>
+  </g>
+
+  <g stroke-width="1.8" fill="none">
+    <line x1="90" y1="140" x2="316" y2="140" stroke="#7a8aa0" marker-end="url(#sArr)"/>
+    <text x="203" y="132" class="edge-label" text-anchor="middle">点「借用归还」（登录后从主页进入）</text>
+    <line x1="316" y1="190" x2="94" y2="190" stroke="#7a8aa0" marker-end="url(#sArr)"/>
+    <text x="205" y="182" class="edge-label" text-anchor="middle">开柜提示页（本机组在库工具面板）</text>
+    <path d="M90,240 L90,256 L130,256 L130,240" stroke="#999" stroke-dasharray="6 4" marker-end="url(#sArr)"/>
+    <text x="152" y="252" class="edge-label" fill="#777">开柜（IO板开锁指令）/ 取放工具 / 关柜</text>
+    <line x1="560" y1="320" x2="324" y2="320" stroke="#2e8ae6" marker-end="url(#sArr)"/>
+    <text x="442" y="312" class="edge-label" text-anchor="middle" font-weight="700">上报「已关柜」信号</text>
+    <line x1="320" y1="440" x2="786" y2="440" stroke="#2e8ae6" marker-end="url(#sArr)"/>
+    <text x="553" y="432" class="edge-label" text-anchor="middle" font-weight="700">recognize_req（带 request_id，接口同出入库）</text>
+    <line x1="786" y1="490" x2="324" y2="490" stroke="#3da33d" marker-end="url(#sArrG)"/>
+    <text x="553" y="482" class="edge-label" text-anchor="middle" fill="#3da33d">recognize_ack：全柜实况清单</text>
+    <path d="M320,535 L320,551 L360,551 L360,535" stroke="#7a8aa0" marker-end="url(#sArr)"/>
+    <text x="382" y="547" class="edge-label">比对：识别结果 vs 库内在库记录（借/还/错放）</text>
+    <path d="M320,585 L320,601 L360,601 L360,585" stroke="#7a8aa0" marker-end="url(#sArr)"/>
+    <text x="382" y="597" class="edge-label" font-weight="700">全过(借/还)？无差异？错放？</text>
+    <path d="M300,610 L300,360 L316,360" stroke="#e67e22" stroke-dasharray="5 4" marker-end="url(#sArrO)"/>
+    <text x="310" y="348" class="edge-label" fill="#e67e22">错放 → 开柜调整第 N/3 轮（IO板开锁）→ 重识别</text>
+    <text x="310" y="364" class="edge-label" fill="#e67e22">（每轮记操作日志；也可主动【确认关闭，按实况写库】）</text>
+    <line x1="320" y1="740" x2="1056" y2="740" stroke="#3da33d" marker-end="url(#sArrG)"/>
+    <text x="688" y="732" class="edge-label" text-anchor="middle" fill="#3da33d">写库：borrowTool/returnTool + 操作日志（错放超限另记错误日志；无差异则跳过写库直接回主页）</text>
+    <line x1="316" y1="800" x2="94" y2="800" stroke="#3da33d" marker-end="url(#sArrG)"/>
+    <text x="205" y="792" class="edge-label" text-anchor="middle" fill="#3da33d">结果提示页（本次借N件/还N件）</text>
+    <line x1="316" y1="860" x2="94" y2="860" stroke="#3da33d" marker-end="url(#sArrG)"/>
+    <text x="205" y="852" class="edge-label" text-anchor="middle" fill="#3da33d">会话结束，回功能导航主页</text>
+    <path d="M790,455 L830,455 L830,415 L794,415" stroke="#e67e22" stroke-dasharray="5 4" marker-end="url(#sArrO)"/>
+    <text x="842" y="410" class="edge-label" fill="#e67e22">超时3秒×3次 →【重新核对】重发</text>
+  </g>
+</svg>
+</div>
+<h2>四、异常流程全清单（借用归还视角，穷举）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:120px;">阶段</th><th style="width:48px;">#</th><th>异常场景</th><th style="width:210px;">检测点</th><th>处理方式</th></tr>
+  <tr><td><b>A0 开柜前闸门</b><br/><span style="font-size:12px;color:#888;">开柜提示页前</span></td>
+      <td>0</td><td>边缘机离线 / 8路摄像头任一状态非 ok</td><td>②.5 闸门校验</td><td>提示异常并<b>返回功能导航主页</b>，不进入开柜环节（与出入库一致）</td></tr>
+  <tr><td rowspan="2"><b>A 识别通信</b><br/><span style="font-size:12px;color:#888;">关柜后</span></td>
+      <td>1</td><td>识别请求超时（3秒×3次重发全失败）</td><td>EdgeService 扫描器</td><td>等待态给【重新核对】重发请求，不用开柜</td></tr>
+  <tr><td>2</td><td>坏帧/半帧（JSON解析失败/超长）</td><td>EdgeLink 分帧层</td><td>链路层丢弃并计数，不上抛；页面无感（等同超时）</td></tr>
+  <tr><td rowspan="5"><b>B 比对判定</b><br/><span style="font-size:12px;color:#888;">识别结果 vs 库内</span></td>
+      <td>3</td><td>有借/还变动（全部通过）</td><td>比对结果</td><td>真实写库（borrowTool/returnTool）+ 操作日志，结果页</td></tr>
+  <tr><td>4</td><td>全部无差异</td><td>比对结果</td><td>零写库直接结束，回主页</td></tr>
+  <tr><td>5</td><td>放错位置 misplaced（A出现在B货位）</td><td>协议 misplaced 告警字段</td><td>结果页警告提示行"X货位有异常工具"；允许开柜调整（≤3次），超限才写库并记错误日志+操作日志（详见开柜调整细节）</td></tr>
+  <tr><td>6</td><td>未知物品 unknown（货位上有认不出的东西）</td><td>tool_id 为空</td><td>提示"X货位有无法识别物品"，该货位判异常</td></tr>
+  <tr><td>7</td><td>识别清单为空（边缘机未就绪/摄像头未覆盖）</td><td>ack items 为空</td><td>等同全部无差异（无法判断借还），进零写库分支</td></tr>
+  <tr><td rowspan="2"><b>D 用户操作</b><br/><span style="font-size:12px;color:#888;">交互过程</span></td>
+      <td>8</td><td>关柜不操作直接关（无借还）</td><td>比对结果</td><td>自然无差异 → 零写库</td></tr>
+  <tr><td>9</td><td>开柜调整中途又开柜（反悔）</td><td>开柜事件</td><td>放弃本轮识别，回"等关柜"</td></tr>
+  <tr><td><b>E 超期未还</b></td>
+      <td>10</td><td>借用超期未还提示 / 告警</td><td>借用记录 overdue 状态</td><td><span style="color:#c93a2c;">本期不实现，待系统组定</span>（不画入主流程，待方案明确后补）</td></tr>
+  <tr><td><b>F 写库</b></td>
+      <td>11</td><td>DB 断连 / 事务失败</td><td>service 返回 false</td><td>整体提示"写入失败请重试"，内存结果保留可重试（系统错不按用户未过处理）</td></tr>
+</table>
+<div class="note"><b>开柜前先校验</b>：边缘机在线 + 8路摄像头周期帧状态全 OK 才放行开柜提示页；任一异常则返回功能导航主页（MenuHomePage），本轮借用归还会话不进入开柜环节。开锁由上位机向 IO 板下发开锁指令；识别动作统一在关柜后发生——收到下位机IO口「已关柜」信号才下发 recognize_req（接口与出入库一致），把边缘计算机返回的全柜实况与库内在库记录比对，得出本次借用 / 归还 / 错放。
+超期未还（#11）本期不实现，待系统组方案明确后再补入主流程与异常清单。</div>
+</div>
+<h2>五、实现排期参考（每步当前代码事实，非流程内容）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:48px;">步</th><th style="width:200px;">节点</th><th>当前代码事实（基于源码）</th><th style="width:92px;">状态</th></tr>
+  <tr><td>①</td><td>登录</td><td>LoginPage 人脸 / 账号密码；MainWindow::onLoginSuccess 按 role 分流，普通用户进 enterMenuHomePage()</td><td><span class="tag t-ok">已实现</span></td></tr>
+  <tr><td>②</td><td>主页「借用归还」卡片</td><td>MenuHomePage 三卡片之一（kActionBorrowReturn）；MainWindow::onMenuCardClicked → startCabinetSession()</td><td><span class="tag t-ok">已实现</span></td></tr>
+  <tr><td>③</td><td>开柜提示页</td><td>CabinetSessionDialog::buildOpenPage + loadMyTaskTools() 真实读库本机组"任务类型+在库工具"面板</td><td><span class="tag t-ok">已实现</span></td></tr>
+  <tr><td>④</td><td>开柜/取放/关柜</td><td>UI 已有"关闭智能柜"按钮；IO 板开锁指令下发未接入</td><td><span class="tag t-new">部分</span></td></tr>
+  <tr><td>⑤</td><td>IO口「已关柜」信号</td><td>出入库侧以"我已关柜"按钮顶替关柜事件（onCabinetClosed 事件解耦），IO 事件帧定稿后无缝切换；借用归还会话未接入</td><td><span class="tag t-todo">未实现</span></td></tr>
+  <tr><td>⑥⑦</td><td>识别请求/返回</td><td>会话内无 recognize_req/ack 链路（出入库链路已有，可复用 EdgeService）</td><td><span class="tag t-todo">未实现</span></td></tr>
+  <tr><td>⑧⑨</td><td>比对与清单页</td><td>关柜清单页 UI 已实现（borrowed/returned/alerts 三区块）；比对逻辑（识别结果 vs 库内）未接入</td><td><span class="tag t-new">部分</span></td></tr>
+  <tr><td>⑩⑪</td><td>无差异判断与落库</td><td>onConfirmCloseClicked 仅 accept()，未调 BorrowService::borrowTool / ReturnService::returnTool / insertOperationLog</td><td><span class="tag t-todo">未实现</span></td></tr>
+  <tr><td>⑫⑬</td><td>结果提示与回主页</td><td>结果文案 UI 已有；accept() 后 MainWindow 回 MenuHomePage（页面常驻栈）</td><td><span class="tag t-new">部分</span></td></tr>
+  <tr><td>—</td><td>开柜调整细节（错放≤3次）</td><td>错放允许开柜调整、第3轮仍错放写库+错误日志+操作日志；当前会话无对应逻辑</td><td><span class="tag t-todo">未实现</span></td></tr>
+</table>
+</div>
+
+<h2>六、判定方案说明（已与袁总确认）</h2>
+<div class="card">
+<h3>开柜前：校验边缘机在线 + 8路摄像头状态（不OK返回主页）</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0 0 12px;">
+开柜提示页之前先校验<b>边缘机通信状态 + 8路摄像头周期帧状态</b>：二者全部 OK 才放行开柜提示页；任一异常（离线 / 摄像头非 ok）则提示用户并返回功能导航主页（MenuHomePage），本轮借用归还会话不进入开柜环节。
+开锁动作由上位机向 <b>IO 板下发开锁指令</b>完成（含开柜调整时的再次开锁，同一通道）。
+</p>
+<h3>关柜后：识别结果与库内在库记录比对</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0 0 12px;">
+不存在"开柜快照"。用户关柜后，上位机收到<b>下位机 IO 口上报的「已关柜」信号</b>，随后向边缘计算机下发识别指令
+（recognize_req，<b>接口与出入库一致</b>），边缘机返回全柜实况清单（recognize_ack）。
+比对对象是<b>库内在库记录</b>，比对口径：库内在库而柜内没有 = 借用；借出记录对应的工具回到柜内 = 归还；位置与库内登记不符 = 告警（错放）。
+借用/归还真实落库分别走 <code>BorrowService::borrowTool</code> / <code>ReturnService::returnTool</code>，并写操作日志；错放超限（第3次仍错放）额外记错误日志。
+</p>
+<h3>错放处理（开柜调整）</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0 0 12px;">
+发现错放后：结果页给出警告提示行，允许用户<b>开柜调整（最多3次）</b>——每次调整向上位机 IO 板下发开锁指令开柜，调整后关柜重新识别比对、记操作日志；
+第3轮仍错放则不再允许调整，按当前实况写库并记<b>错误日志 + 操作日志</b>。详细流程见「二、开柜调整细节流程」。
+</p>
+<h3>本期范围说明</h3>
+<p style="font-size:13.5px;line-height:1.7;margin:0;">
+本期只产出本流程图 HTML，<b>不改动任何 C++ 代码</b>。主UI（MainWindow / MenuHomePage / CabinetSessionDialog）保持现状。
+图中不体现任何演示假数据相关内容。<b>超期未还（#11）本期不实现</b>，待系统组方案明确后再补入主流程与异常清单。
+</p>
+</div>
+</body>
+</html>

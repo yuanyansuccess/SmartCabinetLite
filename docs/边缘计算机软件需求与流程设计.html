@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>边缘计算机软件 · 需求卡片与流程设计</title>
+<style>
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#eef1f6; color:#333; margin:0; padding:28px 20px 70px; }
+  .wrap { max-width:1220px; margin:0 auto; }
+  h1 { font-size:26px; color:#1a1a2e; margin:6px 0 10px; }
+  h2 { font-size:20px; margin:44px 0 14px; color:#1a1a2e; border-left:5px solid #4da3ff; padding-left:10px; }
+  h3 { font-size:16px; margin:22px 0 10px; color:#2b3850; }
+  .card { background:#fff; border-radius:14px; padding:16px 18px; box-shadow:0 2px 10px rgba(30,50,90,.08); overflow-x:auto; }
+  .note { background:#f0f7ff; border-left:4px solid #4da3ff; padding:10px 14px; border-radius:8px; font-size:14px; margin:12px 0; line-height:1.75; }
+  .warnbox { background:#fff7ec; border-left:4px solid #d97a1e; padding:10px 14px; border-radius:8px; font-size:14px; margin:12px 0; line-height:1.75; }
+  .danger { background:#fdf1f0; border-left:4px solid #c74438; padding:10px 14px; border-radius:8px; font-size:14px; margin:12px 0; line-height:1.85; }
+  table.grid { border-collapse:collapse; width:100%; font-size:13.5px; }
+  .grid th { background:#2b3850; color:#fff; padding:9px 12px; text-align:left; white-space:nowrap; }
+  .grid td { border:1px solid #e4e9f2; padding:8px 12px; vertical-align:top; line-height:1.65; }
+  .grid tr:nth-child(even) td { background:#f7f9fc; }
+  .cards { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .cards.three { grid-template-columns:repeat(3,1fr); }
+  .rcard { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(30,50,90,.08); padding:13px 16px; border-top:4px solid #4da3ff; }
+  .rcard.gB { border-top-color:#3da33d; }
+  .rcard.gC { border-top-color:#d97a1e; }
+  .rcard.gD { border-top-color:#2b3850; }
+  .rcard h4 { margin:2px 0 8px; font-size:15px; color:#1a1a2e; }
+  .rcard .row { font-size:13px; margin:4px 0; line-height:1.7; }
+  .rcard b.k { color:#2e7bd6; }
+  .rowflex { display:flex; gap:16px; align-items:stretch; }
+  .rowflex > .card { flex:1; min-width:560px; }
+  svg text { font-family:inherit; }
+  .node-title { fill:#fff; font-size:14px; font-weight:700; }
+  .node-sub { fill:#e8eefc; font-size:12px; }
+  .edge-label { font-size:12px; fill:#55647e; }
+  #selfcheck { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>边缘计算机软件 · 需求卡片与流程设计</h1>
+<div class="note">文档目的：给边缘计算机软件开发组一份「做什么、怎么算做好」的完整清单，新人读完即可明确职责边界与验收口径。<br>
+依据：上位机现行通信代码（CommTypes.h / EdgeService，帧名与参数完全一致）、《出入库边缘机识别流程设计图》V4、边缘机模拟器现行行为。编制：袁燕 · 2026-10-25（同日二轮完善：RTSP 拍板落地、新增 F6/F7/F8 异常流程图与 E21~E32 异常项）。</div>
+
+<h2>一、系统定位：边缘计算机在整个系统里的位置</h2>
+<div class="card" id="dg-topo"></div>
+<div class="note">范围声明：柜内工具的视觉识别与图像处理由边缘计算机承担；人脸识别（特征提取、方位检测）部署在上位机侧；数据库、台账、出入库业务判断也都在上位机侧——边缘计算机不碰业务库，只做「通信、识别、控制」三件事并如实上报。</div>
+
+<h2>二、边缘计算机要做的三件事（总纲）</h2>
+<div class="cards three">
+  <div class="rcard">
+    <h4>① 通信：让上位机随时知道你活着</h4>
+    <div class="row">作为 TCP 客户端主动连接上位机（服务端，端口 9000）；</div>
+    <div class="row">每 3 秒发一帧 periodic 心跳，携带 8 路摄像头自检状态；</div>
+    <div class="row">收到请求必须回应：要么回结果、要么回失败，禁止沉默；</div>
+    <div class="row">断线按退避序列自动重连，恢复后补报缓存事件。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>② 识别：如实上报柜内每一格有什么</h4>
+    <div class="row">8 路摄像头（CAM1~CAM8）采集货位画面；</div>
+    <div class="row">收到 recognize_req 后逐货位检测识别（类别 + 置信度）；</div>
+    <div class="row">组装全柜实况清单 recognize_ack，字段一律带全；</div>
+    <div class="row">判定错放 / 未知物 / 缺失 / 置信度不足并给出级别。</div>
+  </div>
+  <div class="rcard gC">
+    <h4>③ 控制：真的开锁、真的知道门关没关</h4>
+    <div class="row">作为 Modbus TCP 主站驱动 IO 下位机；</div>
+    <div class="row">收到 open_req 后开锁，必须拿到 IO 回执才算成功；</div>
+    <div class="row">门磁输入点去抖后产生「柜门已关」事件上报，触发识别；</div>
+    <div class="row">IO 板离线时开锁请求直接拒绝，绝不假装执行。</div>
+  </div>
+</div>
+<div class="danger"><b>三条铁律（评审与验收按此三条一票否决）：</b><br>
+1）<b>如实上报</b>——自检不造假、开锁不假成功、识别不用旧帧冒充：任何「假成功」都是最高级事故；<br>
+2）<b>必须回应</b>——上位机应答超时 3 秒、最多重发 2 次，沉默等于用户在界面白等 9 秒；<br>
+3）<b>断线自愈</b>——断网自己按 1/2/4/8/16/30 秒退避重连，断连期间事件本地缓存，恢复后自动补报且不重复。
+</div>
+<h2>三、与上位机的协议对齐表（开发必背）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:170px;">帧类型 type</th><th style="width:130px;">方向</th><th style="width:170px;">时机 / 频率</th><th>关键字段</th><th style="width:270px;">开发要点</th></tr>
+  <tr><td><b>periodic</b></td><td>边缘机 &#8594; 上位机</td><td>每 3 秒</td><td>uptime_sec（本次启动累计秒数）；cameras[{camera_id, status}]</td><td>心跳兼自检上报；上位机 15 秒收不到即判离线（TC-05），期间禁止一切出入库</td></tr>
+  <tr><td><b>open_req</b></td><td>上位机 &#8594; 边缘机</td><td>用户确认出入库 / 重开柜整理</td><td>request_id、timestamp</td><td>触发开锁；同一 request_id 绝不二次执行</td></tr>
+  <tr><td><b>open_ack</b></td><td>边缘机 &#8594; 上位机</td><td>开锁执行后</td><td>request_id、success、message</td><td>success=true 的唯一前提是拿到 IO 回执；失败必须带人读原因</td></tr>
+  <tr><td><b>recognize_req</b></td><td>上位机 &#8594; 边缘机</td><td>收到关柜信号后</td><td>request_id、timestamp</td><td>触发全柜识别；重复请求去重</td></tr>
+  <tr><td><b>recognize_ack</b></td><td>边缘机 &#8594; 上位机</td><td>识别完成后</td><td>request_id；items[] 每项必须带全：position / tool_id / class_id / confidence / alert_type / alert_level / present</td><td>字段禁止时有时无（协议 3.3 规整约定）；present=false 表示该货位未被扫到，缺失判定靠它</td></tr>
+  <tr><td><b>version_query / version_ack</b></td><td>双向</td><td>连接后 / 验收留痕</td><td>version</td><td>上报边缘机软件版本号</td></tr>
+</table>
+</div>
+<div class="note"><b>通用规则（协议第 3.6 / 5 / 6 章）：</b>应答超时 3 秒、最多重发 2 次（首发 + 2 次重发，request_id 不变）；request_id 配对，同一请求的重复回应只算一次；单帧上限 1MB；链路离线时上位机禁止下发任何请求；断链恢复后上位机对失败请求按原 id 自动补发一次。</div>
+<div class="note"><b>取值字典：</b>alert_type：none 正常 / misplaced 错放 / unknown 未知物 / missing 缺失 / low_confidence 置信度不足；alert_level：0 无 / 1 提示 / 2 一般 / 3 严重；摄像头状态 status：ok / offline / low_light / dirty / comm_error；present：true=扫到该货位，false=未覆盖未扫到。</div>
+<h2>四、边缘计算机软件功能架构图</h2>
+<div class="card" id="dg-arch"></div>
+
+<h2>五、需求卡片（22 张，按开发组分工）</h2>
+<div class="note">每张卡回答五个问题：做什么、输入、输出、关键规则、怎么算验收。卡片编号即任务编号，可直接用于排期与评审。</div>
+
+<h3>A 组 · 通信与协议（6 张）</h3>
+<div class="cards">
+  <div class="rcard">
+    <h4>A1 · TCP 客户端连接与断线重连</h4>
+    <div class="row"><b class="k">做什么：</b>作为 TCP 客户端主动连接上位机（服务端，端口 9000），断开后自动重连。</div>
+    <div class="row"><b class="k">输入：</b>上位机 IP、端口（本地配置文件）。</div>
+    <div class="row"><b class="k">输出：</b>可用的 TCP 链路。</div>
+    <div class="row"><b class="k">关键规则：</b>退避序列 1/2/4/8/16/30 秒封顶循环；同一时刻只保持一条连接；重连成功后先发一帧 periodic。</div>
+    <div class="row"><b class="k">异常与边界：</b>连接被拒、超时、网络不可达一律走退避，禁止无间隔狂连刷日志。</div>
+    <div class="row"><b class="k">验收标准：</b>拔网线恢复后 30 秒内自动重连成功；日志可查每次尝试。</div>
+  </div>
+  <div class="rcard">
+    <h4>A2 · 周期帧心跳（periodic）</h4>
+    <div class="row"><b class="k">做什么：</b>每 3 秒发送一帧 periodic：运行时长 + 8 路摄像头自检状态。</div>
+    <div class="row"><b class="k">输入：</b>摄像头自检结果、运行时长。</div>
+    <div class="row"><b class="k">输出：</b>periodic JSON 帧。</div>
+    <div class="row"><b class="k">关键规则：</b>间隔 3 秒、帧不能停（15 秒未达上位机即判离线）；自检未启用时 cameras 可为空，帧照发。</div>
+    <div class="row"><b class="k">异常与边界：</b>发送失败等同断链，立即转入重连流程。</div>
+    <div class="row"><b class="k">验收标准：</b>上位机每 3 秒收到一条；停发 15 秒后上位机告警离线（与模拟器行为一致）。</div>
+  </div>
+  <div class="rcard">
+    <h4>A3 · 帧编解码与可靠性</h4>
+    <div class="row"><b class="k">做什么：</b>长度前缀分帧 + JSON 解析，坏帧丢弃并计数。</div>
+    <div class="row"><b class="k">输入：</b>TCP 字节流。</div>
+    <div class="row"><b class="k">输出：</b>合法 JSON 帧。</div>
+    <div class="row"><b class="k">关键规则：</b>单帧上限 1MB；粘包、半包正确拆包；解析失败、超长、未知类型一律丢弃 + 计数 + 日志，不影响后续帧。</div>
+    <div class="row"><b class="k">验收标准：</b>注入半帧、粘包、超长帧、非法 JSON：不崩溃、不误执行。</div>
+  </div>
+  <div class="rcard">
+    <h4>A4 · 请求配对与去重（request_id）</h4>
+    <div class="row"><b class="k">做什么：</b>以 request_id 配对请求与回应，同一请求只执行一次。</div>
+    <div class="row"><b class="k">输入：</b>open_req / recognize_req。</div>
+    <div class="row"><b class="k">输出：</b>携带原 request_id 的应答。</div>
+    <div class="row"><b class="k">关键规则：</b>处理前先查在途与已完成表；重复请求回缓存结果或明确拒绝；回应必须带原 request_id。</div>
+    <div class="row"><b class="k">异常与边界：</b>重复的 open_req 绝不二次开锁（安全红线）。</div>
+    <div class="row"><b class="k">验收标准：</b>同一 open_req 连发两次，只执行一次开锁。</div>
+  </div>
+  <div class="rcard">
+    <h4>A5 · 版本应答（version_query / version_ack）</h4>
+    <div class="row"><b class="k">做什么：</b>收到版本查询后回 version_ack，携带软件版本号。</div>
+    <div class="row"><b class="k">输出：</b>version_ack（version 字段）。</div>
+    <div class="row"><b class="k">验收标准：</b>上位机能取到版本号并留痕，用于验收与现场排查。</div>
+  </div>
+  <div class="rcard">
+    <h4>A6 · 断连期间缓存与补报</h4>
+    <div class="row"><b class="k">做什么：</b>断连期间产生的柜门关闭等事件本地缓存，恢复连接后按序补报。</div>
+    <div class="row"><b class="k">关键规则：</b>缓存带上发生时间、有条数上限防撑爆内存；补报不重复（与实时上报同一去重口径）。</div>
+    <div class="row"><b class="k">验收标准：</b>断网期间关柜、恢复网络后，上位机能收到补报事件且仅一次。</div>
+  </div>
+</div>
+<h3>B 组 · 视频与识别（6 张）</h3>
+<div class="cards">
+  <div class="rcard gB">
+    <h4>B1 · 多路视频采集（RTSP，已拍板）</h4>
+    <div class="row"><b class="k">做什么：</b>对 8 路网络摄像头（CAM1~CAM8）RTSP 拉流，每路独立会话取流。</div>
+    <div class="row"><b class="k">关键规则：</b>单路断流按 5/10/30 秒退避自动重连，不影响其他路；码流格式（H.264/H.265）会话协商确认，解码器不支持即置 comm_error 上报。</div>
+    <div class="row"><b class="k">验收标准：</b>拔掉任一路网线，其余路照常出图；恢复后该路自动回流。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>B2 · 解码与抽帧（RTSP）</h4>
+    <div class="row"><b class="k">做什么：</b>RTP 解包 + 解码，识别时取每路「当前帧」。</div>
+    <div class="row"><b class="k">关键规则：</b>解码队列只保留最新画面——网络抖动积压时强制跳到最新关键帧；识别结果必须反映关柜那一刻的现场，禁止用积压旧帧。</div>
+    <div class="row"><b class="k">验收标准：</b>人为制造网络抖动，识别用帧仍与现场实际摆放一致。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>B3 · 工具检测与分类（模型推理）</h4>
+    <div class="row"><b class="k">做什么：</b>目标检测 + 分类模型，输出目标框、类别、置信度。</div>
+    <div class="row"><b class="k">输入：</b>视频帧。</div>
+    <div class="row"><b class="k">输出：</b>货位上工具的 class_id、confidence。</div>
+    <div class="row"><b class="k">关键规则：</b>模型文件启动时校验，缺失或损坏则自检失败、拒绝识别请求。</div>
+    <div class="row"><b class="k">验收标准：</b>对在册工具样本识别稳定，置信度可解释。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>B4 · 货位结果聚合与告警判定</h4>
+    <div class="row"><b class="k">做什么：</b>检测目标按「货位-摄像头映射」聚合成全柜实况清单。</div>
+    <div class="row"><b class="k">输出：</b>每货位 7 个字段一律带全：position / tool_id / class_id / confidence / alert_type / alert_level / present。</div>
+    <div class="row"><b class="k">判定规则：</b>有物但类别不符&#8594;misplaced；有物认不出&#8594;unknown；置信度低于阈值&#8594;low_confidence；货位没被扫到&#8594;present=false（缺失由上位机判定）。</div>
+    <div class="row"><b class="k">验收标准：</b>与模拟器内置场景逐一对拍：正常 / 有借有还 / 错放 / 未知物 / 置信度不足 / 缺失，字段口径完全一致。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>B5 · 识别请求执行（recognize_req 处理）</h4>
+    <div class="row"><b class="k">做什么：</b>收到识别请求后执行全柜扫描，组装清单回 recognize_ack。</div>
+    <div class="row"><b class="k">关键规则：</b>去重先行（A4）；单次识别期间再来的请求按忙处理；全程设处理超时兜底——超上限立即回失败帧，禁止沉默。</div>
+    <div class="row"><b class="k">性能目标（已拍板）：</b>全流程 3 秒内给结果——与上位机应答超时对齐，超时立即回失败帧。</div>
+    <div class="row"><b class="k">验收标准：</b>正常 3 秒内回包；造超时场景仍能收到失败帧而非无响应。</div>
+  </div>
+  <div class="rcard gB">
+    <h4>B6 · 摄像头自检与状态上报</h4>
+    <div class="row"><b class="k">做什么：</b>每路自检状态（ok / offline / low_light / dirty / comm_error）随 periodic 上报，状态变化即时反映在下一帧。</div>
+    <div class="row"><b class="k">安全红线：</b>自检必须真实——上位机以「任一路非 ok 即禁止开柜」为安全闸门，恒报 ok 等于替现场拆掉闸门。</div>
+    <div class="row"><b class="k">验收标准：</b>人为遮挡一路，下一帧周期帧即见对应异常状态。</div>
+  </div>
+</div>
+<h3>C 组 · IO 控制（4 张）</h3>
+<div class="warnbox">IO 板硬件尚未到位（2026-10-25 拍板）：本组 4 张卡软件先行——按协议桩开发，联调期用 Modbus 模拟器代替真实 IO 板（开锁线圈 / 门磁点位可配置模拟）；真实点位表到位后只改配置与地址，不改架构。</div>
+<div class="cards">
+  <div class="rcard gC">
+    <h4>C1 · IO 板连接与自检</h4>
+    <div class="row"><b class="k">做什么：</b>作为 Modbus TCP 主站连接 IO 下位机，持续维护连接状态。</div>
+    <div class="row"><b class="k">关键规则：</b>断线即时感知并记日志；开锁前必查 IO 在线。</div>
+    <div class="row"><b class="k">验收标准：</b>断开 IO 板网线，边缘机 1 秒内感知并记录。</div>
+  </div>
+  <div class="rcard gC">
+    <h4>C2 · 开锁控制（open_req 处理）</h4>
+    <div class="row"><b class="k">做什么：</b>收到开锁请求后驱动 IO 板开锁，回 open_ack（success / message）。</div>
+    <div class="row"><b class="k">关键规则：</b>写线圈后必须等 IO 回执或状态确认才算成功；失败重试最多 3 次后如实回失败；重复 request_id 拒绝执行。</div>
+    <div class="row"><b class="k">安全红线：</b>未收到 IO 回执，绝不回报「已开锁」。</div>
+    <div class="row"><b class="k">验收标准：</b>正常开锁 success=true；拔掉 IO 网线后请求得到明确的失败回应。</div>
+  </div>
+  <div class="rcard gC">
+    <h4>C3 · 柜门检测与关柜事件</h4>
+    <div class="row"><b class="k">做什么：</b>门磁输入点判定柜门状态，去抖后产生「柜门已关」事件上报上位机，触发识别。</div>
+    <div class="row"><b class="k">关键规则：</b>去抖（连续多次采样一致才认定）；断连期间走缓存补报（A6）；同一次关柜只报一次。</div>
+    <div class="row"><b class="k">当前衔接：</b>上位机现有版本以「我已关柜」按钮顶替该事件，事件帧为交付目标，帧名与字段以协议定稿为准。</div>
+    <div class="row"><b class="k">验收标准：</b>关柜后上位机能稳定收到一次（且仅一次）关柜事件。</div>
+  </div>
+  <div class="rcard gC">
+    <h4>C4 · IO 板状态监测</h4>
+    <div class="row"><b class="k">做什么：</b>IO 板在线状态持续监测，异常随日志与事件反映。</div>
+    <div class="row"><b class="k">关键规则：</b>IO 离线时开锁类请求快速失败（fail-fast）：立即回明确失败原因，不假装执行、不让上位机干等超时。</div>
+    <div class="row"><b class="k">验收标准：</b>IO 离线期间收到 open_req，立即收到失败回应而非超时。</div>
+  </div>
+</div>
+
+<h3>D 组 · 系统与运维（6 张）</h3>
+<div class="cards">
+  <div class="rcard gD">
+    <h4>D1 · 启动自检</h4>
+    <div class="row"><b class="k">做什么：</b>上电自启后逐项自检：配置、网络、IO 板、8 路摄像头、识别模型、连接上位机。</div>
+    <div class="row"><b class="k">关键规则：</b>自检结果决定能力开关——IO 失败=禁止开锁；部分摄像头失败=对应路 offline 上报；模型失败=拒绝识别；任何一项失败不阻断其余模块启动。</div>
+    <div class="row"><b class="k">验收标准：</b>逐项拔硬件冷启动，自检结果与实际一致。</div>
+  </div>
+  <div class="rcard gD">
+    <h4>D2 · 配置管理</h4>
+    <div class="row"><b class="k">做什么：</b>本地配置文件管理：上位机 IP / 端口、IO 板地址、货位-摄像头映射、识别阈值、日志目录。</div>
+    <div class="row"><b class="k">关键规则：</b>货位-摄像头映射必须与上位机台账一致（全柜覆盖识别的基础）；口令、密钥不明文落盘。</div>
+    <div class="row"><b class="k">验收标准：</b>修改映射后识别范围随之变化，无需改代码。</div>
+  </div>
+  <div class="rcard gD">
+    <h4>D3 · 日志</h4>
+    <div class="row"><b class="k">做什么：</b>通信日志（关键帧收发）、识别日志（每次清单与耗时）、异常日志；本地滚动清理。</div>
+    <div class="row"><b class="k">关键规则：</b>时间戳与 NTP 对齐，可与上位机日志对账；磁盘写满时滚动覆盖，业务不受影响。</div>
+    <div class="row"><b class="k">验收标准：</b>任一次识别可凭日志还原「请求、采集、回应」全过程。</div>
+  </div>
+  <div class="rcard gD">
+    <h4>D4 · 守护与自启（Linux systemd）</h4>
+    <div class="row"><b class="k">做什么：</b>systemd 服务托管：崩溃自动拉起、开机自启、断电恢复后自动回到工作状态。</div>
+    <div class="row"><b class="k">关键规则：</b>Restart=always；启动失败有明确日志可查。</div>
+    <div class="row"><b class="k">验收标准：</b>kill -9 后 5 秒内自动恢复并重连上位机。</div>
+  </div>
+  <div class="rcard gD">
+    <h4>D5 · 时间同步（NTP）</h4>
+    <div class="row"><b class="k">做什么：</b>与内网 NTP 源校时。</div>
+    <div class="row"><b class="k">关键规则：</b>识别时间、日志时间与上位机可对齐——现场对账、排查纠纷的依据。</div>
+    <div class="row"><b class="k">验收标准：</b>与上位机时间偏差在 1 秒内。</div>
+  </div>
+  <div class="rcard gD">
+    <h4>D6 · 交付与部署</h4>
+    <div class="row"><b class="k">做什么：</b>Linux 环境整包交付：程序 + 配置 + 模型 + 视频卡驱动 + 部署文档；版本号接入 version_ack。</div>
+    <div class="row"><b class="k">关键规则：</b>交付前在目标硬件上完成全流程联调（连接、开锁、识别、断线自愈）。</div>
+    <div class="row"><b class="k">验收标准：</b>全新设备按文档 30 分钟内部署完成并通过自检。</div>
+  </div>
+</div>
+<h2>六、关键流程图</h2>
+<div class="note">深色渐变=正常步骤，橙色=判定或告警分支，绿色=成功出口，灰色虚线=外部硬件 / 待协议定稿，红色=安全红线。</div>
+
+<h3>F1 · 启动自检流程</h3>
+<div class="card" id="dg-f1"></div>
+
+<h3>F2 · 通信主循环与断线自愈</h3>
+<div class="rowflex">
+  <div class="card" id="dg-f2a"></div>
+  <div class="card" id="dg-f2b"></div>
+</div>
+
+<h3>F3 · 识别业务流程（recognize_req 处理）</h3>
+<div class="card" id="dg-f3"></div>
+<div class="danger"><b>超时兜底红线：</b>识别全程设处理上限（建议与上位机口径对齐：3 秒内必须给结果），超过上限立即回失败帧——「沉默不回应」会让上位机按 3 秒 &#215; 3 次重发白等 9 秒，用户界面长时间停留在「正在核对柜内工具」。</div>
+
+<h3>F4 · 开锁控制流程（open_req 处理）</h3>
+<div class="card" id="dg-f4"></div>
+<div class="danger"><b>开锁红线：</b>未收到 IO 板回执，绝不回报「已开锁」。开锁假成功 = 用户以为柜门开了实际没开，或实际开了系统却不知道，属于最高级事故。</div>
+
+<h3>F5 · 柜门关闭事件流程（触发识别的源头）</h3>
+<div class="card" id="dg-f5"></div>
+<div class="note">衔接说明：上位机现有版本以「我已关柜」按钮顶替本事件；事件帧（帧名、字段）以协议定稿为准，上位机侧已按事件入口解耦，切换时上位机页面无需改动。</div>
+
+<h3>F6 · RTSP 视频链路流程（每路独立，已拍板网络摄像头）</h3>
+<div class="card" id="dg-f6"></div>
+<div class="warnbox">RTSP 专属异常（视频链路不通不等于整机故障）：拉流失败按 5/10/30 秒退避重连该路；解码器不支持码流格式（如 H.265）置 comm_error 上报人工排查；网络抖动导致解码队列积压时强制跳最新关键帧——宁可丢旧帧，绝不用积压旧帧识别；黑屏 / 花屏 / 冻结帧由画面异常监测捕捉置 dirty。单路故障只影响该路货位，其余路照常。</div>
+
+<h3>F7 · 识别时机与画面质量闸门（拍空柜、边界误判的防线）</h3>
+<div class="card" id="dg-f7"></div>
+<div class="warnbox">识别前先过质量闸门：门磁防御式复核（柜门没关收到识别请求，回失败而不是照拍——防止拍空柜、拍到人手）；关柜后画面可能还在晃（门弹跳、工具没放稳、灯光突变），稳定期 1~2 秒 + 连续多帧一致才采信；单货位检测到多个目标（工具叠放）取最高置信度并如实标注。</div>
+
+<h3>F8 · 上电恢复与开锁幂等保护（崩溃 / 断电重启后防二次开锁）</h3>
+<div class="card" id="dg-f8"></div>
+<div class="danger">高危场景（必须实现）：边缘机在「写完开锁线圈、还没回 open_ack」的瞬间崩溃——上位机收不到回应，链路恢复后会按原 request_id 补发。重启后的边缘机内存登记表已清空，若把这条补发请求当新请求重新执行，就是<b>二次开锁</b>。防线：开锁类请求执行前先落盘登记，重启后读到未完成的开锁请求，必须先查 IO 锁状态——已开只补回执；状态未知拒绝重发、报人工确认。</div>
+<h2>七、关键时序图</h2>
+
+<h3>S1 · 正常出入库全链路时序（边缘机视角）</h3>
+<div class="card" id="dg-s1"></div>
+
+<h3>S2 · 心跳、离线判定与断线自愈时序</h3>
+<div class="card" id="dg-s2"></div>
+<div class="note">离线判定口径（与上位机一致）：周期帧停发 15 秒判离线（TC-05，1 秒扫描一次）；TCP 断开立即判离线（TC-22）。两条路径都只在状态翻转时各告警一次，恢复也只报一次。</div>
+
+<h3>S3 · 识别超时与重发时序（request_id 去重）</h3>
+<div class="card" id="dg-s3"></div>
+<h2>八、异常场景清单（边缘机视角，32 项）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:52px;">#</th><th style="width:70px;">类别</th><th style="width:220px;">场景</th><th>边缘机正确行为</th><th style="width:250px;">禁止的做法</th></tr>
+  <tr><td>E01</td><td>网络</td><td>上位机未开机 / 端口未监听</td><td>按退避序列重连；本地自检与日志照常运行</td><td>无间隔狂连，日志刷屏</td></tr>
+  <tr><td>E02</td><td>网络</td><td>运行中网络闪断</td><td>停周期帧，退避重连；恢复后补报缓存事件</td><td>以为还在线继续发帧</td></tr>
+  <tr><td>E03</td><td>协议</td><td>坏帧 / 半帧 / 粘包</td><td>分帧容错，坏帧丢弃并计数</td><td>解析崩溃或误执行</td></tr>
+  <tr><td>E04</td><td>协议</td><td>收到未知 type 帧</td><td>丢弃 + 计数 + 日志，继续处理后续帧</td><td>整机重启或丢弃所有后续帧</td></tr>
+  <tr><td>E05</td><td>协议</td><td>同一 request_id 重复请求</td><td>去重：回缓存结果或明确拒绝</td><td>对 open_req 二次开锁（安全事故）</td></tr>
+  <tr><td>E06</td><td>业务</td><td>识别进行中又来识别请求</td><td>忙判定：明确回应忙或排队，一次只跑一套识别</td><td>并发跑两套识别互相污染结果</td></tr>
+  <tr><td>E07</td><td>业务</td><td>识别处理卡死</td><td>处理超时兜底：立即回失败帧</td><td>沉默不回应，上位机白等 9 秒</td></tr>
+  <tr><td>E08</td><td>摄像头</td><td>单路断流</td><td>该路置 offline，对应货位 present=false 如实回报</td><td>用上一帧冒充当前画面（假识别）</td></tr>
+  <tr><td>E09</td><td>摄像头</td><td>画面脏污 / 遮挡 / 低照度</td><td>置 dirty / low_light 并上报，识别结果如实标注</td><td>恒报 ok——等于替现场拆掉开柜安全闸门</td></tr>
+  <tr><td>E10</td><td>摄像头</td><td>全部摄像头离线</td><td>拒绝识别请求并回明确失败</td><td>回空清单——上位机会误判「整柜空」</td></tr>
+  <tr><td>E11</td><td>IO</td><td>IO 板离线</td><td>开锁请求快速失败：立即回 success=false 与原因</td><td>假装成功或让请求干等到超时</td></tr>
+  <tr><td>E12</td><td>IO</td><td>开锁无回执</td><td>重试最多 3 次，仍失败如实回报</td><td>未拿回执却回「已开锁」（假开锁）</td></tr>
+  <tr><td>E13</td><td>IO</td><td>门磁信号抖动</td><td>去抖：连续多次采样一致才认定关柜</td><td>抖动当多次关柜，重复触发识别</td></tr>
+  <tr><td>E14</td><td>系统</td><td>程序崩溃</td><td>systemd 自动拉起，重新自检并重连</td><td>无守护进程，柜子变砖</td></tr>
+  <tr><td>E15</td><td>系统</td><td>断电恢复</td><td>开机自启：自检、重连、补报缓存事件</td><td>需要人工上机操作才能恢复</td></tr>
+  <tr><td>E16</td><td>系统</td><td>磁盘写满 / 日志失败</td><td>日志滚动清理，业务不受影响</td><td>日志撑爆磁盘拖垮整机</td></tr>
+  <tr><td>E17</td><td>系统</td><td>模型文件缺失 / 损坏</td><td>自检失败，拒绝识别请求并告警</td><td>加载失败还硬跑出垃圾结果</td></tr>
+  <tr><td>E18</td><td>系统</td><td>时间不同步</td><td>NTP 校时，保证与上位机日志可对账</td><td>日志时间错乱，现场无法排查</td></tr>
+  <tr><td>E19</td><td>安全</td><td>第二台客户端抢连</td><td>与上位机约定单连接策略：拒绝新连接或踢旧（需定稿）</td><td>两个上位机同时控一台柜</td></tr>
+  <tr><td>E20</td><td>安全</td><td>超长帧 / 恶意帧</td><td>1MB 上限 + 长度校验，超限丢弃计数</td><td>无上限解析，内存被撑爆</td></tr>
+  <tr><td>E21</td><td>RTSP</td><td>拉流失败（认证错 / IP 错 / 摄像头重启）</td><td>该路按 5/10/30 秒退避重连，自检置 offline（见 F6）</td><td>无间隔狂连，或谎报正常</td></tr>
+  <tr><td>E22</td><td>RTSP</td><td>码流格式不支持（如 H.265 解码器缺失）</td><td>会话协商阶段发现，置 comm_error 上报人工排查</td><td>装看不见继续解出垃圾帧</td></tr>
+  <tr><td>E23</td><td>RTSP</td><td>网络抖动导致解码队列积压</td><td>强制跳到最新关键帧，只用当前帧识别（见 F6）</td><td>用积压旧帧识别——结果滞后于现场</td></tr>
+  <tr><td>E24</td><td>RTSP</td><td>花屏 / 黑屏 / 冻结帧</td><td>画面异常监测捕捉，置 dirty 并随周期帧上报</td><td>当正常帧送识别</td></tr>
+  <tr><td>E25</td><td>重启</td><td>开锁后回执前崩溃，上位机补发原请求</td><td>开锁请求先落盘登记；重启后先查 IO 锁状态——已开只补回执，未知拒绝重发报人工（见 F8）</td><td>不查状态重新执行——二次开锁事故</td></tr>
+  <tr><td>E26</td><td>业务</td><td>柜门未关时收到识别请求</td><td>门磁防御式复核，回失败「柜门未关」（见 F7）</td><td>照拍不误——拍空柜、拍到人手</td></tr>
+  <tr><td>E27</td><td>业务</td><td>关柜瞬间画面晃动 / 工具未放稳</td><td>稳定期延时 1~2 秒再采，连续多帧一致才采信（见 F7）</td><td>门一关立刻拍，边界误判</td></tr>
+  <tr><td>E28</td><td>业务</td><td>瞬时光照突变（开灯 / 补光灯闪）</td><td>多帧投票，不一致再等一轮重采（见 F7）</td><td>单帧定生死</td></tr>
+  <tr><td>E29</td><td>业务</td><td>单货位多目标 / 工具叠放</td><td>取最高置信度目标，并按告警规则如实标注（见 F7）</td><td>随机取一个或漏报</td></tr>
+  <tr><td>E30</td><td>系统</td><td>上位机异常狂发请求（请求风暴）</td><td>限流：超阈值直接拒绝并计数告警</td><td>来者不拒把自己拖死</td></tr>
+  <tr><td>E31</td><td>系统</td><td>NTP 校时引起时钟回拨</td><td>计时（超时 / 退避 / 去抖）一律用单调时钟，墙钟只用于日志</td><td>用墙钟计时——校时后超时全乱</td></tr>
+  <tr><td>E32</td><td>部署</td><td>两台柜网线插错（边缘机接错上位机）</td><td>上报柜号 / 序列号供上位机绑定校验（帧字段待协议定稿）</td><td>无绑定校验——B 柜被 A 柜控制</td></tr>
+</table>
+</div>
+<h2>九、Linux 部署要点（交付前逐项过）</h2>
+<div class="card">
+<table class="grid">
+  <tr><th style="width:130px;">项目</th><th>要点</th></tr>
+  <tr><td><b>系统服务</b></td><td>systemd unit 托管：Restart=always、开机自启（WantedBy=multi-user.target）、独立运行账号、启动失败日志可查</td></tr>
+  <tr><td><b>视频接入</b></td><td>视频卡驱动 / SDK 随交付并附安装步骤；摄像头清单（IP / 通道 / 对应货位）随配置交付</td></tr>
+  <tr><td><b>网络</b></td><td>静态 IP；到上位机 9000 端口可达（边缘机为客户端、主动出站）；到 IO 板 Modbus TCP 端口可达；防火墙规则写进部署文档</td></tr>
+  <tr><td><b>时间</b></td><td>chrony / ntpd 指向内网 NTP 源；与上位机时间偏差 1 秒内</td></tr>
+  <tr><td><b>日志</b></td><td>应用日志滚动 + 大小上限；部署目录规范统一，现场按文档即可定位日志</td></tr>
+  <tr><td><b>交付清单</b></td><td>程序 + 配置模板 + 模型文件 + 驱动 + 部署文档；软件版本号接入 version_ack，验收可查</td></tr>
+</table>
+</div>
+
+<h2>十、确认与待确认问题清单</h2>
+<div class="note"><b>已拍板（2026-10-25）：</b><br>
+✔ 视频接入形态 = 网络摄像头 RTSP 拉流（对应卡 B1/B2、流程图 F6）；<br>
+✔ 识别耗时上限 = 3 秒内给结果，超时立即回失败帧（对应卡 B5）；<br>
+✔ IO 板硬件暂未到位——软件按协议桩先行，联调用 Modbus 模拟器，点位表到位后只改配置不改架构（对应 C 组）。</div>
+<div class="warnbox">
+<b>仍待确认：</b><br>
+1）<b>IO 板点位表</b>：Modbus 地址（开锁线圈、门磁输入点）、回执方式（读回状态还是 IO 主动上报）——硬件到位后定。<br>
+2）<b>关柜事件帧</b>：帧名与字段定稿（当前上位机按钮顶替路径保留，事件到达即无缝切换）。<br>
+3）<b>货位-摄像头映射</b>：边缘机本地配置，还是上位机下发 + 本地缓存？建议后者，保证与台账一致。<br>
+4）<b>多连接策略</b>：只允许一台上位机连接时，第二连接拒绝还是踢旧？<br>
+5）<b>模型与阈值</b>：检测模型选型（本地推理框架）、置信度阈值与 low_confidence 门槛值。<br>
+6）<b>补报事件范围</b>：断连补报目前只含关柜事件，是否包含摄像头异常历史。<br>
+7）<b>柜号绑定校验</b>：边缘机上报柜号 / 序列号、上位机校验绑定，防两台柜网线插错（见 E32）——帧字段待协议定稿。
+</div>
+
+<div id="selfcheck" class="danger"></div>
+
+<script>
+"use strict";
+var SVGNS = "http://www.w3.org/2000/svg";
+var COLHEX = {gray:"#7a8aa0", blue:"#2e7bd6", green:"#3da33d", amber:"#d97a1e", red:"#c74438", dark:"#2b3850"};
+var ARRMAP = {gray:"arrGray", blue:"arrBlue", green:"arrGreen", amber:"arrAmber", red:"arrRed", dark:"arrGray"};
+var GRAD = {normal:"gBlue", ok:"gGreen", decide:"gAmber", ext:"gGray", dark:"gDark", red:"gRed", warn:"gAmber"};
+var CHECK = [];
+function txtW(s, fs) {
+  var sum = 0;
+  for (var i = 0; i < s.length; i++) { sum += s.charCodeAt(i) > 255 ? fs : fs * 0.52; }
+  return sum;
+}
+function svgEl(tag, attrs, parent) {
+  var e = document.createElementNS(SVGNS, tag);
+  for (var k in attrs) { e.setAttribute(k, attrs[k]); }
+  if (parent) { parent.appendChild(e); }
+  return e;
+}
+function mkDefs(svg) {
+  var defs = svgEl("defs", {}, svg);
+  function grad(id, c1, c2) {
+    var g = svgEl("linearGradient", {id:id, x1:"0", y1:"0", x2:"0", y2:"1"}, defs);
+    svgEl("stop", {offset:"0%", "stop-color":c1}, g);
+    svgEl("stop", {offset:"100%", "stop-color":c2}, g);
+  }
+  grad("gBlue", "#4da3ff", "#2e7bd6");
+  grad("gGreen", "#5cc432", "#3da33d");
+  grad("gAmber", "#f0a24a", "#d97a1e");
+  grad("gGray", "#9aa7b8", "#7a8aa0");
+  grad("gDark", "#41557a", "#2b3850");
+  grad("gRed", "#e05a4e", "#c74438");
+  var f = svgEl("filter", {id:"soft", x:"-30%", y:"-30%", width:"160%", height:"160%"}, defs);
+  svgEl("feDropShadow", {dx:"0", dy:"3", stdDeviation:"4", "flood-color":"#1e3260", "flood-opacity":"0.25"}, f);
+  function arr(id, color) {
+    var m = svgEl("marker", {id:id, viewBox:"0 0 10 10", refX:"9", refY:"5", markerWidth:"7", markerHeight:"7", orient:"auto-start-reverse"}, defs);
+    svgEl("path", {d:"M0,0 L10,5 L0,10 z", fill:color}, m);
+  }
+  arr("arrGray", "#7a8aa0"); arr("arrBlue", "#2e7bd6"); arr("arrGreen", "#3da33d");
+  arr("arrAmber", "#d97a1e"); arr("arrRed", "#c74438");
+}
+function flow(hostId, cfg) {
+  var host = document.getElementById(hostId);
+  var margin = cfg.margin || 30, colW = cfg.colW, rowH = cfg.rowH || 120, top = cfg.top || 24;
+  var maxRow = 0;
+  cfg.nodes.forEach(function(n){ if (n.row > maxRow) { maxRow = n.row; } });
+  var H = top + (maxRow + 1) * rowH + (cfg.pad || 40);
+  var svg = svgEl("svg", {width:cfg.width, height:H, viewBox:"0 0 " + cfg.width + " " + H}, host);
+  mkDefs(svg);
+  var pos = {};
+  cfg.nodes.forEach(function(n) {
+    var w = n.w || cfg.w || 300;
+    var subs = n.sub ? (Array.isArray(n.sub) ? n.sub : [n.sub]) : [];
+    var h = n.h || (subs.length * 16 + 46);
+    var x = margin + n.col * colW + (colW - w) / 2;
+    var y = top + n.row * rowH;
+    pos[n.id] = {x:x, y:y, w:w, h:h};
+    var grad = GRAD[n.kind || "normal"];
+    var dashed = (n.kind === "ext") || n.dashed;
+    svgEl("rect", {x:x, y:y, width:w, height:h, rx:12, fill:"url(#" + grad + ")", filter:"url(#soft)",
+      stroke:dashed ? "#5a6a80" : "none", "stroke-width":dashed ? 1.5 : 0, "stroke-dasharray":dashed ? "6 4" : "none"}, svg);
+    var t = svgEl("text", {x:x + w/2, y:y + (subs.length ? 22 : 31), "text-anchor":"middle", "class":"node-title"}, svg);
+    t.textContent = n.title;
+    subs.forEach(function(s, i) {
+      var st = svgEl("text", {x:x + w/2, y:y + 41 + i * 16, "text-anchor":"middle", "class":"node-sub"}, svg);
+      st.textContent = s;
+    });
+    if (txtW(n.title, 14) > w - 14) { CHECK.push(cfg.title + " 节点标题超宽：" + n.title); }
+    subs.forEach(function(s) { if (txtW(s, 12) > w - 14) { CHECK.push(cfg.title + " 副标题超宽：" + s); } });
+  });
+  (cfg.edges || []).forEach(function(e) {
+    var a = pos[e.from], b = pos[e.to];
+    var c = e.color || "gray", hex = COLHEX[c], mk = ARRMAP[c];
+    var d = "", lp = null;
+    var acx = a.x + a.w/2, bcx = b.x + b.w/2;
+    if (e.route === "side") {
+      var dir = (b.x >= a.x) ? 1 : -1;
+      var sx = dir > 0 ? a.x + a.w : a.x;
+      var ex = dir > 0 ? b.x : b.x + b.w;
+      var my = a.y + a.h/2;
+      d = "M" + sx + "," + my + " L" + ex + "," + my;
+      var ly = (e.aly != null) ? e.aly : ((e.loy != null) ? my + e.loy : my - 8);
+      lp = [(sx + ex) / 2, ly];
+    } else if (e.route === "elbow") {
+      var midY = (a.y + a.h + b.y) / 2;
+      d = "M" + acx + "," + (a.y + a.h) + " L" + acx + "," + midY + " L" + bcx + "," + midY + " L" + bcx + "," + b.y;
+      lp = [(acx + bcx) / 2 + (e.lox || 0), midY + (e.loy != null ? e.loy : -8)];
+    } else if (e.route === "loop") {
+      d = e.points;
+      lp = e.lp || null;
+    } else {
+      d = "M" + acx + "," + (a.y + a.h) + " L" + bcx + "," + b.y;
+      lp = [acx + (e.lox || 0), (a.y + a.h + b.y) / 2 + (e.loy != null ? e.loy : -4)];
+    }
+    var attrs = {d:d, fill:"none", stroke:hex, "stroke-width":1.8, "marker-end":"url(#" + mk + ")"};
+    if (e.dashed) { attrs["stroke-dasharray"] = "6 4"; }
+    if (e.both) { attrs["marker-start"] = "url(#" + mk + ")"; }
+    svgEl("path", attrs, svg);
+    if (e.label) {
+      var tl = svgEl("text", {x:lp[0], y:lp[1], "text-anchor":e.anchor || "middle", "class":"edge-label"}, svg);
+      if (e.bold) { tl.setAttribute("font-weight", "700"); }
+      if (e.lcolor) { tl.setAttribute("fill", e.lcolor); }
+      tl.textContent = e.label;
+    }
+  });
+  var ids = Object.keys(pos);
+  for (var i = 0; i < ids.length; i++) {
+    for (var j = i + 1; j < ids.length; j++) {
+      var r1 = pos[ids[i]], r2 = pos[ids[j]];
+      if (r1.x < r2.x + r2.w && r2.x < r1.x + r1.w && r1.y < r2.y + r2.h && r2.y < r1.y + r1.h) {
+        CHECK.push(cfg.title + " 节点重叠：" + ids[i] + " / " + ids[j]);
+      }
+    }
+  }
+  return pos;
+}
+function seq(hostId, cfg) {
+  var host = document.getElementById(hostId);
+  var margin = cfg.margin || 30, laneW = cfg.laneW, top = cfg.top || 66, rowH = cfg.rowH || 66;
+  var nA = cfg.actors.length;
+  var H = top + (cfg.msgs.length + 0.9) * rowH + 30;
+  var svg = svgEl("svg", {width:cfg.width, height:H, viewBox:"0 0 " + cfg.width + " " + H}, host);
+  mkDefs(svg);
+  var xs = [];
+  for (var i = 0; i < nA; i++) { xs.push(margin + i * laneW + laneW / 2); }
+  (cfg.phases || []).forEach(function(p) {
+    var y0 = top + p.from * rowH + 6;
+    var y1 = top + (p.to + 1) * rowH - 4;
+    svgEl("rect", {x:margin - 14, y:y0, width:cfg.width - 2 * margin + 28, height:y1 - y0, rx:10, fill:p.fill, opacity:0.6}, svg);
+    var tp = svgEl("text", {x:margin, y:y0 + 17, "font-size":"12", "font-weight":"700", fill:p.color}, svg);
+    tp.textContent = p.title;
+  });
+  cfg.actors.forEach(function(a, i) {
+    var grad = GRAD[a.kind || "normal"];
+    var w = a.w || 150;
+    svgEl("rect", {x:xs[i] - w/2, y:top - 50, width:w, height:46, rx:10, fill:"url(#" + grad + ")", filter:"url(#soft)",
+      stroke:(a.kind === "ext") ? "#5a6a80" : "none", "stroke-width":(a.kind === "ext") ? 1.5 : 0, "stroke-dasharray":"6 4"}, svg);
+    var t = svgEl("text", {x:xs[i], y:top - 22, "text-anchor":"middle", "class":"node-title"}, svg);
+    t.textContent = a.name;
+    svgEl("line", {x1:xs[i], y1:top - 2, x2:xs[i], y2:H - 12, stroke:"#c9d4e3", "stroke-width":1.6, "stroke-dasharray":"4 5"}, svg);
+  });
+  cfg.msgs.forEach(function(m, idx) {
+    var y = top + idx * rowH + rowH * 0.62;
+    if (m.kind === "note") {
+      var nx = (m.x0 != null) ? xs[m.x0] : margin + 10;
+      var nx2 = (m.x1 != null) ? xs[m.x1] : cfg.width - margin - 10;
+      svgEl("rect", {x:nx, y:y - 17, width:nx2 - nx, height:34, rx:9, fill:m.fill || "#f0f7ff",
+        stroke:m.stroke || "#b9d4f0", "stroke-width":1}, svg);
+      var tn = svgEl("text", {x:(nx + nx2) / 2, y:y + 5, "text-anchor":"middle", "font-size":"12.5",
+        fill:m.color || "#2e5b8f", "font-weight":"700"}, svg);
+      tn.textContent = m.text;
+      return;
+    }
+    if (m.kind === "self") {
+      var x0 = xs[m.from];
+      var dd = "M" + x0 + "," + (y - 10) + " l46,0 l0,22 l-46,0";
+      svgEl("path", {d:dd, fill:"none", stroke:COLHEX[m.color || "gray"], "stroke-width":1.8,
+        "marker-end":"url(#" + ARRMAP[m.color || "gray"] + ")", "stroke-dasharray":m.dashed ? "6 4" : "none"}, svg);
+      var ts = svgEl("text", {x:x0 + 56, y:y + 9, "font-size":"12.5",
+        fill:m.lcolor || COLHEX[m.color || "gray"], "font-weight":m.bold ? "700" : "400"}, svg);
+      ts.textContent = m.text;
+      return;
+    }
+    var x1 = xs[m.from], x2 = xs[m.to];
+    var dirr = (x2 >= x1) ? 1 : -1;
+    svgEl("path", {d:"M" + (x1 + dirr * 2) + "," + y + " L" + (x2 - dirr * 2) + "," + y, fill:"none",
+      stroke:COLHEX[m.color || "gray"], "stroke-width":1.9,
+      "marker-end":"url(#" + ARRMAP[m.color || "gray"] + ")", "stroke-dasharray":m.dashed ? "6 4" : "none"}, svg);
+    var tm = svgEl("text", {x:(x1 + x2) / 2, y:y - 8 + (m.dy || 0), "text-anchor":"middle", "font-size":"12.5",
+      fill:m.lcolor || "#41557a", "font-weight":m.bold ? "700" : "400"}, svg);
+    tm.textContent = m.text;
+  });
+  if (cfg.title.length * 14.6 > cfg.width - 14) { CHECK.push(cfg.title + " 时序图标题超宽"); }
+}
+flow("dg-topo", {title:"拓扑图", width:1164, margin:30, colW:368, rowH:150, top:34, w:308,
+  nodes:[
+    {id:"host", col:0, row:0, kind:"dark", title:"上位机（柜机工控机）", sub:["Qt 软件 + MySQL", "出入库业务 / 台账 / 人脸识别服务"]},
+    {id:"edge", col:1, row:0, kind:"normal", title:"边缘计算机", sub:["Linux 工控机 · 本文档交付范围"]},
+    {id:"io",   col:2, row:0, kind:"ext", title:"IO 下位机", sub:["开锁线圈 / 门磁 / 声光"]},
+    {id:"cam",  col:1, row:1, kind:"ext", title:"网络摄像头 8 路", sub:["CAM1~CAM8 · RTSP 拉流"]},
+    {id:"lock", col:2, row:1, kind:"ext", title:"锁体与柜门", sub:["电磁锁 + 门磁开关"]}
+  ],
+  edges:[
+    {from:"host", to:"edge", route:"side", color:"blue", both:true, bold:true,
+      label:"TCP：上位机为服务端（端口 9000），边缘机为客户端", aly:20},
+    {from:"edge", to:"io", route:"side", color:"gray", label:"Modbus TCP：边缘机为主站", aly:20},
+    {from:"edge", to:"cam",  route:"down", color:"gray", label:"RTSP 拉流（网络摄像头）"},
+    {from:"io",   to:"lock", route:"down", color:"gray", label:"驱动 / 采样"}
+  ]});
+
+flow("dg-arch", {title:"架构图", width:1160, margin:25, colW:370, rowH:120, top:26, w:320,
+  nodes:[
+    {id:"up",   col:1, row:0, kind:"ext", title:"上位机（TCP 服务端 :9000）", sub:["下发 open_req / recognize_req / version_query"]},
+    {id:"comm", col:0, row:1, kind:"normal", title:"通信模块", sub:["TCP 客户端 / 断线退避重连", "周期帧心跳 / 帧编解码"]},
+    {id:"sched",col:1, row:1, kind:"dark", title:"业务调度", sub:["request_id 配对与去重", "忙判定 / 超时兜底 / 事件缓存补报"]},
+    {id:"io",   col:2, row:1, kind:"warn", title:"IO 控制模块", sub:["Modbus 主站 / 开锁 / 门磁去抖"]},
+    {id:"rec",  col:1, row:2, kind:"ok", title:"识别模块", sub:["采集 / 解码 / 模型推理", "货位聚合与告警判定"]},
+    {id:"sys",  col:1, row:3, kind:"dark", title:"系统服务", sub:["启动自检 / 配置 / 日志 / 看门狗", "NTP 时间同步（支撑以上全部模块）"]},
+    {id:"camx", col:0, row:4, kind:"ext", title:"视频卡 + 摄像头 8 路"},
+    {id:"iob",  col:2, row:4, kind:"ext", title:"IO 下位机（Modbus TCP）"}
+  ],
+  edges:[
+    {from:"up", to:"comm", route:"elbow", color:"blue", both:true, bold:true,
+      label:"请求下发 / 心跳与结果上报（双向）"},
+    {from:"comm", to:"sched", route:"side", color:"gray", label:"合法帧上抛", aly:138},
+    {from:"sched", to:"io", route:"side", color:"gray", label:"开锁 / 门磁事件", aly:138},
+    {from:"sched", to:"rec", route:"down", color:"gray", label:"识别任务"},
+    {from:"rec", to:"camx", route:"loop", color:"gray", label:"采集当前帧", lp:[327,293],
+      points:"M420,303 L210,303 L210,504"},
+    {from:"io", to:"iob", route:"down", color:"gray", label:"Modbus 读写 / 回执"}
+  ]});
+flow("dg-f1", {title:"F1 启动自检", width:860, margin:30, colW:400, rowH:96, top:24, w:340,
+  nodes:[
+    {id:"m0", col:0, row:0, title:"上电开机", sub:["systemd 拉起边缘机程序"]},
+    {id:"m1", col:0, row:1, title:"读取本地配置", sub:["IP / 端口 / 货位-摄像头映射 / 阈值"]},
+    {id:"m2", col:0, row:2, title:"自检：网络与链路配置"},
+    {id:"m3", col:0, row:3, title:"自检：IO 板连接"},
+    {id:"m4", col:0, row:4, title:"自检：8 路摄像头"},
+    {id:"m5", col:0, row:5, title:"自检：识别模型加载"},
+    {id:"m6", col:0, row:6, title:"连接上位机", sub:["TCP 客户端，目标端口 9000"]},
+    {id:"m7", col:0, row:7, kind:"ok", title:"进入主循环", sub:["先发一帧 periodic，开始心跳"]},
+    {id:"x2", col:1, row:2, kind:"ext", title:"网络未就绪", sub:["延迟重试后继续启动"]},
+    {id:"x3", col:1, row:3, kind:"warn", title:"IO 板连接失败", sub:["标记禁止开锁，其余照常启动"]},
+    {id:"x4", col:1, row:4, kind:"warn", title:"部分摄像头失败", sub:["失败路置 offline，如实上报"]},
+    {id:"x5", col:1, row:5, kind:"red", title:"模型缺失 / 损坏", sub:["拒绝识别请求并告警"]},
+    {id:"x6", col:1, row:6, kind:"ext", title:"连不上上位机", sub:["按退避序列重试，不放弃"]}
+  ],
+  edges:[
+    {from:"m0", to:"m1", route:"down"}, {from:"m1", to:"m2", route:"down"},
+    {from:"m2", to:"m3", route:"down"}, {from:"m3", to:"m4", route:"down"},
+    {from:"m4", to:"m5", route:"down"}, {from:"m5", to:"m6", route:"down"},
+    {from:"m6", to:"m7", route:"down"},
+    {from:"m2", to:"x2", route:"side"}, {from:"m3", to:"x3", route:"side"},
+    {from:"m4", to:"x4", route:"side"}, {from:"m5", to:"x5", route:"side"},
+    {from:"m6", to:"x6", route:"side"}
+  ]});
+
+flow("dg-f2a", {title:"F2a 正常循环", width:592, margin:24, colW:280, rowH:100, top:24, w:250,
+  nodes:[
+    {id:"a0", col:0, row:0, title:"周期帧定时器到", sub:["每 3 秒"]},
+    {id:"a1", col:0, row:1, title:"组装 periodic", sub:["运行时长 + 8 路自检状态"]},
+    {id:"a2", col:0, row:2, title:"发送 periodic"},
+    {id:"a3", col:0, row:3, kind:"decide", title:"收到帧？按类型分发"},
+    {id:"c0", col:1, row:2, kind:"warn", title:"发送失败", sub:["转入断线自愈（F2b）"]},
+    {id:"b0", col:1, row:3, title:"open_req", sub:["走开锁流程（F4）"]},
+    {id:"b1", col:1, row:4, title:"recognize_req", sub:["走识别流程（F3）"]},
+    {id:"b2", col:1, row:5, title:"version_query", sub:["回版本号 version_ack"]},
+    {id:"b3", col:1, row:6, kind:"ext", title:"未知 / 坏帧", sub:["丢弃 + 计数 + 日志"]}
+  ],
+  edges:[
+    {from:"a0", to:"a1", route:"down"}, {from:"a1", to:"a2", route:"down"},
+    {from:"a2", to:"a3", route:"down"},
+    {from:"a2", to:"c0", route:"side", color:"amber"},
+    {from:"a3", to:"b0", route:"side", color:"blue"},
+    {from:"a3", to:"b1", route:"elbow", color:"blue"},
+    {from:"a3", to:"b2", route:"loop", color:"gray",
+      points:"M164,370 L164,505 L444,505 L444,524"},
+    {from:"a3", to:"b3", route:"loop", color:"gray", dashed:true,
+      points:"M164,370 L164,605 L444,605 L444,624"}
+  ]});
+
+flow("dg-f2b", {title:"F2b 断线自愈", width:592, margin:24, colW:280, rowH:100, top:24, w:250,
+  nodes:[
+    {id:"r0", col:0, row:0, kind:"warn", title:"发送失败 / TCP 断开"},
+    {id:"r1", col:0, row:1, title:"停止周期帧", sub:["本地自检与日志照常"]},
+    {id:"r2", col:0, row:2, title:"退避等待", sub:["1/2/4/8/16/30 秒封顶循环"]},
+    {id:"r3", col:0, row:3, kind:"decide", title:"尝试重连"},
+    {id:"r4", col:1, row:3, kind:"ok", title:"重连成功", sub:["先发一帧 periodic + 补报缓存"]},
+    {id:"r5", col:1, row:4, kind:"ext", title:"回到主循环（F2a）"}
+  ],
+  edges:[
+    {from:"r0", to:"r1", route:"down"}, {from:"r1", to:"r2", route:"down"},
+    {from:"r2", to:"r3", route:"down"},
+    {from:"r3", to:"r4", route:"side", color:"green", label:"成功"},
+    {from:"r3", to:"r2", route:"loop", color:"amber", dashed:true, label:"失败：继续退避",
+      lp:[16, 305], anchor:"start",
+      points:"M38,355 L10,355 L10,255 L38,255"},
+    {from:"r4", to:"r5", route:"down", color:"green", dashed:true}
+  ]});
+flow("dg-f3", {title:"F3 识别流程", width:832, margin:26, colW:390, rowH:104, top:24, w:330,
+  nodes:[
+    {id:"n0", col:0, row:0, title:"收到 recognize_req", sub:["带 request_id 与时间戳"]},
+    {id:"n1", col:0, row:1, kind:"decide", title:"去重检查", sub:["同 id 在途或已完成？"]},
+    {id:"n2", col:0, row:2, kind:"decide", title:"忙判定", sub:["上一次识别未结束？"]},
+    {id:"n3", col:0, row:3, title:"逐货位采集当前帧", sub:["按货位-摄像头映射覆盖全柜"]},
+    {id:"n4", col:0, row:4, title:"解码 + 模型推理", sub:["输出类别与置信度"]},
+    {id:"n5", col:0, row:5, title:"聚合货位结果", sub:["present / tool_id / class_id / confidence"]},
+    {id:"n6", col:0, row:6, title:"判定告警类型与级别", sub:["misplaced / unknown / low_confidence"]},
+    {id:"n7", col:0, row:7, title:"组装 recognize_ack", sub:["字段一律带全（协议 3.3）"]},
+    {id:"n8", col:0, row:8, kind:"ok", title:"回应上位机", sub:["写本地识别日志（清单与耗时）"]},
+    {id:"E1", col:1, row:1, kind:"red", title:"重复请求", sub:["回缓存结果或拒绝，绝不二次执行"]},
+    {id:"E2", col:1, row:2, kind:"warn", title:"回 busy / 排队", sub:["必须明确回应，不能不理"]},
+    {id:"E3", col:1, row:3, kind:"warn", title:"取帧失败", sub:["该货位 present=false，如实标注"]},
+    {id:"E4", col:1, row:4, kind:"red", title:"推理失败", sub:["立即回失败帧，禁止沉默"]}
+  ],
+  edges:[
+    {from:"n0", to:"n1", route:"down"},
+    {from:"n1", to:"E1", route:"side", color:"red", label:"是"},
+    {from:"n1", to:"n2", route:"down", label:"否", lcolor:"#3da33d"},
+    {from:"n2", to:"E2", route:"side", color:"amber", label:"是"},
+    {from:"n2", to:"n3", route:"down", label:"否", lcolor:"#3da33d"},
+    {from:"n3", to:"E3", route:"side", color:"amber"},
+    {from:"n3", to:"n4", route:"down"},
+    {from:"n4", to:"E4", route:"side", color:"red"},
+    {from:"n4", to:"n5", route:"down"},
+    {from:"n5", to:"n6", route:"down"},
+    {from:"n6", to:"n7", route:"down"},
+    {from:"n7", to:"n8", route:"down"}
+  ]});
+
+flow("dg-f4", {title:"F4 开锁流程", width:832, margin:26, colW:390, rowH:104, top:24, w:330,
+  nodes:[
+    {id:"k0", col:0, row:0, title:"收到 open_req", sub:["带 request_id"]},
+    {id:"k1", col:0, row:1, kind:"decide", title:"去重检查", sub:["同 id 已执行或在途？"]},
+    {id:"k2", col:0, row:2, kind:"decide", title:"IO 板在线？"},
+    {id:"k3", col:0, row:3, title:"Modbus 写开锁线圈"},
+    {id:"k4", col:0, row:4, kind:"decide", title:"等待 IO 回执", sub:["限时等待"]},
+    {id:"k5", col:0, row:5, kind:"ok", title:"回 open_ack（success = true）", sub:["柜体已真实打开"]},
+    {id:"F1", col:1, row:1, kind:"red", title:"重复请求", sub:["拒绝：绝不二次开锁"]},
+    {id:"F2", col:1, row:2, kind:"warn", title:"IO 板离线", sub:["立即回 success=false 与原因"]},
+    {id:"F3", col:1, row:4, kind:"red", title:"重试用尽", sub:["回 success=false：开锁无回执"]}
+  ],
+  edges:[
+    {from:"k0", to:"k1", route:"down"},
+    {from:"k1", to:"F1", route:"side", color:"red", label:"是"},
+    {from:"k1", to:"k2", route:"down", label:"否", lcolor:"#3da33d"},
+    {from:"k2", to:"F2", route:"side", color:"amber", label:"否"},
+    {from:"k2", to:"k3", route:"down", label:"是", lcolor:"#3da33d"},
+    {from:"k3", to:"k4", route:"down"},
+    {from:"k4", to:"k5", route:"down", label:"回执成功", lcolor:"#3da33d", bold:true},
+    {from:"k4", to:"F3", route:"side", color:"red", label:"超时 × 3"},
+    {from:"k4", to:"k3", route:"loop", color:"amber", dashed:true, label:"超时：重试（最多 3 次）",
+      lp:[22, 424], anchor:"start",
+      points:"M56,479 L20,479 L20,362 L56,362"}
+  ]});
+
+flow("dg-f5", {title:"F5 关柜事件", width:1208, margin:24, colW:290, rowH:108, top:24, w:258,
+  nodes:[
+    {id:"d0", col:0, row:0, title:"门磁输入点变化"},
+    {id:"d1", col:1, row:0, kind:"warn", title:"去抖确认", sub:["连续 N 次采样一致"]},
+    {id:"d2", col:2, row:0, title:"产生关柜事件", sub:["同一次关柜只报一次"]},
+    {id:"d3", col:3, row:0, kind:"decide", title:"链路在线？"},
+    {id:"d4", col:3, row:1, kind:"ext", title:"本地缓存", sub:["恢复后补报（A6）"]},
+    {id:"d5", col:2, row:2, kind:"ok", title:"上报上位机", sub:["帧名以协议定稿为准"]},
+    {id:"d6", col:1, row:2, kind:"ext", title:"上位机下发 recognize_req"}
+  ],
+  edges:[
+    {from:"d0", to:"d1", route:"side"},
+    {from:"d1", to:"d2", route:"side"},
+    {from:"d2", to:"d3", route:"side"},
+    {from:"d3", to:"d4", route:"down", color:"amber", label:"否", lox:14},
+    {from:"d3", to:"d5", route:"loop", color:"green", label:"是", lp:[880, 104],
+      points:"M1039,70 L1039,112 L749,112 L749,240"},
+    {from:"d5", to:"d6", route:"side", color:"green", dashed:true}
+  ]});
+
+flow("dg-f6", {title:"F6 RTSP链路", width:832, margin:26, colW:390, rowH:100, top:24, w:330,
+  nodes:[
+    {id:"v0", col:0, row:0, title:"RTSP 拉流请求", sub:["rtsp:// 摄像头IP/通道"]},
+    {id:"v1", col:0, row:1, kind:"decide", title:"连接成功？"},
+    {id:"v2", col:0, row:2, title:"会话与码流协商", sub:["SDP：格式 / 分辨率"]},
+    {id:"v3", col:0, row:3, kind:"decide", title:"解码器支持该格式？"},
+    {id:"v4", col:0, row:4, title:"持续收流 + 解码", sub:["RTP 解包进解码队列"]},
+    {id:"v5", col:0, row:5, title:"丢帧取最新", sub:["只保留当前画面"]},
+    {id:"v6", col:0, row:6, kind:"decide", title:"画面异常监测", sub:["黑屏 / 花屏 / 冻结帧"]},
+    {id:"v7", col:0, row:7, kind:"ok", title:"输出当前帧给识别模块"},
+    {id:"R1", col:1, row:1, kind:"warn", title:"退避重连该路", sub:["5 / 10 / 30 秒"]},
+    {id:"R2", col:1, row:3, kind:"red", title:"该路置 comm_error", sub:["上报并人工排查"]},
+    {id:"R3", col:1, row:4, kind:"warn", title:"断流自动重连", sub:["其他路不受影响"]},
+    {id:"R4", col:1, row:5, kind:"warn", title:"积压：跳最新关键帧", sub:["禁止用旧帧识别"]},
+    {id:"R5", col:1, row:6, kind:"warn", title:"置 dirty / comm_error", sub:["随 periodic 上报"]}
+  ],
+  edges:[
+    {from:"v0", to:"v1", route:"down"},
+    {from:"v1", to:"R1", route:"side", color:"amber", label:"否"},
+    {from:"v1", to:"v2", route:"down", label:"是", lcolor:"#3da33d"},
+    {from:"v2", to:"v3", route:"down"},
+    {from:"v3", to:"R2", route:"side", color:"red", label:"否"},
+    {from:"v3", to:"v4", route:"down", label:"是", lcolor:"#3da33d"},
+    {from:"v4", to:"R3", route:"side", color:"amber"},
+    {from:"v4", to:"v5", route:"down"},
+    {from:"v5", to:"R4", route:"side", color:"amber"},
+    {from:"v5", to:"v6", route:"down"},
+    {from:"v6", to:"R5", route:"side", color:"amber", label:"异常"},
+    {from:"v6", to:"v7", route:"down", label:"正常", lcolor:"#3da33d"}
+  ]});
+
+flow("dg-f7", {title:"F7 识别质量闸门", width:832, margin:26, colW:390, rowH:108, top:24, w:330,
+  nodes:[
+    {id:"q0", col:0, row:0, title:"收到 recognize_req", sub:["先过质量闸门再采集"]},
+    {id:"q1", col:0, row:1, kind:"decide", title:"柜门已关？", sub:["门磁防御式复核"]},
+    {id:"q2", col:0, row:2, title:"稳定期等待", sub:["关柜后延时 1~2 秒"]},
+    {id:"q3", col:0, row:3, kind:"decide", title:"多帧一致？", sub:["同货位连续 2~3 帧一致？"]},
+    {id:"q4", col:0, row:4, kind:"decide", title:"单货位多目标？"},
+    {id:"q5", col:0, row:5, kind:"ok", title:"进入识别主流程（F3）"},
+    {id:"Q1", col:1, row:1, kind:"red", title:"回失败：柜门未关", sub:["防止拍空柜 / 拍到人手"]},
+    {id:"Q2", col:1, row:3, kind:"warn", title:"再等一轮重采", sub:["光照突变 / 门晃 / 未放稳"]},
+    {id:"Q3", col:1, row:4, kind:"warn", title:"取最高置信度目标", sub:["并按告警规则标注"]}
+  ],
+  edges:[
+    {from:"q0", to:"q1", route:"down"},
+    {from:"q1", to:"Q1", route:"side", color:"red", label:"否"},
+    {from:"q1", to:"q2", route:"down", label:"是", lcolor:"#3da33d"},
+    {from:"q2", to:"q3", route:"down"},
+    {from:"q3", to:"Q2", route:"side", color:"amber", label:"否"},
+    {from:"q3", to:"q4", route:"down", label:"是", lcolor:"#3da33d"},
+    {from:"q4", to:"Q3", route:"side", color:"amber", label:"是"},
+    {from:"q4", to:"q5", route:"down", label:"否", lcolor:"#3da33d"},
+    {from:"Q2", to:"q2", route:"loop", color:"amber", dashed:true, label:"重采", lp:[500, 263],
+      points:"M611,348 L611,271 L386,271"}
+  ]});
+
+flow("dg-f8", {title:"F8 上电恢复", width:860, margin:30, colW:400, rowH:110, top:24, w:340,
+  nodes:[
+    {id:"p0", col:0, row:0, title:"上电 / 被拉起", sub:["systemd Restart = always"]},
+    {id:"p1", col:0, row:1, title:"读取本地登记", sub:["未完成请求 / 断连事件缓存"]},
+    {id:"p2", col:0, row:2, kind:"decide", title:"有未完成的开锁请求？"},
+    {id:"p3", col:0, row:3, title:"启动自检全流程", sub:["网络 / IO / RTSP 8 路 / 模型"]},
+    {id:"p4", col:0, row:4, title:"重连上位机", sub:["退避 1~30 秒"]},
+    {id:"p5", col:0, row:5, kind:"ok", title:"重连成功：先发一帧 periodic"},
+    {id:"p6", col:0, row:6, title:"补报缓存事件", sub:["带原发生时间，去重后补报"]},
+    {id:"P1", col:1, row:2, kind:"red", title:"先查 IO 锁状态", sub:["已开=只补回执", "状态未知=拒绝重发，报人工确认"]}
+  ],
+  edges:[
+    {from:"p0", to:"p1", route:"down"},
+    {from:"p1", to:"p2", route:"down"},
+    {from:"p2", to:"P1", route:"side", color:"red", label:"是"},
+    {from:"p2", to:"p3", route:"down", label:"否", lcolor:"#3da33d"},
+    {from:"P1", to:"p3", route:"elbow", color:"amber", dashed:true, label:"处理完毕后继续"},
+    {from:"p3", to:"p4", route:"down"},
+    {from:"p4", to:"p5", route:"down"},
+    {from:"p5", to:"p6", route:"down"}
+  ]});
+seq("dg-s1", {title:"S1 正常出入库", width:1180, margin:30, laneW:224, rowH:64, top:66,
+  actors:[
+    {name:"用户", w:100},
+    {name:"上位机", w:130},
+    {name:"边缘计算机", kind:"dark", w:160},
+    {name:"IO 板", kind:"ext", w:110},
+    {name:"摄像头 ×8", kind:"ext", w:130}
+  ],
+  phases:[
+    {from:0, to:5,  title:"阶段一 · 开柜", fill:"#eef5ff", color:"#2e6fb8"},
+    {from:6, to:8,  title:"阶段二 · 取放与关柜", fill:"#fff7ec", color:"#c77b28"},
+    {from:9, to:13, title:"阶段三 · 识别", fill:"#eef9ee", color:"#3d8a3d"},
+    {from:14, to:14,title:"阶段四 · 结果", fill:"#f2fbf2", color:"#3da33d"}
+  ],
+  msgs:[
+    {from:0, to:1, text:"确认出入库单据"},
+    {from:1, to:2, text:"open_req（request_id）", color:"blue", bold:true},
+    {from:2, to:3, text:"Modbus 写开锁线圈", color:"blue"},
+    {from:3, to:2, text:"开锁回执", color:"green", dashed:true},
+    {from:2, to:1, text:"open_ack（success = true）", color:"green", dashed:true},
+    {from:1, to:0, text:"开箱弹窗 + 单据摘要"},
+    {from:0, to:3, text:"取放工具后关柜（物理动作）", dashed:true},
+    {from:3, to:2, text:"门磁信号：柜门已关", dashed:true},
+    {from:2, to:1, text:"关柜事件上报（帧名待协议定稿）", color:"amber", bold:true},
+    {from:1, to:2, text:"recognize_req（request_id）", color:"blue", bold:true},
+    {from:2, to:4, text:"逐货位采集当前帧", color:"blue"},
+    {from:4, to:2, text:"视频帧", dashed:true},
+    {from:2, kind:"self", text:"解码 + 推理 + 货位聚合（目标 1~2 秒内）", color:"blue"},
+    {from:2, to:1, text:"recognize_ack（全柜实况清单）", color:"green", bold:true},
+    {from:1, kind:"self", text:"比对单据 + 写库 + 结果页（3 轮兜底）", color:"green"}
+  ]});
+
+seq("dg-s2", {title:"S2 心跳与断线自愈", width:1120, margin:40, laneW:520, rowH:66, top:66,
+  actors:[
+    {name:"上位机", w:150},
+    {name:"边缘计算机", kind:"dark", w:170}
+  ],
+  msgs:[
+    {kind:"note", text:"正常态：每 3 秒一帧 periodic，8 路摄像头自检随帧上报", fill:"#eef5ff", stroke:"#b9d4f0"},
+    {from:1, to:0, text:"periodic", color:"blue", bold:true},
+    {from:0, kind:"self", text:"连续 15 秒未收到 periodic：判离线 + 告警 + 禁止出入库（TC-05）", color:"amber"},
+    {kind:"note", text:"网络中断（拔网线 / 上位机宕机 / 交换机故障）", fill:"#fdf1f0", stroke:"#eec4c0", color:"#b03a30"},
+    {from:1, kind:"self", text:"发送失败或 TCP 断开：停止周期帧"},
+    {from:0, kind:"self", text:"TCP 断开：立即判离线（TC-22）", color:"amber"},
+    {from:1, kind:"self", text:"退避重连：1s，2s，4s，8s，16s，30s 循环"},
+    {from:1, to:0, text:"重连成功：先发一帧 periodic", color:"green", bold:true},
+    {from:0, kind:"self", text:"判在线；失败在途请求按原 request_id 补发一次"},
+    {from:1, to:0, text:"补报断连期间缓存事件（如柜门已关）", color:"green", dashed:true},
+    {kind:"note", text:"要点：断线期间事件不丢，恢复后补报不重复（靠 request_id 与事件去重）", fill:"#f2fbf2", stroke:"#bfe3bf", color:"#2f7a2f"}
+  ]});
+
+seq("dg-s3", {title:"S3 识别超时与重发", width:1120, margin:40, laneW:520, rowH:66, top:66,
+  actors:[
+    {name:"上位机", w:150},
+    {name:"边缘计算机", kind:"dark", w:170}
+  ],
+  msgs:[
+    {from:0, to:1, text:"recognize_req（id = X）", color:"blue", bold:true},
+    {kind:"note", text:"边缘机未回应（处理卡死 / 忙碌无防护 / 崩溃）", fill:"#fdf1f0", stroke:"#eec4c0", color:"#b03a30"},
+    {from:0, kind:"self", text:"3 秒应答超时：按原帧重发第 1 次（request_id 不变）", color:"amber"},
+    {from:0, to:1, text:"recognize_req（id = X）重发", color:"blue", dashed:true},
+    {from:1, kind:"self", text:"去重：同 id 不重复执行", color:"amber"},
+    {from:0, kind:"self", text:"再 3 秒重发第 2 次；仍失败记登记", color:"amber"},
+    {kind:"note", text:"之后链路恢复：上位机按原 id 自动补发一次（协议第 5 章）", fill:"#eef5ff", stroke:"#b9d4f0"},
+    {from:0, to:1, text:"recognize_req（id = X）补发", color:"blue", dashed:true},
+    {from:1, to:0, text:"recognize_ack（结果只回一次）", color:"green", bold:true},
+    {kind:"note", text:"边缘机实现铁律：3 秒内回结果，或立即回失败帧。沉默 = 上位机白等 9 秒", fill:"#fdf1f0", stroke:"#eec4c0", color:"#b03a30"}
+  ]});
+
+(function reportSelfCheck() {
+  var sc = document.getElementById("selfcheck");
+  if (CHECK.length) {
+    sc.style.display = "block";
+    sc.innerHTML = "<b>布局自检警告（" + CHECK.length + " 条）：</b><br>" + CHECK.join("<br>");
+    console.warn("layout warnings:", CHECK);
+  } else {
+    console.log("layout self-check passed");
+  }
+})();
+</script></div>
+</body>
+</html>

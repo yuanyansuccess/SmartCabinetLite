@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>模拟边缘计算机辅助测试操作手册（实操版）</title>
+<style>
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#f5f7fa; margin:0; padding:32px 40px; color:#333; line-height:1.7; }
+  h1 { font-size:23px; margin:0 0 6px; }
+  h2 { font-size:19px; margin:30px 0 10px; color:#1a1a2e; border-left:5px solid #4da3ff; padding-left:10px; }
+  h3 { font-size:15.5px; margin:18px 0 6px; color:#222; }
+  .meta { font-size:13px; color:#666; margin-bottom:8px; }
+  .note { font-size:12.5px; color:#555; background:#f0f7ff; border:1px solid #cfe3fb; border-radius:8px; padding:10px 14px; margin:10px 0; }
+  .warn { background:#fff7ec; border-color:#f0c36d; }
+  .ok { background:#eef9ee; border-color:#bfe3bf; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; border-radius:4px; padding:1px 7px; }
+  .t-sim { background:#e8f0ff; color:#1a5fc4; }
+  .t-pc  { background:#eaf7ea; color:#2e7d32; }
+  .t-exp { background:#fff3e0; color:#d97a1e; }
+  code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px; }
+  .case { border:1px solid #e0e0e0; border-radius:10px; background:#fff; padding:12px 16px; margin:14px 0; }
+  .case h3 { margin-top:0; color:#134; }
+  .case .goal { font-size:13px; color:#444; background:#fafafa; border-left:3px solid #4da3ff; padding:6px 10px; margin:6px 0 10px; }
+  ol.steps { font-size:13.5px; padding-left:22px; margin:6px 0; }
+  ol.steps li { margin:5px 0; }
+  .pass { font-size:13px; color:#1c7a1c; background:#eef9ee; border-radius:6px; padding:6px 10px; margin:6px 0; }
+  .fail { font-size:13px; color:#b3261e; background:#fdecea; border-radius:6px; padding:6px 10px; margin:6px 0; }
+  .tip  { font-size:12.5px; color:#555; background:#fffbe6; border-radius:6px; padding:6px 10px; margin:6px 0; }
+  table.grid { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  table.grid th { background:#f8f9fb; border:1px solid #e0e0e0; padding:8px 10px; text-align:left; font-weight:700; }
+  table.grid td { border:1px solid #e8e8e8; padding:8px 10px; vertical-align:top; }
+  .legend { font-size:13px; color:#555; background:#fff; border:1px solid #e8e8e8; border-radius:10px; padding:10px 16px; margin:10px 0 18px; }
+</style>
+</head>
+<body>
+<h1>模拟边缘计算机辅助测试操作手册（实操版）</h1>
+<div class="meta">SmartCabinetLite · 配套《出入库边缘机识别流程设计图》· 面向：不懂代码、只需照着点就能测全流程的人</div>
+
+<div class="legend">
+  <b>这份手册能让你做到什么</b>：现场没有真实边缘机（那台做识别的电脑）时，用本模拟器代替它，和真正的上位机软件（柜子上的主程序）用<b>同一套通信规则、同一个数据库</b>对话，从而把设计图里的每一个流程、每一个异常分支都在电脑上跑出来验证。<br/>
+  <b>颜色标记含义</b>：<span class="tag t-sim">模拟器</span> = 在 EdgeSimulator 软件上操作；<span class="tag t-pc">上位机</span> = 在 QtSmartCabinet（柜体主程序）的"出入库"页操作；<span class="tag t-exp">预期</span> = 应该看到的现象。<br/>
+  <b>用例格式</b>：每个用例都是【测什么】→【前置】→【操作步骤 12345】→【通过标志】→【失败标志】→【易错提醒】，照着点即可。
+</div>
+
+<h2>一、测试前必须知道的三件事（白话）</h2>
+<div class="note">先读完这三件，再动手，能少走很多弯路。</div>
+<h3>1. 两个软件谁是"模拟器"、谁是"上位机"</h3>
+<ul>
+  <li><b>模拟器（EdgeSimulator）</b>：本手册的主角。它假装自己就是那台视觉边缘计算机，能按你的设置"回话"给上位机（比如回"柜子里有什么工具""哪路摄像头坏了"）。双击打开后是一个带界面的窗口。</li>
+  <li><b>上位机（QtSmartCabinet）</b>：柜体上的主程序。你要测的"出入库流程"就跑在它里面。它以为模拟器是真边缘机，其实连的是模拟器。</li>
+</ul>
+<h3>2. 它们怎么"连在一起"</h3>
+<ul>
+  <li>模拟器默认连本机（<code>127.0.0.1</code>）的 <code>9000</code> 端口，上位机也默认监听这个端口。两台都开在本机时，点一下【一键标准联调】就自动连上了。</li>
+  <li>它们还<b>共用同一个数据库</b>（库名 <code>smart_cabinet</code>），所以模拟器"看到的货位"和上位机"单据里的货位"是同一份数据，能对得上。</li>
+</ul>
+<h3>3. 一期有一个"假按钮"要先明白（很重要）</h3>
+<div class="warn">真实柜子关上门时，硬件会发一个"门已关"信号给软件。但当前（一期）柜子的门磁硬件还没接好，所以上位机用【我已关柜，开始核对】这个<b>按钮</b>来顶替真实关门信号。你（测试人员）在开箱成功、放好工具后，<b>必须手动点这个按钮</b>，上位机才会去触发识别核对。这是设计上就如此，不是 bug。真硬件到位后，点按钮这一步会被真实关门信号直接替换。</div>
+
+<h2>二、准备环境：从零开始连上（照做即可）</h2>
+<ol class="steps">
+  <li><span class="tag t-pc">上位机</span>先启动上位机主程序 <code>QtSmartCabinet.exe</code>，用管理员账号登录，进入主界面。</li>
+  <li><span class="tag t-sim">模拟器</span>双击打开模拟器 <code>EdgeSimulator.exe</code>（有窗口界面，不是黑框）。</li>
+  <li><span class="tag t-sim">模拟器</span>在顶部点【一键标准联调】：它会自动连上位机、连数据库读货位、生成"全柜在库基线清单"、切到自定义清单、并开启周期帧（数据库口令已内置，不用手输）。状态条会变绿提示"当前生效：自定义清单"。</li>
+  <li><span class="tag t-sim">模拟器</span>切到②页（单据模拟），点【读取本单候选】，在弹出的三个列表（本单-入库 / 本单-出库 / 本单-借出转出库）里，勾选你这次要测的工具行，然后点【按本单生成清单】。表格里所见即模拟器发给上位机的内容。</li>
+  <li><span class="tag t-sim">模拟器</span>切到③页（识别回应），确认"回应场景"是【自定义清单】（顶部状态条应为绿色"当前生效：自定义清单"）。</li>
+  <li><span class="tag t-pc">上位机</span>在"出入库"页，按同样这批工具建好单据（后面每个用例会细说建什么）。</li>
+</ol>
+<div class="tip">做完上面 6 步，环境就就绪了。每个用例开头都假设你已经完成这 6 步；如果中途断了（比如关了软件），重新从步骤 3 开始即可。</div>
+
+<h2>三、怎么判断用例"通过"还是"失败"</h2>
+<div class="note">每个用例末尾都有【通过标志】和【失败标志】。判定的信息来源有三处，请记住这三处就够：</div>
+<ul>
+  <li><b>上位机弹窗/结果页</b>：最直观。比如结果页显示"出入库完成 ✅"且每行绿字，就是正常通过。</li>
+  <li><b>上位机日志</b>：在 <code>QtSmartCabinet.exe</code> 同目录的 <code>logs\app_日期.log</code>。看里面有没有"链路恢复""重发请求""丢弃帧"等关键字。</li>
+  <li><b>模拟器日志</b>：软件同目录的 <code>EdgeSimulator_log.txt</code>，底部通信区也实时显示（蓝=发送 绿=接收 红=坏帧 灰=事件）。</li>
+</ul>
+<div class="pass">通用通过原则：弹窗/结果页现象与设计预期一致，且日志没有意外报错（红字"丢弃帧"在故意测异常时是预期的，不算失败）。</div>
+<div class="fail">通用失败原则：上位机弹"无法开箱/无法核对"以外的崩溃、卡死、或现象与【通过标志】完全相反、且日志出现"FATAL/ASSERT"字样。</div>
+
+<h2>四、正常流程用例（先测这 3 个，确认基本链路通）</h2>
+<div class="note">这 3 个是"一切正常"的基线。只有这 3 个都通过，再去测后面的异常才有意义。</div>
+
+<div class="case">
+  <h3>5.1 入库 · 正常全过</h3>
+  <div class="goal">【测什么】入库工具放到正确位置，上位机应全部识别通过，并整单写入数据库。</div>
+  <p><b>【前置】</b>已完成第二章 6 步；②页勾的是"本单-入库"行，且每行"识别结果"列都是"正常"。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：确认本单-入库行的"识别结果"列都是"正常"，点【按本单生成清单】；③页"回应场景"确认是【自定义清单】（状态条绿色）。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页：点"入库"类型，添加与模拟器一致的入库工具（工具名称、编号完全一致），点【确认出入库】。</li>
+    <li><span class="tag t-pc">上位机</span>弹"正在打开柜体"→ 开箱成功显示"柜体已打开"+单据摘要。按实物把工具放到对应货位后，点【我已关柜，开始核对】。</li>
+    <li><span class="tag t-pc">上位机</span>等待"正在核对柜内工具…"几秒，自动弹结果页。</li>
+  </ol>
+  <div class="pass">【通过标志】结果页标题"出入库完成 ✅"，每一行绿字"通过"；关闭结果页回到单据界面，且数据库多了对应入库记录（可查台账）。</div>
+  <div class="fail">【失败标志】弹"无法开箱/无法核对"红框，或结果页出现红字失败项。</div>
+  <div class="tip">【易错提醒】工具名称/编号必须和上位机单据完全一致，否则比不对；放完工具后忘记点【我已关柜】，流程会停在"柜体已打开"不动。</div>
+</div>
+
+<div class="case">
+  <h3>5.2 出库 · 正常全过</h3>
+  <div class="goal">【测什么】出库工具被正确取走（货位变空），上位机应判全部通过并写出库记录。</div>
+  <p><b>【前置】</b>②页勾的是"本单-出库"行；每行"识别结果"为"货位空"（表示该货位已无工具）。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：把本单-出库行的"识别结果"设成"货位空"，点【按本单生成清单】。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页：点"出库"类型，添加出库工具，点【确认出入库】。</li>
+    <li><span class="tag t-pc">上位机</span>开箱成功后，把工具从货位取走（货位变空），再点【我已关柜，开始核对】。</li>
+    <li><span class="tag t-pc">上位机</span>等核对几秒，弹结果页。</li>
+  </ol>
+  <div class="pass">【通过标志】结果页 ✅，每行绿字；出库记录写入台账（工具状态变为"已出库"）。</div>
+  <div class="fail">【失败标志】结果页某行红字"货位上仍有 XX"（说明模拟器没设成货位空，或你没真取走）。</div>
+  <div class="tip">【易错提醒】出库要模拟"货位空"，所以模拟器该行识别结果必须选"货位空"，不是"正常"。</div>
+</div>
+
+<div class="case">
+  <h3>5.3 借出转出库 · 免开箱</h3>
+  <div class="goal">【测什么】借出未归还的工具不在柜内、无取放动作，应"免开箱直接写库"（不下发开锁、不弹开箱、不发识别）。</div>
+  <p><b>【前置】</b>②页勾的是"本单-借出转出库"行。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：勾选"本单-借出转出库"行；⑤页点【逆向借出转出库】（参数自动套好）。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页：出库下拉选"借出中"的工具，点【确认出入库】。</li>
+  </ol>
+  <div class="pass">【通过标志】<b>不下发开锁指令、不弹开箱弹窗、不发识别请求</b>，直接出结果页"出入库完成"；借出→出库写库、对应借用记录结清（台账里该工具不再显示"借用中"）。</div>
+  <div class="fail">【失败标志】出现开箱弹窗，或要求你点【我已关柜】——说明没走免开箱分支。</div>
+  <div class="tip">【易错提醒】"借出转出库"和"普通出库"区别：前者工具早已借出不在柜内，所以免开箱；后者工具在柜内要取走。</div>
+</div>
+
+<h2>五、异常流程用例（覆盖设计文档异常清单 #1~#25）</h2>
+<div class="note">下面 16 个用例覆盖"部分未过、错放、未知、置信度低、缺失、离线、摄像头坏、超时、关柜超时、坏帧、断链补发、重复/乱序/粘包"等全部异常分支。每个都按 12345 操作。</div>
+
+<div class="case">
+  <h3>6.1 部分未过 → 重新开柜整理（3 轮兜底）</h3>
+  <div class="goal">【测什么】一轮没全过，操作人可重开柜整理，最多 3 轮；3 轮仍不全过则只能"按当前实况写库"兜底（不死循环、不零写库）。对应设计异常 #11。</div>
+  <p><b>【前置】</b>③页"回应场景"选【识别回应序列】，序列设为"第1轮全过 → 第2轮部分未过 → 第3轮仍不过"（状态条确认序列已加载）。</p>
+  <ol class="steps">
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 点【确认出入库】→ 开箱 → 放工具 → 点【我已关柜，开始核对】→ 等核对。</li>
+    <li><span class="tag t-exp">预期</span>若序列设成"第1轮就部分未过"：结果页出现红字未过项 + 两个按钮【重新开柜整理（第 2/3 轮）】和【按当前实况写库】。</li>
+    <li><span class="tag t-pc">上位机</span>点【重新开柜整理】→ 再次开箱（同一页面原地切回"正在打开柜体"）→ 整理 → 点【我已关柜，开始核对】→ 等第 2 轮核对。</li>
+    <li><span class="tag t-sim">模拟器</span>无需操作，序列自动在第 2、3 轮回放"部分未过/仍不过"。</li>
+    <li><span class="tag t-exp">预期</span>第 3 轮结果页只剩【按当前实况写库】（无重新开柜按钮）；点它后通过项写入、未过项保持原状、日志标注"第3轮未全过，按实况写入"。</li>
+  </ol>
+  <div class="pass">【通过标志】能反复重开柜、轮次文字显示"第 N/3 轮"；到第 3 轮强制只剩按实况写库，且确实写库了。</div>
+  <div class="fail">【失败标志】无限弹出重新开柜、或第 3 轮仍给重开按钮、或点按实况写库后库里一条都没写（零写库）。</div>
+  <div class="tip">【易错提醒】序列要设成"部分未过"才会触发重开柜；若设成"全过"，一轮就 ✅ 结束，看不到重开柜流程。</div>
+</div>
+
+<div class="case">
+  <h3>6.2 错放 misplaced</h3>
+  <div class="goal">【测什么】工具放到了"非目标货位"，上位机应识别为错放并提示，不自动挪动。对应设计异常 #13。</div>
+  <p><b>【前置】</b>②页把某入库工具的"货位"填成<b>非目标货位</b>（或在③页点【错放告警】）。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：把某入库行的"货位"改成别的货位（非单据目标位），点【按本单生成清单】。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页建单（按正确目标货位）→ 点【确认出入库】→ 开箱 → 点【我已关柜，开始核对】→ 等核对。</li>
+  </ol>
+  <div class="pass">【通过标志】结果页该行红字，并多出提示行"X 货位有异常工具（工具 应放 位置）"；软件不自动挪动，需人工修正后重新开柜整理。</div>
+  <div class="fail">【失败标志】错放被当成正常通过（绿字），说明模拟器货位没改对。</div>
+  <div class="tip">【易错提醒】"错放"是模拟器发回的货位和上位机单据货位不一致；若两边货位相同，永远测不出错放。</div>
+</div>
+
+<div class="case">
+  <h3>6.3 未知物品 unknown</h3>
+  <div class="goal">【测什么】货位上出现无法识别的物品（工具编号为空），上位机应判"无法识别物品"。对应设计异常 #14。</div>
+  <p><b>【前置】</b>②页某行"工具编号"留空、"识别结果"设成"未知物品"。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：某行"工具编号"留空、"识别结果"选"未知物品"，点【按本单生成清单】。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 点【确认出入库】→ 开箱 → 点【我已关柜，开始核对】→ 等核对。</li>
+  </ol>
+  <div class="pass">【通过标志】该行红字"X 货位有无法识别物品"；若该货位是本单目标位，则该行失败，进入整理循环。</div>
+  <div class="fail">【失败标志】未知物品被当成某个已知工具通过。</div>
+</div>
+
+<div class="case">
+  <h3>6.4 置信度不足 low_confidence</h3>
+  <div class="goal">【测什么】识别到的工具置信度低于门槛（0.85），上位机应判"置信度不足"不写入台账。</div>
+  <p><b>【前置】</b>②页某行"识别结果"选"置信度不足"（或置信度填 0.80，低于 0.85）。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：某行"识别结果"选"置信度不足"（置信度显示为 0.80 左右），点【按本单生成清单】。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 点【确认出入库】→ 开箱 → 点【我已关柜，开始核对】→ 等核对。</li>
+  </ol>
+  <div class="pass">【通过标志】该行红字"置信度 80%，未达 85% 门槛"，不写入台账；可整理或按实况写库。</div>
+  <div class="fail">【失败标志】低于门槛仍判通过并写库。</div>
+  <div class="tip">【易错提醒】门槛是 0.85，模拟器置信度必须填低于它（如 0.80）才触发，填 0.95 不会触发。</div>
+</div>
+
+<div class="case">
+  <h3>6.5 在库缺失 missing（全柜核对）</h3>
+  <div class="goal">【测什么】库里某货位有工具、但柜内没识别到（缺失），上位机全柜核对应报 Missing。对应设计异常 #15。</div>
+  <p><b>【前置】</b>②页在"非本单"的货位上把"识别结果"设空（库里有工具、柜内没识别到），本单行保持正常。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>②页：找一个非本单的货位，把它的"识别结果"设空（表示柜内为空），本单行保持正常，点【按本单生成清单】。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 点【确认出入库】→ 开箱 → 点【我已关柜，开始核对】→ 等核对。</li>
+  </ol>
+  <div class="pass">【通过标志】本单若全过，结果页仍报"全柜核对：X 货位库内有工具但柜内为空（Missing）"，按未全过处理，走双出口让操作人确认。</div>
+  <div class="fail">【失败标志】缺失被忽略、结果页直接 ✅（说明全柜核对没开）。</div>
+</div>
+
+<div class="case">
+  <h3>6.6 货位空 / 出库未取走（Empty / StillThere）</h3>
+  <div class="goal">【测什么】入库项货位空（Empty）、出库项货位仍有工具（StillThere）两种边界。对应设计异常 #12。</div>
+  <ol class="steps">
+    <li><b>入库-货位空</b>：<span class="tag t-sim">模拟器</span>②页某入库行"识别结果"设"货位空"，点【按本单生成清单】；<span class="tag t-pc">上位机</span>建入库单 → 开箱 → 点【我已关柜】→ 核对。</li>
+    <li><b>出库-未取走</b>：<span class="tag t-sim">模拟器</span>②页某出库行"识别结果"设"正常"（货位仍有工具），点【按本单生成清单】；<span class="tag t-pc">上位机</span>建出库单 → 开箱 → 点【我已关柜】→ 核对。</li>
+  </ol>
+  <div class="pass">【通过标志】入库-货位空：该行红字"未检测到该货位（识别清单为空）"；出库-未取走：该行红字"货位上仍有 XX"，结果页给【重新开柜整理】/【按当前实况写库】。</div>
+  <div class="fail">【失败标志】出库-未取走却被判通过（工具还在柜里却写"出库成功"），这是严重错误。</div>
+  <div class="tip">【易错提醒】这两个是"识别清单里该行没识别出工具"的两种解释，靠"是入库还是出库"区分，别搞反。</div>
+</div>
+
+<div class="case">
+  <h3>6.7 边缘机离线拒绝（开箱前）</h3>
+  <div class="goal">【测什么】边缘机链路已断，上位机应拒绝开箱、不写库。对应设计异常 #5。</div>
+  <p><b>【前置】</b>上位机和模拟器本来连着。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>③页（识别回应）点【停发周期帧】。</li>
+    <li><span class="tag t-pc">上位机</span>等约 15 秒，日志出现"边缘机链路离线"，状态灯变离线。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页点【确认出入库】。</li>
+  </ol>
+  <div class="pass">【通过标志】弹"边缘机链路离线，无法开箱"类提示，<b>不写库</b>。恢复周期帧（④页再点【停发周期帧】变回发送）后状态回在线，可正常开箱。</div>
+  <div class="fail">【失败标志】离线状态下仍能开箱、还能写库——这是安全漏洞。</div>
+  <div class="tip">【易错提醒】"离线"是模拟器停发周期帧约 15 秒后上位机才判定，不是一点停发立刻生效，要等。</div>
+</div>
+
+<div class="case">
+  <h3>6.8 摄像头闸门拒开柜（8 路异常）</h3>
+  <div class="goal">【测什么】任一摄像头状态异常，上位机安全闸门应禁止开柜。对应设计异常 #25。</div>
+  <p><b>【前置】</b>周期帧正常在发（别停在 6.7 的离线态）。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>④页：把 CAM3（或任意一路）状态设为 <code>offline</code> → 点【立即发一帧周期帧】。</li>
+    <li><span class="tag t-pc">上位机</span>等几秒，出入库页建单 → 点【确认出入库】。</li>
+  </ol>
+  <div class="pass">【通过标志】弹"以下摄像头状态异常，禁止开柜：CAM3(offline)"，<b>不写库</b>（上位机与模拟器两端一致拒绝）。把 CAM3 改回 <code>ok</code> 再发一帧即可正常开箱。</div>
+  <div class="fail">【失败标志】摄像头坏了还能开箱。</div>
+  <div class="tip">【易错提醒】测完务必把 CAM 改回 ok，否则后面所有开箱用例都会被闸门拦住（现象和"离线"很像，要分清：摄像头闸门时通信是通的，只是开柜被拦）。</div>
+</div>
+
+<div class="case">
+  <h3>6.9 识别超时 → 重新核对（E-5）</h3>
+  <div class="goal">【测什么】柜门已关、识别请求 3 秒×3 次重发全失败，失败问答应收进"核对中"等待框，给【重新核对】按钮重发（不开箱）。这是 E-5 改动点。</div>
+  <p><b>【前置】</b>③页"回应场景"设成不回应（关闭自动回应）或"回应延迟"设 4000ms（超过 3 秒）。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>③页：点【不回应】关闭自动回应（或把"延迟回应"设 4000ms）。</li>
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 开箱 → 放工具 → 点【我已关柜，开始核对】→ 等核对。</li>
+  </ol>
+  <div class="pass">【通过标志】等待框内直接变"核对失败 + 原因 +【重新核对】"按钮；点【重新核对】→ 等待框重开、重发识别（不再开箱）；点【取消】→ 零写库、回单据界面。</div>
+  <div class="fail">【失败标志】弹出一个独立的问答对话框打断流程，或点重新核对后又重新开箱（应只重发识别）。</div>
+  <div class="tip">【易错提醒】要先把模拟器的自动回应关掉，上位机才会"等不到回应"；否则永远正常通过，看不到这个流程。</div>
+</div>
+
+<div class="case">
+  <h3>6.10 关柜等待超时</h3>
+  <div class="goal">【测什么】开箱成功后一直不点【我已关柜】，超过等待时间应提示并取消、零写库。对应设计异常 #6。</div>
+  <p><b>【前置】</b>已完成开箱，停在"柜体已打开"状态。</p>
+  <ol class="steps">
+    <li><span class="tag t-pc">上位机</span>出入库页建单 → 点【确认出入库】→ 开箱成功（显示"柜体已打开"）后，<b>不点【我已关柜】</b>，干等。</li>
+  </ol>
+  <div class="pass">【通过标志】超时后弹"请确认柜门已关，本次操作已取消，未写入任何记录"；可点【取消】放弃，零写库。</div>
+  <div class="fail">【失败标志】等很久也没反应、或界面卡死在"柜体已打开"。</div>
+  <div class="tip">【易错提醒】等待时间默认 2 分钟（设计文档写 5 分钟，以程序实际为准），耐心等够再判失败。</div>
+</div>
+
+<div class="case">
+  <h3>6.11 坏帧不中断链路（非法 JSON / 未知 type / 超长帧）</h3>
+  <div class="goal">【测什么】模拟器发来格式错误的帧，上位机应丢弃并记录，<b>链路不断、不崩溃</b>。对应设计异常 #9。</div>
+  <p><b>【前置】</b>已过开箱、准备核对；周期帧正常。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>④页点【注入非法JSON帧】（或【注入未知type帧】或【注入超长帧】）。</li>
+    <li><span class="tag t-sim">模拟器</span>再点【立即发一帧周期帧】保持通信。</li>
+    <li><span class="tag t-pc">上位机</span>观察是否仍正常，随后正常走一次核对（如 6.1 那样）。</li>
+  </ol>
+  <div class="pass">【通过标志】模拟器日志/上位机日志记"坏帧/丢弃"（红字），<b>链路不断、程序不崩</b>；随后正常识别仍可用。</div>
+  <div class="fail">【失败标志】程序闪退、或之后正常识别也收不到回应。</div>
+  <div class="tip">【易错提醒】看到日志红字"丢弃帧"是<b>预期内的正确行为</b>，不算失败；只有崩溃才算失败。</div>
+</div>
+
+<div class="case">
+  <h3>6.12 链路断开 → 恢复补发</h3>
+  <div class="goal">【测什么】通信中断后，上位机应提示、且断链期间未回应的识别请求在恢复后自动补发一次。对应设计异常 #8。</div>
+  <p><b>【前置】</b>已完成开箱、等待核对中。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>④页点【断开连接】。</li>
+    <li><span class="tag t-pc">上位机</span>立即判离线；若当时在等待核对，等待框关闭并提示"链路中断，本次不出入库"。</li>
+    <li><span class="tag t-sim">模拟器</span>重新点【连接】→ 周期帧恢复。</li>
+    <li><span class="tag t-pc">上位机</span>看日志"链路恢复，补发请求"，状态回在线。</li>
+  </ol>
+  <div class="pass">【通过标志】断链有提示且不写库；恢复后自动补发一次识别请求，之前没回应的轮次补上。</div>
+  <div class="fail">【失败标志】断链后无提示直接卡死，或恢复后请求永远不补发。</div>
+  <div class="tip">【易错提醒】"断开连接"后上位机约 19 秒才显示断开（靠读超时而非立刻感知），别刚点就以为没生效。</div>
+</div>
+
+<div class="case">
+  <h3>6.13 重复回应去重</h3>
+  <div class="goal">【测什么】模拟器对同一识别请求回两遍，上位机应只入账一次（第二次丢弃）。对应设计异常 #8 去重。</div>
+  <p><b>【前置】</b>③页回应场景=正常清单，开箱等待核对中。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>③页点【重复回应×2】（同一请求回两次）。</li>
+    <li><span class="tag t-pc">上位机</span>观察结果页与日志。</li>
+  </ol>
+  <div class="pass">【通过标志】结果页只出现一次正确结果（全过或按清单）；日志可见"丢弃帧 #N：同一 request_id"。数据库只写一条，不重复。</div>
+  <div class="fail">【失败标志】同一工具被写两次、或结果页出现两份相同记录。</div>
+</div>
+
+<div class="case">
+  <h3>6.14 乱序 request_id</h3>
+  <div class="goal">【测什么】模拟器回应的 request_id 与上位机发出的对不上顺序，上位机应丢弃错配帧、不影响正常请求。对应设计异常 #8。</div>
+  <p><b>【前置】</b>③页回应场景=正常清单，开箱等待核对中。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>④页（异常注入）点【回应乱序request_id】。</li>
+    <li><span class="tag t-pc">上位机</span>观察结果页与日志。</li>
+  </ol>
+  <div class="pass">【通过标志】乱序帧被丢弃（日志"丢弃帧"），但随后正常的识别请求仍能被正确处理、结果页正常。</div>
+  <div class="fail">【失败标志】因一帧乱序导致整轮核对失败、或把错配的回应错当成本次结果。</div>
+</div>
+
+<div class="case">
+  <h3>6.15 两帧粘包分帧</h3>
+  <div class="goal">【测什么】模拟器把两帧合成一包发（粘包），上位机应能拆成两帧分别处理，不丢数据。</div>
+  <p><b>【前置】</b>③页回应场景=正常清单，开箱等待核对中。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>③页点【两帧拼一行】（把两条回应粘成一包发出）。</li>
+    <li><span class="tag t-pc">上位机</span>观察结果页与日志。</li>
+  </ol>
+  <div class="pass">【通过标志】两帧都被正确解析，结果页数据完整（不因粘包丢半条）。</div>
+  <div class="fail">【失败标志】结果页缺数据、或只处理了一帧、或程序报错。</div>
+  <div class="tip">【易错提醒】粘包是真 TCP 常见现象，这个用例验证上位机底层拆包是否靠谱。</div>
+</div>
+
+<div class="case">
+  <h3>6.16 协议外字段容错</h3>
+  <div class="goal">【测什么】模拟器发的帧里多出协议没定义的字段，上位机应忽略多余字段、正常处理已知字段。</div>
+  <p><b>【前置】</b>④页"自定义帧"里在合法帧基础上多加一个未知字段，开箱等待核对中。</p>
+  <ol class="steps">
+    <li><span class="tag t-sim">模拟器</span>④页用【自定义帧】发一条带额外未知字段的识别回应（或正常清单即可，正常清单本身字段固定）。</li>
+    <li><span class="tag t-pc">上位机</span>观察结果页与日志。</li>
+  </ol>
+  <div class="pass">【通过标志】多余字段被忽略，识别结果按已知字段正常出；日志无"解析失败"崩溃。</div>
+  <div class="fail">【失败标志】因多了未知字段导致整帧解析失败、结果页空白或报错。</div>
+  <div class="tip">【易错提醒】这个用例偏底层，若模拟器没有现成"加字段"按钮，可跳过，不影响前面 15 个主用例。</div>
+</div>
+
+<h2>六、发版前回归组合（建议每次发版全跑一遍）</h2>
+<table class="grid">
+  <tr><th style="width:40px;">组</th><th>组合内容与顺序</th><th>覆盖用例</th></tr>
+  <tr><td>①</td><td>④页周期帧：把 CAM 依次设 ok/offline/low_light/dirty/comm_error/空，每设一个【立即发一帧】，确认空自检容错</td><td>6.8 + 6.11</td></tr>
+  <tr><td>②</td><td>②页正常清单 → 上位机全过写库 → ③页【重复回应×2】+④页（异常注入）【回应乱序request_id】各跑一次</td><td>5.1 + 6.13 + 6.14</td></tr>
+  <tr><td>③</td><td>③页【不回应】→ ③页（识别回应）【停发周期帧】再恢复（验证超时后的补发）</td><td>6.9 + 6.12</td></tr>
+  <tr><td>④</td><td>③页【识别回应序列】设"第1轮全过→第2轮部分未过→第3轮仍不过"，上位机重开柜整理到兜底</td><td>6.1</td></tr>
+  <tr><td>⑤</td><td>④页【注入非法JSON帧】+【注入未知type帧】+【注入超长帧】各一次，随后走一次正常核对</td><td>6.11</td></tr>
+  <tr><td>⑥</td><td>⑤页（场景预设）【离线拒绝】+【逆向借出转出库】各一次，④页（周期帧与摄像头）做【摄像头闸门】（CAM 设 offline + 立即发一帧周期帧）</td><td>6.7 + 6.8 + 5.3</td></tr>
+</table>
+<div class="tip">跑完上面 6 组，若每个"通过标志"都满足，即可判定出入库流程联调通过。</div>
+
+<h2>七、异常覆盖矩阵（设计文档异常 #1~#25 对照）</h2>
+<div class="note">下表告诉你：设计文档里列的每一个异常，本手册有没有对应的可操作步骤。标注"模拟器直接造"的，照用例点即可；标注"上位机侧校验"的，是上位机自身逻辑，模拟器不直接造，但列出观察点。</div>
+<table class="grid">
+  <tr><th style="width:50px;">异常号</th><th>异常内容</th><th>本手册对应</th><th>怎么验证</th></tr>
+  <tr><td>#1</td><td>单据为空/无工具行</td><td>上位机侧校验</td><td>上位机建空单点【确认出入库】，应提示"单据为空"</td></tr>
+  <tr><td>#2</td><td>单据工具与在库冲突（同工具已在库）</td><td>上位机侧校验</td><td>入已在库工具，确认时提示冲突</td></tr>
+  <tr><td>#3</td><td>入行查重（同工具重复入单行）</td><td>上位机侧校验</td><td>同一工具加两行，确认时提示重复</td></tr>
+  <tr><td>#4-1</td><td>借出工具已归还/再出库</td><td>上位机侧校验</td><td>选已归还的借出工具，弹窗请删除该行</td></tr>
+  <tr><td>#4-2</td><td>借出转出库免开箱</td><td>用例 5.3</td><td>模拟器直接造</td></tr>
+  <tr><td>#5</td><td>边缘机离线拒绝</td><td>用例 6.7</td><td>模拟器直接造</td></tr>
+  <tr><td>#6</td><td>关柜等待超时</td><td>用例 6.10</td><td>上位机计时，模拟器不造</td></tr>
+  <tr><td>#7</td><td>识别超时→重新核对（E-5）</td><td>用例 6.9</td><td>模拟器直接造（关回应）</td></tr>
+  <tr><td>#8</td><td>在途链路中断→补发/去重/乱序/粘包</td><td>用例 6.12/6.13/6.14/6.15</td><td>模拟器直接造</td></tr>
+  <tr><td>#9</td><td>坏帧/未知 type 不中断</td><td>用例 6.11</td><td>模拟器直接造</td></tr>
+  <tr><td>#10</td><td>识别清单为空→全判未检测→整理循环</td><td>用例 6.6（货位空）</td><td>模拟器直接造</td></tr>
+  <tr><td>#11</td><td>3 轮重开柜兜底</td><td>用例 6.1</td><td>模拟器直接造（序列）</td></tr>
+  <tr><td>#12</td><td>部分未过（空/错工具/低置信/未取走）</td><td>用例 6.6 / 6.4</td><td>模拟器直接造</td></tr>
+  <tr><td>#13</td><td>错放 misplaced</td><td>用例 6.2</td><td>模拟器直接造</td></tr>
+  <tr><td>#14</td><td>未知物品 unknown</td><td>用例 6.3</td><td>模拟器直接造</td></tr>
+  <tr><td>#15</td><td>在库缺失 missing（全柜核对）</td><td>用例 6.5</td><td>模拟器直接造</td></tr>
+  <tr><td>#16</td><td>全过整单写库</td><td>用例 5.1 / 5.2</td><td>模拟器直接造</td></tr>
+  <tr><td>#17</td><td>结果页双出口（重开柜/按实况写库）</td><td>用例 6.1</td><td>模拟器直接造</td></tr>
+  <tr><td>#18</td><td>轮次日志</td><td>用例 6.1 内日志</td><td>查上位机日志"第 N 轮"</td></tr>
+  <tr><td>#19</td><td>页面关闭清在途请求</td><td>上位机侧</td><td>核对中关页面，再开箱不应残留</td></tr>
+  <tr><td>#20</td><td>写库失败保留内存可重试</td><td>上位机侧</td><td>断库后写库，提示失败可重试</td></tr>
+  <tr><td>#21</td><td>DB 断连/事务失败整体提示</td><td>上位机侧</td><td>停 MySQL 后操作，提示写入失败</td></tr>
+  <tr><td>#22</td><td>开箱失败（摄像头闸门）回滚</td><td>用例 6.8</td><td>模拟器直接造</td></tr>
+  <tr><td>#23</td><td>识别失败取消零写库</td><td>用例 6.9（点取消）</td><td>模拟器直接造</td></tr>
+  <tr><td>#24</td><td>借出项非本机机组隔离</td><td>不在出入库页范围</td><td>另测（借用页）</td></tr>
+  <tr><td>#25</td><td>摄像头闸门拒开柜</td><td>用例 6.8</td><td>模拟器直接造</td></tr>
+</table>
+<div class="ok">结论：设计文档 #1~#25 中，除 #1/#2/#3/#4-1/#19/#20/#21/#24 属上位机自身校验或别的页面（模拟器不直接造）外，其余异常分支本手册都有可操作步骤覆盖。需模拟器造的异常覆盖度约 17/25。</div>
+
+<h2>八、常见问题排查（快速排错）</h2>
+<div class="case">
+  <h3>问题 1：点【一键标准联调】后，上位机还是连不上模拟器</h3>
+  <ol class="steps">
+    <li>看模拟器底部通信区有没有"已连接上位机"绿字；没有就点【连接】或【一键标准联调】再试。</li>
+    <li>确认上位机先开、模拟器后开（顺序反了可能连不上，重开模拟器即可）。</li>
+    <li>确认没开<b>两个</b>模拟器实例（两个都回话会互相干扰）。</li>
+    <li>用管理员命令行 <code>netstat -ano | findstr :9000</code> 看有没有 <code>ESTABLISHED</code>；只有 <code>LISTENING</code> 说明模拟器没连上上位机。</li>
+  </ol>
+</div>
+<div class="case">
+  <h3>问题 2：开箱后上位机弹"摄像头状态异常，禁止开柜"</h3>
+  <ol class="steps">
+    <li>这是摄像头闸门（用例 6.8），不是 bug。去④页把各 CAM 改回 <code>ok</code>，点【立即发一帧周期帧】。</li>
+    <li>确认之前测 6.8 时把某路 CAM 设成 offline 后没还原。</li>
+  </ol>
+</div>
+<div class="case">
+  <h3>问题 3：流程停在"柜体已打开"不动</h3>
+  <ol class="steps">
+    <li>你大概率忘了点【我已关柜，开始核对】按钮（一期顶替门磁，必须手动点）。</li>
+    <li>若已点仍不动，看上位机日志有没有"链路中断"；有就按 6.12 恢复连接。</li>
+  </ol>
+</div>
+<div class="case">
+  <h3>问题 4：想测异常却一直"正常通过"</h3>
+  <ol class="steps">
+    <li>检查③页"回应场景"是不是被设成了【正常清单】或【识别回应序列】里是"全过"——要测异常得改成对应的异常场景或关掉自动回应。</li>
+    <li>检查②页清单里的"识别结果"列是否还是"正常"——异常要在这里改成对应状态。</li>
+  </ol>
+</div>
+<div class="note ok">日志位置速记：上位机日志 = <code>QtSmartCabinet.exe</code> 同目录 <code>logs\app_日期.log</code>；模拟器日志 = 软件同目录 <code>EdgeSimulator_log.txt</code>（底部通信区也实时显示）。两边对照看，能精确定位是通信层还是业务层问题。</div>
+</body>
+</html>

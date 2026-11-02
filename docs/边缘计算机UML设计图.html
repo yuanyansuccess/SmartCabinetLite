@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>边缘计算机软件 · UML 设计图</title>
+<style>
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#eef1f6; color:#333; margin:0; padding:26px 20px 80px; }
+  .wrap { max-width:1240px; margin:0 auto; }
+  h1 { font-size:25px; color:#1a1a2e; margin:4px 0 6px; }
+  h2 { font-size:20px; margin:42px 0 12px; color:#1a1a2e; border-left:5px solid #4da3ff; padding-left:10px; }
+  h3 { font-size:16px; margin:24px 0 10px; color:#2b3850; }
+  .card { background:#fff; border-radius:14px; padding:14px 16px 6px; box-shadow:0 2px 10px rgba(30,50,90,.08); overflow-x:auto; }
+  .note { background:#f0f7ff; border-left:4px solid #4da3ff; padding:10px 14px; border-radius:8px; font-size:13.5px; margin:10px 0; line-height:1.8; }
+  .warn { background:#fff7ec; border-left:4px solid #d97a1e; padding:10px 14px; border-radius:8px; font-size:13.5px; margin:10px 0; line-height:1.8; }
+  .danger { background:#fdf1f0; border-left:4px solid #c74438; padding:10px 14px; border-radius:8px; font-size:13.5px; margin:10px 0; line-height:1.8; }
+  svg text { font-family:inherit; }
+  .lane-title { fill:#fff; font-size:13px; font-weight:700; }
+  .node-title { fill:#fff; font-size:13px; font-weight:700; }
+  .node-sub { fill:#e8eefc; font-size:11.5px; }
+  .edge-label { font-size:11.5px; fill:#55647e; }
+  .cls-name { fill:#fff; font-size:13px; font-weight:700; }
+  .cls-mem { fill:#f2f6fd; font-size:11px; }
+  .cls-kind { fill:#d7e2f2; font-size:10px; }
+  .sec { color:#2e7bd6; font-weight:700; }
+  table.tbl { border-collapse:collapse; width:100%; font-size:12.5px; margin:8px 0; }
+  table.tbl th { background:#2e7bd6; color:#fff; padding:6px 8px; text-align:left; }
+  table.tbl td { border-bottom:1px solid #e3e9f4; padding:6px 8px; vertical-align:top; line-height:1.6; }
+  table.tbl tr:nth-child(even) td { background:#f7faff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>边缘计算机软件 · UML 设计图（需求驱动）</h1>
+<div class="note">
+设计来源：<b>边缘计算机软件需求与流程设计.html</b> 的 22 张需求卡 + 协议对齐表 + 8 张流程 + 3 张时序 + 32 项异常。<br>
+实现目标语言：<b>Python</b>（本文件仅交付设计，不含代码）。本图与需求卡的对应关系：A 组通信 6 卡 → TCP 模块与 Controllers；B 组识别 6 卡 → 识别模块；C 组 IO 4 卡 → IO 控制模块；D 组系统 6 卡 → 系统服务；F1~F8 流程 → 活动图；E01~E32 异常 → 各类图的方法与红线。<br>
+<b>分层铁律（与袁总要求一致）：</b>数据层 ← TCP 模块（三线程）→ Controllers（小控制层）→ 大控制层/抗冲落层（EdgeControl）整体调度；数据层与控制层通过接口解耦（依赖注入），保证后期易维护。
+</div>
+
+<h2>一、总体分层架构图</h2>
+<div class="card" id="d-arch"></div>
+<div class="warn">
+<b>线程协同模型：</b>① <b>重连线程</b> 监测链路、断线按 1/2/4/8/16/30 秒退避重连，重连成功后经 TcpControlLayer 通知大控制层补报缓存；② <b>接收线程</b> 收字节 → 在 TcpControlLayer 内部完成「分帧+解码+解析」直接产出带类型信号（open_req / recognize_req / version_query / ack），通过注入的 <code>SignalSink</code> 抽象接口上抛（TCP 模块不依赖任何 Controller）；③ <b>心跳线程</b> 每 3 秒经 TcpControlLayer 发 periodic。三个线程共享 TcpControlLayer 持有的 socket，发送加锁、接收入队，由 TcpControlLayer 统一协同。大控制层 EdgeControl 实现 SignalSink 接口消费信号做跨模块编排、故障隔离与断连缓存补报。
+</div>
+
+<h2>二、类图（覆盖功能性方法）</h2>
+
+<h3>2.1 TCP 模块类图：门面 + 三内部线程 + SignalSink 解耦出口（覆盖 A1~A6 通信需求卡）</h3>
+<div class="card" id="d-cls-tcp"></div>
+<div class="note">
+  <b>需求卡覆盖对照（每张卡落到具体的类与方法）：</b><br>
+  <b>A1 连接与断线重连</b> → <code>TcpReconnectThread</code>：退避 1/2/4/8/16/30 秒封顶循环；被拒/超时/不可达一律走退避；同一时刻仅一条连接（门面 <code>_sock</code> 单一持有）；重连成功 <code>_on_connected()</code> 通知门面并先发 version。<br>
+  <b>A2 周期心跳</b> → <code>TcpHeartbeatThread</code>：每 3 秒 <code>_build_periodic()</code>（运行时长 + 8 路摄像头自检）；发送经门面 <code>send_frame()</code> 加锁；发送失败等同断线 → 立即转重连流程。<br>
+  <b>A3 帧解析与可靠性</b> → <code>TcpRecvThread</code> 内聚（不单独成类）：<code>_split_frames()</code> 长度前缀分帧（粘包/半包正确拆）、单帧上限 1MB、<code>_decode_and_parse()</code> 坏帧丢弃 + 计数 + 日志，不影响后续帧。<br>
+  <b>A4 请求配对与去重</b> → <code>Signal.request_id</code> 全链路透传：接收线程回应必须带原 request_id；去重判定与"重复 open_req 不二次开锁"由 EdgeControl + PendingRequestStore 执行（2.2/2.3），TCP 层只负责透传、不吞不改。<br>
+  <b>A5 版本应答</b> → <code>VersionQuerySignal</code> 经 SignalSink 上抛，EdgeControl 路由到 VersionController 回 version_ack；断线重连成功后由重连线程主动补发 version（与 A1 衔接）。<br>
+  <b>A6 断连缓存与补报</b> → 门面 <code>_notify_state_change()</code> 产出 <code>LinkStateSignal</code>（断开/恢复各一次）→ EdgeControl <code>on_link_down()</code> 事件入缓存、<code>on_link_up()</code> 按序补报不重复（缓存本体 EventCache 见 2.3）。
+</div>
+<div class="warn">
+  <b>关联关系读法（图例）：</b>实心菱形 = <b>组合</b>（门面持有三线程、同生命周期，外部只看得见 TcpControlLayer 一个类）；虚线箭头 = <b>依赖</b>；深蓝依赖边 = 线程对门面的回调（重连成功通知 / 发送失败转重连）；灰框 = 抽象接口与数据载体（TCP 不认识任何 Controller）。<br>
+  <b>解耦出口（依赖倒置）</b>：TCP 模块只依赖 <code>SignalSink</code> 抽象接口；大控制层 <code>EdgeControl</code> 实现该接口，初始化时经 <code>set_signal_sink()</code> 把自己注入门面。数据流向：<code>TcpRecvThread 内聚解析 → SignalSink.on_signal(signal) → EdgeControl.route_signal() → 具体 Controller</code>。二者仅通过 Signal 数据对象 + SignalSink 接口耦合，可独立测试、独立替换。<br>
+  <b>两条向上回调边</b>：① 重连线程 <code>_on_connected()</code> → 门面（先发 version）；② 心跳线程发送失败 → 门面（立即转重连）。三线程与门面的全部交互都经门面中转，线程之间互不直连。
+</div>
+
+<h3>2.1.1 三线程怎么配合（新手白话版）</h3>
+<div class="note">
+把 TcpControlLayer 想成一部<b>电话总机</b>，三个线程是总机里三位各管一摊的员工。电话线（socket）只有一根，归总机保管，谁要用谁先拿锁：
+<table class="tbl">
+<tr><th style="width:96px">角色</th><th style="width:96px">管什么</th><th>怎么干（白话）</th></tr>
+<tr><td><b>接收线程</b></td><td>听话</td><td>一直贴着电话听。听到一串字节就按长度切成一条条完整消息，翻译成 Signal，投进 SignalSink 这个"信箱"。听不清的（坏帧）整条扔掉并记一笔，绝不耽误听下一条。</td></tr>
+<tr><td><b>心跳线程</b></td><td>报平安</td><td>定一个 3 秒的闹钟，每响一次就对电话说一句"我还活着，8 路摄像头状态如下"。哪天发现话说不出去（发送失败），立刻报告总机：线路断了。</td></tr>
+<tr><td><b>重连线程</b></td><td>修线路</td><td>线路一断就接手：通知总机停心跳、缓存事件，然后按 1/2/4/8/16/30 秒越来越长的间隔重拨，直到拨通。拨通后第一件事是自报版本号，再通知总机"线路恢复了"，大控制层把断线期间攒下的事按序补报上去、不重复。</td></tr>
+</table>
+<b>三条配合规矩（记住这三条就懂了）：</b><br>
+① <b>线程之间从不直接说话</b>——接收线程收完帧、心跳线程发送失败、重连线程拨通线路，全部只报告总机（TcpControlLayer），由总机统一决定下一步。好处：出问题只查一个地方，不会三个线程互相甩锅。<br>
+② <b>发送要拿锁，一人一句</b>——三个线程都可能要发帧，谁拿到 _lock 谁先发，避免两个人的话在电话线里搅成一团。<br>
+③ <b>收和办分开</b>——接收线程只负责"收下来、翻译好、投信箱"，至于这条请求该不该开锁、要不要识别，它一概不管，由大控制层 EdgeControl 决定。所以 TCP 模块可以单独测试、单独更换，不牵连业务。
+</div>
+<div class="warn">
+<b>新手最容易被问倒的两个点：</b><br>
+① <b>"断线是谁先发现的？"</b>——通常是心跳线程：它每 3 秒要说话，最先发现"说不出去了"。接收线程也能发现（连接被挂断、recv 返回 0），两条路都汇到总机，由总机统一宣告断线，不会重复宣告。<br>
+② <b>"重连期间收到的请求怎么办？"</b>——收不到。线路断了就没有"收"这件事，上位机那边的请求靠它自己的 3 秒超时×重发兜底；我们这边断线期间发生的事（如关柜事件）先进 EventCache 落盘，线路恢复后补报，一件不丢、一件不重。
+</div>
+
+<h3>2.1.2 异常帧处理清单（接收线程视角）</h3>
+<div class="warn">
+场景：上位机经网络发来 <code>recognize_req</code> 要求读柜内清单，请求在网络上传，什么都不足为奇——两条粘一起、一条断两截、缺字段、重复发、到的顺序乱。接收线程对每一种都必须有明确动作：<b>要么完整处理，要么整帧丢弃</b>，绝不"处理一半"。下面这张表就是异常帧的完整处置口径（实现时落在 <code>_split_frames()</code> 与 <code>_decode_and_parse()</code> 两个方法里）。
+<table class="tbl">
+<tr><th style="width:120px">异常情况</th><th style="width:200px">长什么样</th><th>处理动作</th></tr>
+<tr><td><b>粘包</b></td><td>两条帧挤在一次接收里到达</td><td>按长度前缀切开，两条各自完整走流程，互不影响。</td></tr>
+<tr><td><b>半包</b></td><td>一条帧只到了前一半（网络分片）</td><td>前半截留在缓冲区等下一次接收补齐，不解析、不上抛、不计数（这不是坏帧，是正常现象）。</td></tr>
+<tr><td><b>超长帧</b></td><td>单帧超过 1MB 上限</td><td>整帧丢弃 + 坏帧计数 +1 + 日志；判定为异常数据，不再继续读这条帧。</td></tr>
+<tr><td><b>长度头非法</b></td><td>长度=0、负数或明显离谱，找不到帧边界</td><td>丢弃 + 计数 + 日志，清空缓冲区重新同步。原则：<b>宁可整段丢，不可错位解析</b>——错位会把后面的好帧也全部切坏。</td></tr>
+<tr><td><b>内容解不开</b></td><td>不是合法 JSON，或编码损坏</td><td>整帧丢弃 + 计数 + 日志，不影响后续帧。</td></tr>
+<tr><td><b>缺 request_id</b></td><td>请求里没有配对编号</td><td>丢弃 + 日志，<b>不回应</b>——没有编号就无法配对应答。上位机 3 秒收不到应答会自动重发，靠这个兜底。</td></tr>
+<tr><td><b>缺其他必填字段</b></td><td>recognize_req 缺 items、open_req 缺货位号等</td><td>丢弃 + 计数 + 日志；能拿到 request_id 的，回一帧失败应答让对方别干等。</td></tr>
+<tr><td><b>未知帧类型</b></td><td>type 不在协议帧表里</td><td>忽略 + 计数 + 日志，不断连不报错。这是前向兼容：新版上位机发的帧，老版边缘机不认识也不崩。</td></tr>
+<tr><td><b>重复 request_id</b></td><td>上位机超时重发，同一编号来两次</td><td>TCP 层<b>照常上抛、不吞不改</b>；去重判定由大控制层（PendingRequestStore）做。TCP 层没有在途记录，不替业务做决定，避免把合法的第二次请求误吞。</td></tr>
+<tr><td><b>忙时又来识别请求</b></td><td>上一轮识别还没结束，新的 recognize_req 又到了</td><td>TCP 层照常上抛；业务层回 busy 帧——<b>必须回应，不能沉默</b>（沉默=对方白等 9 秒）。</td></tr>
+<tr><td><b>断线残帧</b></td><td>连接断开瞬间，缓冲区里还剩半条帧</td><td>断开即清空缓冲区，残帧直接扔。新连接不带任何旧数据。</td></tr>
+<tr><td><b>旧连接的帧</b></td><td>已判离线、或已换新连接后，旧连接的帧才到</td><td>丢弃 + 日志——只认当前 socket 的数据，杜绝两台柜/新旧会话串台。</td></tr>
+<tr><td><b>应答配不上对</b></td><td>收到的 ack 在在途记录里找不到对应编号</td><td>丢弃 + 日志（可能是对方对已超时请求的迟到应答）。</td></tr>
+<tr><td><b>对端关闭</b></td><td>recv 返回 0 字节</td><td>这不是坏帧，是对方正常挂断 → 走断线流程，交给重连线程。</td></tr>
+</table>
+</div>
+<div class="note">
+<b>异常帧三条处理原则（表格里所有动作都从这三条推出来）：</b><br>
+1）<b>丢弃不连坐</b>：坏帧只扔这一帧，缓冲区对齐后立刻继续收下一帧，不重连、不重启、不连累后面的好帧。<br>
+2）<b>丢弃必留痕</b>：每次丢弃做三件事——坏帧计数 +1、写日志（带丢弃原因和原始长度）、把缓冲区恢复到可解析状态。联调时看一眼计数就知道线路质量好坏。<br>
+3）<b>能回应必回应，不能回应靠超时</b>：异常帧里还有 request_id 的，回一帧失败应答；连 request_id 都没有的只能丢弃，由上位机的 3 秒超时×重发机制兜底。全程不存在"默默吞掉且对方不知道"的情况。
+</div>
+
+<h3>2.2 控制层：Controllers（小控制层）+ 大控制层/抗冲落层</h3>
+<div class="card" id="d-cls-ctrl"></div>
+
+<h3>2.3 数据层（接口化、与业务解耦）</h3>
+<div class="card" id="d-cls-data"></div>
+
+<h3>2.4 识别模块 / IO 控制模块 / 系统服务</h3>
+<div class="card" id="d-cls-other"></div>
+
+<h3>2.5 全量类关系总图（分层 + 关键依赖）</h3>
+<div class="card" id="d-cls-all"></div>
+
+<h2>三、活动图（分层泳道，与需求卡/控制层双吻合）</h2>
+
+<h3>3.1 启动自检（对应 D1 + F1）</h3>
+<div class="card" id="d-act-f1"></div>
+
+<h3>3.2 通信主循环与断线自愈（三线程协同，对应 A1/A2/A3/A6 + F2）</h3>
+<div class="card" id="d-act-f2"></div>
+
+<h3>3.3 识别业务流程（对应 B4/B5/B6 + F3 + F7 质量闸门）</h3>
+<div class="card" id="d-act-f3"></div>
+
+<h3>3.4 开锁控制流程（对应 C1/C2 + F4 + F8 幂等）</h3>
+<div class="card" id="d-act-f4"></div>
+
+<h3>3.5 关柜事件流程（对应 C3 + F5，断连缓存补报）</h3>
+<div class="card" id="d-act-f5"></div>
+
+<h2>四、三线程协同时序图</h2>
+<div class="card" id="d-seq-thread"></div>
+
+<h2>五、面向 Python 实现的设计要点</h2>
+<div class="danger">
+<b>安全红线（来自三条铁律与 E 系列异常，必须在类方法中落地）：</b><br>
+1）如实上报：开锁 success=true 唯一前提=拿到 IO 回执；识别禁止用旧帧（B2 积压跳最新关键帧）；摄像头自检真实（B6）。<br>
+2）必须回应：识别全程 3 秒超时兜底立即回失败帧（F3/F7）；开锁无回执重试最多 3 次后如实失败（C2）。<br>
+3）断线自愈：退避重连 + 断连事件缓存 + 恢复补报不重复（A6）；重发/补发靠 request_id 去重（A4）。<br>
+4）幂等：open_req 执行前先落盘登记（PendingRequestStore），崩溃重启后先查 IO 锁状态——已开只补回执，未知拒绝重发（F8/E25）。
+</div>
+<div class="note">
+<b>松耦合落地建议（Python）：</b>数据层四个 Store 全部以 <b>抽象基类/Protocol</b> 定义接口，由 EdgeControl 通过构造函数注入具体实现；TCP 模块、Controllers、IO、识别模块之间只依赖接口与信号对象（Signal dataclass），不互相持有具体类。这样后期替换 Modbus 模拟器、换识别框架、换存储后端都不动控制层。线程用 <code>threading.Thread</code> + <code>queue.Queue</code> + <code>threading.Lock</code> 实现，TcpControlLayer 持有 socket 与锁，三个线程通过 Queue 把"已解码信号 / 链路状态变化 / 待发帧"交给大控制层与心跳线程，避免共享状态竞态。
+</div>
+
+</div>
+
+<script>
+"use strict";
+var SVGNS = "http://www.w3.org/2000/svg";
+var COLHEX = {gray:"#7a8aa0", blue:"#2e7bd6", green:"#3da33d", amber:"#d97a1e", red:"#c74438", dark:"#2b3850"};
+var ARRMAP = {gray:"arrGray", blue:"arrBlue", green:"arrGreen", amber:"arrAmber", red:"arrRed", dark:"arrGray", open:"arrOpen"};
+var GRAD = {normal:"gBlue", ok:"gGreen", decide:"gAmber", ext:"gGray", dark:"gDark", red:"gRed", warn:"gAmber", blue:"gBlue", green:"gGreen", amber:"gAmber", gray:"gGray"};
+var CHECK = [];
+function svgEl(tag, attrs, parent){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs){ e.setAttribute(k,attrs[k]); } if(parent){ parent.appendChild(e); } return e; }
+function mkDefs(svg){
+  var defs=svgEl("defs",{},svg);
+  function grad(id,c1,c2){ var g=svgEl("linearGradient",{id:id,x1:"0",y1:"0",x2:"0",y2:"1"},defs);
+    svgEl("stop",{offset:"0%","stop-color":c1},g); svgEl("stop",{offset:"100%","stop-color":c2},g); }
+  grad("gBlue","#4da3ff","#2e7bd6"); grad("gGreen","#5cc432","#3da33d"); grad("gAmber","#f0a24a","#d97a1e");
+  grad("gGray","#9aa7b8","#7a8aa0"); grad("gDark","#41557a","#2b3850"); grad("gRed","#e05a4e","#c74438");
+  var f=svgEl("filter",{id:"soft",x:"-30%",y:"-30%",width:"160%",height:"160%"},defs);
+  svgEl("feDropShadow",{dx:"0",dy:"3",stdDeviation:"4","flood-color":"#1e3260","flood-opacity":"0.25"},f);
+  function arr(id,color,fill){ var m=svgEl("marker",{id:id,viewBox:"0 0 10 10",refX: fill?"9":"8",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"},defs);
+    svgEl("path",{d: fill?"M0,0 L10,5 L0,10 z":"M0,2 L8,5 L0,8",fill:color,"fill-opacity": fill?"1":"0.0",stroke:color,"stroke-width":fill?"0":"1.3"},m); }
+  arr("arrGray","#7a8aa0",false); arr("arrBlue","#2e7bd6",false); arr("arrGreen","#3da33d",false);
+  arr("arrAmber","#d97a1e",false); arr("arrRed","#c74438",false);
+  arr("arrGrayF","#7a8aa0",true); arr("arrBlueF","#2e7bd6",true); arr("arrGreenF","#3da33d",true);
+  arr("arrAmberF","#d97a1e",true); arr("arrRedF","#c74438",true); arr("arrDarkF","#2b3850",true);
+}
+function txtW(s,fs){ var sum=0; for(var i=0;i<s.length;i++){ sum += s.charCodeAt(i)>255 ? fs : fs*0.52; } return sum; }
+
+/* ---------------- 类图引擎 ---------------- */
+function classDiagram(hostId, cfg){
+  var host=document.getElementById(hostId);
+  var margin=cfg.margin||30;
+  var boxes={};
+  cfg.boxes.forEach(function(b){
+    var attrs=b.attrs||[], meths=b.methods||[];
+    var h = 30 + (attrs.length? 6+attrs.length*15 : 0) + (meths.length? 10+meths.length*15 : 0) + 10;
+    b._w=b.w||224; b._h=h; b._x=b.x; b._y=b.y; boxes[b.id]=b;
+  });
+  var maxX=margin, maxY=margin;
+  cfg.boxes.forEach(function(b){ maxX=Math.max(maxX,b._x+b._w+margin); maxY=Math.max(maxY,b._y+b._h+margin); });
+  var svg=svgEl("svg",{width:maxX,height:maxY,viewBox:"0 0 "+maxX+" "+maxY},host);
+  mkDefs(svg);
+  (cfg.edges||[]).forEach(function(e){ drawClassEdge(svg, boxes, e); });
+  cfg.boxes.forEach(function(b){ drawClassBox(svg,b); });
+}
+function drawClassBox(svg,b){
+  var kind=b.kind||"blue"; var g=GRAD[kind]||"gBlue";
+  svgEl("rect",{x:b._x,y:b._y,width:b._w,height:b._h,rx:10,fill:"url(#"+g+")",filter:"url(#soft)"},svg);
+  // name
+  svgEl("text",{x:b._x+b._w/2,y:b._y+19,"text-anchor":"middle","class":"cls-name"},svg).textContent=b.title;
+  if(b.stereotype){ svgEl("text",{x:b._x+b._w/2,y:b._y+31,"text-anchor":"middle","class":"cls-kind"},svg).textContent=b.stereotype; }
+  var y=b._y+ (b.stereotype?38:30);
+  if((b.attrs||[]).length){
+    svgEl("line",{x1:b._x,y1:y,x2:b._x+b._w,y2:y,stroke:"#ffffff","stroke-opacity":"0.5"},svg);
+    (b.attrs).forEach(function(a,i){ svgEl("text",{x:b._x+10,y:y+14+i*15,"class":"cls-mem"},svg).textContent=a; });
+    y += 6 + b.attrs.length*15;
+  }
+  if((b.methods||[]).length){
+    svgEl("line",{x1:b._x,y1:y,x2:b._x+b._w,y2:y,stroke:"#ffffff","stroke-opacity":"0.5"},svg);
+    (b.methods).forEach(function(m,i){ svgEl("text",{x:b._x+10,y:y+14+i*15,"class":"cls-mem"},svg).textContent=m; });
+  }
+}
+function anchorOf(a,b){
+  var ax=a._x,ay=a._y,aw=a._w,ah=a._h, bx=b._x,by=b._y,bw=b._w,bh=b._h;
+  var acx=ax+aw/2, acy=ay+ah/2, bcx=bx+bw/2, bcy=by+bh/2;
+  if(Math.abs(by-ay) >= Math.abs(bx-ax)){
+    if(by>=ay) return [[acx,ay+ah],[bcx,by]];
+    return [[acx,ay],[bcx,by+bh]];
+  } else {
+    if(bx>=ax) return [[ax+aw,acy],[bx,bcy]];
+    return [[ax,acy],[bx+bw,bcy]];
+  }
+}
+function drawClassEdge(svg, boxes, e){
+  var a=boxes[e.from], b=boxes[e.to]; if(!a||!b) return;
+  var an=anchorOf(a,b), s=an[0], t=an[1];
+  if(e.s && e.t){ s=e.s; t=e.t; }  /* 手工指定起止点（贴框边缘），用于复杂路由 */
+  var color=COLHEX[e.color||"gray"];
+  var d;
+  if(e.points){ d=e.points; }
+  else if(Math.abs(s[0]-t[0])<2){ d="M"+s[0]+","+s[1]+" L"+t[0]+","+t[1]; }
+  else if(Math.abs(s[1]-t[1])<2){ d="M"+s[0]+","+s[1]+" L"+t[0]+","+t[1]; }
+  else { d="M"+s[0]+","+s[1]+" L"+t[0]+","+s[1]+" L"+t[0]+","+t[1]; }
+  var fill = (e.type==="comp"||e.type==="agg");
+  var mk = (e.type==="dep") ? "arr"+(e.color||"gray") : "arr"+(e.color||"gray")+"F";
+  var attrs={d:d,fill:"none",stroke:color,"stroke-width":1.7};
+  if(e.type==="dep") attrs["stroke-dasharray"]="6 4";
+  attrs["marker-end"]="url(#"+mk+")";
+  svgEl("path",attrs,svg);
+  // composition/aggregation diamond at source
+  if(fill){
+    var dx=s[0]+(t[0]>s[0]?-1:1)*10, dy=s[1];
+    var poly=svgEl("polygon",{points:dx+","+dy+" "+(dx+(t[0]>s[0]?8:-8))+","+(dy-5)+" "+(dx+(t[0]>s[0]?16:-16))+","+dy+" "+(dx+(t[0]>s[0]?8:-8))+","+(dy+5),fill:color,"fill-opacity":(e.type==="comp"?"1":"0.0"),stroke:color,"stroke-width":"1.2"},svg);
+  }
+  if(e.label){
+    var mx=(s[0]+t[0])/2, my=(s[1]+t[1])/2;
+    if(e.lp){ mx=e.lp[0]; my=e.lp[1]; }
+    var w=txtW(e.label,11)+6;
+    svgEl("rect",{x:mx-w/2,y:my-9,width:w,height:15,rx:3,fill:"#ffffff","fill-opacity":"0.85"},svg);
+    svgEl("text",{x:mx,y:my+3,"text-anchor":"middle","class":"edge-label"},svg).textContent=e.label;
+  }
+}
+
+/* ---------------- 活动图/泳道引擎 ---------------- */
+function activity(hostId, cfg){
+  var host=document.getElementById(hostId);
+  var margin=cfg.margin||30, colW=cfg.colW, rowH=cfg.rowH||104, top=46, w=cfg.w||236;
+  var lanes=cfg.lanes;
+  var maxRow=0; cfg.nodes.forEach(function(n){ if(n.row>maxRow) maxRow=n.row; });
+  var H=top+(maxRow+1)*rowH+30;
+  var W=margin*2+lanes.length*colW;
+  var svg=svgEl("svg",{width:W,height:H,viewBox:"0 0 "+W+" "+H},host);
+  mkDefs(svg);
+  // lane header bands
+  lanes.forEach(function(l,i){
+    var x=margin+i*colW;
+    var g=GRAD[l.kind||"gray"];
+    svgEl("rect",{x:x,y:6,width:colW-10,height:32,rx:8,fill:"url(#"+g+")",filter:"url(#soft)"},svg);
+    svgEl("text",{x:x+(colW-10)/2,y:26,"text-anchor":"middle","class":"lane-title"},svg).textContent=l.title;
+    svgEl("line",{x1:x,y1:46,x2:x,y2:H-8,stroke:"#d4dcec","stroke-width":"1","stroke-dasharray":"3 4"},svg);
+  });
+  var pos={};
+  cfg.nodes.forEach(function(n){
+    var lw=colW-10; var x=margin+n.lane*colW+(lw-w)/2; var y=top+n.row*rowH;
+    var subs=n.sub?(Array.isArray(n.sub)?n.sub:[n.sub]):[];
+    var h=n.h||(subs.length*15+44);
+    pos[n.id]={x:x,y:y,w:w,h:h,lane:n.lane,row:n.row};
+    var grad=GRAD[n.kind||"normal"];
+    var dashed=(n.kind==="ext");
+    svgEl("rect",{x:x,y:y,width:w,height:h,rx:11,fill:"url(#"+grad+")",filter:"url(#soft)",
+      stroke:dashed?"#5a6a80":"none","stroke-width":dashed?1.4:0,"stroke-dasharray":dashed?"6 4":"none"},svg);
+    svgEl("text",{x:x+w/2,y:y+(subs.length?20:28),"text-anchor":"middle","class":"node-title"},svg).textContent=n.title;
+    subs.forEach(function(s,i){ svgEl("text",{x:x+w/2,y:y+38+i*15,"text-anchor":"middle","class":"node-sub"},svg).textContent=s; });
+    if(txtW(n.title,13)>w-12) CHECK.push(cfg.title+" 节点标题超宽："+n.title);
+  });
+  (cfg.edges||[]).forEach(function(e){
+    var a=pos[e.from], b=pos[e.to]; if(!a||!b) return;
+    var c=e.color||"gray", hex=COLHEX[c], mk=ARRMAP[c];
+    var d="", lp=null;
+    var acx=a.x+a.w/2, bcx=b.x+b.w/2;
+    if(e.route==="side"){
+      var dir=(b.x>=a.x)?1:-1;
+      var sx=dir>0?a.x+a.w:a.x, ex=dir>0?b.x:b.x+b.w, my=a.y+a.h/2;
+      d="M"+sx+","+my+" L"+ex+","+my;
+      var ly=(e.aly!=null)?e.aly:((e.loy!=null)?my+e.loy:my-8);
+      lp=[(sx+ex)/2,ly];
+    } else if(e.route==="elbow"){
+      var midY=(a.y+a.h+b.y)/2;
+      d="M"+acx+","+(a.y+a.h)+" L"+acx+","+midY+" L"+bcx+","+midY+" L"+bcx+","+b.y;
+      lp=[(acx+bcx)/2+(e.lox||0),midY+(e.loy!=null?e.loy:-8)];
+    } else if(e.route==="loop"){
+      d=e.points; lp=e.lp||null;
+    } else {
+      d="M"+acx+","+(a.y+a.h)+" L"+bcx+","+b.y;
+      lp=[acx+(e.lox||0),(a.y+a.h+b.y)/2+(e.loy!=null?e.loy:-4)];
+    }
+    var attrs={d:d,fill:"none",stroke:hex,"stroke-width":1.8,"marker-end":"url(#"+mk+")"};
+    if(e.dashed) attrs["stroke-dasharray"]="6 4";
+    if(e.both) attrs["marker-start"]="url(#"+mk+")";
+    svgEl("path",attrs,svg);
+    if(e.label){
+      var tl=svgEl("text",{x:lp[0],y:lp[1],"text-anchor":e.anchor||"middle","class":"edge-label"},svg);
+      if(e.bold) tl.setAttribute("font-weight","700");
+      if(e.lcolor) tl.setAttribute("fill",e.lcolor);
+      tl.textContent=e.label;
+    }
+  });
+  // overlap check
+  var ids=Object.keys(pos);
+  for(var i=0;i<ids.length;i++) for(var j=i+1;j<ids.length;j++){
+    var r1=pos[ids[i]],r2=pos[ids[j]];
+    if(r1.x<r2.x+r2.w&&r2.x<r1.x+r1.w&&r1.y<r2.y+r2.h&&r2.y<r1.y+r1.h) CHECK.push(cfg.title+" 节点重叠："+ids[i]+"/"+ids[j]);
+  }
+}
+
+/* ---------------- 时序图引擎 ---------------- */
+function seq(hostId, cfg){
+  var host=document.getElementById(hostId);
+  var margin=cfg.margin||30, laneW=cfg.laneW, top=cfg.top||66, rowH=cfg.rowH||62;
+  var nA=cfg.actors.length;
+  var H=top+(cfg.msgs.length+0.9)*rowH+30;
+  var W=margin*2+nA*laneW;
+  var svg=svgEl("svg",{width:W,height:H,viewBox:"0 0 "+W+" "+H},host);
+  mkDefs(svg);
+  var xs=[]; for(var i=0;i<nA;i++) xs.push(margin+i*laneW+laneW/2);
+  cfg.actors.forEach(function(a,i){
+    var g=GRAD[a.kind||"normal"]; var w=a.w||150;
+    svgEl("rect",{x:xs[i]-w/2,y:top-50,width:w,height:46,rx:10,fill:"url(#"+g+")",filter:"url(#soft)",
+      stroke:(a.kind==="ext")?"#5a6a80":"none","stroke-width":(a.kind==="ext")?1.5:0,"stroke-dasharray":"6 4"},svg);
+    svgEl("text",{x:xs[i],y:top-22,"text-anchor":"middle","class":"node-title"},svg).textContent=a.name;
+    svgEl("line",{x1:xs[i],y1:top-2,x2:xs[i],y2:H-12,stroke:"#c9d4e3","stroke-width":"1.6","stroke-dasharray":"4 5"},svg);
+  });
+  cfg.msgs.forEach(function(m,idx){
+    var y=top+idx*rowH+rowH*0.62;
+    if(m.kind==="note"){
+      var nx=(m.x0!=null)?xs[m.x0]:margin+8, nx2=(m.x1!=null)?xs[m.x1]:W-margin-8;
+      svgEl("rect",{x:nx,y:y-17,width:nx2-nx,height:34,rx:9,fill:m.fill||"#f0f7ff",stroke:m.stroke||"#b9d4f0","stroke-width":"1"},svg);
+      svgEl("text",{x:(nx+nx2)/2,y:y+5,"text-anchor":"middle","font-size":"12.5",fill:m.color||"#2e5b8f","font-weight":"700"},svg).textContent=m.text;
+      return;
+    }
+    if(m.kind==="self"){
+      var x0=xs[m.from]; var dd="M"+x0+","+(y-10)+" l46,0 l0,22 l-46,0";
+      svgEl("path",{d:dd,fill:"none",stroke:COLHEX[m.color||"gray"],"stroke-width":"1.8","marker-end":"url(#"+ARRMAP[m.color||"gray"]+")","stroke-dasharray":m.dashed?"6 4":"none"},svg);
+      svgEl("text",{x:x0+56,y:y+9,"font-size":"12.5",fill:m.lcolor||COLHEX[m.color||"gray"],"font-weight":m.bold?"700":"400"},svg).textContent=m.text;
+      return;
+    }
+    var x1=xs[m.from],x2=xs[m.to],dirr=(x2>=x1)?1:-1;
+    svgEl("path",{d:"M"+(x1+dirr*2)+","+y+" L"+(x2-dirr*2)+","+y,fill:"none",stroke:COLHEX[m.color||"gray"],"stroke-width":"1.9","marker-end":"url(#"+ARRMAP[m.color||"gray"]+")","stroke-dasharray":m.dashed?"6 4":"none"},svg);
+    svgEl("text",{x:(x1+x2)/2,y:y-8+(m.dy||0),"text-anchor":"middle","font-size":"12.5",fill:m.lcolor||"#41557a","font-weight":m.bold?"700":"400"},svg).textContent=m.text;
+  });
+}
+
+/* ================= 数据：总体分层架构 ================= */
+activity("d-arch",{title:"总体分层架构", margin:24, colW:236, rowH:118, top:40, w:208,
+  lanes:[
+    {title:"大控制层 / 抗冲落层",kind:"dark"},
+    {title:"Controllers（小控制层）",kind:"blue"},
+    {title:"TCP 模块（三线程）",kind:"blue"},
+    {title:"识别 / IO / 系统",kind:"green"},
+    {title:"数据层（松耦合）",kind:"gray"}
+  ],
+  nodes:[
+    {id:"ec",lane:0,row:0,kind:"dark",title:"EdgeControl 抗冲落层",sub:["启动自检 / 跨模块编排","断连缓存补报 / 故障隔离"]},
+    {id:"ctl",lane:1,row:0,kind:"blue",title:"四个 Controller",sub:["Open / Recognize","Version / Heartbeat"]},
+    {id:"tcp",lane:2,row:0,kind:"blue",title:"TcpControlLayer",sub:["持 socket+锁","协同三线程"]},
+    {id:"t1",lane:2,row:1,kind:"normal",title:"重连线程",sub:["退避 1/2/4/8/16/30s"]},
+    {id:"t2",lane:2,row:2,kind:"normal",title:"接收线程",sub:["收字节→内聚：分帧+解析","→SignalSink.on_signal()"]},
+    {id:"t3",lane:2,row:3,kind:"normal",title:"心跳线程",sub:["每 3s 发 periodic"]},
+    {id:"rec",lane:3,row:0,kind:"ok",title:"识别模块",sub:["RTSP/解码/推理","货位聚合+告警"]},
+    {id:"io",lane:3,row:1,kind:"warn",title:"IO 控制模块",sub:["Modbus 主站","开锁/门磁去抖"]},
+    {id:"sys",lane:3,row:2,kind:"warn",title:"系统服务",sub:["自检/配置/日志","NTP/看门狗"]},
+    {id:"data",lane:4,row:0,kind:"ext",title:"数据层接口",sub:["ConfigStore","EventCache"]},
+    {id:"data2",lane:4,row:1,kind:"ext",title:"数据层接口",sub:["PendingRequestStore","LogStore"]}
+  ],
+  edges:[
+    {from:"ec",to:"ctl",route:"side",color:"dark",label:"调度"},
+    {from:"ctl",to:"tcp",route:"side",color:"blue",label:"下发信号/收回应"},
+    {from:"tcp",to:"t1",route:"down",color:"gray"},
+    {from:"tcp",to:"t2",route:"down",color:"gray"},
+    {from:"tcp",to:"t3",route:"down",color:"gray"},
+    {from:"ctl",to:"rec",route:"elbow",color:"green",label:"识别任务"},
+    {from:"ctl",to:"io",route:"elbow",color:"amber",label:"开锁/门磁"},
+    {from:"ec",to:"sys",route:"elbow",color:"amber",label:"运维"},
+    {from:"tcp",to:"data",route:"elbow",color:"gray",label:"读写"},
+    {from:"ctl",to:"data2",route:"elbow",color:"gray",label:"登记/缓存"},
+    {from:"ec",to:"data",route:"loop",color:"gray",dashed:true,label:"注入接口",
+      lp:[118,150],points:"M30,150 L12,150 L12,250 L30,250"},
+    {from:"t2",to:"tcp",route:"side",color:"gray",label:"已解码帧"}
+  ]});
+
+/* ================= 2.1 TCP 模块类图（覆盖 A1~A6 通信需求卡） ================= */
+classDiagram("d-cls-tcp",{margin:24,
+  boxes:[
+    {id:"ec",x:30,y:26,w:310,kind:"dark",title:"EdgeControl",stereotype:"《大控制层·详见 2.2》",
+      attrs:["- _comm : TcpControlLayer"],
+      methods:["实现 SignalSink 接口（依赖倒置）","on_signal() → 路由到 Controller","on_link_down() → 事件入缓存【A6】","on_link_up() → 按序补报不重复【A6】"]},
+    {id:"sink",x:400,y:26,w:300,kind:"gray",title:"SignalSink",stereotype:"《抽象接口·解耦出口》",
+      attrs:["（TCP 模块仅依赖此接口）"],
+      methods:["on_signal(signal: Signal) -> None","实现方：EdgeControl（见 2.2）"]},
+    {id:"sig",x:760,y:26,w:330,kind:"gray",title:"Signal",stereotype:"《信号载体·dataclass》",
+      attrs:["type : str","request_id  # 请求配对与去重依据【A4】","payload : dict"],
+      methods:["OpenReqSignal / RecognizeReqSignal","VersionQuerySignal【A5】/ AckSignal","LinkStateSignal【A6】·链路断开/恢复"]},
+    {id:"tcl",x:30,y:210,w:310,kind:"blue",title:"TcpControlLayer",stereotype:"《门面/协同控制层》",
+      attrs:["- _sock : socket  # 同一时刻仅一条连接【A1】","- _lock : Lock  # 发送加锁","- _sink : SignalSink","- _connected : bool"],
+      methods:["start() / stop()  # 三线程生命周期","send_frame(f) -> bool  # 加锁发送【A2】","set_signal_sink(sink)  # 注入解耦出口","set_state_listener(l)","_notify_state_change()  # 产出 LinkStateSignal【A6】"]},
+    {id:"t1",x:30,y:490,w:300,kind:"normal",title:"TcpReconnectThread",stereotype:"《Thread·内部》",
+      attrs:["- _backoff = [1,2,4,8,16,30] 秒","- _running : bool"],
+      methods:["run()  # 退避循环重连【A1】","_try_connect() -> bool","被拒/超时/不可达 → 一律走退避【A1】","_on_connected()  # 通知门面+先发 version【A1】"]},
+    {id:"th",x:400,y:490,w:310,kind:"normal",title:"TcpHeartbeatThread",stereotype:"《Thread·内部》",
+      attrs:["- _interval = 3 秒【A2】","- _cam_provider"],
+      methods:["run()  # 每 3s 发 periodic【A2】","_build_periodic()  # 运行时长+8路cameras","发送失败 → 立即转重连流程【A2】"]},
+    {id:"tv",x:760,y:490,w:330,kind:"normal",title:"TcpRecvThread",stereotype:"《Thread·内部》",
+      attrs:["- _buf : bytes","- _MAX_FRAME = 1MB【A3】","- _bad_count : int【A3】"],
+      methods:["run()  # recv 循环","_split_frames()  # 长度前缀/粘包半包【A3】","_decode_and_parse() -> Signal  # 坏帧丢弃+计数【A3】","_sink.on_signal(sig)  # 带原 request_id【A4】"]}
+  ],
+  edges:[
+    {from:"ec",to:"sink",type:"dep",color:"gray",label:"实现接口",s:[340,91],t:[400,91],lp:[370,76]},
+    {from:"ec",to:"tcl",type:"dep",color:"dark",label:"初始化注入 sink（依赖倒置）",s:[185,157],t:[185,210],lp:[185,187]},
+    {from:"tcl",to:"sink",type:"dep",color:"gray",label:"持有抽象接口",s:[340,295],t:[550,295],lp:[430,286]},
+    {from:"tcl",to:"t1",type:"comp",color:"blue",s:[140,431],t:[140,490],label:"组合",lp:[112,462]},
+    {from:"t1",to:"tcl",type:"dep",color:"blue",label:"重连成功先发 version【A1】",s:[240,490],t:[240,431],lp:[268,464]},
+    {from:"tcl",to:"th",type:"comp",color:"blue",s:[340,345],t:[555,345],lp:[448,336],label:"组合·协同",points:"M340,345 L555,345 L555,490"},
+    {from:"th",to:"tcl",type:"dep",color:"blue",label:"发送失败等同断线→转重连【A2】",s:[470,490],t:[300,431],lp:[430,445],points:"M470,490 L470,460 L300,460 L300,431"},
+    {from:"tcl",to:"tv",type:"comp",color:"blue",s:[340,315],t:[840,490],lp:[600,306],label:"组合·协同",points:"M340,315 L840,315 L840,490"},
+    {from:"tv",to:"sink",type:"dep",color:"gray",label:"on_signal(signal) 上抛【A4】",s:[760,545],t:[700,90],lp:[800,215],points:"M760,545 L735,545 L735,90 L700,90"},
+    {from:"tv",to:"sig",type:"dep",color:"gray",label:"解析产出 Signal",s:[925,490],t:[925,172],lp:[1010,330]}
+  ]});
+
+/* ================= 2.2 Controllers + 大控制层 ================= */
+classDiagram("d-cls-ctrl",{margin:24,
+  boxes:[
+    {id:"ec",x:30,y:30,kind:"dark",title:"EdgeControl",stereotype:"《大控制层/抗冲落层》",
+      attrs:["- _comm : TcpControlLayer","- _controllers : list","- _io : ModbusMaster","- _recog : RecognitionHub","- _data : DataLayer(接口)"],
+      methods:["init(config)","startup_selfcheck() -> SelfCheckResult","route_signal(sig: Signal)","on_link_up()  # 补报缓存+重发在途","on_link_down()  # 停心跳+缓存事件","register_module(...)","fault_isolate(module)"]},
+    {id:"oc",x:30,y:330,kind:"blue",title:"OpenController",
+      attrs:["- _io : ModbusMaster","- _pending : PendingRequestStore"],
+      methods:["handle(req: OpenReqSignal)","_dedup(req_id) -> bool  # A4","_check_io_online() -> bool  # C4 fail-fast","_wait_receipt(timeout) -> bool","_emit_ack(req_id, success, msg)"]},
+    {id:"rc",x:320,y:330,kind:"green",title:"RecognizeController",
+      attrs:["- _busy : bool","- _recog : RecognitionHub","- _pending : PendingRequestStore"],
+      methods:["handle(req: RecognizeReqSignal)","_dedup(req_id) -> bool","_busy_check() -> bool  # E06","_quality_gate() -> bool  # F7","run_recognition() -> Result","timeout_fallback()  # 3s 回失败帧","_emit_ack(result)"]},
+    {id:"vc",x:610,y:330,kind:"blue",title:"VersionController",
+      attrs:["- _version : str"],
+      methods:["handle(q: VersionQuerySignal) -> version_ack"]},
+    {id:"hc",x:320,y:30,kind:"blue",title:"HeartbeatController",
+      attrs:["- _cam_provider : CameraStatusProvider"],
+      methods:["build_periodic(uptime, cam_status[]) -> Frame","_collect_selfcheck() -> list"]}
+  ],
+  edges:[
+    {from:"ec",to:"oc",type:"agg",color:"dark",label:"调度"},
+    {from:"ec",to:"rc",type:"agg",color:"dark",label:"调度"},
+    {from:"ec",to:"vc",type:"agg",color:"dark",label:"调度"},
+    {from:"ec",to:"hc",type:"agg",color:"dark",label:"调度"},
+    {from:"oc",to:"ec",type:"dep",color:"blue",label:"注册信号",route:"elbow"},
+    {from:"rc",to:"ec",type:"dep",color:"blue",label:"注册信号",route:"elbow"},
+    {from:"vc",to:"ec",type:"dep",color:"blue",label:"注册信号",route:"elbow"}
+  ]});
+
+/* ================= 2.3 数据层 ================= */
+classDiagram("d-cls-data",{margin:24,
+  boxes:[
+    {id:"iface",x:30,y:30,kind:"gray",title:"DataLayer",stereotype:"《接口/Protocol》",
+      attrs:["config : ConfigStore","events : EventCache","pending : PendingRequestStore","logs : LogStore"],
+      methods:["全部以抽象方法暴露，注入具体实现"]},
+    {id:"cfg",x:30,y:230,kind:"ext",title:"ConfigStore",
+      attrs:["_path : str"],
+      methods:["load() / save()","host() / port()","io_addr() / cam_mapping()","thresholds()"]},
+    {id:"ev",x:320,y:230,kind:"ext",title:"EventCache",
+      attrs:["_max : int  # 防撑爆","_disk : str"],
+      methods:["push(event)","replay() -> list  # A6 补报","clear() / size()","_persist()  # 断连不丢"]},
+    {id:"pd",x:610,y:230,kind:"ext",title:"PendingRequestStore",
+      attrs:["_disk : str"],
+      methods:["register(id)","is_duplicate(id) -> bool  # A4","mark_done(id)","load_unfinished() -> list  # F8 幂等"]},
+    {id:"lg",x:320,y:30,kind:"ext",title:"LogStore",
+      attrs:["_dir : str","_max_size : int"],
+      methods:["comm(msg) / recognize(msg)","error(msg)","rotate()  # 滚动清理 D3"]}
+  ],
+  edges:[
+    {from:"iface",to:"cfg",type:"dep",color:"gray"},
+    {from:"iface",to:"ev",type:"dep",color:"gray"},
+    {from:"iface",to:"pd",type:"dep",color:"gray"},
+    {from:"iface",to:"lg",type:"dep",color:"gray"}
+  ]});
+
+/* ================= 2.4 识别 / IO / 系统 ================= */
+classDiagram("d-cls-other",{margin:24,
+  boxes:[
+    {id:"rh",x:30,y:30,kind:"green",title:"RecognitionHub",stereotype:"识别模块",
+      attrs:["- _captures : list[RtspCapture]"],
+      methods:["capture_all() -> frames","run_pipeline() -> Result","get_cam_status() -> list  # B6"]},
+    {id:"rtsp",x:30,y:250,kind:"green",title:"RtspCapture",stereotype:"《Thread/路》",
+      attrs:["_url : str","- _backoff=[5,10,30]"],
+      methods:["run()","connect() / reconnect_backoff()","get_current_frame()  # 只取最新帧 B2"]},
+    {id:"det",x:320,y:250,kind:"green",title:"ToolDetector",
+      attrs:["_model_path : str"],
+      methods:["infer(frame) -> detections[]  # B3","_verify_model()  # 缺失即自检失败"]},
+    {id:"agg",x:610,y:250,kind:"green",title:"ResultAggregator",
+      attrs:["- _mapping"],
+      methods:["aggregate() -> items[]  # B4","judge_alert() -> alert_type/level"]},
+    {id:"qg",x:610,y:30,kind:"green",title:"QualityGate",stereotype:"F7",
+      attrs:["- _stable_ms = 1000~2000"],
+      methods:["door_closed() -> bool  # 门磁复核","stable_frames() -> bool  # 多帧一致","pick_best()  # 多目标取最高置信度"]},
+    {id:"mb",x:30,y:470,kind:"amber",title:"ModbusMaster",stereotype:"IO 控制模块",
+      attrs:["- _online : bool"],
+      methods:["connect() / is_online()","write_coil(addr,val)","read_coil(addr) -> bool"]},
+    {id:"lock",x:320,y:470,kind:"amber",title:"LockController",
+      attrs:["- _retry = 3"],
+      methods:["open_lock(req_id) -> receipt  # C2 等回执","_retry_on_timeout()"]},
+    {id:"door",x:610,y:470,kind:"amber",title:"DoorSensor",
+      attrs:["- _debounce_n : int"],
+      methods:["poll()","debounce() -> 柜门已关事件  # C3"]},
+    {id:"sc",x:320,y:690,kind:"warn",title:"SelfChecker",stereotype:"系统服务 D1",
+      attrs:["- _caps"],
+      methods:["check_all() -> result  # 网络/IO/RTSP/模型","check_io() / check_cameras() / check_model()"]}
+  ],
+  edges:[
+    {from:"rh",to:"rtsp",type:"agg",color:"green"},
+    {from:"rh",to:"det",type:"dep",color:"green"},
+    {from:"rh",to:"agg",type:"dep",color:"green"},
+    {from:"rh",to:"qg",type:"dep",color:"green",label:"质量闸门"},
+    {from:"mb",to:"lock",type:"comp",color:"amber"},
+    {from:"mb",to:"door",type:"comp",color:"amber"}
+  ]});
+
+/* ================= 2.5 全量类关系总图 ================= */
+classDiagram("d-cls-all",{margin:24,
+  boxes:[
+    {id:"ec",x:430,y:20,kind:"dark",title:"EdgeControl",stereotype:"大控制层",
+      methods:["route_signal()","on_link_up()/down()","startup_selfcheck()"]},
+    {id:"oc",x:20,y:230,kind:"blue",title:"OpenController",methods:["handle(open_req)","_emit_ack()"]},
+    {id:"rc",x:260,y:230,kind:"green",title:"RecognizeController",methods:["handle(rec_req)","timeout_fallback()"]},
+    {id:"vc",x:500,y:230,kind:"blue",title:"VersionController",methods:["handle(version_q)"]},
+    {id:"hc",x:740,y:230,kind:"blue",title:"HeartbeatController",methods:["build_periodic()"]},
+    {id:"tcl",x:430,y:430,kind:"blue",title:"TcpControlLayer",methods:["send_frame()","协同三线程"]},
+    {id:"tr",x:20,y:640,kind:"normal",title:"TcpReconnectThread",methods:["run() 退避重连"]},
+    {id:"tv",x:260,y:640,kind:"normal",title:"TcpRecvThread",methods:["run() 收字节→解析Signal"]},
+    {id:"th",x:500,y:640,kind:"normal",title:"TcpHeartbeatThread",methods:["run() 每3s"]},
+    {id:"sink",x:740,y:640,kind:"gray",title:"SignalSink（抽象接口）",methods:["on_signal(Signal)","TCP 仅依赖此，不依赖 Controller"]},
+    {id:"io",x:20,y:860,kind:"amber",title:"ModbusMaster",methods:["write_coil()","is_online()"]},
+    {id:"rec",x:260,y:860,kind:"green",title:"RecognitionHub",methods:["run_pipeline()"]},
+    {id:"data",x:560,y:860,kind:"ext",title:"DataLayer(接口)",methods:["ConfigStore/EventCache","PendingRequestStore/LogStore"]}
+  ],
+  edges:[
+    {from:"ec",to:"oc",type:"agg",color:"dark"},
+    {from:"ec",to:"rc",type:"agg",color:"dark"},
+    {from:"ec",to:"vc",type:"agg",color:"dark"},
+    {from:"ec",to:"hc",type:"agg",color:"dark"},
+    {from:"ec",to:"tcl",type:"agg",color:"dark"},
+    {from:"ec",to:"io",type:"dep",color:"amber",label:"IO"},
+    {from:"ec",to:"rec",type:"dep",color:"green",label:"识别"},
+    {from:"ec",to:"data",type:"dep",color:"gray",label:"注入接口"},
+    {from:"tcl",to:"tr",type:"comp",color:"blue"},
+    {from:"tcl",to:"tv",type:"comp",color:"blue"},
+    {from:"tcl",to:"th",type:"comp",color:"blue"},
+    {from:"tv",to:"sink",type:"dep",color:"gray",label:"on_signal()"},
+    {from:"oc",to:"io",type:"dep",color:"amber"},
+    {from:"rc",to:"rec",type:"dep",color:"green"}
+  ]});
+
+/* ================= 3.1 启动自检 ================= */
+activity("d-act-f1",{title:"启动自检", margin:24, colW:300, rowH:92, top:46, w:268,
+  lanes:[{title:"大控制层",kind:"dark"},{title:"系统服务",kind:"warn"},{title:"数据层",kind:"gray"}],
+  nodes:[
+    {id:"m0",lane:0,row:0,title:"上电 / systemd 拉起"},
+    {id:"m1",lane:1,row:1,title:"读取本地配置",sub:["ConfigStore.load"]},
+    {id:"m2",lane:1,row:2,title:"自检：网络/IO/RTSP/模型",sub:["SelfChecker.check_all"]},
+    {id:"m3",lane:0,row:3,kind:"decide",title:"自检全过？"},
+    {id:"m4",lane:0,row:4,kind:"ok",title:"进入主循环",sub:["先发 periodic"]},
+    {id:"x2",lane:2,row:2,kind:"ext",title:"部分失败",sub:["IO失败→禁开锁","摄像头失败→offline","模型失败→拒识别"]},
+    {id:"x3",lane:1,row:3,kind:"warn",title:"能力开关降级",sub:["其余模块照常启动"]}
+  ],
+  edges:[
+    {from:"m0",to:"m1",route:"down"},
+    {from:"m1",to:"m2",route:"side",color:"amber"},
+    {from:"m2",to:"m3",route:"elbow",color:"amber"},
+    {from:"m3",to:"m4",route:"down",color:"green",label:"是"},
+    {from:"m3",to:"x3",route:"side",color:"amber",label:"否"},
+    {from:"m2",to:"x2",route:"loop",color:"gray",label:"结果写入",
+      lp:[640,150],points:"M292,150 L640,150 L640,220"},
+    {from:"x3",to:"m4",route:"elbow",color:"green",dashed:true,label:"降级后继续"}
+  ]});
+
+/* ================= 3.2 通信主循环与断线自愈（三线程协同） ================= */
+activity("d-act-f2",{title:"通信主循环与断线自愈", margin:22, colW:210, rowH:96, top:46, w:182,
+  lanes:[
+    {title:"心跳线程",kind:"blue"},{title:"接收线程",kind:"blue"},
+    {title:"重连线程",kind:"blue"},{title:"TCP控制层",kind:"dark"},{title:"大控制层",kind:"dark"},{title:"数据层",kind:"gray"}
+  ],
+  nodes:[
+    {id:"h0",lane:0,row:0,title:"周期定时器到",sub:["每 3 秒"]},
+    {id:"h1",lane:0,row:1,title:"send_frame(periodic)",sub:["经 TcpControlLayer 加锁"]},
+    {id:"h2",lane:0,row:2,kind:"decide",title:"发送成功？"},
+    {id:"r0",lane:1,row:0,title:"recv 字节",sub:["收字节循环"]},
+    {id:"r1",lane:1,row:1,title:"内部分帧+解析→Signal",sub:["坏帧丢弃+计数","open/recog/version/ack"]},
+    {id:"r2",lane:1,row:2,title:"SignalSink.on_signal()",sub:["解耦上抛给大控制层"]},
+    {id:"c0",lane:3,row:0,title:"链路状态机",sub:["持 socket+锁"]},
+    {id:"c1",lane:3,row:1,title:"收到信号→上抛",sub:["交 EdgeControl"]},
+    {id:"k0",lane:2,row:1,kind:"warn",title:"监测断开",sub:["或发送失败"]},
+    {id:"k1",lane:2,row:2,title:"停止周期帧",sub:["本地自检照常"]},
+    {id:"k2",lane:2,row:3,title:"退避重连",sub:["1/2/4/8/16/30s"]},
+    {id:"k3",lane:2,row:4,kind:"decide",title:"重连成功？"},
+    {id:"e0",lane:4,row:2,title:"on_link_down",sub:["缓存事件+停心跳"]},
+    {id:"e1",lane:4,row:4,title:"on_link_up",sub:["补报缓存+重发在途"]},
+    {id:"d0",lane:5,row:2,kind:"ext",title:"EventCache",sub:["断连事件落盘"]},
+    {id:"d1",lane:5,row:4,kind:"ext",title:"EventCache.replay",sub:["恢复后只报一次"]}
+  ],
+  edges:[
+    {from:"h0",to:"h1",route:"down"},
+    {from:"h1",to:"c0",route:"side",color:"blue"},
+    {from:"h1",to:"h2",route:"down"},
+    {from:"h2",to:"k0",route:"loop",color:"amber",label:"失败→断线",
+      lp:[40,150],points:"M100,150 L20,150 L20,250 L100,250"},
+    {from:"r0",to:"r1",route:"down"},
+    {from:"r1",to:"r2",route:"down"},
+    {from:"r2",to:"c1",route:"side",color:"blue"},
+    {from:"k0",to:"k1",route:"down"},
+    {from:"k1",to:"k2",route:"down"},
+    {from:"k2",to:"k3",route:"down"},
+    {from:"k3",to:"k2",route:"loop",color:"amber",dashed:true,label:"失败继续退避",
+      lp:[14,360],anchor:"start",points:"M40,415 L12,415 L12,315 L40,315"},
+    {from:"k3",to:"c0",route:"side",color:"green",label:"成功"},
+    {from:"k0",to:"e0",route:"side",color:"dark",label:"通知"},
+    {from:"e0",to:"d0",route:"side",color:"gray"},
+    {from:"c0",to:"e1",route:"loop",color:"green",dashed:true,label:"重连成功→补报",
+      lp:[820,260],points:"M840,260 L980,260 L980,430 L840,430"},
+    {from:"e1",to:"d1",route:"side",color:"gray"},
+    {from:"c1",to:"e1",route:"elbow",color:"dark",dashed:true,label:"信号入大控制层"}
+  ]});
+
+/* ================= 3.3 识别流程 ================= */
+activity("d-act-f3",{title:"识别业务流程", margin:22, colW:250, rowH:96, top:46, w:224,
+  lanes:[{title:"接收/解析",kind:"blue"},{title:"RecognizeController",kind:"green"},{title:"识别模块",kind:"green"},{title:"数据层",kind:"gray"}],
+  nodes:[
+    {id:"n0",lane:0,row:0,title:"recognize_req 入",sub:["带 request_id"]},
+    {id:"n1",lane:1,row:1,kind:"decide",title:"去重检查",sub:["同 id 在途/已完成？"]},
+    {id:"n2",lane:1,row:2,kind:"decide",title:"忙判定",sub:["上次未结束？"]},
+    {id:"n3",lane:1,row:3,kind:"decide",title:"质量闸门",sub:["门已关+多帧一致"]},
+    {id:"n4",lane:2,row:4,title:"逐货位采当前帧",sub:["只取最新帧 B2"]},
+    {id:"n5",lane:2,row:5,title:"推理+聚合+告警",sub:["B3/B4"]},
+    {id:"n6",lane:1,row:6,title:"组装 recognize_ack",sub:["字段带全"]},
+    {id:"n7",lane:1,row:7,kind:"ok",title:"回应上位机",sub:["3s 超时兜底回失败"]},
+    {id:"E1",lane:0,row:1,kind:"red",title:"重复请求",sub:["回缓存/拒绝"]},
+    {id:"E2",lane:0,row:2,kind:"warn",title:"回 busy",sub:["必须回应"]},
+    {id:"E3",lane:2,row:3,kind:"warn",title:"取帧失败",sub:["present=false"]},
+    {id:"E4",lane:2,row:6,kind:"red",title:"推理失败",sub:["立即回失败帧"]}
+  ],
+  edges:[
+    {from:"n0",to:"n1",route:"side",color:"blue"},
+    {from:"n1",to:"E1",route:"side",color:"red",label:"是"},
+    {from:"n1",to:"n2",route:"down",color:"green",label:"否"},
+    {from:"n2",to:"E2",route:"side",color:"amber",label:"是"},
+    {from:"n2",to:"n3",route:"down",color:"green",label:"否"},
+    {from:"n3",to:"n4",route:"side",color:"green"},
+    {from:"n4",to:"n5",route:"down"},
+    {from:"n5",to:"n6",route:"elbow",color:"green"},
+    {from:"n6",to:"n7",route:"down"},
+    {from:"n3",to:"E3",route:"loop",color:"amber",label:"取帧失败",
+      lp:[560,300],points:"M474,300 L560,300 L560,420"},
+    {from:"n5",to:"E4",route:"down",color:"red"}
+  ]});
+
+/* ================= 3.4 开锁流程 + 幂等 ================= */
+activity("d-act-f4",{title:"开锁控制流程", margin:22, colW:260, rowH:96, top:46, w:234,
+  lanes:[{title:"接收/解析",kind:"blue"},{title:"OpenController",kind:"blue"},{title:"IO 模块",kind:"amber"},{title:"数据层",kind:"gray"}],
+  nodes:[
+    {id:"k0",lane:0,row:0,title:"open_req 入",sub:["带 request_id"]},
+    {id:"k1",lane:1,row:1,kind:"decide",title:"去重检查",sub:["PendingRequestStore"]},
+    {id:"k2",lane:1,row:2,kind:"decide",title:"IO 在线？"},
+    {id:"k3",lane:1,row:3,title:"落盘登记",sub:["register(id) F8"]},
+    {id:"k4",lane:2,row:4,title:"写开锁线圈",sub:["Modbus write_coil"]},
+    {id:"k5",lane:2,row:5,kind:"decide",title:"等 IO 回执",sub:["限时"]},
+    {id:"k6",lane:1,row:6,kind:"ok",title:"open_ack(success)",sub:["真实打开"]},
+    {id:"F1",lane:0,row:1,kind:"red",title:"重复请求",sub:["拒绝，绝不二次开"]},
+    {id:"F2",lane:0,row:2,kind:"warn",title:"IO 离线",sub:["立即回失败"]},
+    {id:"F3",lane:2,row:6,kind:"red",title:"重试用尽",sub:["回 success=false"]},
+    {id:"r0",lane:3,row:3,kind:"ext",title:"PendingRequestStore",sub:["崩溃重启查未完成"]},
+    {id:"r1",lane:3,row:6,kind:"ext",title:"mark_done(id)",sub:["成功才标记"]}
+  ],
+  edges:[
+    {from:"k0",to:"k1",route:"side",color:"blue"},
+    {from:"k1",to:"F1",route:"side",color:"red",label:"是"},
+    {from:"k1",to:"k2",route:"down",color:"green",label:"否"},
+    {from:"k2",to:"F2",route:"side",color:"amber",label:"否"},
+    {from:"k2",to:"k3",route:"down",color:"green",label:"是"},
+    {from:"k3",to:"k4",route:"side",color:"amber"},
+    {from:"k4",to:"k5",route:"down"},
+    {from:"k5",to:"k6",route:"elbow",color:"green",label:"回执成功",lcolor:"#3da33d",bold:true},
+    {from:"k5",to:"F3",route:"down",color:"red",label:"超时×3"},
+    {from:"k3",to:"r0",route:"elbow",color:"gray",label:"登记"},
+    {from:"k6",to:"r1",route:"elbow",color:"gray",label:"完成"}
+  ]});
+
+/* ================= 3.5 关柜事件 ================= */
+activity("d-act-f5",{title:"关柜事件流程", margin:22, colW:240, rowH:96, top:46, w:212,
+  lanes:[{title:"IO 模块",kind:"amber"},{title:"大控制层",kind:"dark"},{title:"数据层",kind:"gray"},{title:"上位机",kind:"ext"}],
+  nodes:[
+    {id:"d0",lane:0,row:0,title:"门磁输入变化"},
+    {id:"d1",lane:0,row:1,kind:"warn",title:"去抖确认",sub:["连续 N 次一致"]},
+    {id:"d2",lane:1,row:2,title:"产生关柜事件",sub:["同一次只报一次"]},
+    {id:"d3",lane:1,row:3,kind:"decide",title:"链路在线？"},
+    {id:"d4",lane:2,row:3,kind:"ext",title:"EventCache.push",sub:["恢复后补报"]},
+    {id:"d5",lane:3,row:4,kind:"ok",title:"上报上位机",sub:["触发识别"]}
+  ],
+  edges:[
+    {from:"d0",to:"d1",route:"down"},
+    {from:"d1",to:"d2",route:"side",color:"dark"},
+    {from:"d2",to:"d3",route:"down"},
+    {from:"d3",to:"d4",route:"side",color:"amber",label:"否"},
+    {from:"d3",to:"d5",route:"elbow",color:"green",label:"是",
+      lp:[700,210],points:"M720,210 L720,300 L540,300"},
+    {from:"d4",to:"d5",route:"loop",color:"green",dashed:true,label:"恢复补报",
+      lp:[360,280],points:"M360,280 L360,390 L540,390"}
+  ]});
+
+/* ================= 四、三线程协同时序 ================= */
+seq("d-seq-thread",{title:"三线程协同时序", margin:30, laneW:200, rowH:60, top:66,
+  actors:[
+    {name:"重连线程",kind:"blue",w:120},
+    {name:"接收线程",kind:"blue",w:120},
+    {name:"心跳线程",kind:"blue",w:120},
+    {name:"TcpControlLayer",kind:"dark",w:160},
+    {name:"SignalSink（抽象）",kind:"gray",w:150},
+    {name:"EdgeControl",kind:"dark",w:140}
+  ],
+  msgs:[
+    {from:3,kind:"self",text:"持 socket+Lock，统一协同三线程",color:"dark"},
+    {from:0,to:3,text:"start() 启动退避重连循环",color:"blue"},
+    {from:3,kind:"self",text:"连接成功 → _on_connected()",color:"green"},
+    {from:3,to:5,text:"on_link_up()：补报 EventCache + 重发在途",color:"green",bold:true},
+    {from:2,to:3,text:"recv 字节 → _on_bytes()",color:"blue"},
+    {from:3,kind:"self",text:"内部分帧+解析 → Signal",color:"blue"},
+    {from:3,to:4,text:"on_signal(Signal) 解耦上抛",color:"blue"},
+    {from:4,to:5,text:"emit(route_signal)",color:"dark",bold:true},
+    {from:1,to:3,text:"每 3s send_frame(periodic)",color:"blue"},
+    {from:3,to:5,text:"periodic 经 EdgeControl 上报",color:"blue",dashed:true},
+    {from:0,kind:"self",text:"连接失败 → 退避 1/2/4/8/16/30 循环",color:"amber"},
+    {from:0,to:3,text:"断开 → _on_disconnect()",color:"amber"},
+    {from:3,to:5,text:"on_link_down()：停心跳+缓存事件",color:"amber",bold:true},
+    {from:5,kind:"self",text:"故障隔离：仅通信受影响，识别/IO 照常",color:"dark"}
+  ]});
+
+(function(){
+  if(CHECK.length){
+    var d=document.createElement("div");
+    d.style.cssText="background:#fff3f2;border:1px solid #e0a;padding:10px 14px;border-radius:8px;margin:14px 0;font-size:13px;color:#a33;";
+    d.innerHTML="<b>布局自检警告（"+CHECK.length+" 条）：</b><br>"+CHECK.join("<br>");
+    document.querySelector(".wrap").appendChild(d);
+  }
+})();
+</script>
+</body>
+</html>
