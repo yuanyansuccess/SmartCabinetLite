@@ -8,7 +8,7 @@
  * 实现原理：
  *   1. ensureServerRunning() 检查face-server.js健康状态，未运行则后台启动
  *   2. QImage → JPEG → base64 → POST http://127.0.0.1:8089/extract
- *   3. QEventLoop同步等待HTTP响应 → 解析JSON → 128维特征字符串
+ *   3. QEventLoop同步等待HTTP响应 → 解析JSON → 512维特征字符串
  */
 #include "DeepFaceExtractor.h"
 #include "common/Constants.h"  // SC::FACE_SERVER_HOST / SC::FACE_SERVER_PORT 人脸服务地址统一来源
@@ -340,7 +340,7 @@ QString DeepFaceExtractor::httpPostSync(const QString& url, const QByteArray& bo
 /**
          * @brief 从图像提取人脸特征
          * @param imageBase64 图像的 Base64 文本
-         * @param outFeature 特征串输出参数（128维，逗号分隔）
+         * @param outFeature 特征串输出参数（512维，逗号分隔）
          * @param outConfidence 置信度输出参数
          * @param outMessage 失败原因输出参数
          * @return true=提取成功
@@ -392,10 +392,10 @@ bool DeepFaceExtractor::extract(const QImage& image,
         return false;
     }
 
-    // 6. 提取128维特征描述子
+    // 6. 提取512维特征描述子
     QJsonArray descriptor = obj["descriptor"].toArray();
     if (descriptor.size() < 64) {
-        outMessage = QStringLiteral("特征维度不足: %1 (需要128)").arg(descriptor.size());
+        outMessage = QStringLiteral("特征维度不足: %1").arg(descriptor.size());
         return false;
     }
 
@@ -431,7 +431,7 @@ QByteArray DeepFaceExtractor::imageToBase64Jpeg(const QImage& image) {
 }
 
 /**
- * @brief 比/extract快（不提取128维特征），用于录入页实时方位引导 人脸方位检测：调用face-server.js的/posture接口
+ * @brief 比/extract快（不提取特征向量），用于录入页实时方位引导 人脸方位检测：调用face-server.js的/posture接口
  * @param image 待处理的图像
  * @param outYaw 输出参数，接收检测得到的水平偏转角度
  * @param outPitch 输出参数，接收检测得到的俯仰角度

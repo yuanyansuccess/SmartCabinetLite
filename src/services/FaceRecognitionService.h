@@ -42,24 +42,23 @@ public:
     static double euclideanDistance(const QVector<double>& a, const QVector<double>& b);
 
     // 从数据库获取所有已录入人脸并进行匹配
-    // 阈值依据实测分布标定（跨人上限以实发误判事件为准）：
-    //   同人不同帧 0.9403~0.9967（低质量帧下限），跨人（男生间相像）实测上限 0.9551。
-    //   0.94~0.9551 为跨人误判高危区，实发两例：刷脸者被识别成另一男生登录成功；
-    //   同一未录入者登录页最优帧 0.93x 被拒、忘记密码单帧 0.94x 却匹配到他人账号——
-    //   判定线落在跨人波动带中间时，两边结论随机，必须整体抬到跨人上限之上。
-    // 1. threshold 0.96（多人脸第一名通过下限，兼任第二名拒绝线 secondRejectLine）：
-    //    必须高于跨人上限 0.9551，第一名才可能是"本人明确胜出"而非"跨人撞线"
-    // 2. singleFaceThreshold 0.96（库内仅 1 人脸时的最低门槛，陌生人撞线实测可达 0.955）
-    // 3. maxEuclideanDist 0.80（欧氏距离第二道防线）
-    // 本人低质量帧（相似度 0.9403~0.96）会被 0.96 门槛拒掉，靠多帧取最优与重试补回。
-    // 第二名按相似度绝对值判定，不按与第一名差多少来判：长相相近的两人与本人帧差距仅约 0.012，
-    // 按差距判会把真人误拒。
+    // 阈值依据 512 维引擎跨时段实测分布标定（InsightFace buffalo_l，特征已 L2 归一化）：
+    //   同人不同帧 0.595~0.86（2026-11-02 现场校准；旧标定 0.81~0.99 是短时段同场景，
+    //   跨时段/偏色会整体下移且变宽），跨人实测上限约 0.22，陌生人接近 0 甚至为负。
+    //   同人下限 0.595 与跨人上限 0.22 间隔充分，判定线落中间带。
+    // 1. threshold 0.45（多人脸第一名通过下限，兼任第二名拒绝线 secondRejectLine）：
+    //    高于跨人上限 0.22（留 ~0.23 安全余量），第一名才是"本人明确胜出"
+    // 2. singleFaceThreshold 0.50（库内仅 1 人脸时的最低门槛，无第二名可对照故比 0.45 更严）
+    // 3. rejectThreshold 0.30（候选产生线，低于跨人上限，用于区分"陌生人"与"质量不足"）
+    // 4. maxEuclideanDist 0.80（欧氏距离第二道防线；归一化向量同人距离约 0.62）
+    // 本人低质量帧会被门槛拒掉，靠多帧取最优与重试补回。
+    // 第二名按相似度绝对值判定，不按与第一名差多少来判。
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     FaceMatchResult matchFace(const QString& faceDescriptor,
-                               double threshold = 0.965,
-                               double highConfidence = 0.965,
-                               double rejectThreshold = 0.35,
+                               double threshold = 0.45,
+                               double highConfidence = 0.50,
+                               double rejectThreshold = 0.30,
                                double marginThreshold = 0.15,
                                double maxEuclideanDist = 0.80,
                                double quality = 0);

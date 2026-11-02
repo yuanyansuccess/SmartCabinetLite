@@ -3,32 +3,20 @@
  * @brief 人脸特征提取常驻HTTP服务 — 启动一次模型，后续请求毫秒级响应
  * @author 袁燕
  *
- * [V2.03 2026-06-28] 性能优化：从"每次启动node进程"改为"常驻HTTP服务"
- *   原方案：每次captureNow()启动node extract-feature.js → 加载模型2-3s → 总计9s(3帧)
- *   新方案：Qt启动时拉起face-server.js常驻 → 模型只加载一次 → 每次请求<300ms
- *
- * [V2.16 2026-07-06] 新增/posture接口：只检测landmarks不提取特征，用于人脸录入方位引导
- *   /extract响应增加landmarks字段（68个[x,y]坐标），供Qt端方位判断
+ * 常驻 HTTP 服务：模型只加载一次，后续请求毫秒级响应（Qt 启动时拉起，退出时回收）。
  *
  * API:
  *   POST /extract  body: { "image": "<base64 JPEG>" }
- *     响应: { "success": true, "descriptor": [128 floats], "confidence": 0.9, "landmarks": [[x,y],...] }
+ *     人脸检测与 68 点定位由 face-api 完成，特征向量由 512 维引擎（face-server-512.py @ 8090）提供。
+ *     响应: { "success": true, "descriptor": [512 floats], "confidence": 0.9, "landmarks": [[x,y],...] }
  *     响应: { "success": false, "error": "未检测到人脸" }
  *   POST /posture  body: { "image": "<base64 JPEG>" }
+ *     只检测 landmarks 不提取特征，用于人脸录入方位引导（比 /extract 快）。
  *     响应: { "success": true, "landmarks": [[x,y],...], "yaw": 0.12, "pitch": 0.05 }
  *     响应: { "success": false, "error": "未检测到人脸" }
  *
- * [V2.20 2026-10-13 袁燕] 分段耗时计时（NPU提速决策前的数据采集）
- *   背景：登录RTT偏慢，需定位瓶颈在"图像传输/解码"还是"模型推理"，再决定
- *         是否投入NPU(RKNN)改造。无数据优化是盲目的，故先加五段计时。
- *   实现：链式API按face-api自有task链拆段（detectTask.run→withFaceLandmarks
- *         →withFaceDescriptor），中间结果自动复用不重复推理，与原链式等价。
- *   五段：decode(jpeg-js) / detect(tinyFaceDetector) / landmarks(68点)
- *         / descriptor(recognitionNet) / total(端到端)
- *   开关：SC_FACE_TIMING=0 关闭日志（默认开启，量产可关）；分段数据同时
- *         随响应体 timing 字段返回，test_face_rtt.js 直接展示。
- *
- * [V2.19 2026-10-13 提速] inputSize 224→160（见extractFeature内注释）
+ * 耗时计时：请求处理拆为 decode/detect/landmarks/descriptor(512引擎)/total 五段，
+ * 随响应体 timing 字段返回；SC_FACE_TIMING=0 可关闭日志输出。
  *
  * 端口: 8089 (避开后端8088)
  */
@@ -36,15 +24,31 @@
 
 const http = require('http');
 const path = require('path');
+const os = require('os');
+const { spawn } = require('child_process');
 const MODELS_PATH = path.join(__dirname, 'models');
 
-// [V2.17 2026-10-04 袁燕] 人脸框边长下限(px)：低于此值视为距离过远。
-//   与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。
-//   实测校准：正常约 95~105px，明显偏远约 55~62px，故取 70。
+// 512 维引擎（onnxruntime/OpenMP）默认不会用满多核，单帧推理约 1.2s；
+// 显式开启多线程后降到 ~0.45s（约 2.7 倍）。本机多核，留少量余量给 UI/常驻服务。
+// 此处注入到 8089 进程环境，spawn 出的 8090 子进程自动继承，无需改 512 引擎代码。
+const _faceThreads = String(Math.max(4, os.cpus().length - 4));
+if (!process.env.ORT_NUM_THREADS) process.env.ORT_NUM_THREADS = _faceThreads;
+if (!process.env.OMP_NUM_THREADS) process.env.OMP_NUM_THREADS = _faceThreads;
+if (!process.env.OMP_WAIT_POLICY) process.env.OMP_WAIT_POLICY = 'PASSIVE';
+
+// 特征向量由 512 维引擎（InsightFace buffalo_l，face-server-512.py @ 8090）提供：
+// landmarks(68点)/posture/yaw/pitch 仍由 face-api 完成，活体/方位/定位逻辑不受影响。
+// 512 引擎输出已 L2 归一化，余弦相似度=内积；判定阈值以 512 维实测分布标定
+// （见 src/services/FaceRecognitionService.h），不再沿用 face-api 时代的 0.94/0.96。
+const PY512 = 'D:\\Anaconda3\\python.exe';
+const FACE_SERVER_512_PY = path.join(__dirname, '..', 'face-recognition-512', 'face-server-512.py');
+const FACE_SERVER_512_URL = 'http://127.0.0.1:8090';
+
+// 人脸框边长下限(px)：低于此值视为距离过远，提示"请靠近"。
+// 与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。
 const FACE_MIN_SIZE = 70;
 
-// [V2.20 2026-10-13 袁燕] 分段计时开关：默认开启（调试期采集数据用），
-//   量产稳定后可以 SC_FACE_TIMING=0 关闭日志（timing字段仍随响应返回，零开销）
+// 分段计时开关：SC_FACE_TIMING=0 关闭日志（timing 字段仍随响应返回）
 const TIMING_ENABLED = process.env.SC_FACE_TIMING !== '0';
 
 let tf, jpeg, faceapi;
@@ -55,16 +59,10 @@ async function init() {
     try {
         jpeg = require('jpeg-js');
 
-        // [V2.21 2026-10-13 袁燕] 推理后端切换：tfjs-node 原生(Eigen多线程) 替代 纯JS
-        //   背景：V2.20 分段计时实测——推理占端到端耗时 98%（纯JS后端下
-        //         1000x1000 矩阵乘 3920ms，原生后端仅 38ms，差 100 倍），
-        //         "登录慢"的根因是后端选错，不是模型/网络/参数问题。
-        //   注意：tfjs-node 注册的后端名是 'tensorflow'，原代码 setBackend('cpu')
-        //         会强制走纯JS后端——装了对的后端不切也白装。
-        //   face-api 需同步换成 node 专用入口(dist/face-api.node)，默认入口
-        //         内部绑定的是纯JS tfjs，与 tfjs-node 不共享后端。
-        //   兜底：原生后端加载失败（如麒麟ARM无预编译二进制）时回退纯JS，
-        //         保证服务可用（慢但能用），便于现场定位。
+        // 推理后端：优先 tfjs-node 原生(Eigen多线程)，纯JS后端下推理比原生慢约100倍。
+        // 注意：tfjs-node 注册的后端名是 'tensorflow'，setBackend('cpu') 会强制走纯JS；
+        // face-api 需用 node 专用入口(dist/face-api.node)才与 tfjs-node 共享后端。
+        // 兜底：原生后端加载失败（如麒麟ARM无预编译二进制）时回退纯JS，保证服务可用。
         try {
             tf = require('@tensorflow/tfjs-node');
             faceapi = require('@vladmandic/face-api/dist/face-api.node');
@@ -80,9 +78,10 @@ async function init() {
             console.log('[face-server] 推理后端: tfjs 纯JS(慢速兼容兜底)');
         }
 
+        // face-api 仅承担人脸检测(tinyFaceDetector)与 68 点定位(faceLandmark68Net)；
+        // 特征向量由 512 维引擎(face-server-512.py @ 8090)提供，不再加载 faceRecognitionNet。
         await faceapi.nets.tinyFaceDetector.loadFromDisk(MODELS_PATH);
         await faceapi.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH);
-        await faceapi.nets.faceRecognitionNet.loadFromDisk(MODELS_PATH);
 
         modelsLoaded = true;
         ready = true;
@@ -94,7 +93,8 @@ async function init() {
 }
 
 /**
- * [V2.20 2026-10-13 袁燕] 提取128维人脸特征（含五段耗时计时）
+ * 提取人脸特征（含五段耗时计时）：检测与 68 点定位由 face-api 完成，
+ * 特征向量由 512 维引擎提供。
  *
  * @param imageBase64  JPEG 图像的 Base64 文本
  * @returns {Promise<{success:boolean, error?:string, descriptor?:number[],
@@ -126,20 +126,11 @@ async function extractFeature(imageBase64) {
     // 五段计时的分段时刻（在 try 内逐段刷新，finally 统一 disposal）
     let tDetect = 0, tLandmarks = 0, tDescriptor = 0;
     try {
-        // [V2.18 2026-10-04 袁燕] 注意：face-api.js 链式 API 存在强制依赖——
-        //   必须先调用 withFaceLandmarks()，withFaceDescriptor() 才存在
-        //   （descriptor 需基于 landmarks 对齐后计算）。曾尝试移除 landmarks
-        //   以省一次模型推理，结果报 "withFaceDescriptor is not a function"
-        //   导致提取 100% 失败，故保留该调用。
-        //   客户端虽不消费 landmarks 字段，但模型调用不可省。
-        // [V2.19 2026-10-13 提速] inputSize 224→160：检测推理计算量随输入尺寸
-        //   显著下降（约提速40~50%）。160=32×5符合face-api要求；
-        //   正常登录距离（人脸框>35px@320图）检出无影响。
-        // [V2.20 2026-10-13 袁燕] 拆段计时：用 face-api 自有 task 链把原
-        //   链式调用拆为三段 await——detectTask 先 run 得到检测框，再
-        //   withFaceLandmarks/withFaceDescriptor 复用父任务结果（内部不
-        //   重复推理），与原 `detectSingleFace().withFaceLandmarks()
-        //   .withFaceDescriptor()` 完全等价，仅用于插入计时点。
+        // face-api 负责人脸检测与 68 点定位（供客户端方位判断）；
+        // 人脸特征向量由 512 维引擎（extract512）提供，此处不再跑 face-api 的
+        // faceRecognitionNet——其结果已被 512 特征取代，白跑纯属浪费（约 60ms/帧）。
+        // inputSize 160：检测推理计算量随输入尺寸显著下降（约提速40~50%），
+        // 160=32×5 符合 face-api 要求，正常登录距离（人脸框>35px@320图）检出无影响。
         const detectTask = faceapi.detectSingleFace(
             tensor,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
@@ -152,7 +143,7 @@ async function extractFeature(imageBase64) {
             return { success: false, error: '未检测到人脸，请正对摄像头' };
         }
 
-        // 段3：68关键点（faceLandmark68Net，descriptor 的对齐依赖它）
+        // 段3：68关键点（faceLandmark68Net），供客户端方位判断与 512 引擎对齐参考
         const landmarkTask = detectTask.withFaceLandmarks();
         const withLandmarks = await landmarkTask.run();
         tLandmarks = Date.now() - t0 - tDecode - tDetect;
@@ -160,17 +151,8 @@ async function extractFeature(imageBase64) {
             return { success: false, error: '未检测到人脸，请正对摄像头' };
         }
 
-        // 段4：128维特征（faceRecognitionNet，输入为landmarks对齐后的112图）
-        const result = await landmarkTask.withFaceDescriptor().run();
-        tDescriptor = Date.now() - t0 - tDecode - tDetect - tLandmarks;
-        if (!result || !result.descriptor) {
-            return { success: false, error: '未检测到人脸，请正对摄像头' };
-        }
-
-        // [V2.17 2026-10-04 袁燕] 距离门控：人脸框过小说明特征像素不足，
-        //   此时提取出的描述子与库内近距离特征相似度必然偏低（不是人的问题），
-        //   明确告知客户端"请靠近"，避免客户端反复重试或误判为陌生人。
-        //   性能：仅一次整数比较，服务端本就持有检测框，开销可忽略。
+        // 距离门控：人脸框过小说明特征像素不足，此时提取的描述子相似度
+        // 必然偏低（不是人的问题），明确告知客户端"请靠近"，避免反复重试或误判陌生人。
         const box = detection.box;
         const faceSize = Math.min(box.width, box.height);
         if (faceSize < FACE_MIN_SIZE) {
@@ -184,19 +166,34 @@ async function extractFeature(imageBase64) {
                 timing: buildTiming(tDecode, tDetect, tLandmarks, tDescriptor, t0)
             };
         }
-        // [V2.20] 分段计时日志：五段构成一眼定位瓶颈（默认开，SC_FACE_TIMING=0关）
+        // 特征向量由 512 维引擎提供；失败时透传原因，由客户端提示
+        let descriptor512;
+        try {
+            const r512 = await extract512(imageBase64);
+            if (!r512.success || !r512.descriptor) {
+                return { success: false, error: '512维引擎：' + (r512.error || '未检出人脸'), code: 'NO_FACE_512' };
+            }
+            descriptor512 = r512.descriptor;
+        } catch (e) {
+            return { success: false, error: '512维引擎调用失败：' + e.message, code: 'ENGINE_512_ERR' };
+        }
+
+        // 段4：512 维引擎特征提取（含转发 8090）耗时
+        tDescriptor = Date.now() - t0 - tDecode - tDetect - tLandmarks;
+
+        // 分段计时日志：各段构成一眼定位瓶颈（SC_FACE_TIMING=0 关）
         const timing = buildTiming(tDecode, tDetect, tLandmarks, tDescriptor, t0);
         if (TIMING_ENABLED) {
             console.log(`[face-server] timing decode=${timing.decode}ms detect=${timing.detect}ms`
-                + ` landmarks=${timing.landmarks}ms descriptor=${timing.descriptor}ms`
+                + ` landmarks=${timing.landmarks}ms descriptor(512引擎)=${timing.descriptor}ms`
                 + ` total=${timing.total}ms faceSize=${Math.round(faceSize)}px`);
         }
         // 保持原有响应结构（含 landmarks），确保与客户端行为完全一致
         const landmarks = withLandmarks.landmarks.positions.map(p => [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]);
         return {
             success: true,
-            descriptor: Array.from(result.descriptor),
-            confidence: result.detection.score || 0.8,
+            descriptor: descriptor512,
+            confidence: detection.score || 0.8,
             landmarks: landmarks,
             timing: timing
         };
@@ -206,12 +203,12 @@ async function extractFeature(imageBase64) {
 }
 
 /**
- * [V2.20 2026-10-13 袁燕] 组装分段计时对象
+ * 组装分段计时对象
  *
  * @param decode     base64解码+jpeg解码+张量构建耗时(ms)
  * @param detect     人脸检测耗时(ms)
  * @param landmarks  68关键点耗时(ms)
- * @param descriptor 128维特征耗时(ms)
+ * @param descriptor 512维引擎特征提取(含转发8090)耗时(ms)
  * @param t0         请求处理起点时刻(Date.now()值)
  * @returns {{decode:number, detect:number, landmarks:number,
  *           descriptor:number, total:number}} 各段耗时(ms)
@@ -226,7 +223,61 @@ function buildTiming(decode, detect, landmarks, descriptor, t0) {
     };
 }
 
-// [V2.16 2026-07-06 袁燕] 人脸方位检测：只检测landmarks不提取特征，响应更快
+/**
+ * 调用 512 维引擎（face-server-512.py @ 8090）提取特征向量。
+ *
+ * @param imageBase64  JPEG 图像的 Base64 文本（与 /extract 入参一致）
+ * @returns {Promise<{success:boolean, descriptor?:number[], error?:string}>}
+ */
+function extract512(imageBase64) {
+    const payload = JSON.stringify({ image: imageBase64 });
+    return new Promise((resolve) => {
+        const req = http.request(FACE_SERVER_512_URL + '/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+        }, (resp) => {
+            let d = '';
+            resp.on('data', c => d += c);
+            resp.on('end', () => {
+                try { resolve(JSON.parse(d)); }
+                catch (e) { resolve({ success: false, error: '512引擎响应解析失败' }); }
+            });
+        });
+        req.on('error', (e) => resolve({ success: false, error: '512引擎连接失败：' + e.message }));
+        req.write(payload);
+        req.end();
+    });
+}
+
+/**
+ * 拉起 512 维引擎常驻进程（若未运行）。失败仅告警，不阻塞主服务。
+ */
+function spawn512() {
+    try {
+        console.log('[face-server] 拉起 512 维引擎：', FACE_SERVER_512_PY);
+        const p = spawn(PY512, [FACE_SERVER_512_PY], { detached: true, stdio: 'ignore' });
+        p.unref();
+    } catch (e) {
+        console.warn('[face-server] 512 维引擎拉起失败（请手动启动 face-server-512.py）：', e.message);
+    }
+}
+
+/**
+ * 确保 512 维引擎可用：健康检查未就绪则自动拉起。
+ */
+function ensure512() {
+    const req = http.get(FACE_SERVER_512_URL + '/health', (r) => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => {
+            try { if (JSON.parse(d).ready) { console.log('[face-server] 512 维引擎已就绪'); return; } } catch (e) {}
+            spawn512();
+        });
+    });
+    req.on('error', () => spawn512());
+}
+
+// 人脸方位检测：只检测landmarks不提取特征，响应更快
 //   入参：imageBase64 base64编码的JPEG图像
 //   返回：{ success, landmarks, yaw, pitch } 或 { success:false, error }
 //   yaw:  左右偏转比（>0.15左偏，<-0.15右偏，|yaw|<0.10居中）
@@ -253,8 +304,7 @@ async function detectPosture(imageBase64) {
     let tDetect = 0, tLandmarks = 0;
     try {
         // 只检测landmarks，不提取descriptor，速度更快
-        // [V2.19 2026-10-13 提速] inputSize 224→160（与/extract同步提速）
-        // [V2.20 2026-10-13 袁燕] 拆段计时（与/extract同法，task链复用不重复推理）
+        // inputSize 160 与 /extract 同步；task 链复用不重复推理
         const detectTask = faceapi.detectSingleFace(
             tensor,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
@@ -354,7 +404,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // [V2.16 2026-07-06 袁燕] 人脸方位检测接口（录入页用，比/extract快）
+    // 人脸方位检测接口（录入页用，比/extract快）
     if (req.method === 'POST' && req.url === '/posture') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -384,6 +434,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(8089, '127.0.0.1', () => {
     console.log('[face-server] HTTP服务启动 @ http://127.0.0.1:8089');
+    ensure512();   // 同步确保 512 维引擎（face-server-512.py @ 8090）运行
     init();
 });
 

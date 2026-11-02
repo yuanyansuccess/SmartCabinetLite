@@ -142,7 +142,7 @@ QJsonObject UserDAO::findById(int userId) {
 /**
  * @brief 更新用户人脸特征
  * @param userId 用户ID
- * @param feature 人脸特征串（128维向量的逗号分隔文本）
+ * @param feature 人脸特征串（512维向量的逗号分隔文本）
  * @return true=写入成功
  */
 bool UserDAO::updateFace(int userId, const QString& feature, const QString&) {

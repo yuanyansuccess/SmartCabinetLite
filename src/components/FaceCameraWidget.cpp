@@ -723,24 +723,22 @@ QRect FaceCameraWidget::detectFace(const QImage& rgbImage)
 }
 
 // ════════════════════════════════════════
-// 特征提取：纹理哈希 128维
+// 特征提取：深度学习 512 维
 // ════════════════════════════════════════
 
 /**
          * @brief 从人脸区域提取特征向量
          * @param frame 当前摄像头帧图像
          * @param faceRect 已检测出的人脸矩形区域（深度学习模式下未使用，内部自行检测）
-         * @return 128维特征；提取失败时返回空向量
+         * @return 512维特征；提取失败时返回空串
          */
 QString FaceCameraWidget::extractFeature(const QImage& frame, const QRect& faceRect)
 {
-    Q_UNUSED(faceRect);  // 深度学习模式不使用faceRect，face-api.js自己检测
+    Q_UNUSED(faceRect);  // 深度学习模式不使用faceRect，特征服务自行检测
     if (frame.isNull()) return QString();
 
-    // 深度学习特征提取（唯一方案）
-    // 使用face-api.js的128维深度特征，替代8x8网格纹理哈希
+    // 深度学习特征提取（唯一方案）：由常驻特征服务（face-server.js 转 512 维引擎）提取
     // 深度学习特征个体辨识力强，解决陌生人泛化误识问题
-    //   纹理哈希辨识力不足，不能用于身份验证，已彻底移除
     static bool deepFaceChecked = false;
     static bool deepFaceAvailable = false;
     if (!deepFaceChecked) {

@@ -201,28 +201,20 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
 
   // 单人脸严格策略：系统仅1人脸时必须达到更高门槛
     // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，
-    // 陌生人（未录入者）与库内特征的相似度实测可达 0.955
+    // 陌生人（未录入者）与库内特征的相似度实测可达 0.22（512 维引擎）
     // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
 
     // 单人脸相似度门槛：低于此值判为非本人。
-    // 取 0.965：在 0.96 基础上抬高 0.005，用于拦下临界误识——
-    //   实发过张育诚(007)低质量帧以 0.9609 被误判为谢科薪(002)登录，
-    //   该值仅超旧阈值 0.96 达 0.0009；抬至 0.965 后此帧被拒。
-    //   仍满足原约束：陌生人（未录入者）相似度实测 ≤0.955（<0.965 拦下），
-    //   本人成功帧实测全部 ≥0.968（>0.965 正常通过，仅极少数 0.96~0.965
-    //   边缘帧会被拒，由多帧重试兜回，不损失可用性）。
-    const double singleFaceThreshold = 0.965;
-    // 第二名拒绝线（多人脸判定核心，face_recog_log 实测标定）：
-    //   同人帧下限 0.9403（本人低质量帧最低值，多帧重试可兜回），
-    //   跨人帧上限实测 0.9551（男生间相像，实发过按此值误登录另一账户、
-    //   以及忘记密码验证把未录入者匹配到他人账号），取 0.96 分界——
-    //   第一名必须高于跨人上限才算本人明确胜出；
-    //   第二名也达到此线说明两条候选同属一张脸（重复挂账户/双胞胎），
-    //   取最高者等于随机选人，必须拒绝；第二名低于此线说明第一名明确胜出，放行。
-    // 原 margin(0.15) 相对差距判定在"长得像的两人"场景失效：
-    //   本人帧 0.95 与相像第二名的 0.9375 差距仅 0.0125，远小于 0.15，
-    //   导致真人刷脸被"多个账户与您特征相近"误拒（日志 #565-566 实证）。
-    const double secondRejectLine = threshold;   // 0.96
+    // 取 0.50：512 维引擎同人跨时段实测 0.595~0.86（2026-11-02 现场校准），跨人上限约 0.22。
+    //   库内仅 1 人脸时无第二名可对照，陌生人撞线风险靠提高门槛对冲，
+    //   故高于多人脸线(0.45) ~0.05，同时低于同人下限 0.595（真脸不会被误拒）；
+    //   旧值 0.62 卡在真实同人分布(0.595~0.86)中间，导致半数真脸帧被拒（边界带提示频发）。
+    const double singleFaceThreshold = 0.50;
+    // 第二名拒绝线（多人脸判定核心，与 threshold 同值）：
+    //   第一名高于此线算本人明确胜出；第二名也达到此线说明两条候选同属
+    //   一张脸（重复挂账户/双胞胎），取最高者等于随机选人，必须拒绝；
+    //   第二名低于此线说明第一名明确胜出，放行。
+    const double secondRejectLine = threshold;   // 0.55
     bool cosOk = false;
 
     if (candidates.size() == 1) {
@@ -276,7 +268,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         } else if (candidates.size() == 1 && best.similarity >= threshold) {
             // 单人脸边界带：相似度已达多人脸通过线但未到单人脸直通线，
             // 属"接近但本次帧质量不足"，给出改善采集的具体引导而非笼统重试
-            result.message = QStringLiteral("已接近识别成功，请正对摄像头并稍近一些重试");
+            result.message = QStringLiteral("已接近识别成功，请正对摄像头并保持光线充足后重试");
             qDebug() << "[FaceRecog] 单人脸边界带拒绝: sim=" << best.similarity
                      << "need=" << singleFaceThreshold;
         } else {
@@ -322,7 +314,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
 
 /**
  * @brief 在已录入人脸列表中找出与采集特征最相似的用户
- * @param faceDescriptor 采集到的人脸特征串（128维，逗号分隔）
+ * @param faceDescriptor 采集到的人脸特征串（512维，逗号分隔）
  * @param enrolledFaces 已录入人脸列表，元素须含 userId/username/realName/workNo/department/faceFeature 字段
  * @param excludeUserId 需排除的用户ID：重新录入本人人脸时传本人ID，使他不与自己比对
  * @param similarityThreshold 判定为同一张脸的余弦相似度下限
@@ -373,7 +365,7 @@ QString FaceRecognitionService::FaceDuplicateInfo::ownerText() const {
 
 /**
  * @brief 查询采集特征是否与库内某个其他账户的人脸重复
- * @param faceDescriptor 采集到的人脸特征串（128维）
+ * @param faceDescriptor 采集到的人脸特征串（512维）
  * @param excludeUserId 需排除的用户ID（重新录入本人时传本人ID）
  * @return 命中结果；duplicated 为 false 表示不重复
  * @note 取数口径与登录识别一致：仅比对状态为 active 的账户人脸。
@@ -391,7 +383,7 @@ FaceRecognitionService::FaceDuplicateInfo FaceRecognitionService::findDuplicateF
 /**
  * @brief 录入人脸特征，录入前先做查重
  * @param userId 目标用户ID
- * @param faceDescriptor 128维特征串
+ * @param faceDescriptor 512维特征串
  * @return 录入结果：success为true表示已写入；duplicated为true表示该脸已挂在其他账户上，未写入
  */
 FaceRecognitionService::EnrollFaceResult FaceRecognitionService::enrollFaceChecked(

@@ -858,29 +858,29 @@ void LoginPage::buildSuccessCard(QVBoxLayout* layout) {
 
     // 相似度单独一行（次要信息）
 
-    auto* simRow = new QWidget();
+    //auto* simRow = new QWidget();
 
-    simRow->setStyleSheet("background:transparent;");
+    //simRow->setStyleSheet("background:transparent;");
 
-    auto* simLayout = new QHBoxLayout(simRow);
+    //auto* simLayout = new QHBoxLayout(simRow);
 
-    simLayout->setContentsMargins(0, 0, 0, 0);
+    //simLayout->setContentsMargins(0, 0, 0, 0);
 
-    simLayout->setSpacing(10);
+    //simLayout->setSpacing(10);
 
-    auto* simLabel = new QLabel(QStringLiteral("📊 相似度"));
+    //auto* simLabel = new QLabel(QStringLiteral("📊 相似度"));
 
-    simLabel->setFixedWidth(110);
+    //simLabel->setFixedWidth(110);
 
-    simLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
+    //simLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
 
-    m_successSimilarity->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
+    //m_successSimilarity->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + "; color:#888888; font-weight:500; background:transparent;");
 
-    simLayout->addWidget(simLabel);
+    //simLayout->addWidget(simLabel);
 
-    simLayout->addWidget(m_successSimilarity, 1);
+    //simLayout->addWidget(m_successSimilarity, 1);
 
-    sbl->addWidget(simRow);
+    //sbl->addWidget(simRow);
 
 
 

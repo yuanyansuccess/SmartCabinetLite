@@ -326,10 +326,11 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     m_captureCount = m_samples.size();
 
     // 自适应早退：质量合格的帧立即比对(第1帧即验)。
-    //   - 成功(sim>=0.965 且非双高候选)：直接通过，恢复"1帧"速度，体感不再慢；
-    //   - 失败/陌生人(临界帧 0.94~0.965 或双高候选)：不立即判失败，继续采集第2帧
+    //   - 成功(达到判定线且非双高候选)：直接通过，恢复"1帧"速度，体感不再慢；
+    //   - 失败/陌生人(临界帧或双高候选)：不立即判失败，继续采集第2帧
     //     择优保底，保留"多帧取最优"对未识别率的改善。
-    // 阈值0.965保持不变（张育诚误识红线不受影响）；好帧sim多在0.97+可1帧通过。
+    // 判定阈值见 FaceRecognitionService.h 标定（单人脸 0.50 / 多人脸 0.45）；
+    //   512 引擎好帧相似度多在 0.68+，达到判定线即 1 帧通过。
     if (descDim >= 128) {
         collectBestSample();
         return;
@@ -383,11 +384,13 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image, doubl
 }
 
 /// 本地FaceRecognitionService验证
-/// @param descriptor 逗号分隔的128维face-api.js深度学习特征
+/// @param descriptor 逗号分隔的512维深度学习特征
 /// 使用 FaceRecognitionService 默认阈值，与登录识别共用同一套判定
 void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
     FaceRecognitionService svc;
-    auto result = svc.matchFace(descriptor, 0.965, 0.965, 0.35, 0.15, 0.80, quality);
+    // 阈值与 FaceRecognitionService.h 标定一致（2026-11-02 现场校准）：
+    //   单人脸门槛 0.50、多人脸线 0.45、跨人上限 0.22；512 引擎同人跨时段 0.595~0.86
+    auto result = svc.matchFace(descriptor, 0.45, 0.50, 0.30, 0.15, 0.80, quality);
 
     // 记录本次相似度：便于现场判断"差多少到阈值"（SC_LOG_SENSITIVE=1 可见）
     ++m_verifyBudget;
@@ -409,8 +412,8 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
         resp["token"] = QString::number(QDateTime::currentSecsSinceEpoch());
         handleFaceSuccess(resp);
     } else if (result.isStranger) {
-        // 自适应早退：第1帧被判陌生人多为本人临界帧(0.94~0.965)被当作全局最高不足，
-        // 不直接判陌生人，继续采第2帧择优，避免误伤本人、抬高未识别率。
+        // 自适应早退：第1帧被判陌生人多为本人临界帧(质量不足导致相似度偏低)被当作
+        // 全局最高不足，不直接判陌生人，继续采第2帧择优，避免误伤本人、抬高未识别率。
         if (m_captureCount < 2) {
             m_isVerifying = false;
             m_faceCamera->reset();
@@ -426,7 +429,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
         handleFaceStranger(resp);
     } else {
         // 自适应早退：仅第1帧(尚不足2帧)比对失败时，不立即判失败，
-        // 继续采集第2帧择优保底，避免临界帧(0.94~0.965)被单帧误拒抬高未识别率。
+        // 继续采集第2帧择优保底，避免临界帧被单帧误拒抬高未识别率。
         if (m_captureCount < 2) {
             m_isVerifying = false;
             m_faceCamera->reset();
