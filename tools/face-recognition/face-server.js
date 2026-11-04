@@ -25,7 +25,7 @@
 const http = require('http');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const MODELS_PATH = path.join(__dirname, 'models');
 
 // 512 维引擎（onnxruntime/OpenMP）默认不会用满多核，单帧推理约 1.2s；
@@ -40,9 +40,28 @@ if (!process.env.OMP_WAIT_POLICY) process.env.OMP_WAIT_POLICY = 'PASSIVE';
 // landmarks(68点)/posture/yaw/pitch 仍由 face-api 完成，活体/方位/定位逻辑不受影响。
 // 512 引擎输出已 L2 归一化，余弦相似度=内积；判定阈值以 512 维实测分布标定
 // （见 src/services/FaceRecognitionService.h），不再沿用 face-api 时代的 0.94/0.96。
-const PY512 = 'D:\\Anaconda3\\python.exe';
+// 512 维引擎依赖 Python + InsightFace；Python 解释器路径优先取环境变量 FACE_PYTHON，
+// 否则按平台自动探测（Windows: where python/python3；Linux: which python3/python）。
+// 旧版硬编码 D:\Anaconda3\python.exe 在非该路径/非 Windows（如麒麟 Linux）下会导致
+// 512 引擎拉起失败、刷脸功能失效，故改为可配置 + 自动探测。
 const FACE_SERVER_512_PY = path.join(__dirname, '..', 'face-recognition-512', 'face-server-512.py');
 const FACE_SERVER_512_URL = 'http://127.0.0.1:8090';
+
+function findPython() {
+  if (process.env.FACE_PYTHON) return process.env.FACE_PYTHON;
+  const isWin = process.platform === 'win32';
+  const probe = isWin ? 'where' : 'which';
+  const candidates = isWin ? ['python', 'python3', 'py'] : ['python3', 'python'];
+  for (const c of candidates) {
+    try {
+      const out = execSync(`${probe} ${c}`, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().trim().split(/\r?\n/)[0];
+      if (out) return out;
+    } catch (e) { /* 未找到，尝试下一个 */ }
+  }
+  return isWin ? 'python' : 'python3';
+}
+const PY512 = findPython();
 
 // 人脸框边长下限(px)：低于此值视为距离过远，提示"请靠近"。
 // 与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。

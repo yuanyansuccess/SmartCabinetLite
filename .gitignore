@@ -26,6 +26,7 @@ temp/
 *.txt
 !CMakeLists.txt
 !scripts/Readme(add_tool_with_position).txt
+!tools/face-recognition-512/requirements.txt
 
 # 归档 / 安装包（体积大）
 *.rar
@@ -70,3 +71,4 @@ tools/face-recognition/test_face_sample.*
 
 tools/ui_test/__pycache__/
 tools/ui_test/reports/
+tools/face-recognition-512/__pycache__/

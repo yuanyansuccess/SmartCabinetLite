@@ -82,8 +82,8 @@ chmod +x deployment/build_kylin.sh
 chmod +x deployment/build-kylin-arm64.sh
 ./deployment/build-kylin-arm64.sh
 ```
-> 完整部署说明见 **`KYLIN_DEPLOY.md`**（含环境安装、目录结构、故障排查）。
-> ⚠ 部署后 `bin/tools/face-recognition/` 必须存在且柜机装了 Node.js，否则人脸功能全废。
+> 完整部署说明见 **`KYLIN_DEPLOY.md`**（含环境安装、目录结构、故障排查，第 6.5 节专讲 512 维引擎）。
+> ⚠ 部署后 `bin/tools/face-recognition/` 与 `bin/tools/face-recognition-512/` 都必须存在，且柜机装了 Node.js 16+ 与 Python 3.9+，否则人脸功能全废或降级为密码登录。
 
 ---
 
@@ -101,14 +101,14 @@ SmartCabinetLite/
 │   ├── common/         # 基础设施 - 连接管理/配置/常量(SC::)
 │   └── utils/          # 工具类 - StyleHelper(颜色+Token令牌)
 ├── tests/              # 单元测试(test_core_logic / test_components / test_services / test_dao)
-├── tools/face-recognition/  # 人脸识别Node服务(face-server.js, 8089端口)
+├── tools/face-recognition/  # 人脸识别Node服务(face-server.js, 8089端口, 检测+定位)
+├── tools/face-recognition-512/  # 512维人脸引擎(Python+InsightFace, face-server-512.py, 8090端口, 提供特征向量)
 ├── kylin/              # 麒麟适配脚本
 ├── docs/               # 业务逻辑与架构文档
 └── CMakeLists.txt      # 编译配置
 ```
 
-> 人脸识别依赖 `tools/face-recognition`（Node 服务，8089 端口）：程序启动时自动拉起，
-> 随程序退出自动停止。打包/部署时**必须**把该目录一起带上，否则人脸功能全废。
+> 人脸识别依赖两层服务：`tools/face-recognition`（Node 服务，8089 端口，检测+定位）会调用 `tools/face-recognition-512`（Python + InsightFace，8090 端口，提供 512 维特征向量），程序启动时自动拉起，随程序退出自动停止。打包/部署时**两个目录都必须**一起带上，且柜机需 Node.js 16+ 与 Python 3.9+；否则人脸功能全废或降级为密码登录。
 
 ---
 

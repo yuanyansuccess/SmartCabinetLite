@@ -59,12 +59,24 @@ apt-get install -y libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 
 
 ## 四、人脸识别服务的依赖（不要漏）
 
-程序运行依赖 `tools/face-recognition/`（项目根目录下），里面包含：
-- `face-server.js`：Node.js 常驻服务
+程序运行依赖两层服务（项目根目录下）：
+
+**1) `tools/face-recognition/`（Node.js 服务，8089 端口）**
+- `face-server.js`：Node.js 常驻服务（人脸检测 + 68 点定位）
 - `node_modules/`：`@vladmandic/face-api`、`@tensorflow/tfjs` 等
 - `models/`：tiny_face_detector 等模型文件
+- 编译脚本会自动把它复制到部署包的 `bin/tools/face-recognition/`
 
-编译脚本会自动把它复制到部署包的 `bin/tools/face-recognition/`。**离线交付时这个目录必须一并带上**，否则刷脸登录、人脸录入不可用。
+**2) `tools/face-recognition-512/`（512 维人脸引擎，Python + InsightFace，8090 端口）**
+- `face-server-512.py`：特征向量提取（buffalo_l），由 `face-server.js` 自动拉起
+- `requirements.txt`：Python 依赖清单（insightface / onnxruntime / opencv-python / numpy）
+- 编译/打包脚本应**一并复制**到部署包的 `bin/tools/face-recognition-512/`
+
+**离线交付注意**：
+- 两个目录**都必须**带上，否则刷脸登录、人脸录入不可用（Node 服务在但 512 引擎缺失时会安全降级提示密码登录）。
+- 柜机需预装 **Node.js 16+** 与 **Python 3.9+**，并在柜机执行 `pip install -r .../face-recognition-512/requirements.txt`。
+- buffalo_l 模型首次运行自动联网下载到 `~/.insightface/models/buffalo_l`；**离线柜机请提前预置该目录**。
+- 若 Python 不在默认 PATH，设环境变量 `FACE_PYTHON` 指向解释器绝对路径。
 
 ---
 

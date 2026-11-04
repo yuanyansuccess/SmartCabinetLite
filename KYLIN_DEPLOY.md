@@ -19,7 +19,7 @@
 **重要事实（先看，避免踩坑）**：
 - 本软件**只使用 MySQL 数据库**，没有 SQLite，也没有“离线 SQLite”模式。必须有一台 MySQL 数据库（可以是柜机本机装的，也可以是局域网内的一台服务器）。
 - 程序**第一次启动会自动建表并写入初始数据**（默认管理员账号：`CF001` / 密码 `123456`），所以你**不需要**手动建库建表。
-- 人脸识别功能依赖一个 Node.js 写的小服务（`tools/face-recognition`）。部署时这个目录**必须**跟着程序一起拷过去，否则刷脸登录和人脸录入都用不了。
+- 人脸识别功能依赖两层服务：Node.js 服务 `tools/face-recognition`（8089 端口，负责人脸检测与 68 点定位）会调用 **512 维引擎** `tools/face-recognition-512`（Python + InsightFace，8090 端口，提供特征向量）。部署时这两个目录**都**必须跟着程序一起拷过去，且柜机需装 **Node.js 16+ 与 Python 3.9+（含 insightface 等依赖）**，否则刷脸登录和人脸录入都用不了。
 - 数据库默认连接参数（在 `src/common/Constants.h` 里）：主机 `127.0.0.1`、端口 `3306`、库名 `smart_cabinet`、用户 `root`、密码 `root`。如果你的 MySQL 不是这个，请改 `Constants.h` 后重新编译，或在程序“系统设置”里改。
 
 ---
@@ -34,7 +34,8 @@
 | CMake | 构建工具 | 3.16 以上 | 系统源 `cmake` |
 | MySQL 客户端库 | 程序连数据库用 | `libmysqlclient` | 系统源 `libmysqlclient-dev` |
 | MySQL 服务端 | 真正存数据的库 | 8.0（或 5.7） | 系统源 `mysql-server` |
-| Node.js | 人脸识别服务运行环境 | 16 以上 | 官网或系统源 `nodejs` |
+| Node.js | 人脸识别服务运行环境（8089 端口） | 16 以上 | 官网或系统源 `nodejs` |
+| Python 3.9+ | 512 维人脸引擎（InsightFace，8090 端口）运行环境 | 3.9 及以上 | 系统源 `python3` 或官网 https://www.python.org |
 | linuxdeployqt | 自动打包 Qt 依赖（可选） | 任意 | 官网下载 |
 
 > 提示：ARM64（飞腾/鲲鹏）机器上，Qt 要选 **gcc_arm64** 版本；x86_64 机器选 **gcc_64** 版本。两者编译脚本不同，见第 5 节。
@@ -155,7 +156,8 @@ make -j$(nproc)
 ### 6.1 部署包里有什么
 无论是 `deploy-kylin/` 还是 `install-kylin-arm64/`，里面都包含：
 - `bin/QtSmartCabinet`：主程序
-- `bin/tools/face-recognition/`：人脸识别服务（Node.js + 模型，必须保留）
+- `bin/tools/face-recognition/`：人脸识别 Node 服务（8089 端口，检测+定位，必须保留）
+- `bin/tools/face-recognition-512/`：512 维人脸引擎（Python + InsightFace，8090 端口，提供特征向量，必须保留；含 `requirements.txt` 依赖清单）
 - `plugins/`、`lib/`：Qt 运行库与数据库驱动
 - `start.sh`：一键启动脚本
 
@@ -189,6 +191,29 @@ systemctl daemon-reload
 systemctl enable smartcabinet.service
 systemctl start smartcabinet.service
 ```
+
+---
+
+## 6.5 人脸识别 512 维引擎（Python）部署要点
+
+刷脸功能真正出特征向量的，是 512 维引擎（`tools/face-recognition-512/face-server-512.py`，InsightFace buffalo_l）。Node 服务 `face-server.js` 启动时会自动拉起它（端口 8090）。部署时需额外满足以下条件，否则 512 引擎起不来、刷脸失效（服务会安全降级提示用密码登录，但刷脸不可用）：
+
+1. **装 Python 3.9+** 并安装依赖：
+   ```bash
+   # 在柜机上（能联网时）
+   pip3 install -r /opt/smartcabinet/bin/tools/face-recognition-512/requirements.txt
+   # 验证：
+   python3 -c "import insightface, onnxruntime, cv2, numpy; print('ok')"
+   ```
+2. **buffalo_l 模型**：首次运行 `face-server-512.py` 会自动联网下载到 `~/.insightface/models/buffalo_l`（约几百 MB）。**离线柜机请提前在能联网的同架构机器下载好该目录，拷到柜机相同路径**；否则启动卡在下载或失败。
+3. **Python 解释器路径**：程序优先读环境变量 `FACE_PYTHON`；未设置时按平台自动探测（`python` / `python3` / `py`）。若柜机 Python 不在 PATH 或装在非标准位置，请显式设置：
+   ```bash
+   export FACE_PYTHON=/usr/bin/python3
+   ```
+   再启动（参见 6.3 的 `start.sh`；若用 systemd 自启，把该环境变量写进 `smartcabinet.service` 的 `Environment=`）。
+4. **多线程加速**（可选）：引擎单帧推理约 1.2s，开多线程后降到 ~0.45s。`face-server.js` 已自动按 CPU 核数注入 `ORT_NUM_THREADS` / `OMP_NUM_THREADS`，一般无需手工干预。
+
+> 排查口诀：刷脸失败先看 `face-server.js` 日志里有没有“512 维引擎拉起失败 / 连接失败”，再按上面 1~3 逐项核对。
 
 ---
 
@@ -249,8 +274,13 @@ A：执行第 3.3 节安装中文字体；并用 `dpkg-reconfigure locales` 选 
 **Q5：提示连不上数据库？**
 A：①`systemctl status mysql` 看 MySQL 起了没；②确认 `Constants.h` 里的 host/port/user/pass 与实际一致；③确认库 `smart_cabinet` 已创建。
 
-**Q6：刷脸登录、人脸录入完全用不了？**
-A：多半是 `bin/tools/face-recognition/` 没跟着拷过来，或柜机没装 Node.js。确认该目录存在且里面有 `face-server.js` 和 `node_modules` 与 `models`。
+**Q6：刷脸登录、人脸录入完全用不了，或日志报“512 引擎连接失败 / 拉起失败”？**
+A：按下面顺序排查：
+① `bin/tools/face-recognition/` 与 `bin/tools/face-recognition-512/` 两个目录都拷过来了吗？前者要有 `face-server.js` + `node_modules` + `models`，后者要有 `face-server-512.py` + `requirements.txt`；
+② 柜机装了 Node.js 16+ 吗（`node -v` 验证）？
+③ 柜机装了 Python 3.9+ 且已 `pip install -r bin/tools/face-recognition-512/requirements.txt` 吗（`python3 -c "import insightface"` 验证）？
+④ 若 Python 不在默认 PATH 或装在非标准位置，设环境变量 `FACE_PYTHON` 指向解释器绝对路径后再启动；
+⑤ buffalo_l 模型首次运行会自动联网下载到 `~/.insightface/models/buffalo_l`，离线机器需提前预置该目录。
 
 **Q7：触摸屏点了没反应？**
 A：USB 触屏需 `apt-get install libts-dev tslib`，并设置 `export QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/event0`（event 编号按实际改）。

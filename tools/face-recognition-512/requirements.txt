@@ -1,0 +1,15 @@
+# 512 维人脸特征引擎（InsightFace buffalo_l）Python 运行依赖
+# 适用 Python 3.9+（开发机验证环境：Anaconda3 3.9.7）
+# 安装：pip install -r requirements.txt
+#
+# 说明：
+#   - insightface  提供 buffalo_l 套餐（SCRFD 检测 + ArcFace 512 维识别）
+#   - onnxruntime  推理后端（CPUExecutionProvider；多线程由 ORT_NUM_THREADS 控制）
+#   - opencv-python 图像解码（cv2.imdecode）
+#   - numpy        向量运算
+# 首次运行 face-server-512.py 时，buffalo_l 模型会自动下载到
+#   ~/.insightface/models/buffalo_l；离线机器请提前预置该目录。
+insightface
+onnxruntime
+opencv-python
+numpy
