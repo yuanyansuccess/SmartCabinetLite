@@ -121,6 +121,20 @@ if [ -d "${FACE_SRC}" ]; then
 else
     echo "警告：未找到 ${FACE_SRC}，部署后人脸识别功能将不可用"
 fi
+
+# ==================== 512 维人脸引擎（Python + InsightFace）====================
+# [2026-11-04] 512 维引擎由 face-server.js 自动拉起（端口 8090），提供特征向量；
+#   若部署包缺此目录，柜机刷脸会降级为密码登录/不可用。柜机需另装 Python3.9+ 并按 requirements.txt 装依赖。
+FACE512_SRC="${PROJECT_DIR}/tools/face-recognition-512"
+FACE512_DST="${INSTALL_DIR}/bin/tools/face-recognition-512"
+if [ -d "${FACE512_SRC}" ]; then
+    mkdir -p "${FACE512_DST}"
+    cp -r "${FACE512_SRC}/." "${FACE512_DST}/"   # 幂等：重复打包不会嵌套出 tools/tools
+    rm -rf "${FACE512_DST}/__pycache__"          # 排除本地 Python 缓存
+    echo "已复制 512 维人脸引擎目录 -> ${FACE512_DST}"
+else
+    echo "警告：未找到 ${FACE512_SRC}，部署后刷脸功能将不可用（512 引擎缺失）"
+fi
 echo
 
 # ==================== 部署依赖 ====================

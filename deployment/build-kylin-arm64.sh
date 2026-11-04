@@ -141,6 +141,20 @@ else
     echo -e "${YELLOW}警告：未找到 $FACE_SRC，部署后人脸识别功能将不可用${NC}"
 fi
 
+# ==================== 512 维人脸引擎（Python + InsightFace）====================
+# [2026-11-04] 512 维引擎由 face-server.js 自动拉起（端口 8090），提供特征向量；
+#   若部署包缺此目录，柜机刷脸会降级为密码登录/不可用。柜机需另装 Python3.9+ 并按 requirements.txt 装依赖。
+FACE512_SRC="$PROJECT_DIR/tools/face-recognition-512"
+FACE512_DST="$INSTALL_DIR/bin/tools/face-recognition-512"
+if [ -d "$FACE512_SRC" ]; then
+    mkdir -p "$FACE512_DST"
+    cp -r "$FACE512_SRC/." "$FACE512_DST/"   # 幂等：重复打包不会嵌套出 tools/tools
+    rm -rf "$FACE512_DST/__pycache__"          # 排除本地 Python 缓存
+    echo -e "${GREEN}已复制 512 维人脸引擎目录 -> $FACE512_DST${NC}"
+else
+    echo -e "${YELLOW}警告：未找到 $FACE512_SRC，部署后刷脸功能将不可用（512 引擎缺失）${NC}"
+fi
+
 # ==================== 部署Qt运行时 ====================
 echo -e "${YELLOW}[额外] 部署Qt运行时...${NC}"
 
@@ -151,15 +165,6 @@ cp -r "$QT_HOME/plugins/platforms" "$INSTALL_DIR/plugins/"
 cp -r "$QT_HOME/plugins/styles" "$INSTALL_DIR/plugins/" 2>/dev/null || true
 cp -r "$QT_HOME/plugins/sqldrivers" "$INSTALL_DIR/plugins/" 2>/dev/null || true
 cp -r "$QT_HOME/plugins/imageformats" "$INSTALL_DIR/plugins/" 2>/dev/null || true
-
-# ── 目标柜机 ODBC 前置依赖自检（unixODBC + MySQL ODBC 连接器）──
-# 程序通过 QODBC 连 MySQL，柜机必须安装 unixODBC 与 mysql-connector-odbc，
-# 并注册驱动名 "MySQL ODBC 8.0 Unicode Driver"（详见 deployment/README.md 第七节）。
-if ! ldconfig -p | grep -q "libodbc"; then
-    echo -e "${YELLOW}警告：未检测到 unixODBC 运行时库，部署前请先在目标柜机执行: sudo apt-get install unixodbc${NC}"
-else
-    echo -e "${GREEN}unixODBC 运行时库已存在${NC}"
-fi
 
 # 复制Qt核心库
 mkdir -p "$INSTALL_DIR/lib"
