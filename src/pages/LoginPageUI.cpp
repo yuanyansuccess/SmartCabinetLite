@@ -18,6 +18,7 @@
 #include <QSpacerItem>
 #include <QDialog>
 #include <QFrame>
+#include <QScrollArea>
 #include <QFile>
 #include <QMouseEvent>
 #include <QDateTime>
@@ -47,7 +48,24 @@
  */
 void LoginPage::setupUI() {
 
-    auto* outer = new QVBoxLayout(this);
+    // 小屏/高缩放时登录卡片内容可能高于可视区域：用滚动区兜底，
+    // 避免陌生人警报等状态下底部文字与操作按钮被直接裁切。
+    auto* root = new QVBoxLayout(this);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setAlignment(Qt::AlignCenter);
+    scroll->setStyleSheet("background:transparent; border:none;");
+    scroll->viewport()->setStyleSheet("background:transparent;");
+
+    auto* page = new QWidget();
+    page->setAttribute(Qt::WA_StyledBackground, true);
+    page->setStyleSheet("background:transparent;");
+
+    auto* outer = new QVBoxLayout(page);
 
     outer->setAlignment(Qt::AlignCenter);
 
@@ -137,11 +155,11 @@ void LoginPage::setupUI() {
 
     auto* rightLayout = new QVBoxLayout(rightWidget);
 
-    // 缩小padding为内容腾空间：30(top/bottom)，36(left/right)
+    // 压缩上下留白为内容腾空间：14(top/bottom)，36(left/right)
 
-    rightLayout->setContentsMargins(36, 30, 36, 30);
+    rightLayout->setContentsMargins(36, 14, 36, 14);
 
-    rightLayout->setSpacing(12);
+    rightLayout->setSpacing(7);
 
     setupRightPanel(rightLayout);
 
@@ -156,6 +174,9 @@ void LoginPage::setupUI() {
     cardLayout->addWidget(rightWidget, 546);
 
     outer->addWidget(card, 0, Qt::AlignCenter);
+
+    scroll->setWidget(page);
+    root->addWidget(scroll);
 
 
 
@@ -362,7 +383,7 @@ void LoginPage::buildWelcomeHeader(QVBoxLayout* layout) {
 
     m_subtitleLabel->setWordWrap(true);
 
-    m_subtitleLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:%1; background:transparent; margin-bottom:28px;")
+    m_subtitleLabel->setStyleSheet(QString("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:%1; background:transparent; margin-bottom:8px;")
 
         .arg("#999999"));
 
@@ -504,13 +525,13 @@ void LoginPage::buildFaceScanArea(QVBoxLayout* layout) {
 
     m_statusCircleStranger = new QLabel();
 
-    m_statusCircleStranger->setFixedSize(180, 180);
+    m_statusCircleStranger->setFixedSize(160, 160);
 
     m_statusCircleStranger->setAlignment(Qt::AlignCenter);
 
     m_statusCircleStranger->setStyleSheet(
 
-        "font-size:50px; border:4px solid #faad14; border-radius:90px;"
+        "font-size:50px; border:4px solid #faad14; border-radius:80px;"
 
         "background:#fffbe6; color:#faad14;");
 
@@ -928,11 +949,11 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     m_strangerBox->setVisible(false);
 
-    m_strangerBox->setStyleSheet("background:#fffbe6; border:2px solid #ffe58f; border-radius:12px; padding:16px 20px;");
+    m_strangerBox->setStyleSheet("background:#fffbe6; border:2px solid #ffe58f; border-radius:12px; padding:10px 16px;");
 
     auto* strl = new QVBoxLayout(m_strangerBox);
 
-    strl->setSpacing(5);
+    strl->setSpacing(3);
 
 
 
@@ -942,7 +963,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     m_strangerTime->setWordWrap(true);
 
-    m_strangerTime->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:5px 0;"));
+    m_strangerTime->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:2px 0;"));
 
     strl->addWidget(m_strangerTime);
 
@@ -952,7 +973,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     m_strangerIdLabel->setWordWrap(true);
 
-    m_strangerIdLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:5px 0;"));
+    m_strangerIdLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:2px 0;"));
 
     strl->addWidget(m_strangerIdLabel);
 
@@ -962,7 +983,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     m_strangerIpLabel->setWordWrap(true);
 
-    m_strangerIpLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:5px 0;"));
+    m_strangerIpLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::textBody(), 400, "padding:2px 0;"));
 
     strl->addWidget(m_strangerIpLabel);
 
@@ -976,7 +997,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     strMsg->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + "; color:#d48806; font-weight:700;"
 
-                          "padding-top:8px; margin-top:8px; border-top:1px solid #ffd591; background:transparent;");
+                          "padding-top:4px; margin-top:4px; border-top:1px solid #ffd591; background:transparent;");
 
     strl->addWidget(strMsg);
 
@@ -986,7 +1007,7 @@ void LoginPage::buildStrangerCard(QVBoxLayout* layout) {
 
     auto* strActionLayout = new QVBoxLayout();
 
-    strActionLayout->setSpacing(12);
+    strActionLayout->setSpacing(8);
 
 
 
@@ -1101,7 +1122,7 @@ void LoginPage::buildCopyright(QVBoxLayout* layout) {
 
     copyright->setAlignment(Qt::AlignCenter);
 
-    copyright->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; color:#cccccc; background:transparent; margin-top:16px;");
+    copyright->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + "; color:#cccccc; background:transparent; margin-top:6px;");
 
     layout->addWidget(copyright);
 
