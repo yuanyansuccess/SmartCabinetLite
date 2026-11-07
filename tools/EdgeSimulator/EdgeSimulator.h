@@ -5,8 +5,8 @@
  *
  * 界面结构（4 步工作台，新手按步骤走即可）：
  *   ① 连接与数据：连上位机 + 连库读工具货位（口令取自 simulator.ini，不必手输）
- *   ② 单据模拟：定义"这一单要核对什么"——清单表逐行标注本单归属与识别结果
- *   ③ 识别回应：收到识别请求时怎么答（场景/延迟/多轮序列/开箱策略）
+ *   ② 单据模拟：定义"这一单要核对什么"——清单表逐行标注本单归属与识别结果，并设识别清单反馈响应时间
+ *   ③ 识别回应：收到识别请求时怎么答（场景/多轮序列/开箱策略）
  *   ④ 异常注入：链路与帧级异常（离线、超时、坏帧、摄像头闸门…）
  *   ⑤ 场景与日志：6 个典型场景一键套用 + 接口能力速查
  *
@@ -138,7 +138,7 @@ private:
     QWidget* buildConnPanel();      ///< 连接区（上位机地址端口）
     QWidget* buildDbPanel();        ///< 数据库区（参数取自 ini，读库填选择框）
     QWidget* buildConnectDataPage();///< 页① 连接与数据
-    QWidget* buildOrderPage();      ///< 页② 单据模拟（清单表 + 本单候选）
+    QWidget* buildOrderPage();      ///< 页② 单据模拟（清单表 + 本单候选 + 识别清单反馈响应时间）
     QWidget* buildRecognizeTab();   ///< 页③ 识别回应（3.3）
     QWidget* buildOpenVersionPanel();///< 版本查询 3.5 与开箱回应 3.7（放在识别回应页顶部）
     QWidget* buildRespondPage();    ///< 页③ 识别回应（版本/开箱 + 识别场景/延迟/序列）
@@ -199,7 +199,7 @@ private:
     QPushButton* m_btnPeriodic = nullptr;///< 立即发一帧
     // 识别回应区（自动回应配置：连接前配好、连接后即改即生效）
     QComboBox*   m_recScene = nullptr;   ///< 识别回应场景单选（含"不回应"选项，测识别超时）
-    QSpinBox*    m_delayMs = nullptr;    ///< 识别回应延迟毫秒（0=立即；>3000 可测上位机超时重发）
+    QSpinBox*    m_delayMs = nullptr;    ///< 识别清单反馈响应时间（毫秒，在②页设置）：只作用于识别清单回应；0=立即，>3000 可测上位机超时提示
     // 识别回应序列（多轮流程测试：按序回放，播完回落单场景默认）
     QCheckBox*   m_seqEnabled = nullptr; ///< 序列回应开关
     QListWidget* m_seqList = nullptr;    ///< 序列场景有序列表（每行存场景枚举值）

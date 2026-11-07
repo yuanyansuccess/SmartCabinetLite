@@ -948,6 +948,25 @@ QWidget* EdgeSimulator::buildOrderPage()
     m_sceneHint->setWordWrap(true);
     box->addWidget(m_sceneHint);
 
+    // 识别清单反馈响应时间：只作用于识别清单回应，专测上位机超过 3 秒没响应时的提示
+    auto* replyTimeBox = new QGroupBox(QStringLiteral("识别清单反馈响应时间（只作用于识别清单回应）"));
+    auto* replyTimeLayout = new QHBoxLayout(replyTimeBox);
+    m_delayMs = new QSpinBox;
+    m_delayMs->setRange(0, 30000);
+    m_delayMs->setSingleStep(500);
+    m_delayMs->setValue(200);
+    m_delayMs->setSuffix(QStringLiteral(" ms"));
+    m_delayMs->setToolTip(QStringLiteral("0=立即回应；3000 ms=3 秒；填 4000（4 秒）可测上位机超过 3 秒未收到识别清单时的提示"));
+    auto* replyTimeTip = new QLabel(QStringLiteral(
+        "上位机 3 秒（3000 ms）收不到识别清单就会超时重发并给出提示：填 4000（4 秒）可验证该提示，"
+        "填 30000（30 秒）可让上位机把重发都走完；填 0 立即回应。"
+        "本设置只作用于识别清单回应，开箱、版本查询、周期帧的回应时间不受影响。"));
+    replyTimeTip->setWordWrap(true);
+    replyTimeLayout->addWidget(new QLabel(QStringLiteral("响应时间")));
+    replyTimeLayout->addWidget(m_delayMs);
+    replyTimeLayout->addWidget(replyTimeTip, 1);
+    box->addWidget(replyTimeBox);
+
     // ── 本单配置：三类候选勾选 ──
     auto* orderBox = new QGroupBox(QStringLiteral("① 本单配置（勾选本次要核对的内容，再点【按本单生成清单】）"));
     auto* orderGrid = new QGridLayout(orderBox);

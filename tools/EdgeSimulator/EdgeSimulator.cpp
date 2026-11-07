@@ -346,7 +346,7 @@ EdgeSimulator::~EdgeSimulator()
 /**
  * @brief 把全部回应配置持久化到 exe 同目录 simulator.ini
  * @return 无。写失败静默忽略（配置文件不影响主功能）
- * @note  覆盖：8 路摄像头状态/周期帧参数/识别场景与延迟/自定义工具清单文本/开箱策略与失败文案/版本号/连接参数；
+ * @note  覆盖：8 路摄像头状态/周期帧参数/识别场景与反馈响应时间/自定义工具清单文本/开箱策略与失败文案/版本号/连接参数；
  *        配置随 exe 部署目录走（绿色部署），测试人员一次配好长期复用
  */
 void EdgeSimulator::saveConfig()
@@ -599,13 +599,10 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     g->addWidget(new QLabel(QStringLiteral("回应场景")), 1, 0);
     g->addWidget(m_recScene, 1, 1);
 
-    m_delayMs = new QSpinBox;
-    m_delayMs->setRange(0, 30000);
-    m_delayMs->setValue(200);
-    m_delayMs->setSuffix(QStringLiteral(" ms"));
-    m_delayMs->setToolTip(QStringLiteral("0=立即回应；设 >3000（上位机3秒超时）可测超时重发"));
-    g->addWidget(new QLabel(QStringLiteral("回应延迟")), 2, 0);
-    g->addWidget(m_delayMs, 2, 1);
+    // 响应时间与清单同页设置（②页），这里只给入口指引
+    auto* delayHint = new QLabel(QStringLiteral("识别清单反馈响应时间在②页设置（只作用于识别清单回应）"));
+    delayHint->setWordWrap(true);
+    g->addWidget(delayHint, 2, 1);
 
     // ── 手动注入区（一次性动作，补充自动配置覆盖不到的协议异常）──
     auto* manTitle = new QLabel(QStringLiteral("手动注入（一次性动作）"));
