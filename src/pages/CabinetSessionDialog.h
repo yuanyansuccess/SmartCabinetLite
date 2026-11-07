@@ -17,6 +17,7 @@
 #include <QStackedWidget>
 #include <QJsonObject>
 #include <QList>
+#include <QPointer>
 
 #include "services/ToolService.h"   // RecogSpot 类型（页面中立结构，不碰通信层）
 
@@ -136,7 +137,7 @@ private:
     QString m_openRequestId;          // 在途开箱请求编号
     QString m_recognizeRequestId;     // 在途识别请求编号
     QList<ToolService::RecogSpot> m_spots; // 最近一次识别实况
-    DrawerOpeningDialog* m_waitDlg = nullptr; // "开柜中/核对中"等待框
+    QPointer<DrawerOpeningDialog> m_waitDlg; // "开柜中/核对中"等待框；等待框为 WA_DeleteOnClose，QPointer 在其销毁时自动置空，避免访问悬空指针
     int m_round = 1;                  // 当前轮次（错放重开柜，上限见 kMaxRounds）
     bool m_opened = false;            // 是否已真实开柜
     QTimer* m_closeWaitTimer = nullptr; // 关柜等待计时（柜体打开起算，超时提示确认柜门已关）

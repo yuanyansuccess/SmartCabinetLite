@@ -455,6 +455,12 @@ void MainWindow::setEdgeService(EdgeService* svc) {
             m_checkinPage->onRecognitionFailed(requestId, reason);
         });
 
+    // 识别请求超时（链路通但重发3次无回应/恢复补发仍失败）→ 落一条通信故障系统告警
+    connect(m_edgeService, &EdgeService::recognizeTimeout, this,
+        [this](const QString& requestId) {
+            AlertService().recordRecognizeTimeout(requestId);
+        });
+
     // 链路心跳状态变化 → 转发出入库页显示（等待期间掉线，页面能立刻跟着变）；
     // 由在线翻转为离线时落一条通信中断告警（翻转时刻才触发，天然去重；恢复不告警）
     connect(m_edgeService, &EdgeService::onlineChanged, m_checkinPage, [this](bool online) {

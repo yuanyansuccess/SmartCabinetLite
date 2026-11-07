@@ -4,7 +4,7 @@
  * @author 袁燕
  *
  * 职责边界：请求管理（request_id 生成/配对/去重/超时重发/恢复补发）
- *           + 链路状态（在线判定/周期帧缓存/版本缓存）。
+ *           + 链路状态（在线判定/周期帧缓存；软件版本随周期帧上报，见 PeriodicInfo）。
  * 不做：识别结果与台账的比对（那是 SessionController 的事）、任何界面逻辑。
  *
  * 线程模型：全部主线程，信号槽驱动（协议流量为 3 秒一条周期帧量级）。
@@ -79,6 +79,14 @@ signals:
     void recognizeFailed(const QString& requestId, const QString& reason);
 
     /**
+     * @brief 识别请求超时告警信号（链路通但重发后无回应，供上层落系统告警）
+     * @param requestId 超时的识别请求编号（链路恢复补发仍以原编号进行，便于追溯）
+     * @note  仅在重发次数用尽（协议第5章③）与链路恢复补发仍失败（第5章④）两处识别分支触发，
+     *        与 recognizeFailed 成对发出；开箱请求超时走 openFailed，不发本信号
+     */
+    void recognizeTimeout(const QString& requestId);
+
+    /**
      * @brief 开箱请求成功完成（开箱协议）
      * @param requestId 对应 requestOpen 返回的编号
      * @param result    开箱结果（success=true 表示柜体已真实打开）
@@ -108,12 +116,6 @@ signals:
      */
     void cameraStatusChanged(const QString& cameraId, const QString& oldStatus, const QString& newStatus);
 
-    /**
-     * @brief 收到边缘机版本回应（协议3.5）
-     * @param version 边缘机软件版本号，随版本回应帧上报
-     */
-    void versionReceived(const QString& version);
-
 private slots:
     void onClientConnected(quintptr clientId);   ///< 边缘机接入
     void onClientDisconnected(quintptr clientId); ///< 边缘机断开
@@ -140,7 +142,6 @@ private:
     quintptr    m_activeClient = 0;      ///< 当前边缘机连接编号（0=无连接）
     PeriodicInfo m_lastPeriodic;         ///< 最近一帧周期帧缓存
     QHash<QString, QString> m_lastCamStatus;  ///< 各摄像头上一次自检状态（key=cameraId），状态变化检测基线
-    QString     m_version;               ///< 最近版本回应缓存
     QHash<QString, Pending> m_pending;   ///< 在途请求登记表，key=request_id
     QTimer      m_scanTimer;             ///< 请求超时扫描器（200ms）
     QTimer      m_offlineTimer;          ///< 链路离线扫描器（1s）

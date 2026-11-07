@@ -49,6 +49,15 @@ public:
      */
     void recordEdgeOffline();
 
+    /**
+     * @brief 记录识别请求超时告警（链路通但重发3次仍无回应，或链路恢复补发仍失败）
+     * @param requestId 超时的识别请求编号
+     * @note  复用已激活的硬件通讯故障类型（hw_comm），与链路离线告警同一分类；
+     *        类型字典被停用（is_active=0）时跳过写入并告警，不产生坏数据；
+     *        同一请求重发次数用尽只会触发一次（onScanTimeout 在 failed 置位后不再重入该分支）
+     */
+    void recordRecognizeTimeout(const QString& requestId);
+
     // ── 读路径（自SettingService迁移，告警域查询统一入口） ──
 
     /// 所有启用的告警类型（筛选下拉）

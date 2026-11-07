@@ -376,6 +376,37 @@ bool ToolService::hasHardStockDiff(const RecogStockOutcome& outcome)
 }
 
 /**
+ * @brief 判断边缘机识别清单是否与库内在库货位相符（静态纯函数）
+ * @param outcome 全柜核对结果（checked=false 表示本次没有实况清单，不参与判定）
+ * @return 空串=清单与库内相符；非空=异常说明文案，可直接用于提示与系统告警
+ * @note  清单为空或库内在库货位未被回报，说明边缘机没有把柜内实况报全，
+ *        属识别故障而非账实不符，不能当作"工具不见了"处理
+ */
+QString ToolService::recognitionListIssue(const RecogStockOutcome& outcome)
+{
+    if (!outcome.checked || (outcome.stockCount <= 0 && outcome.scannedCount <= 0)) {
+        return QString();   // 免开箱路径没有实况清单；两侧都空说明本柜暂无在库货位，均不算异常
+    }
+    if (outcome.scannedCount <= 0) {
+        return QStringLiteral(
+            "边缘机返回识别清单为空（0 条），与库内 %1 个在库货位不符，识别疑似异常，请人工确认")
+            .arg(outcome.stockCount);
+    }
+    int notCoveredCount = 0;
+    for (const RecogStockDiff& diff : outcome.diffs) {
+        if (diff.type == RecogStockDiffType::NotCovered) {
+            ++notCoveredCount;
+        }
+    }
+    if (notCoveredCount > 0) {
+        return QStringLiteral(
+            "识别清单覆盖不全：库内 %1 个在库货位中 %2 个未回报，边缘机仅回报 %3 条，与库内不符，请人工确认")
+            .arg(outcome.stockCount).arg(notCoveredCount).arg(outcome.scannedCount);
+    }
+    return QString();
+}
+
+/**
  * @brief 判断本轮识别是否全过（单据项全过 + 全柜无账实不符）
  * @param matchedCount 本轮比对通过的单据项数
  * @param itemCount    本单单据总项数

@@ -651,12 +651,14 @@ void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
 void CabinetSessionDialog::applyResult()
 {
     // 反馈完整性校验：边缘机回报的货位数量必须与开柜快照（库内映射表）长度一致。
-    // 两者长度不一致即视为位置反馈不全（漏报/多报），按袁总要求本次不予识别并反馈错误
+    // 两者长度不一致即视为位置反馈不全（漏报/多报），本次不予识别并反馈错误
     if (m_spots.size() != m_baselineStock.size()) {
         // 位置反馈异常属识别故障：落系统告警便于运维排查边缘机识别漏报/多报
-        const QString detail = QStringLiteral(
-            "边缘机反馈的货位数量（%1）与库内映射表（%2）不一致，疑似位置反馈不全，本次不予识别。")
-            .arg(m_spots.size()).arg(m_baselineStock.size());
+        const QString detail = m_spots.isEmpty()
+            ? QStringLiteral("边缘机返回识别清单为空（0 条），与库内 %1 个货位不符，本次不予识别。")
+                  .arg(m_baselineStock.size())
+            : QStringLiteral("边缘机反馈的货位数量（%1）与库内映射表（%2）不一致，疑似位置反馈不全，本次不予识别。")
+                  .arg(m_spots.size()).arg(m_baselineStock.size());
         AlertService().recordRecogFaultAlert(m_userId,
             QStringLiteral("借用归还核对失败：") + detail);
         MessageDialog::showWarning(this, QStringLiteral("核对失败"), detail);

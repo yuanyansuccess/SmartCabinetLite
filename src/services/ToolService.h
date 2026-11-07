@@ -172,6 +172,15 @@ public:
     static bool hasHardStockDiff(const RecogStockOutcome& outcome);
 
     /**
+     * @brief 判断边缘机识别清单是否与库内在库货位相符（静态纯函数：不读库不写库不碰界面）
+     * @param outcome 全柜核对结果（checked=false 表示本次没有实况清单，不参与判定）
+     * @return 空串=清单与库内相符；非空=异常说明文案，可直接用于提示与系统告警
+     * @note  清单为空、库内在库货位未被回报都属识别故障，不是账实不符；
+     *        本方法只说明异常，不改变本轮写库口径（由结果页双出口保持）
+     */
+    static QString recognitionListIssue(const RecogStockOutcome& outcome);
+
+    /**
      * @brief 取出全柜核对结果里的硬差异明细
      * @param outcome 全柜核对结果
      * @return 硬差异明细列表（排除未覆盖）

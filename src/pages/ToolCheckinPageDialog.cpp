@@ -257,8 +257,11 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
                 break;
             }
         }
-        QString text = QStringLiteral("⚠ 全柜核对发现 %1 处异常（账实不符，需人工确认后再写库）")
-            .arg(stockOutcome.diffs.size());
+        const QString listIssue = ToolService::recognitionListIssue(stockOutcome);
+        QString text = listIssue.isEmpty()
+            ? QStringLiteral("⚠ 全柜核对发现 %1 处异常（账实不符，需人工确认后再写库）")
+                  .arg(stockOutcome.diffs.size())
+            : QStringLiteral("⚠ ") + listIssue;
         if (!hardTips.isEmpty()) {
             text += QStringLiteral("\n") + hardTips.join(QStringLiteral("；"));
         }

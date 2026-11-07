@@ -22,6 +22,7 @@
 #include "common/StatusDisplay.h"
 #include "db/ToolDAO.h"
 #include "db/RecordDAO.h"
+#include "services/AlertService.h"  // 识别清单异常落系统告警
 #include "components/MessageDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -1254,6 +1255,19 @@ void ToolCheckinPage::applyRecognitionOutcome() {
     qInfo() << "[ToolCheckinPage] 全柜核对：库内" << m_lastStockOutcome.stockCount
             << "个货位，识别" << m_lastStockOutcome.scannedCount << "条，异常"
             << m_lastStockOutcome.diffs.size() << "处";
+
+    // 识别清单与库内在库货位不符（清单为空或有货位未回报）：提示操作人并落一条系统告警。
+    // 每轮各记一条，告警内容带轮次，便于运维对照轮次日志排查；不改变本轮写库口径。
+    const QString listIssue = ToolService::recognitionListIssue(m_lastStockOutcome);
+    if (!listIssue.isEmpty()) {
+        int userId = m_user["userId"].toInt();
+        if (userId <= 0) userId = 1;
+        const QString alertText = QStringLiteral("出入库核对（第 %1/%2 轮）：%3")
+            .arg(m_currentRound).arg(SC::ORDER_MAX_RETRY_ROUNDS).arg(listIssue);
+        AlertService().recordRecogFaultAlert(userId, alertText);
+        qWarning() << "[ToolCheckinPage] 识别清单异常：" << alertText;
+        MessageDialog::showWarning(this, QStringLiteral("识别清单异常"), listIssue);
+    }
 
     auto outcome = ToolService::compareOrderWithRecognition(orderItems, m_lastSpots);
     showCheckResultDialog(m_orderItems, outcome.items, outcome.misplaced,

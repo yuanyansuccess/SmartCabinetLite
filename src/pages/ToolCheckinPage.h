@@ -26,6 +26,7 @@ class QTableWidget;  // 前置声明：仅指针使用，降低编译耦合
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QSet>
+#include <QPointer>
 #include "services/ToolService.h"  // 单据与实况比对（services 层，页面经中立结构调用）
 
 class PaginationBar;  // 通用分页栏组件
@@ -186,7 +187,7 @@ private:
     QList<OrderRow> m_orderItems;        ///< 本轮出入库全量单据（首轮确认后固定，重开柜不重置）
     int m_currentRound = 1;              ///< 当前重试轮次（从 1 开始，到达上限后只给按实况写库）
     RoundState m_roundState = RoundState::Running;  ///< 本单轮次状态（内存态，控制结果页出口与文案）
-    DrawerOpeningDialog* m_waitDialog = nullptr;     ///< 识别等待框（等待态，结果回来/失败时关闭）
+    QPointer<DrawerOpeningDialog> m_waitDialog;      ///< 识别等待框（等待态，结果回来/失败时关闭）；等待框为 WA_DeleteOnClose，QPointer 在其销毁时自动置空，避免访问悬空指针
     QMetaObject::Connection m_retryConnection{};    ///< 失败态【重新核对】连接句柄（对话框重建时先断开旧连接，避免重复触发）
     QString m_openRequestId;             ///< 当前在途开箱请求编号（空=无在途）
     QList<OrderRow> m_pendingOpenItems;  ///< 开箱成功后待进入开箱环节的单据（开箱期间暂存）

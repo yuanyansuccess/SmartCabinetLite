@@ -85,6 +85,29 @@ void AlertService::recordEdgeOffline() {
 }
 
 /**
+ * @brief 记录识别请求超时告警（链路通但重发后无回应，归系统告警大类）
+ * @param requestId 超时的识别请求编号
+ * @note  类型编码经常量取，字典查不回 type_id（类型被停用）时只告警不写库，
+ *        避免外键失败把 DB 错误抛到通信链路里
+ */
+void AlertService::recordRecognizeTimeout(const QString& requestId) {
+    db::AlertDAO dao;
+    const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_HW_COMM);
+    if (typeId <= 0) {
+        qWarning() << "[AlertService] 识别请求超时告警跳过：字典中找不到已启用类型"
+                   << SC::ALERT_TYPE_HW_COMM;
+        return;
+    }
+    AlertLog alert;
+    alert.typeId = typeId;
+    // 链路正常但已发送3次（1次首发+2次重发）仍无回应：提示检查边缘计算机
+    alert.message = QString(QStringLiteral("与边缘计算机识别请求超时：链路正常但已发送3次仍无回应（请求编号：%1），已保留待链路恢复后自动补发。请检查边缘计算机。"))
+                        .arg(requestId);
+    alert.status = SC::ALERT_UNHANDLED;
+    dao.insertAlert(alert);
+}
+
+/**
  * @brief 记录识别故障告警（边缘机识别结果异常，归系统告警大类）
  * @param userId  触发会话的当前用户ID
  * @param message 告警内容（含货位数量对比等故障细节）

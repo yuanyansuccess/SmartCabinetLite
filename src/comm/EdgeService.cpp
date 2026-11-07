@@ -36,8 +36,9 @@ inline qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
  * @brief 从 recognize_ack 的 items 数组解析识别结果清单（协议3.3字段表）
  * @param arr items 数组（JSON）
  * @return 识别结果清单；货位为空的项跳过并告警，其余字段按协议默认值补齐
- * @note  协议约定一项一货位且 6 个字段必填：缺 confidence 曾让"数据没给"伪装成
- *        "识别置信度不足"，故这里逐项补齐并跳过无法定位的货位
+ * @note  协议约定一项一货位且 5 个字段必填（position/tool_id/confidence/alert_type/present）：
+ *        边缘机不再下发 class_id 与 alert_level（版本合帧同期定稿），识别类别与告警级别由上位机判定。
+ *        缺 confidence 曾让"数据没给"伪装成"识别置信度不足"，故这里逐项补齐并跳过无法定位的货位
  */
 QList<RecognizeItem> parseItems(const QJsonArray& arr)
 {
@@ -53,10 +54,8 @@ QList<RecognizeItem> parseItems(const QJsonArray& arr)
             continue;
         }
         it.toolId     = o["tool_id"].toString();
-        it.classId    = o["class_id"].toString();
         it.confidence = o["confidence"].toDouble();
         it.alertType  = o["alert_type"].toString(QStringLiteral("none"));
-        it.alertLevel = o["alert_level"].toInt();
         // present 缺省 true：老边缘机不带该字段时按"已覆盖"处理，
         // 否则全柜核对会把全部货位误报成"未覆盖"
         it.present    = o.contains("present") ? o["present"].toBool(true) : true;
@@ -78,6 +77,7 @@ PeriodicInfo parsePeriodic(const QJsonObject& frame)
 {
     PeriodicInfo info;
     info.uptimeSec = static_cast<qint64>(frame["uptime_sec"].toDouble());
+    info.softwareVersion = frame["software_version"].toString();
     const QJsonArray cams = frame["camera_status"].toArray();
     for (const QJsonValue& v : cams) {
         const QJsonObject o = v.toObject();
@@ -152,17 +152,6 @@ void EdgeService::stop()
 }
 
 
-
-/**
- * @brief 发起边缘机软件版本查询（运维排查用，协议3.5）
- * @return 请求编号，含义同 requestRecognize；离线时返回空串且不发送（记录离线日志）
- * @note  异步：结果通过 versionReceived 信号返回
- */
-
-/**
- * @brief 取当前边缘机的IP地址（界面显示/日志定位用）
- * @return 形如 "127.0.0.1" 的地址串；无连接时为空串
- */
 
 /**
  * @brief 边缘机TCP接入（含重连，每次接入都是新编号）
@@ -322,7 +311,7 @@ QString EdgeService::requestOpen()
 /**
  * @brief 收到边缘机一帧合法JSON（EdgeLink 转发）
  * @param clientId 来源连接编号
- * @param frame    已解析的JSON对象，type 为 periodic/recognize_ack/version_ack
+ * @param frame    已解析的JSON对象，type 为 periodic/recognize_ack/open_ack
  * @note  按消息类型分发；认不出的类型丢弃并计数（协议3.6-②）
  */
 void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
@@ -390,19 +379,6 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
         return;
     }
 
-    if (type == QStringLiteral("version_ack")) {
-        // 协议3.5：version_ack 不带 request_id，单边缘机按"唯一在途请求"配对
-        m_version = frame["software_version"].toString();
-        for (auto it = m_pending.begin(); it != m_pending.end(); ++it) {
-            if (it->frame["type"].toString() == QStringLiteral("version_query")) {
-                m_pending.erase(it);
-                break;
-            }
-        }
-        emit versionReceived(m_version);
-        return;
-    }
-
     // 3.6-②：type 不对 → 丢弃并计数
     ++m_dropCount;
     qWarning() << "[EdgeService] 丢弃帧 #" << m_dropCount << "未知type:" << type;
@@ -435,20 +411,26 @@ void EdgeService::onScanTimeout()
             } else {
                 // 第5章③：记通信异常，请求保留等待链路恢复
                 p.failed = true;
-                if (isOpen)
+                if (isOpen) {
                     emit openFailed(it.key(), QStringLiteral("开箱请求超时且重发次数用尽，已保留待链路恢复"));
-                else
+                } else {
                     emit recognizeFailed(it.key(), QStringLiteral("识别请求超时且重发次数用尽，已保留待链路恢复"));
+                    // 链路通但重发3次仍无回应：落一条通信故障系统告警，便于运维追溯
+                    emit recognizeTimeout(it.key());
+                }
                 ++it;
             }
         } else if (p.requeued) {
             // 第5章④：一来一回走完仍无回应（恢复后补发一次）→ 放弃，转人工处理
             const QString id = it.key();
             it = m_pending.erase(it);
-            if (isOpen)
+            if (isOpen) {
                 emit openFailed(id, QStringLiteral("链路恢复补发后仍无回应，本次业务转人工处理"));
-            else
+            } else {
                 emit recognizeFailed(id, QStringLiteral("链路恢复补发后仍无回应，本次业务转人工处理"));
+                // 链路恢复后补发仍无回应：落一条通信故障系统告警，本次核对转人工处理
+                emit recognizeTimeout(id);
+            }
         } else {
             // failed && !requeued：等待链路恢复，不动
             ++it;
