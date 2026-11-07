@@ -952,14 +952,16 @@ QWidget* EdgeSimulator::buildOrderPage()
     auto* replyTimeBox = new QGroupBox(QStringLiteral("识别清单反馈响应时间（只作用于识别清单回应）"));
     auto* replyTimeLayout = new QHBoxLayout(replyTimeBox);
     m_delayMs = new QSpinBox;
-    m_delayMs->setRange(0, 30000);
+    m_delayMs->setRange(0, 1000000);
     m_delayMs->setSingleStep(500);
     m_delayMs->setValue(200);
     m_delayMs->setSuffix(QStringLiteral(" ms"));
-    m_delayMs->setToolTip(QStringLiteral("0=立即回应；3000 ms=3 秒；填 4000（4 秒）可测上位机超过 3 秒未收到识别清单时的提示"));
+    m_delayMs->setToolTip(QStringLiteral(
+        "0=立即回应；3000 ms=3 秒超时重发；要看到上位机“识别请求超时”失败提示须≥10000（建议30000），填4000仅触发重发但最终仍核对成功"));
     auto* replyTimeTip = new QLabel(QStringLiteral(
-        "上位机 3 秒（3000 ms）收不到识别清单就会超时重发并给出提示：填 4000（4 秒）可验证该提示，"
-        "填 30000（30 秒）可让上位机把重发都走完；填 0 立即回应。"
+        "上位机 3 秒（3000 ms）收不到识别清单会重发（最多2次，共约9秒）。要看到“识别请求超时”失败提示，"
+        "延迟须≥10000 ms（建议填 30000）：此时模拟器会收到3个 recognize_req，约9秒后上位机弹失败框；"
+        "填 4000 仅触发一次重发、4 秒时清单到达仍核对成功；填 0 立即回应。"
         "本设置只作用于识别清单回应，开箱、版本查询、周期帧的回应时间不受影响。"));
     replyTimeTip->setWordWrap(true);
     replyTimeLayout->addWidget(new QLabel(QStringLiteral("响应时间")));

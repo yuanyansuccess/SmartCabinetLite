@@ -6,7 +6,7 @@
  * 协议依据：《智能工具柜配置项通信协议》
  *   3.3  recognize_ack 场景回应与告警字段
  *   3.4  periodic 周期帧与摄像头自检5态
- *   3.5  version_query / version_ack
+ *   3.5  （版本合帧：软件版本随 periodic 上报，不再单独 version_query/version_ack）
  *   3.6  配对/重发/通信异常规则（坏帧、乱序id、未知type）
  *   第5章 停发周期帧验证离线判定与恢复补发
  *   第2章 一行JSON分帧（Compact+'\n'，粘包可靠切分）
@@ -67,8 +67,8 @@ const QString kCamEmpty = QStringLiteral("(空-不报自检)");
 /// 自定义清单里不写置信度时使用的默认值（0~1）
 const double kCustomDefaultConfidence = 0.95;
 
-/// 自定义清单里不写类别时使用的 class_id（上位机只透传不参与比对，填固定值便于排查）
-const QString kCustomClassId = QStringLiteral("custom");
+/// 模拟器随周期帧上报的软件版本（版本合帧：替代原 version_query/version_ack 握手）
+const QString kSimVersion = QStringLiteral("1.0.0");
 
 /// 货位选择框里的"空货位"选项：表示该货位上什么都没有（出库单已取走/入库单没放进去）
 const QString kPickEmptyPosLabel = QStringLiteral("(空货位-该位置没有工具)");
@@ -134,6 +134,7 @@ QJsonObject makePeriodic(const QList<QComboBox*>& cams, int uptimeSec)
     QJsonObject p;
     p["type"] = "periodic";
     p["uptime_sec"] = uptimeSec;
+    p["software_version"] = kSimVersion;
     QJsonArray arr;
     int pos = 0;
     for (QComboBox* c : cams) {
@@ -167,18 +168,18 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
     case SceneNormal: {  // 正常：2条样例
         QJsonObject it1;
         it1["position"] = "A-01-05"; it1["tool_id"] = "C01-T0007";
-        it1["class_id"] = "torx";    it1["confidence"] = 0.93;
+        it1["confidence"] = 0.93;
         items.append(it1);
         QJsonObject it2;
         it2["position"] = "A-02-01"; it2["tool_id"] = "C01-T0012";
-        it2["class_id"] = "socket";  it2["confidence"] = 0.88;
+        it2["confidence"] = 0.88;
         items.append(it2);
         break;
     }
     case SceneBorrowReturn: {  // 3.3-① 有借有还：A-01-05被借走，A-01-06放回套筒
         QJsonObject it;
         it["position"] = "A-01-06"; it["tool_id"] = "C01-T0012";
-        it["class_id"] = "socket";  it["confidence"] = 0.91;
+        it["confidence"] = 0.91;
         items.append(it);
         break;
     }
@@ -187,53 +188,47 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
     case SceneMisplaced: {     // 3.3-③ 错放：套筒出现在A-02-01
         QJsonObject it;
         it["position"] = "A-02-01"; it["tool_id"] = "C01-T0012";
-        it["class_id"] = "socket";  it["confidence"] = 0.88;
-        it["alert_type"] = "misplaced"; it["alert_level"] = 2;
+        it["confidence"] = 0.88;
+        it["alert_type"] = "misplaced";
         items.append(it);
         break;
     }
     case SceneUnknown: {       // 告警表：位置上是未知物
         QJsonObject it;
         it["position"] = "A-01-06"; it["tool_id"] = "";
-        it["class_id"] = "unknown"; it["confidence"] = 0.71;
-        it["alert_type"] = "unknown"; it["alert_level"] = 3;
+        it["confidence"] = 0.71;
+        it["alert_type"] = "unknown";
         items.append(it);
         break;
     }
     case SceneLowConf: {       // 告警表：置信度不足
         QJsonObject it;
         it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
-        it["class_id"] = "torx";    it["confidence"] = 0.55;
-        it["alert_type"] = "low_confidence"; it["alert_level"] = 1;
+        it["confidence"] = 0.55;
+        it["alert_type"] = "low_confidence";
         items.append(it);
         break;
     }
     case SceneMissing: {       // alert_type=missing：协议字段枚举边界值（台账有、识别为空）
         QJsonObject it;
         it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
-        it["class_id"] = "torx";    it["confidence"] = 0.0;
-        it["alert_type"] = "missing"; it["alert_level"] = 2;
+        it["confidence"] = 0.0;
+        it["alert_type"] = "missing";
         items.append(it);
         break;
     }
     default:
         break;
     }
-    // 协议3.3字段规整：内置场景同样按 6 字段必填输出，与自定义清单保持同一口径，
+    // 协议3.3字段规整：内置场景同样按 5 字段必填输出，与自定义清单保持同一口径，
     // 免得"场景回应字段齐全、自定义清单缺字段"两种形态让上位机走两套兜底逻辑
     for (int i = 0; i < items.size(); ++i) {
         QJsonObject it = items.at(i).toObject();
-        if (!it.contains(QStringLiteral("class_id"))) {
-            it[QStringLiteral("class_id")] = kCustomClassId;
-        }
         if (!it.contains(QStringLiteral("confidence"))) {
             it[QStringLiteral("confidence")] = kCustomDefaultConfidence;
         }
         if (!it.contains(QStringLiteral("alert_type"))) {
             it[QStringLiteral("alert_type")] = QStringLiteral("none");
-        }
-        if (!it.contains(QStringLiteral("alert_level"))) {
-            it[QStringLiteral("alert_level")] = 0;
         }
         items.replace(i, it);
     }
@@ -362,7 +357,6 @@ void EdgeSimulator::saveConfig()
     s.setValue(QStringLiteral("reply/delayMs"), m_delayMs ? m_delayMs->value() : 200);
     s.setValue(QStringLiteral("open/policyIndex"), m_openPolicy ? m_openPolicy->currentIndex() : 0);
     s.setValue(QStringLiteral("open/failMsg"), m_openFailMsg ? m_openFailMsg->text() : QStringLiteral("开箱失败（模拟）"));
-    s.setValue(QStringLiteral("version/value"), m_version ? m_version->text() : QStringLiteral("1.2.0"));
     s.setValue(QStringLiteral("conn/addr"), m_addr ? m_addr->text() : QStringLiteral("127.0.0.1"));
     s.setValue(QStringLiteral("conn/port"), m_port ? m_port->value() : 9000);
     s.setValue(QStringLiteral("conn/autoReconnect"), m_autoReconn ? m_autoReconn->isChecked() : true);
@@ -409,7 +403,6 @@ void EdgeSimulator::loadConfig()
     m_delayMs->setValue(s.value(QStringLiteral("reply/delayMs"), 200).toInt());
     m_openPolicy->setCurrentIndex(s.value(QStringLiteral("open/policyIndex"), 0).toInt());
     m_openFailMsg->setText(s.value(QStringLiteral("open/failMsg"), QStringLiteral("开箱失败（模拟）")).toString());
-    m_version->setText(s.value(QStringLiteral("version/value"), QStringLiteral("1.2.0")).toString());
     m_addr->setText(s.value(QStringLiteral("conn/addr"), QStringLiteral("127.0.0.1")).toString());
     m_port->setValue(s.value(QStringLiteral("conn/port"), 9000).toInt());
     m_autoReconn->setChecked(s.value(QStringLiteral("conn/autoReconnect"), true).toBool());
@@ -702,37 +695,21 @@ QWidget* EdgeSimulator::buildRecognizeTab()
 }
 
 /**
- * @brief 构建"版本查询与开箱回应"面板（协议3.5 / 3.7）
+ * @brief 构建"开箱回应"面板（协议3.7）
  * @return 组装完成的面板控件
- * @note  放在"识别回应"页顶部：这两项都是上位机发请求、边缘机按配置回应的配置项，
- *        与识别回应放在一起，测试人员不用翻到异常页去找
+ * @note  放在"识别回应"页顶部：上位机发 open_req、边缘机按配置回应的配置项，
+ *        与识别回应放在一起，测试人员不用翻到异常页去找。
+ *        注：原协议3.5版本查询已取消，软件版本随 periodic 周期帧上报，不再单独回 version_ack。
  */
-QWidget* EdgeSimulator::buildOpenVersionPanel()
+QWidget* EdgeSimulator::buildOpenPanel()
 {
-    auto* box = new QGroupBox(QStringLiteral("版本查询 3.5 与开箱回应 3.7（上位机发请求，按这里配置回应）"));
+    auto* box = new QGroupBox(QStringLiteral("开箱回应 3.7（上位机发 open_req，按这里配置回应）"));
     auto* g = new QGridLayout(box);
-
-    // ── 版本查询（3.5）──
-    auto* verTitle = new QLabel(QStringLiteral("版本查询（协议3.5：上位机发 version_query 时自动回 version_ack）"));
-    verTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
-    g->addWidget(verTitle, 0, 1, 1, 1);
-    m_version = new QLineEdit(QStringLiteral("1.2.0"));
-    m_version->setMaximumWidth(160);
-    m_version->setToolTip(QStringLiteral("回给上位机的版本号；上位机拿它与自己的版本比对"));
-    auto* btnVer = new QPushButton(QStringLiteral("立即回 version_ack"));
-    connect(btnVer, &QPushButton::clicked, this, &EdgeSimulator::sendVersionAckNow);
-    btnVer->setToolTip(QStringLiteral("不等上位机来问，主动回一帧 version_ack（版本号取左侧输入框）"));
-    g->addWidget(new QLabel(QStringLiteral("版本号")), 1, 0);
-    auto* verRow = new QHBoxLayout;
-    verRow->addWidget(m_version);
-    verRow->addWidget(btnVer);
-    verRow->addStretch(1);
-    g->addLayout(verRow, 1, 1);
 
     // ── 开箱回应（3.7）──
     auto* openTitle = new QLabel(QStringLiteral("开箱回应（协议3.7：下一条 open_req 即按此回应）"));
-    openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;margin-top:6px;"));
-    g->addWidget(openTitle, 2, 1, 1, 1);
+    openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
+    g->addWidget(openTitle, 0, 1, 1, 1);
     m_openPolicy = new QComboBox;
     m_openPolicy->addItem(QStringLiteral("自动成功（摄像头异常时联动拒绝，与真实边缘机一致）"), 0);
     m_openPolicy->addItem(QStringLiteral("固定失败（回 result=0，测上位机开箱失败分支）"), 1);
@@ -743,12 +720,12 @@ QWidget* EdgeSimulator::buildOpenVersionPanel()
     m_openPolicy->setMinimumContentsLength(16);
     m_openPolicy->setMinimumWidth(260);
     m_openPolicy->setMaximumWidth(420);
-    g->addWidget(new QLabel(QStringLiteral("回应策略")), 3, 0);
-    g->addWidget(m_openPolicy, 3, 1, 1, 1);
+    g->addWidget(new QLabel(QStringLiteral("回应策略")), 1, 0);
+    g->addWidget(m_openPolicy, 1, 1, 1, 1);
     m_openFailMsg = new QLineEdit(QStringLiteral("开箱失败（模拟）"));
     m_openFailMsg->setToolTip(QStringLiteral("策略为“固定失败”时 open_ack 携带的原因文案"));
-    g->addWidget(new QLabel(QStringLiteral("失败原因文案")), 4, 0);
-    g->addWidget(m_openFailMsg, 4, 1, 1, 1);
+    g->addWidget(new QLabel(QStringLiteral("失败原因文案")), 2, 0);
+    g->addWidget(m_openFailMsg, 2, 1, 1, 1);
     g->setColumnStretch(1, 1);   // 多余宽度给控件列，按钮列不被推走
     return box;
 }
@@ -793,7 +770,7 @@ QWidget* EdgeSimulator::buildCustomTab()
     auto* g = new QGridLayout(w);
 
     m_custom = new QTextEdit;
-    m_custom->setPlainText(QStringLiteral("{\"type\":\"recognize_ack\",\"request_id\":\"r-test\",\"items\":[{\"position\":\"A-01-05\",\"tool_id\":\"C01-T0007\",\"class_id\":\"torx\",\"confidence\":0.9}]}"));
+    m_custom->setPlainText(QStringLiteral("{\"type\":\"recognize_ack\",\"request_id\":\"r-test\",\"items\":[{\"position\":\"A-01-05\",\"tool_id\":\"C01-T0007\",\"confidence\":0.9}]}"));
     m_custom->setToolTip(QStringLiteral("每行一帧，点【发送】逐行发出。可构造协议任何消息与异常"));
 
     m_rawSend = new QCheckBox(QStringLiteral("原文发送（不校验JSON，可发坏帧/任意文本）"));
@@ -944,15 +921,13 @@ QJsonArray EdgeSimulator::customItemsArray() const
         if (!row.valid || !row.reply) {
             continue;
         }
-        // 协议3.3字段规整：6 个字段每项必填，不再"有告警才带告警字段"。
+        // 协议3.3字段规整：5 个字段每项必填，不再"有告警才带告警字段"。
         // 上位机靠字段齐全区分"没给数据"与"给了的正常值"，缺字段会被判成非法项
         QJsonObject item;
         item["position"]    = row.position;
         item["tool_id"]     = row.toolCode;
-        item["class_id"]    = kCustomClassId;
         item["confidence"]  = row.confidence;
         item["alert_type"]  = row.alertType.isEmpty() ? QStringLiteral("none") : row.alertType;
-        item["alert_level"] = row.alertType.isEmpty() ? 0 : row.alertLevel;
         items.append(item);
     }
     return items;
@@ -1439,9 +1414,6 @@ void EdgeSimulator::processLine(const QByteArray& line)
             }
             QTimer::singleShot(delay, this, [this, scene] { replyScene(scene); });
         }
-    } else if (type == QStringLiteral("version_query")) {
-        // 3.5：收到版本查询自动回应
-        QTimer::singleShot(200, this, [this] { sendVersionAckNow(); });
     } else if (type == QStringLiteral("open_req")) {
         // 开箱协议（3.7）：按回应策略配置回应——
         // 自动成功=模拟真实边缘机（摄像头异常时联动拒绝）；固定失败=纯粹回 result=0（测上位机失败分支）；
@@ -1575,14 +1547,6 @@ QString EdgeSimulator::cameraAbnormalText() const
         }
     }
     return parts.join(QChar(' '));
-}
-
-void EdgeSimulator::sendVersionAckNow()
-{
-    QJsonObject v;
-    v["type"] = "version_ack";
-    v["software_version"] = m_version->text();
-    sendFrame(v);
 }
 
 void EdgeSimulator::sendOpenAckNow(bool success, const QString& message)
@@ -1867,7 +1831,7 @@ QWidget* EdgeSimulator::buildRespondPage()
 {
     auto* page = new QWidget;
     auto* box = new QVBoxLayout(page);
-    box->addWidget(buildOpenVersionPanel());
+    box->addWidget(buildOpenPanel());
     box->addWidget(buildRecognizeTab(), 1);
     return page;
 }

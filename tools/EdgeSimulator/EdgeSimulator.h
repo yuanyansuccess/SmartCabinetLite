@@ -82,8 +82,6 @@ private slots:
     // 识别回应（协议3.3）
     void replyScene(int scene);  ///< 按场景回应最近recognize
     void executeSilenceDrop();   ///< 停发周期帧N秒（第5章离线场景）
-    // 版本（协议3.5）
-    void sendVersionAckNow();    ///< 立即回version_ack
     // 异常注入（协议3.6）
     void injectBadFrame();       ///< 注入非法JSON帧
     void injectUnknownType();    ///< 注入未知type帧
@@ -140,7 +138,7 @@ private:
     QWidget* buildConnectDataPage();///< 页① 连接与数据
     QWidget* buildOrderPage();      ///< 页② 单据模拟（清单表 + 本单候选 + 识别清单反馈响应时间）
     QWidget* buildRecognizeTab();   ///< 页③ 识别回应（3.3）
-    QWidget* buildOpenVersionPanel();///< 版本查询 3.5 与开箱回应 3.7（放在识别回应页顶部）
+    QWidget* buildOpenPanel();      ///< 开箱回应 3.7（放在识别回应页顶部）
     QWidget* buildRespondPage();    ///< 页③ 识别回应（版本/开箱 + 识别场景/延迟/序列）
     QWidget* buildPeriodicTab();    ///< 页④ 周期帧（3.4）
     QWidget* buildFaultTab();       ///< 页④ 版本/异常（3.5-3.6）
@@ -209,7 +207,6 @@ private:
     // 版本/开箱/异常区
     QComboBox*   m_openPolicy = nullptr; ///< 开箱回应策略单选（自动成功/固定失败/不回应，3.7）
     QLineEdit*   m_openFailMsg = nullptr;///< 开箱"固定失败"时 open_ack 附带的原因文案
-    QLineEdit*   m_version = nullptr;    ///< version_ack 版本号
     // 自定义帧区
     QTextEdit*   m_custom = nullptr;     ///< 自定义内容输入（每行一帧）
     QCheckBox*   m_rawSend = nullptr;    ///< 原文发送开关（不校验JSON，可发坏帧/任意文本）
