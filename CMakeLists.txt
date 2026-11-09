@@ -260,6 +260,7 @@ set(ALL_HEADERS
     src/common/Constants.h
     src/common/DiskSpaceGuard.h
     src/common/PositionFormatter.h
+    src/common/ProtocolAlertTypes.h
     src/common/UserInputValidator.h
     # Model (共享)
     src/model/User.h

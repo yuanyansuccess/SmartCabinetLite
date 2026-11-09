@@ -11,7 +11,7 @@
  *
  * 覆盖范围（与《智能工具柜配置项通信协议》对应）：
  *   3.3 recognize_ack 全部场景回应（正常/有借有还/无变化/错放/未知物/
- *       置信度低/missing/自定义清单/18 项结构与兼容场景）
+ *       置信度低/missing/自定义清单/15 项结构与兼容场景）
  *   3.3 自定义工具清单：按真实单据逐行填"回什么清单"，脱离内置样例
  *   3.3 异常回应（延迟/重复×2/粘包/不回应/乱序request_id）
  *   3.4 periodic 周期帧（相机5态自检/空自检/uptime/software_version，版本随帧上报）
@@ -73,6 +73,21 @@ public:
                                             const QJsonObject& lastOpenRequest);
 
     /**
+     * @brief 把识别清单组装成缩进排版的完整 recognize_ack 帧文本
+     * @param items 协议3.3 的 items 数组
+     * @return 带 {{request_id}} 占位符的帧文本，可直接编辑后发送
+     */
+    static QString formatFrameText(const QJsonArray& items);
+
+    /**
+     * @brief 解析帧文本，供发送前校验
+     * @param text 编辑框里的帧文本
+     * @param frame 解析成功时输出帧对象
+     * @return true=文本是单个 JSON 对象；false=语法坏或不是对象
+     */
+    static bool parseFrameText(const QString& text, QJsonObject& frame);
+
+    /**
      * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
      * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
      */
@@ -99,24 +114,20 @@ private slots:
     // 自定义帧
     void sendCustomFrame();      ///< 发送编辑框内容（整段单帧优先，非单对象退回逐行；原文模式逐行原样发）
     void toggleLoopSend(bool on);///< 循环发送自定义内容（压力/持续异常测试）
-    // 自定义工具清单（协议3.3：按真实单据逐行配置"回什么工具清单"）
+    // 自定义工具清单（协议3.3：按真实单据生成帧 JSON）
     void onCustomListActivate();     ///< 把识别回应场景切到"自定义清单"
-    void onCustomListFromScene();    ///< 把当前场景的内置清单填入清单表（在样例基础上微调）
-    void onCustomListSaveToFile();   ///< 把当前清单写入 custom_items.txt（可用 Excel 备好后重载）
-    void onCustomListReload();       ///< 从 exe 同目录 custom_items.txt 重载清单
+    void onCustomListFromScene();    ///< 把当前③页场景的清单载入帧 JSON 编辑框
+    void onCustomListSaveToFile();   ///< 把当前帧 JSON 写入 custom_frame.json
+    void onCustomListReload();       ///< 从 exe 同目录 custom_frame.json 重载帧 JSON
     // 清单数据直读数据库（与上位机同一库同一批表，选出来的编号货位保证与单据一致）
     void onLoadToolsFromDb();        ///< 连接数据库并读取工具与货位，填入两个选择框
     void onGenerateStockList();      ///< 按库内在库货位一键生成全量清单（造"上一轮在库"基线，再在其上改）
-    void onPositionPicked();         ///< 选了货位后自动带出该货位上的工具编号
     // 单据模拟（页②）
-    void onOrderCellChanged(int row, int column); ///< 清单表某格被改：联动告警类型/级别并刷新统计
-    void onOrderRowSelected();       ///< 清单表选中行变化：把该行内容回填到下方选择区
+    void onOrderCellChanged(int row, int column); ///< 清单表某格被改：识别结果联动告警类型，告警类型下拉手选后刷新帧
     void onGenerateOrderList();      ///< 按勾选的本单内容生成清单（本单-入库/出库/借出转出库 + 全柜背景行）
     void onSetAllNormal();           ///< 把所有非出库行改成"识别正常"
     void onKeepOnlyOrderRows();      ///< 只保留本单行（背景行不回应，模拟只扫本单区域）
     void onClearOrderList();         ///< 清空清单（造"识别清单为空"场景）
-    void onDeleteOrderRow();         ///< 删除清单表选中行
-    void onInsertOrderRow();         ///< 按下方选择区内容新增一行
     void onLoadOrderCandidates();    ///< 从库读本单候选（待入库/在库/借出中）
     // 工作台（顶部）
     void onOneClickStart();          ///< 一键标准联调：连上位机+读库+生成基线+开周期帧
@@ -125,7 +136,7 @@ private slots:
     void onSaveLogClicked();     ///< 保存日志：导出日志区内容为文本文件
 
 private:
-    /// 清单一行（表格与文本共用同一份结构，解析与生成规则只写一处）
+    /// 清单一行（表格是帧 JSON 的生成起点，解析与生成规则只写一处）
     struct CustomRow {
         int     lineNo    = 0;    ///< 行号（从1开始，便于回查）
         QString position;         ///< 货位（A-01-02）
@@ -134,7 +145,7 @@ private:
         QString belong;           ///< 本单归属：in=本单入库 out=本单出库 borrow_out=本单借出转出库 return=本单归还 other=非本单
         QString result;           ///< 识别结果：normal/misplaced/unknown/missing/low_conf/empty
         double  confidence = 0.95;///< 置信度 0~1
-        QString alertType;        ///< 协议告警类型（由识别结果推导，可手改）
+        QString alertType;        ///< 协议告警类型（下拉手选；识别结果变化时自动带出默认值）
         int     alertLevel = 0;   ///< 协议告警级别 0~3
         bool    reply = true;     ///< 是否把这一行发给上位机
         QString note;             ///< 问题说明（空串=该行可用）
@@ -155,13 +166,12 @@ private:
     QWidget* buildExceptionPage();  ///< 页④ 异常注入（周期帧+异常+自定义帧）
     void buildStepNav();            ///< 左侧步骤导航
     // 清单处理
-    QList<CustomRow> parseCustomRows(const QString& text) const; ///< 解析清单文本（兼容旧5列格式）
-    void fillOrderTable(const QList<CustomRow>& rows);              ///< 用解析结果填清单表
+    void fillOrderTable(const QList<CustomRow>& rows);              ///< 用生成结果填清单表
     QList<CustomRow> orderRowsFromTable() const;                    ///< 从清单表取当前各行
-    QString serializeOrderTable() const;                             ///< 清单表序列化成文本（存 ini/文件用）
     bool collectStockRows(QList<CustomRow>& rows);                   ///< 取库内全柜在库货位作为清单背景行
     void refreshOrderStat();                                        ///< 刷新清单统计与"是否生效"提示
-    void applyOrderText(const QString& text);                       ///< 用文本整体替换清单表
+    void refreshFrameTextFromTable();                               ///< 从清单表重新生成帧 JSON 并载入编辑框
+    void loadFrameText(const QString& text);                        ///< 写入帧 JSON 编辑框（程序写入，不算手改）
     bool loadOrderCandidates();                                      ///< 从库读本单候选（待入库/在库/借出中）
     void generateOrderList();                                        ///< 按勾选候选生成清单
     void setAllResultsNormal();                                      ///< 非出库行全部改成识别正常
@@ -170,9 +180,9 @@ private:
     void processLine(const QByteArray& line);   ///< 分帧解析（收）
     bool sendFrame(const QJsonObject& frame);   ///< 发送一帧
     void exportFrameToEditor(const QJsonObject& frame); ///< 把一帧载入自定义帧编辑框，供发送前自由修改
-    QJsonObject sceneAck(int scene) const;      ///< 构造场景回应帧
     QJsonArray customItemsArray() const;        ///< 按清单表构造 items 数组（所见即所发）
-    QString customListFilePath() const;        ///< 清单文件路径（exe 同目录 custom_items.txt）
+    QString frameFilePath() const;             ///< 帧 JSON 文件路径（exe 同目录 custom_frame.json）
+    bool sendFrameText(const QString& text);    ///< 占位符替换并按整段 JSON 发送一帧
     bool openToolDatabase();                   ///< 按界面参数连上 MySQL（与上位机同一套 QODBC 连接串）
     bool loadToolsAndPositions();              ///< 读取工具与货位填入选择框（只读查询，不改任何数据）
     void loadMachineGroups();                   ///< 从 machine_group 表读取机组填进 m_groupCombo（只读查询）
@@ -225,18 +235,14 @@ private:
     // 清单与本单配置区
     QTableWidget* m_orderTable = nullptr;///< 清单表（主编辑界面：一行=一个货位的识别结果）
     QLabel*      m_orderStat = nullptr;  ///< 清单统计文字（总行数/本单行/可发送条数）
-    QTextEdit*   m_orderText = nullptr;  ///< 清单文本镜像（只读，可复制到 Excel 备用）
+    QTextEdit*   m_frameText = nullptr;  ///< 发送帧 JSON 编辑框（非只读，这里的文字就是发出去的帧）
+    bool         m_frameEdited = false; ///< 帧文本被手工改过：表格变化不再覆盖，需显式重新生成
+    bool         m_frameLoading = false;///< 程序正在写入帧文本：textChanged 不标记为手改
     QListWidget* m_inList = nullptr;     ///< 本单入库候选（待入库工具 + 其可入库位置）
     QListWidget* m_outList = nullptr;    ///< 本单出库候选（在库工具 + 其当前货位）
     QListWidget* m_borrowOutList = nullptr; ///< 本单借出转出库候选（借出中工具 + 其原位置）
     QListWidget* m_returnList = nullptr;    ///< 本单归还候选（借出中工具 + 其原位置，勾选生成“本单-归还”行）
     QCheckBox*   m_bgBaseline = nullptr; ///< 生成清单时是否附带全柜在库背景行
-    // 清单选数据用的下拉与旧的选择区控件
-    QComboBox*   m_pickPos = nullptr;       ///< 货位选择框（显示 A-01-01 工具名[在库]）
-    QComboBox*   m_pickTool = nullptr;      ///< 工具选择框（显示 编号 工具名[在库]）
-    QSpinBox*    m_pickConf = nullptr;      ///< 置信度（0~100，按百分比填更直观）
-    QComboBox*   m_pickAlert = nullptr;     ///< 告警类型选择框（默认正常项）
-    QSpinBox*    m_pickLevel = nullptr;     ///< 告警级别 0~3
     QLabel*      m_sceneHint = nullptr;     ///< 清单页顶部状态条：当前识别回应场景，这份清单生效没有
     // 数据库区
     QLineEdit*   m_dbHost = nullptr;        ///< 数据库地址

@@ -27,13 +27,14 @@ foreach(QT_PATH ${QT_SEARCH_PATHS})
         break()
     endif()
 endforeach()
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Sql)
 
 add_executable(EdgeSimulator
     main.cpp
     EdgeSimulator.cpp
+    EdgeSimulatorOrder.cpp
     EdgeSimulator.h
 )
 target_link_libraries(EdgeSimulator PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Sql
 )

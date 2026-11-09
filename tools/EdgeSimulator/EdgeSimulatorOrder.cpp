@@ -6,6 +6,7 @@
 #include "EdgeSimulator.h"
 
 #include "../../src/common/PositionFormatter.h"
+#include "../../src/common/ProtocolAlertTypes.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -14,12 +15,14 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QJsonDocument>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -31,7 +34,7 @@
 
 namespace {
 
-/// 清单表列序（与序列化文本字段顺序一致，改一处要同步改另一处）
+/// 清单表列序（与生成帧时的字段顺序一致，改一处要同步改另一处）
 enum OrderColumn {
     ColLine = 0,   ///< 行号（只读）
     ColPos,        ///< 货位
@@ -40,7 +43,7 @@ enum OrderColumn {
     ColBelong,     ///< 本单归属（下拉）
     ColResult,     ///< 识别结果（下拉）
     ColConfidence, ///< 置信度（0~1，可改）
-    ColAlertType,  ///< 告警类型（随识别结果联动，只读）
+    ColAlertType,  ///< 告警类型（下拉，取值对齐上位机协议枚举）
     ColAlertLevel, ///< 告警级别（可改）
     ColReply,      ///< 是否回应（复选）
     ColCount       ///< 列数
@@ -87,11 +90,24 @@ const double kGeneratedConfidence = 0.95;
  */
 QString alertTypeOfResult(const QString& result)
 {
-    if (result == kResultMisplaced) return QStringLiteral("misplaced");
-    if (result == kResultUnknown)   return QStringLiteral("unknown");
-    if (result == kResultMissing)   return QStringLiteral("missing");
-    if (result == kResultLowConf)   return QStringLiteral("low_confidence");
-    return QStringLiteral("none");
+    if (result == kResultMisplaced) return Proto::ALERT_TYPE_MISPLACED;
+    if (result == kResultUnknown)   return Proto::ALERT_TYPE_UNKNOWN;
+    if (result == kResultMissing)   return Proto::ALERT_TYPE_MISSING;
+    if (result == kResultLowConf)   return Proto::ALERT_TYPE_LOW_CONFIDENCE;
+    return Proto::ALERT_TYPE_NONE;
+}
+
+/**
+ * @brief 给告警类型下拉填入协议枚举项
+ * @param box 待填充的下拉框
+ * @return 无
+ * @note  显示中文说明，itemData 是协议取值；两侧共用 Proto::ALERT_TYPE_VALUES
+ */
+void addAlertTypeItems(QComboBox* box)
+{
+    for (int i = 0; i < Proto::ALERT_TYPE_VALUES.size(); ++i) {
+        box->addItem(Proto::ALERT_TYPE_LABELS.at(i), Proto::ALERT_TYPE_VALUES.at(i));
+    }
 }
 
 /**
@@ -125,90 +141,6 @@ QString toolCodeOfResult(const QString& result, const QString& toolCode)
 }  // namespace
 
 /**
- * @brief 解析清单文本
- * @param text 清单文本（每行一条）
- * @return 逐行解析结果；空行与注释行（# 或 // 开头）不返回
- * @note  行格式（9列）：货位,工具编号,工具名,归属,识别结果,置信度,告警类型,告警级别,是否回应；
- *        同时兼容旧格式（5列）：货位,工具编号,置信度,告警类型,告警级别——归属按"非本单"处理，
- *        识别结果由告警类型反推，旧文件导入后不会错乱
- */
-QList<EdgeSimulator::CustomRow> EdgeSimulator::parseCustomRows(const QString& text) const
-{
-    QList<CustomRow> rows;
-    const QStringList lines = text.split(QRegularExpression(QStringLiteral("\r\n|\n|\r")));
-    int lineNo = 0;
-    for (const QString& raw : lines) {
-        ++lineNo;
-        const QString line = raw.trimmed();
-        if (line.isEmpty() || line.startsWith('#') || line.startsWith(QStringLiteral("//"))) {
-            continue;
-        }
-        const QStringList parts = line.split(QRegularExpression(QStringLiteral("[,，\\t]|\\s{2,}")));
-        QStringList fields;
-        for (const QString& part : parts) {
-            fields << part.trimmed();
-        }
-
-        CustomRow row;
-        row.lineNo   = lineNo;
-        row.position = fields.value(0);
-        row.toolCode = fields.value(1);
-        row.toolName = fields.value(2);
-        row.belong   = fields.value(3);
-        row.result   = fields.value(4);
-        const QString confText  = fields.value(5);
-        row.alertType = fields.value(6);
-        const QString levelText = fields.value(7);
-        const QString replyText = fields.value(8);
-
-        if (fields.size() <= 5) {
-            // 旧格式：货位,工具编号,置信度,告警类型,告警级别
-            const QString oldAlert = fields.value(3);
-            row.belong = kBelongOther;
-            if (oldAlert == QStringLiteral("misplaced"))      row.result = kResultMisplaced;
-            else if (oldAlert == QStringLiteral("unknown"))   row.result = kResultUnknown;
-            else if (oldAlert == QStringLiteral("missing"))   row.result = kResultMissing;
-            else if (oldAlert == QStringLiteral("low_confidence")) row.result = kResultLowConf;
-            else                                               row.result = kResultNormal;
-            row.alertType  = alertTypeOfResult(row.result);
-            row.alertLevel = fields.value(4).toInt();
-        } else {
-            if (row.belong.isEmpty()) {
-                row.belong = kBelongOther;
-            }
-            if (row.result.isEmpty()) {
-                row.result = kResultNormal;
-            }
-            row.alertLevel = levelText.toInt();
-            row.reply = replyText.isEmpty() ? true : (replyText == QStringLiteral("1"));
-        }
-
-        if (row.position.isEmpty()) {
-            row.note  = QStringLiteral("缺货位，不发送该行（货位是上位机比对的依据，不能为空）");
-            row.valid = false;
-            rows.append(row);
-            continue;
-        }
-        if (confText.isEmpty()) {
-            row.confidence = kGeneratedConfidence;
-        } else {
-            bool ok = false;
-            const double value = confText.toDouble(&ok);
-            row.confidence = ok ? value : 0.0;
-            if (!ok) {
-                row.note = QStringLiteral("置信度“%1”不是数字，按 0 发送").arg(confText);
-            }
-        }
-        if (row.alertType.isEmpty()) {
-            row.alertType = alertTypeOfResult(row.result);
-        }
-        row.valid = true;
-        rows.append(row);
-    }
-    return rows;
-}
-
-/**
  * @brief 用解析结果重建清单表
  * @param rows 逐行清单数据
  * @return 无。表格被整体重建，结构变化（插入/删除/生成/导入）后调用
@@ -216,6 +148,7 @@ QList<EdgeSimulator::CustomRow> EdgeSimulator::parseCustomRows(const QString& te
  */
 void EdgeSimulator::fillOrderTable(const QList<CustomRow>& rows)
 {
+    m_frameEdited = false;
     if (!m_orderTable) {
         return;
     }
@@ -271,9 +204,18 @@ void EdgeSimulator::fillOrderTable(const QList<CustomRow>& rows)
 
         m_orderTable->setItem(r, ColConfidence, new QTableWidgetItem(QString::number(row.confidence, 'f', 2)));
 
-        QTableWidgetItem* alertItem = new QTableWidgetItem(row.alertType);
-        alertItem->setFlags(alertItem->flags() & ~Qt::ItemIsEditable);
-        m_orderTable->setItem(r, ColAlertType, alertItem);
+        // 告警类型下拉：可手选，识别结果变化时自动带出协议默认值
+        auto* alertBox = new QComboBox;
+        addAlertTypeItems(alertBox);
+        const QString alertValue = row.alertType.isEmpty() ? Proto::ALERT_TYPE_NONE : row.alertType;
+        const int alertIndex = alertBox->findData(alertValue);
+        alertBox->setCurrentIndex(alertIndex >= 0 ? alertIndex : 0);
+        connect(alertBox, &QComboBox::currentIndexChanged, this, [this, r](int) {
+            if (!m_tableUpdating) {
+                refreshOrderStat();   // 只刷帧，不回灌联动，避免覆盖手选值
+            }
+        });
+        m_orderTable->setCellWidget(r, ColAlertType, alertBox);
 
         m_orderTable->setItem(r, ColAlertLevel, new QTableWidgetItem(QString::number(row.alertLevel)));
 
@@ -315,8 +257,8 @@ QList<EdgeSimulator::CustomRow> EdgeSimulator::orderRowsFromTable() const
             const double value = m_orderTable->item(r, ColConfidence)->text().toDouble(&ok);
             row.confidence = ok ? value : 0.0;
         }
-        if (m_orderTable->item(r, ColAlertType)) {
-            row.alertType = m_orderTable->item(r, ColAlertType)->text();
+        if (auto* box = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, ColAlertType))) {
+            row.alertType = box->currentData().toString();
         }
         if (m_orderTable->item(r, ColAlertLevel)) {
             row.alertLevel = m_orderTable->item(r, ColAlertLevel)->text().toInt();
@@ -331,32 +273,7 @@ QList<EdgeSimulator::CustomRow> EdgeSimulator::orderRowsFromTable() const
 }
 
 /**
- * @brief 把清单表序列化成文本
- * @return 每行一条的清单文本（9 列，逗号分隔）
- * @note  文本格式与解析格式一一对应，可直接存 ini 或写进 custom_items.txt
- */
-QString EdgeSimulator::serializeOrderTable() const
-{
-    QStringList lines;
-    const QList<CustomRow> rows = orderRowsFromTable();
-    for (const CustomRow& row : rows) {
-        QStringList parts;
-        parts << row.position
-              << row.toolCode
-              << row.toolName
-              << row.belong
-              << row.result
-              << QString::number(row.confidence, 'f', 2)
-              << row.alertType
-              << QString::number(row.alertLevel)
-              << (row.reply ? QStringLiteral("1") : QStringLiteral("0"));
-        lines << parts.join(QLatin1Char(','));
-    }
-    return lines.join(QLatin1Char('\n'));
-}
-
-/**
- * @brief 刷新清单统计文字、文本镜像与顶部生效提示
+ * @brief 刷新清单统计文字、生成起点与顶部生效提示
  * @return 无
  * @note  统计里给出"总行数/本单行/实际发出条数"，测试人员一眼看出这次会发多少条给上位机
  */
@@ -377,29 +294,20 @@ void EdgeSimulator::refreshOrderStat()
         }
     }
     if (m_orderStat) {
-        m_orderStat->setText(QStringLiteral("清单共 %1 行（其中本单 %2 行），实际发给上位机 %3 条")
-                                 .arg(rows.size()).arg(orderRows).arg(sendRows));
+        m_orderStat->setText(QStringLiteral("清单表共 %1 行（其中本单 %2 行，可发 %3 条）；发送以帧 JSON 为准%4")
+                                 .arg(rows.size()).arg(orderRows).arg(sendRows)
+                                 .arg(m_frameEdited ? QStringLiteral("（帧 JSON 已手改，表格变化不再覆盖）") : QString()));
     }
-    if (m_orderText) {
-        m_orderText->setPlainText(serializeOrderTable());
+    if (m_frameText && !m_frameEdited) {
+        loadFrameText(formatFrameText(customItemsArray()));
     }
     updateSceneHint();
 }
 
 /**
- * @brief 用文本整体替换清单表内容
- * @param text 清单文本（9 列新格式或 5 列旧格式都能解析）
- * @return 无。解析结果直接重建清单表
- */
-void EdgeSimulator::applyOrderText(const QString& text)
-{
-    fillOrderTable(parseCustomRows(text));
-}
-
-/**
  * @brief 清单表某格被改动后的联动处理
  * @param row    改动的行号（从0开始）
- * @param column 改动的列（归属列或识别结果列会带下拉，其余列只改数值）
+ * @param column 改动的列（告警类型下拉独立刷新帧；识别结果与置信度列会带出协议默认告警类型）
  * @return 无
  * @note  识别结果变了，告警类型/级别/工具编号要跟着变：上位机靠这几个字段区分
  *        "正常/错放/未知物/缺失/置信度不足/货位空"，不改就会判错
@@ -416,9 +324,15 @@ void EdgeSimulator::onOrderCellChanged(int row, int column)
     }
     const QString result = resultBox->currentData().toString();
 
-    // 识别结果决定协议里的告警字段与工具编号
-    if (QTableWidgetItem* alertItem = m_orderTable->item(row, ColAlertType)) {
-        alertItem->setText(alertTypeOfResult(result));
+    // 识别结果或置信度变化时带出协议默认告警类型；用户直接改下拉不回灌联动
+    if (column == ColResult || column == ColConfidence) {
+        if (auto* alertBox = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, ColAlertType))) {
+            const int index = alertBox->findData(alertTypeOfResult(result));
+            if (index >= 0 && alertBox->currentIndex() != index) {
+                const QSignalBlocker blocker(alertBox);
+                alertBox->setCurrentIndex(index);
+            }
+        }
     }
     if (QTableWidgetItem* levelItem = m_orderTable->item(row, ColAlertLevel)) {
         levelItem->setText(QString::number(alertLevelOfResult(result)));
@@ -446,54 +360,6 @@ void EdgeSimulator::onOrderCellChanged(int row, int column)
         }
     }
     refreshOrderStat();
-}
-
-/**
- * @brief 清单表选中行变化：把该行内容回填到下方选择区
- * @return 无
- * @note  这样改单行不用重敲：选中哪行，下方选择区就显示那行，改完点【插入为新行】即可替换
- */
-void EdgeSimulator::onOrderRowSelected()
-{
-    if (!m_orderTable || !m_pickPos || !m_pickTool) {
-        return;
-    }
-    const int row = m_orderTable->currentRow();
-    if (row < 0 || row >= m_orderTable->rowCount()) {
-        return;
-    }
-    const QList<CustomRow> rows = orderRowsFromTable();
-    if (row >= rows.size()) {
-        return;
-    }
-    const CustomRow& current = rows.at(row);
-
-    // 货位：能在下拉里找到就选中，找不到就照原样填进去（清单里允许手改货位）
-    const int posIndex = m_pickPos->findText(current.position);
-    if (posIndex >= 0) {
-        m_pickPos->setCurrentIndex(posIndex);
-    } else {
-        m_pickPos->setCurrentIndex(0);
-        m_pickPos->setEditText(current.position);
-    }
-    // 工具编号
-    const int toolIndex = m_pickTool->findData(current.toolCode);
-    if (toolIndex >= 0) {
-        m_pickTool->setCurrentIndex(toolIndex);
-    }
-    if (m_pickConf) {
-        m_pickConf->setValue(qRound(current.confidence * 100.0));
-    }
-    if (m_pickLevel) {
-        m_pickLevel->setValue(current.alertLevel > 0 ? current.alertLevel : 1);
-    }
-    if (m_pickAlert) {
-        int index = m_pickAlert->findData(current.alertType);
-        if (index < 0) {
-            index = m_pickAlert->findData(QString());
-        }
-        m_pickAlert->setCurrentIndex(index);
-    }
 }
 
 /**
@@ -821,8 +687,8 @@ void EdgeSimulator::setAllResultsNormal()
                 resultBox->setCurrentIndex(index);
             }
         }
-        if (QTableWidgetItem* alertItem = m_orderTable->item(r, ColAlertType)) {
-            alertItem->setText(QStringLiteral("none"));
+        if (auto* alertBox = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, ColAlertType))) {
+            alertBox->setCurrentIndex(alertBox->findData(Proto::ALERT_TYPE_NONE));
         }
         if (QTableWidgetItem* levelItem = m_orderTable->item(r, ColAlertLevel)) {
             levelItem->setText(QStringLiteral("0"));
@@ -886,7 +752,7 @@ QWidget* EdgeSimulator::buildDbPanel()
 
     auto* btnLoadDb = new QPushButton(QStringLiteral("连接并读取工具与货位"));
     connect(btnLoadDb, &QPushButton::clicked, this, &EdgeSimulator::onLoadToolsFromDb);
-    btnLoadDb->setToolTip(QStringLiteral("只做查询，不改任何数据。连不上也能继续手填清单，不影响其它功能"));
+    btnLoadDb->setToolTip(QStringLiteral("只做查询，不改任何数据。连不上也能继续手改帧 JSON，不影响其它功能"));
 
     auto* btnLoadCand = new QPushButton(QStringLiteral("读取本单候选"));
     connect(btnLoadCand, &QPushButton::clicked, this, &EdgeSimulator::onLoadOrderCandidates);
@@ -917,7 +783,7 @@ QWidget* EdgeSimulator::buildDbPanel()
     dbGrid->addWidget(new QLabel(QStringLiteral("机组")), 0, 5);
     dbGrid->addWidget(m_groupCombo, 1, 5);
 
-    m_dbStat = new QLabel(QStringLiteral("尚未读取；也可以直接在“单据模拟”页手填清单"));
+    m_dbStat = new QLabel(QStringLiteral("尚未读取；也可以直接在“单据模拟”页手改帧 JSON"));
     m_dbStat->setWordWrap(true);
     dbGrid->addWidget(m_dbStat, 3, 0, 1, 5);
 
@@ -937,7 +803,7 @@ QWidget* EdgeSimulator::buildDbPanel()
 /**
  * @brief 构建"单据模拟"页（页②）
  * @return 组装完成的页面控件
- * @note  页面分三块：本单配置（勾选本单内容）→ 识别清单表（唯一事实源）→ 手动加一行（补个别货位）
+ * @note  页面分三块：本单配置（勾选本单内容）→ 识别清单表（唯一事实源）
  */
 QWidget* EdgeSimulator::buildOrderPage()
 {
@@ -1022,7 +888,7 @@ QWidget* EdgeSimulator::buildOrderPage()
     box->addWidget(orderBox);
 
     // ── 识别清单表：唯一事实源 ──
-    auto* listBox = new QGroupBox(QStringLiteral("② 识别清单（一行 = 一个货位的识别结果，表格里所见就是上位机收到的）"));
+    auto* listBox = new QGroupBox(QStringLiteral("② 识别清单（一行 = 一个货位的识别结果，这里只是生成起点，实际以帧 JSON 为准）"));
     auto* listLayout = new QVBoxLayout(listBox);
 
     m_orderTable = new QTableWidget(0, ColCount);
@@ -1037,7 +903,7 @@ QWidget* EdgeSimulator::buildOrderPage()
     m_orderTable->setColumnWidth(ColBelong, 118);
     m_orderTable->setColumnWidth(ColResult, 96);
     m_orderTable->setColumnWidth(ColConfidence, 66);
-    m_orderTable->setColumnWidth(ColAlertType, 96);
+    m_orderTable->setColumnWidth(ColAlertType, 132);
     m_orderTable->setColumnWidth(ColAlertLevel, 48);
     m_orderTable->setColumnWidth(ColReply, 44);
     m_orderTable->verticalHeader()->setVisible(false);
@@ -1046,10 +912,9 @@ QWidget* EdgeSimulator::buildOrderPage()
     m_orderTable->setToolTip(QStringLiteral(
         "本单归属：本单-入库/本单-出库/本单-借出转出库/非本单 —— 决定上位机拿这一行跟单据的哪一项比\n"
         "识别结果：正常/错放/未知物品/缺失/置信度不足/货位空 —— 决定协议里的告警字段与工具编号\n"
+        "告警类型：可下拉选，取值 none/misplaced/unknown/missing/low_confidence 与上位机一致\n"
         "回应：不勾的行不发出去（模拟这个货位没被扫到）"));
     connect(m_orderTable, &QTableWidget::cellChanged, this, &EdgeSimulator::onOrderCellChanged);
-    connect(m_orderTable, &QTableWidget::currentCellChanged, this,
-            [this](int, int, int, int) { onOrderRowSelected(); });
     listLayout->addWidget(m_orderTable, 1);
 
     auto* btnNormal = new QPushButton(QStringLiteral("全部改正常"));
@@ -1063,15 +928,15 @@ QWidget* EdgeSimulator::buildOrderPage()
     btnClear->setToolTip(QStringLiteral("清空后上位机收到空清单，会把整单判为“未检测到”"));
     auto* btnApply = new QPushButton(QStringLiteral("启用自定义清单"));
     connect(btnApply, &QPushButton::clicked, this, &EdgeSimulator::onCustomListActivate);
-    btnApply->setToolTip(QStringLiteral("把识别回应场景切到“自定义清单”，下一条识别请求就按这张表回"));
-    auto* btnFrom = new QPushButton(QStringLiteral("取当前场景样例"));
+    btnApply->setToolTip(QStringLiteral("把识别回应场景切到“自定义清单”，下一条识别请求按②页帧 JSON 回"));
+    auto* btnFrom = new QPushButton(QStringLiteral("载入③页场景帧"));
     connect(btnFrom, &QPushButton::clicked, this, &EdgeSimulator::onCustomListFromScene);
-    auto* btnSave = new QPushButton(QStringLiteral("保存到 custom_items.txt"));
+    auto* btnSave = new QPushButton(QStringLiteral("保存帧 JSON"));
     connect(btnSave, &QPushButton::clicked, this, &EdgeSimulator::onCustomListSaveToFile);
-    auto* btnLoad = new QPushButton(QStringLiteral("从 custom_items.txt 重载"));
+    auto* btnLoad = new QPushButton(QStringLiteral("载入帧 JSON"));
     connect(btnLoad, &QPushButton::clicked, this, &EdgeSimulator::onCustomListReload);
-    btnSave->setToolTip(QStringLiteral("把这张表存成 exe 同目录 custom_items.txt（UTF-8），可用 Excel 编辑后再重载"));
-    btnLoad->setToolTip(QStringLiteral("从 exe 同目录 custom_items.txt 读回清单；文件不存在时提示先保存生成模板"));
+    btnSave->setToolTip(QStringLiteral("把当前帧 JSON 存成 exe 同目录 custom_frame.json"));
+    btnLoad->setToolTip(QStringLiteral("从 exe 同目录 custom_frame.json 读回帧 JSON"));
 
     auto* btnRow1 = new QHBoxLayout;
     btnRow1->addWidget(btnNormal);
@@ -1080,21 +945,17 @@ QWidget* EdgeSimulator::buildOrderPage()
     btnRow1->addWidget(btnApply);
     btnRow1->addStretch(1);
     listLayout->addLayout(btnRow1);
-    auto* btnToEditor = new QPushButton(QStringLiteral("导出到编辑框（改完再发）"));
-    btnToEditor->setToolTip(QStringLiteral("把这张清单组装成一帧 JSON 送到④页自定义帧，字段与格式改完再点发送"));
-    connect(btnToEditor, &QPushButton::clicked, this, [this] {
-        QJsonObject frame;
-        frame[QStringLiteral("type")] = QStringLiteral("recognize_ack");
-        frame[QStringLiteral("request_id")] = m_lastRequest.value(QStringLiteral("request_id")).toString();
-        frame[QStringLiteral("items")] = customItemsArray();
-        exportFrameToEditor(frame);
+    auto* btnRebuild = new QPushButton(QStringLiteral("从表格重新生成帧"));
+    btnRebuild->setToolTip(QStringLiteral("手改过帧 JSON 后，点这里才按上面表格重新生成，平时不会覆盖手改内容"));
+    connect(btnRebuild, &QPushButton::clicked, this, [this] {
+        refreshFrameTextFromTable();
     });
 
     auto* btnRow2 = new QHBoxLayout;
     btnRow2->addWidget(btnFrom);
     btnRow2->addWidget(btnSave);
     btnRow2->addWidget(btnLoad);
-    btnRow2->addWidget(btnToEditor);
+    btnRow2->addWidget(btnRebuild);
     btnRow2->addStretch(1);
     listLayout->addLayout(btnRow2);
 
@@ -1102,63 +963,22 @@ QWidget* EdgeSimulator::buildOrderPage()
     listLayout->addWidget(m_orderStat);
     box->addWidget(listBox, 1);
 
-    // ── 手动加一行：补个别货位用 ──
-    auto* pickBox = new QGroupBox(QStringLiteral("③ 手动加一行（选中清单表里的行会把内容带到这里，改完点【插入为新行】）"));
-    auto* pickGrid = new QGridLayout(pickBox);
-
-    m_pickPos = new QComboBox;
-    m_pickPos->setToolTip(QStringLiteral("选货位后会自动带出该货位上的工具编号；选“(空货位)”可造“工具没放进去”的场景"));
-    connect(m_pickPos, &QComboBox::currentIndexChanged, this, &EdgeSimulator::onPositionPicked);
-    m_pickTool = new QComboBox;
-    m_pickTool->setToolTip(QStringLiteral("工具编号来自 tool_info；选“(认不出)”可造未知物场景"));
-    m_pickConf = new QSpinBox;
-    m_pickConf->setRange(0, 100);
-    m_pickConf->setValue(95);
-    m_pickConf->setSuffix(QStringLiteral(" %"));
-    m_pickAlert = new QComboBox;
-    // 下拉项文字较长，限制最小宽度，避免把整页撑宽导致右侧按钮被裁掉
-    m_pickAlert->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    m_pickAlert->setMinimumContentsLength(12);
-    m_pickAlert->addItem(QStringLiteral("正常项（不带告警字段）"), QString());
-    m_pickAlert->addItem(QStringLiteral("misplaced 错放"),   QStringLiteral("misplaced"));
-    m_pickAlert->addItem(QStringLiteral("unknown 未知物"),    QStringLiteral("unknown"));
-    m_pickAlert->addItem(QStringLiteral("missing 缺失"),      QStringLiteral("missing"));
-    m_pickAlert->addItem(QStringLiteral("low_confidence 置信度不足"), QStringLiteral("low_confidence"));
-    m_pickLevel = new QSpinBox;
-    m_pickLevel->setRange(0, 3);
-    m_pickLevel->setValue(0);
-    auto* btnInsert = new QPushButton(QStringLiteral("插入为新行"));
-    connect(btnInsert, &QPushButton::clicked, this, &EdgeSimulator::onInsertOrderRow);
-    auto* btnDelete = new QPushButton(QStringLiteral("删除选中行"));
-    connect(btnDelete, &QPushButton::clicked, this, &EdgeSimulator::onDeleteOrderRow);
-
-    pickGrid->addWidget(new QLabel(QStringLiteral("货位")), 0, 0);
-    pickGrid->addWidget(m_pickPos, 0, 1, 1, 3);
-    pickGrid->addWidget(new QLabel(QStringLiteral("工具")), 1, 0);
-    pickGrid->addWidget(m_pickTool, 1, 1, 1, 3);
-    pickGrid->addWidget(new QLabel(QStringLiteral("置信度")), 2, 0);
-    pickGrid->addWidget(m_pickConf, 2, 1);
-    pickGrid->addWidget(m_pickAlert, 2, 2, 1, 2);
-    pickGrid->addWidget(new QLabel(QStringLiteral("级别")), 3, 0);
-    pickGrid->addWidget(m_pickLevel, 3, 1);
-    pickGrid->addWidget(btnInsert, 3, 2, 1, 2);
-    pickGrid->addWidget(btnDelete, 4, 2, 1, 2);
-    pickGrid->setColumnStretch(1, 1);
-    pickGrid->setColumnStretch(3, 1);
-    box->addWidget(pickBox);
-
-    // 清单文本镜像：只读，可复制到 Excel 备用
-    auto* textBox = new QGroupBox(QStringLiteral("清单文本（只读，可复制到 Excel 备用）"));
-    auto* textLayout = new QVBoxLayout(textBox);
-    m_orderText = new QTextEdit;
-    m_orderText->setReadOnly(true);
-    m_orderText->setFontFamily(QStringLiteral("Consolas"));
-    m_orderText->setToolTip(QStringLiteral("清单文本镜像（只读）：可复制到 Excel 备用；格式为"
-                                           "货位,工具编号,工具名,归属,识别结果,置信度,告警类型,级别,是否回应"));
-    m_orderText->setMinimumHeight(90);
-    m_orderText->setMaximumHeight(130);
-    textLayout->addWidget(m_orderText);
-    box->addWidget(textBox);
+    // ── 发送帧 JSON：这里的文字就是马上要发给上位机的帧，可自由改字段与结构 ──
+    auto* frameBox = new QGroupBox(QStringLiteral("发送帧 JSON（可编辑：改结构、改字段就在这里，发出去就按这个发）"));
+    auto* frameLayout = new QVBoxLayout(frameBox);
+    m_frameText = new QTextEdit;
+    m_frameText->setFontFamily(QStringLiteral("Consolas"));
+    m_frameText->setToolTip(QStringLiteral(
+        "这里的文字就是 recognize_ack 帧本体。request_id 用 {{request_id}} 占位，发送时自动回带本次编号。\n"
+        "手工改过之后，上面表格的变化不会再覆盖这里；要按表格重来请点【从表格重新生成帧】。"));
+    m_frameText->setMinimumHeight(240);
+    connect(m_frameText, &QTextEdit::textChanged, this, [this] {
+        if (!m_frameLoading) {
+            m_frameEdited = true;
+        }
+    });
+    frameLayout->addWidget(m_frameText);
+    box->addWidget(frameBox, 1);
 
     return page;
 }
@@ -1189,79 +1009,6 @@ void EdgeSimulator::onClearOrderList()
 {
     fillOrderTable(QList<CustomRow>());
     logEvent(QStringLiteral("清单已清空：上位机收到空清单会把整单判为“未检测到”"));
-}
-
-/**
- * @brief 删除清单表里选中的行
- * @return 无
- */
-void EdgeSimulator::onDeleteOrderRow()
-{
-    if (!m_orderTable) {
-        return;
-    }
-    const int row = m_orderTable->currentRow();
-    if (row < 0) {
-        logEvent(QStringLiteral("请先在清单表里选中要删除的行"));
-        return;
-    }
-    QList<CustomRow> rows = orderRowsFromTable();
-    if (row >= rows.size()) {
-        return;
-    }
-    const QString removed = rows.at(row).position;
-    rows.removeAt(row);
-    fillOrderTable(rows);
-    logEvent(QStringLiteral("已删除清单第 %1 行（货位 %2）").arg(row + 1).arg(removed));
-}
-
-/**
- * @brief 按下方选择区内容新增一行
- * @return 无
- * @note  选中清单表某行时选择区已被回填，这时插入相当于"用新内容替换选中行"
- */
-void EdgeSimulator::onInsertOrderRow()
-{
-    if (!m_orderTable) {
-        return;
-    }
-    QList<CustomRow> rows = orderRowsFromTable();
-    const int current = m_orderTable->currentRow();
-
-    CustomRow row;
-    row.position   = m_pickPos ? m_pickPos->currentData().toString() : QString();
-    if (row.position.isEmpty() && m_pickPos) {
-        row.position = m_pickPos->currentText();
-    }
-    row.toolCode   = m_pickTool ? m_pickTool->currentData().toString() : QString();
-    row.toolName   = m_pickTool ? m_pickTool->currentText().section(QStringLiteral("  "), 0, 0) : QString();
-    row.confidence = m_pickConf ? m_pickConf->value() / 100.0 : kGeneratedConfidence;
-    row.alertType  = m_pickAlert ? m_pickAlert->currentData().toString() : QString();
-    if (row.alertType.isEmpty()) {
-        row.alertType = QStringLiteral("none");
-    }
-    row.alertLevel = m_pickLevel ? m_pickLevel->value() : 0;
-    row.belong     = kBelongOther;
-    row.result     = kResultNormal;
-    if (row.alertType == QStringLiteral("misplaced"))      row.result = kResultMisplaced;
-    else if (row.alertType == QStringLiteral("unknown"))   row.result = kResultUnknown;
-    else if (row.alertType == QStringLiteral("missing"))   row.result = kResultMissing;
-    else if (row.alertType == QStringLiteral("low_confidence")) row.result = kResultLowConf;
-    row.reply      = true;
-
-    if (row.position.isEmpty()) {
-        logEvent(QStringLiteral("请先选择货位再插入"));
-        return;
-    }
-    if (current >= 0 && current < rows.size()) {
-        rows[current] = row;    // 选中了行：用选择区的内容替换它
-        fillOrderTable(rows);
-        logEvent(QStringLiteral("已按选择区内容更新清单第 %1 行").arg(current + 1));
-        return;
-    }
-    rows.append(row);
-    fillOrderTable(rows);
-    logEvent(QStringLiteral("已新增清单行：%1 %2").arg(row.position).arg(row.toolCode));
 }
 
 /**

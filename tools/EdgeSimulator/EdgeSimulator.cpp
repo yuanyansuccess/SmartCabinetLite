@@ -74,9 +74,6 @@ enum Scene {
     SceneStructConfidenceRange,   // confidence 超出 0~1
     SceneStructNoAlertType,       // item 缺 alert_type（上位机按 none 兼容）
     SceneStructBadAlertType,      // alert_type 不在协议枚举内
-    SceneStructNoPresent,         // item 缺 present（上位机按 true 兼容）
-    SceneStructPresentString,     // present 是字符串
-    SceneStructPresentFalse,      // present=false（合法帧）
     SceneStructDuplicatePos,      // 同一货位上报两条
     SceneStructItemNotObject,     // items 元素是字符串而非对象
 };
@@ -90,57 +87,16 @@ const double kCustomDefaultConfidence = 0.95;
 /// 模拟器随周期帧上报的软件版本（版本合帧：替代原 version_query/version_ack 握手）
 const QString kSimVersion = QStringLiteral("1.0.0");
 
-/// 货位选择框里的"空货位"选项：表示该货位上什么都没有（出库单已取走/入库单没放进去）
-const QString kPickEmptyPosLabel = QStringLiteral("(空货位-该位置没有工具)");
-
-/// 工具选择框里的"认不出"选项：模拟边缘机在该货位识别不出工具（未知物场景）
-const QString kPickUnknownLabel = QStringLiteral("(认不出-未知物)");
 
 /// 数据库驱动名（QODBC 走 ODBC 连接串，与上位机同口径）
 const QString QODBC_DRIVER_NAME = QStringLiteral("QODBC");
 
-/**
- * @brief 把库里的工具/货位状态翻译成中文（测试人员一眼看出在库还是借出）
- * @param status 库里的原始状态值（in_stock/borrowed/checked_out/pending 等）
- * @return 中文状态；未知值原样返回
- */
-QString positionStatusText(const QString& status)
-{
-    if (status == QStringLiteral("in_stock"))     return QStringLiteral("在库");
-    if (status == QStringLiteral("borrowed"))     return QStringLiteral("已借出");
-    if (status == QStringLiteral("checked_out"))  return QStringLiteral("已出库");
-    if (status == QStringLiteral("pending"))      return QStringLiteral("待入库");
-    if (status == QStringLiteral("deleted"))      return QStringLiteral("已注销");
-    return status;
-}
 
 
 
 
-/**
- * @brief 把 items 数组反向转成可编辑的清单文本
- * @param items recognize_ack 的 items 数组
- * @return 每行一条的清单文本（用于在内置场景样例上继续微调）
- */
-QString itemsToListText(const QJsonArray& items)
-{
-    QStringList lines;
-    for (const QJsonValue& value : items) {
-        const QJsonObject one = value.toObject();
-        QStringList parts;
-        parts << one.value(QStringLiteral("position")).toString()
-              << one.value(QStringLiteral("tool_id")).toString();
-        if (one.contains(QStringLiteral("confidence"))) {
-            parts << QString::number(one.value(QStringLiteral("confidence")).toDouble());
-        }
-        if (!one.value(QStringLiteral("alert_type")).toString().isEmpty()) {
-            parts << one.value(QStringLiteral("alert_type")).toString()
-                  << QString::number(one.value(QStringLiteral("alert_level")).toInt());
-        }
-        lines << parts.join(QLatin1Char(','));
-    }
-    return lines.join(QLatin1Char('\n'));
-}
+
+
 
 /**
  * @brief 构造周期帧（协议3.4），含 8 路摄像头自检
@@ -192,9 +148,6 @@ void addStructScenes(QComboBox* combo)
     combo->addItem(QStringLiteral("【结构错】confidence=99 越界 → 应弹核对失败、不写库"), SceneStructConfidenceRange);
     combo->addItem(QStringLiteral("【兼容】缺 alert_type → 按无告警正常核对"), SceneStructNoAlertType);
     combo->addItem(QStringLiteral("【结构错】alert_type 枚举外 → 应弹核对失败、不写库"), SceneStructBadAlertType);
-    combo->addItem(QStringLiteral("【兼容】缺 present → 按已扫到正常核对"), SceneStructNoPresent);
-    combo->addItem(QStringLiteral("【结构错】present 是字符串 → 应弹核对失败、不写库"), SceneStructPresentString);
-    combo->addItem(QStringLiteral("【合法】present=false 货位未扫到 → 正常核对"), SceneStructPresentFalse);
     combo->addItem(QStringLiteral("【结构错】同一货位重复上报 → 应弹核对失败、不写库"), SceneStructDuplicatePos);
     combo->addItem(QStringLiteral("【结构错】items 元素是字符串 → 应弹核对失败、不写库"), SceneStructItemNotObject);
 }
@@ -204,8 +157,7 @@ void addStructScenes(QComboBox* combo)
  * @param kind    场景枚举（SceneStruct* 段）
  * @param request 收到的 recognize_req，用于回带 request_id
  * @return 单帧 recognize_ack；缺字段的项不经过字段规整
- * @note  不合规帧应让上位机弹【核对失败】且不写库；缺 alert_type / present 与 present=false
- *        属兼容或合法帧，应正常核对。
+ * @note  不合规帧应让上位机弹【核对失败】且不写库；缺 alert_type 属兼容帧，应正常核对。
  */
 QJsonObject structErrorAck(int kind, const QJsonObject& request)
 {
@@ -216,7 +168,6 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         it["tool_id"] = "C01-T0007";
         it["confidence"] = 0.9;
         it["alert_type"] = "none";
-        it["present"] = true;
         return it;
     };
     const auto oneItemAck = [&](const QJsonObject& it) {
@@ -247,7 +198,6 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         it["tool_id"] = "C01-T0007";
         it["confidence"] = 0.9;
         it["alert_type"] = "none";
-        it["present"] = true;
         items.append(it);
         ack["items"] = items;
         break;
@@ -260,7 +210,6 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         it["tool_id"] = "C01-T0007";
         it["confidence"] = 0.9;
         it["alert_type"] = "none";
-        it["present"] = true;
         items.append(it);
         ack["items"] = items;
         break;
@@ -269,7 +218,7 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         QJsonArray items;
         QJsonObject it;
         it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
-        it["confidence"] = 0.9; it["alert_type"] = "none"; it["present"] = true;
+        it["confidence"] = 0.9; it["alert_type"] = "none";
         items.append(it);
         ack["items"] = items;
         // 故意不设 request_id → 上位机 m_pending 查不到，丢弃计数
@@ -281,7 +230,7 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         QJsonArray items;
         QJsonObject it;
         it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
-        it["confidence"] = 0.9; it["alert_type"] = "none"; it["present"] = true;
+        it["confidence"] = 0.9; it["alert_type"] = "none";
         items.append(it);
         ack["items"] = items;
         break;
@@ -332,27 +281,6 @@ QJsonObject structErrorAck(int kind, const QJsonObject& request)
         ack["request_id"] = request["request_id"];
         QJsonObject it = baseItem();
         it["alert_type"] = QStringLiteral("banana");
-        ack["items"] = oneItemAck(it);
-        break;
-    }
-    case SceneStructNoPresent: {       // 缺 present：上位机按 true 兼容
-        ack["request_id"] = request["request_id"];
-        QJsonObject it = baseItem();
-        it.remove("present");
-        ack["items"] = oneItemAck(it);
-        break;
-    }
-    case SceneStructPresentString: {   // present 是字符串
-        ack["request_id"] = request["request_id"];
-        QJsonObject it = baseItem();
-        it["present"] = QStringLiteral("true");
-        ack["items"] = oneItemAck(it);
-        break;
-    }
-    case SceneStructPresentFalse: {    // present=false：合法帧，货位未被扫到
-        ack["request_id"] = request["request_id"];
-        QJsonObject it = baseItem();
-        it["present"] = false;
         ack["items"] = oneItemAck(it);
         break;
     }
@@ -461,9 +389,6 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
         }
         if (!it.contains(QStringLiteral("alert_type"))) {
             it[QStringLiteral("alert_type")] = QStringLiteral("none");
-        }
-        if (!it.contains(QStringLiteral("present"))) {
-            it[QStringLiteral("present")] = true;   // 该货位已被摄像头扫到
         }
         items.replace(i, it);
     }
@@ -576,7 +501,7 @@ EdgeSimulator::~EdgeSimulator()
 /**
  * @brief 把全部回应配置持久化到 exe 同目录 simulator.ini
  * @return 无。写失败静默忽略（配置文件不影响主功能）
- * @note  覆盖：8 路摄像头状态/周期帧参数/识别场景与反馈响应时间/自定义工具清单文本/开箱策略与失败文案/版本号/连接参数；
+ * @note  覆盖：8 路摄像头状态/周期帧参数/识别场景与反馈响应时间/帧 JSON 文本/开箱策略与失败文案/版本号/连接参数；
  *        配置随 exe 部署目录走（绿色部署），测试人员一次配好长期复用
  */
 void EdgeSimulator::saveConfig()
@@ -603,8 +528,8 @@ void EdgeSimulator::saveConfig()
     }
     s.endArray();
     s.setValue(QStringLiteral("reply/seqEnabled"), m_seqEnabled ? m_seqEnabled->isChecked() : false);
-    // 自定义工具清单：整段文本一起存（含换行），下次启动原样恢复
-    s.setValue(QStringLiteral("reply/customItems"), serializeOrderTable());
+    // 发送帧 JSON：整段文本一起存，下次启动原样恢复（含手工改过的结构）
+    s.setValue(QStringLiteral("reply/customFrame"), m_frameText ? m_frameText->toPlainText() : QString());
     // 清单选数据用的数据库连接参数（测试现场换个库只改这里）
     s.setValue(QStringLiteral("db/host"), m_dbHost ? m_dbHost->text() : QStringLiteral("127.0.0.1"));
     s.setValue(QStringLiteral("db/port"), m_dbPort ? m_dbPort->value() : 3306);
@@ -651,10 +576,11 @@ void EdgeSimulator::loadConfig()
     s.endArray();
     m_seqEnabled->setChecked(s.value(QStringLiteral("reply/seqEnabled"), false).toBool());
     m_seqCursor = 0;
-    // 自定义工具清单：读回上次编辑的内容（缺项时保留页内默认样例）
-    const QString savedItems = s.value(QStringLiteral("reply/customItems")).toString();
-    if (!savedItems.isEmpty()) {
-        applyOrderText(savedItems);
+    // 发送帧 JSON：读回上次编辑的内容（缺项时保留页内默认帧）
+    const QString savedFrame = s.value(QStringLiteral("reply/customFrame")).toString();
+    if (!savedFrame.isEmpty()) {
+        loadFrameText(savedFrame);
+        m_frameEdited = true;   // 恢复的是上次手工改过的帧，启动刷新不得覆盖
     }
     // 数据库连接参数：恢复上次填的，现场换库不必每次重填
     m_dbHost->setText(s.value(QStringLiteral("db/host"), QStringLiteral("127.0.0.1")).toString());
@@ -1053,7 +979,7 @@ QWidget* EdgeSimulator::buildCustomTab()
         "    \"type\": \"recognize_ack\",\n"
         "    \"request_id\": \"{{request_id}}\",\n"
         "    \"items\": [\n"
-        "        { \"position\": \"A-01-05\", \"tool_id\": \"C01-T0007\", \"confidence\": 0.9, \"alert_type\": \"none\", \"present\": true }\n"
+        "        { \"position\": \"A-01-05\", \"tool_id\": \"C01-T0007\", \"confidence\": 0.9, \"alert_type\": \"none\" }\n"
         "    ]\n"
         "}"));
     m_custom->setToolTip(QStringLiteral("这里的内容就是最终发出的帧：字段、取值、排版都能改，改完点【发送】"));
@@ -1078,7 +1004,12 @@ QWidget* EdgeSimulator::buildCustomTab()
                                      : static_cast<int>(SceneNormal);
         QJsonObject ack = sceneAckFrame(scene, m_lastRequest);
         if (scene == SceneCustomList) {
-            ack[QStringLiteral("items")] = customItemsArray();
+            QJsonObject editorFrame;
+            if (m_frameText && parseFrameText(m_frameText->toPlainText(), editorFrame)) {
+                ack = editorFrame;
+            } else {
+                logEvent(QStringLiteral("②页帧 JSON 解析失败，已改用空白帧模板；请先修好②页帧"));
+            }
         }
         exportFrameToEditor(ack);
     });
@@ -1126,14 +1057,7 @@ QWidget* EdgeSimulator::buildCustomTab()
     return w;
 }
 
-// ─────────────────────── 自定义工具清单（协议3.3） ───────────────────────
-
-/**
- * @brief 构建“工具清单（自定义）”页：按真实单据逐行配置识别回应要回的工具清单
- * @return 页签控件指针（由调用方挂到页签栏）
- * @note  清单内容退出时随 simulator.ini 持久化；另外可存成 exe 同目录 custom_items.txt，
- *        测试人员用 Excel 备好清单后点【从文件重载】即可，无需在本页手工敲
- */
+// ─────────────────────── 自定义帧（协议3.3） ───────────────────────
 
 /**
  * @brief 把识别回应场景切到“自定义清单”，并提示是否还有可用行
@@ -1153,14 +1077,10 @@ void EdgeSimulator::onCustomListActivate()
         m_seqEnabled->setChecked(false);
         logEvent(QStringLiteral("序列回放已启用会盖过场景选择，已自动关闭序列（要做多轮回放时把“自定义清单”加进序列即可）"));
     }
-    int validCount = 0;
-    const QList<CustomRow> rows = orderRowsFromTable();
-    for (const CustomRow& row : rows) {
-        if (row.valid && row.reply) {
-            ++validCount;
-        }
-    }
-    logEvent(QStringLiteral("识别回应场景已切到“自定义清单”（可发送 %1 条，下一条识别请求即按此清单回）").arg(validCount));
+    QJsonObject frame;
+    const int itemCount = parseFrameText(m_frameText ? m_frameText->toPlainText() : QString(), frame)
+                          ? frame.value(QStringLiteral("items")).toArray().size() : 0;
+    logEvent(QStringLiteral("识别回应场景已切到“自定义清单”（帧 JSON 含 %1 条货位，下一条请求按它回）").arg(itemCount));
     updateSceneHint();
 }
 
@@ -1179,54 +1099,52 @@ void EdgeSimulator::onCustomListFromScene()
         return;
     }
     const QJsonObject ack = sceneAckFrame(scene, QJsonObject());
-    applyOrderText(itemsToListText(ack.value(QStringLiteral("items")).toArray()));
-    logEvent(QStringLiteral("已取场景“%1”的清单填入编辑区（改完点【启用自定义清单】生效）").arg(m_recScene->currentText()));
+    loadFrameText(formatFrameText(ack.value(QStringLiteral("items")).toArray()));
+    logEvent(QStringLiteral("已把场景「%1」的清单载入帧 JSON（改完点【启用自定义清单】生效）").arg(m_recScene->currentText()));
 }
 
 /**
- * @brief 把当前清单写入 exe 同目录 custom_items.txt
+ * @brief 把当前帧 JSON 写入 exe 同目录 custom_frame.json
  * @return 无。写失败在日志区提示原因（不影响其他功能）
  */
 void EdgeSimulator::onCustomListSaveToFile()
 {
-    if (!m_orderTable) {
+    if (!m_frameText) {
         return;
     }
-    const QString path = customListFilePath();
+    const QString path = frameFilePath();
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        logEvent(QStringLiteral("清单写入失败（%1）：%2").arg(path).arg(file.errorString()));
+        logEvent(QStringLiteral("帧 JSON 写入失败（%1）：%2").arg(path).arg(file.errorString()));
         return;
     }
-    // 按原始字节写：BOM 必须是三个字节本体，走字符串会被当成待编码文本转成替换字符
-    file.write("\xEF\xBB\xBF", 3);
-    file.write(serializeOrderTable().toUtf8());
+    file.write(m_frameText->toPlainText().toUtf8());
     file.close();
-    logEvent(QStringLiteral("清单已保存：%1（用 Excel 编辑后点【从 custom_items.txt 重载】即可）").arg(path));
+    logEvent(QStringLiteral("帧 JSON 已保存：%1").arg(path));
 }
 
 /**
- * @brief 从 exe 同目录 custom_items.txt 读回清单
- * @return 无。文件不存在或读失败在日志区提示，不改动编辑区现有内容
+ * @brief 从 exe 同目录 custom_frame.json 读回帧 JSON
+ * @return 无。文件不存在或读失败在日志区提示，不改动编辑框现有内容
  */
 void EdgeSimulator::onCustomListReload()
 {
-    if (!m_orderTable) {
+    if (!m_frameText) {
         return;
     }
-    const QString path = customListFilePath();
+    const QString path = frameFilePath();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        logEvent(QStringLiteral("读取失败（%1）：%2；请先点【保存到 custom_items.txt】生成模板").arg(path).arg(file.errorString()));
+        logEvent(QStringLiteral("读取失败（%1）：%2；请先点【保存帧 JSON】").arg(path).arg(file.errorString()));
         return;
     }
     QByteArray raw = file.readAll();
     file.close();
-    if (raw.startsWith("\xEF\xBB\xBF")) {   // 去掉 UTF-8 BOM，避免首行字段前混入不可见字符
+    if (raw.startsWith("\xEF\xBB\xBF")) {
         raw.remove(0, 3);
     }
-    applyOrderText(QString::fromUtf8(raw));
-    logEvent(QStringLiteral("已从 %1 重载清单").arg(path));
+    loadFrameText(QString::fromUtf8(raw));
+    logEvent(QStringLiteral("已从 %1 载入帧 JSON").arg(path));
 }
 
 /**
@@ -1237,7 +1155,7 @@ void EdgeSimulator::onCustomListReload()
 /**
  * @brief 按清单编辑区文本构造 recognize_ack 的 items 数组
  * @return items 数组；清单为空时返回空数组（上位机按“未检测到该货位”处理）
- * @note  与预览表共用 parseCustomRows，保证“预览所见即所发”
+ * @note  清单表只作生成起点；实际发出的帧以②页帧 JSON 编辑框为准
  */
 QJsonArray EdgeSimulator::customItemsArray() const
 {
@@ -1250,26 +1168,24 @@ QJsonArray EdgeSimulator::customItemsArray() const
         if (!row.valid || !row.reply) {
             continue;
         }
-        // 每项都输出完整字段，正常项也带告警类型与覆盖标记，
-        // 上位机据此区分"没给数据"与"给了的正常值
+        // 每项输出表13 四字段；tool_id 为空表示该货位无工具，空货位同样回报本项
         QJsonObject item;
         item["position"]    = row.position;
         item["tool_id"]     = row.toolCode;
         item["confidence"]  = row.confidence;
         item["alert_type"]  = row.alertType.isEmpty() ? QStringLiteral("none") : row.alertType;
-        item["present"]     = true;   // 本单/背景行均为已扫描覆盖
         items.append(item);
     }
     return items;
 }
 
 /**
- * @brief 取清单文件绝对路径（固定 exe 同目录，测试人员可直接用 Excel 编辑）
- * @return 形如 <exe目录>/custom_items.txt 的路径
+ * @brief 取帧 JSON 文件绝对路径（固定 exe 同目录，可直接用文本编辑器改）
+ * @return 形如 <exe目录>/custom_frame.json 的路径
  */
-QString EdgeSimulator::customListFilePath() const
+QString EdgeSimulator::frameFilePath() const
 {
-    return QCoreApplication::applicationDirPath() + QStringLiteral("/custom_items.txt");
+    return QCoreApplication::applicationDirPath() + QStringLiteral("/custom_frame.json");
 }
 
 /**
@@ -1288,26 +1204,32 @@ bool EdgeSimulator::isCustomListActive() const
 }
 
 /**
- * @brief 刷新顶部状态条：当前生效场景是什么、这份清单发不发得出去
- * @return 无。清单非空但场景不是自定义清单时用橙色警示并提示点启用
+ * @brief 刷新顶部状态条：帧 JSON 语法是否正确、当前生效场景是什么
+ * @return 无。帧语法坏用红字提示，场景不是自定义清单时用橙色警示
  */
 void EdgeSimulator::updateSceneHint()
 {
-    const bool hasItems = (m_orderTable && m_orderTable->rowCount() > 0);
+    const QString frameText = m_frameText ? m_frameText->toPlainText() : QString();
+    const bool hasItems = !frameText.trimmed().isEmpty();
+    QJsonObject checkFrame;
+    const bool frameOk = hasItems && parseFrameText(frameText, checkFrame);
     const QString sceneName = m_recScene ? m_recScene->currentText() : QStringLiteral("(未选场景)");
     const bool seqOn = m_seqEnabled && m_seqEnabled->isChecked() && m_seqList && m_seqList->count() > 0;
 
     QString text;
     QString color;
-    if (isCustomListActive()) {
-        text = QStringLiteral("当前生效：自定义清单（上位机收到的就是“单据模拟”页这张表）");
+    if (hasItems && !frameOk) {
+        text = QStringLiteral("帧 JSON 语法有误：本次不会发出回应，上位机会等超时。请检查括号、引号与逗号");
+        color = QStringLiteral("#c62828");
+    } else if (isCustomListActive()) {
+        text = QStringLiteral("当前生效：②页帧 JSON（上位机收到的就是编辑框里这一帧）");
         color = QStringLiteral("#1a7f37");
     } else if (hasItems) {
-        text = QStringLiteral("注意：识别回应场景当前是“%1”%2，下面这张表【不会生效】！请到“识别回应”页把场景切成自定义清单")
+        text = QStringLiteral("注意：回应场景当前是“%1”%2，②页帧 JSON【不会生效】！请到“识别回应”页把场景切成自定义清单")
                    .arg(sceneName, seqOn ? QStringLiteral("（且序列回放开着，会盖过场景选择）") : QString());
         color = QStringLiteral("#b26a00");
     } else {
-        text = QStringLiteral("当前生效：%1（清单为空，先在“单据模拟”页配清单或选内置场景）").arg(sceneName);
+        text = QStringLiteral("当前生效：%1（帧 JSON 为空，先在“单据模拟”页生成帧或选内置场景）").arg(sceneName);
         color = QStringLiteral("#666666");
     }
     if (m_sceneHint) {
@@ -1328,7 +1250,7 @@ void EdgeSimulator::updateSceneHint()
  */
 void EdgeSimulator::autoActivateCustomList(const QString& why)
 {
-    const bool hasItems = (m_orderTable && m_orderTable->rowCount() > 0);
+    const bool hasItems = (m_frameText && !m_frameText->toPlainText().trimmed().isEmpty());
     if (!hasItems || isCustomListActive()) {
         return;
     }
@@ -1383,7 +1305,7 @@ bool EdgeSimulator::openToolDatabase()
         ? QStringLiteral("没有可用的数据库驱动（QODBC/QMYSQL），请先安装 MySQL ODBC 驱动")
         : lastError;
     if (m_dbStat) {
-        m_dbStat->setText(QStringLiteral("连接失败：%1（不影响手填清单）").arg(tip));
+        m_dbStat->setText(QStringLiteral("连接失败：%1（不影响手改帧 JSON）").arg(tip));
     }
     logEvent(QStringLiteral("连接数据库失败（%1:%2/%3）：%4").arg(host).arg(port).arg(dbName).arg(tip));
     return false;
@@ -1421,106 +1343,33 @@ void EdgeSimulator::loadMachineGroups()
 }
 
 /**
- * @brief 从库中读取工具与货位，填入上方两个选择框（只读查询）
- * @return true=读取成功；false=连接或查询失败，失败原因已写到状态行
- * @note  货位按主工程同一套规则格式化成 A-01-02，与上位机单据显示完全一致
+ * @brief 确认与上位机同一个 MySQL 库能连通（帧 JSON 由②页编辑框维护，不再填选择框）
+ * @return true=连通；false=连不上，原因写到状态行
  */
 bool EdgeSimulator::loadToolsAndPositions()
 {
     if (!openToolDatabase()) {
+        if (m_dbStat) {
+            m_dbStat->setText(QStringLiteral("数据库连接失败"));
+        }
         return false;
     }
     QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
-
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-    int toolCount = 0;
-    int posCount = 0;
-    QString err;
-
-    // 工具：编号 + 名称 + 状态（下拉里带状态，测试人员一眼看出在库/借出/待入库）
-    // 状态取位置维度：借出状态记在 tool_position_mapping.status 上，
-    // tool_info.status 不反映单件借出，直查会把已借出工具也标成"在库"；
-    // 有映射行用映射状态，无映射行（待入库/已出库）回落工具表自身状态
-    QSqlQuery toolQuery(db);
-    QString toolSql = QStringLiteral(
-        "SELECT t.tool_code, t.tool_name, COALESCE("
-        "(SELECT mpm.status FROM tool_position_mapping mpm WHERE mpm.tool_id = t.tool_id LIMIT 1),"
-        " t.status) FROM tool_info t");
-    if (m_selectedGroupId != 0) {
-        toolSql += QStringLiteral(" WHERE t.machine_group_id = %1").arg(m_selectedGroupId);
-    }
-    toolSql += QStringLiteral(" ORDER BY t.tool_code");
-    if (toolQuery.exec(toolSql)) {
-        m_pickTool->clear();
-        m_pickTool->addItem(kPickUnknownLabel, QString());   // 认不出工具（未知物场景）
-        while (toolQuery.next()) {
-            const QString code = toolQuery.value(0).toString();
-            const QString name = toolQuery.value(1).toString();
-            const QString status = toolQuery.value(2).toString();
-            m_pickTool->addItem(QStringLiteral("%1  %2 [%3]").arg(code, name, positionStatusText(status)),
-                                code);
-            ++toolCount;
-        }
-    } else {
-        err = toolQuery.lastError().text();
-    }
-
-    // 货位：映射表 JOIN 柜体表 + 工具表，位置按主工程规则格式化
-    if (err.isEmpty()) {
-        QSqlQuery posQuery(db);
-        QString posSql = QStringLiteral(
-                "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name, mpm.status "
-                "FROM tool_position_mapping mpm "
-                "LEFT JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-                "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id");
-        if (m_selectedGroupId != 0) {
-            posSql += QStringLiteral(" WHERE t.machine_group_id = %1").arg(m_selectedGroupId);
-        }
-        posSql += QStringLiteral(" ORDER BY cb.cabinet_name, mpm.layer, mpm.position");
-        if (posQuery.exec(posSql)) {
-            m_pickPos->clear();
-            m_pickPos->addItem(kPickEmptyPosLabel, QString());  // 空货位（工具没放进去）
-            while (posQuery.next()) {
-                const QString pos = common::formatPosition(posQuery.value(0).toString(),
-                                                          posQuery.value(1).toString(),
-                                                          posQuery.value(2).toString());
-                const QString code = posQuery.value(3).toString();
-                const QString name = posQuery.value(4).toString();
-                const QString status = posQuery.value(5).toString();
-                // 文案：货位 + 工具编号 + 名称 + 状态，测试人员一眼看清这个货位上是什么
-                const QString codePart = code.isEmpty() ? QString() : code + QLatin1Char(' ');
-                const QString namePart = name.isEmpty() ? QString() : QStringLiteral("(%1)").arg(name);
-                m_pickPos->addItem(QStringLiteral("%1  %2%3 [%4]")
-                                       .arg(pos, codePart, namePart, positionStatusText(status)),
-                                   pos);
-                ++posCount;
-            }
-        } else {
-            err = posQuery.lastError().text();
-        }
-    }
-    QApplication::restoreOverrideCursor();
-
+    QSqlQuery probe(db);
+    const bool ok = probe.exec(QStringLiteral("SELECT 1"));
+    const QString err = ok ? QString() : probe.lastError().text();
     QSqlDatabase::removeDatabase(QStringLiteral("edge_sim_tools"));
-
-    if (!err.isEmpty()) {
-        if (m_dbStat) {
-            m_dbStat->setText(QStringLiteral("读取失败：%1（不影响手填清单）").arg(err));
-        }
-        logEvent(QStringLiteral("读取工具与货位失败：%1").arg(err));
-        return false;
-    }
     if (m_dbStat) {
-        m_dbStat->setText(QStringLiteral("已读取：工具 %1 条、货位 %2 条（%3）").arg(toolCount).arg(posCount)
-                              .arg(m_dbName ? m_dbName->text() : QString()));
+        m_dbStat->setText(ok
+            ? QStringLiteral("数据库已连接：%1").arg(m_dbName ? m_dbName->text() : QString())
+            : QStringLiteral("数据库查询失败：%1").arg(err));
     }
-    updateSceneHint();   // 顶部状态条里的数据库状态同步刷新
-    logEvent(QStringLiteral("已从数据库读取工具 %1 条、货位 %2 条").arg(toolCount).arg(posCount));
-    return true;
+    updateSceneHint();
+    return ok;
 }
 
 /**
- * @brief 连接数据库并读取工具与货位
+ * @brief 连接数据库并做连通性检查，成功后填机组下拉
  * @return 无。成功失败都写到状态行与日志区
  */
 void EdgeSimulator::onLoadToolsFromDb()
@@ -1534,7 +1383,7 @@ void EdgeSimulator::onLoadToolsFromDb()
 
 /**
  * @brief 按库内在库全量生成清单，并自动切到自定义清单场景
- * @return 无。覆盖当前清单（原清单可先用【保存到文件】备份）；失败只在状态行与日志区提示
+ * @return 无。覆盖当前清单（原清单可先用【保存帧 JSON】备份）；失败只在状态行与日志区提示
  * @note  生成的是"上一轮全部在库"的真实基线：测试人员再在其上改几行就能造出各类场景
  */
 void EdgeSimulator::onGenerateStockList()
@@ -1545,7 +1394,7 @@ void EdgeSimulator::onGenerateStockList()
     QList<CustomRow> rows;
     if (!collectStockRows(rows) || rows.isEmpty()) {
         if (m_dbStat) {
-            m_dbStat->setText(QStringLiteral("生成失败：库里没有可用货位（不影响手填清单）"));
+            m_dbStat->setText(QStringLiteral("生成失败：库里没有可用货位（不影响手改帧 JSON）"));
         }
         logEvent(QStringLiteral("按在库全量生成清单失败：库里没有可用货位"));
         return;
@@ -1553,33 +1402,6 @@ void EdgeSimulator::onGenerateStockList()
     fillOrderTable(rows);
     logEvent(QStringLiteral("已按在库全量生成清单：%1 条（可在此表上改几行造场景）").arg(rows.size()));
     onCustomListActivate();
-}
-
-/**
- * @brief 选了货位后自动带出该货位上的工具编号
- * @return 无。货位为空选项或库里没对应工具时，工具框保持当前选择不动
- */
-void EdgeSimulator::onPositionPicked()
-{
-    if (!m_pickPos || !m_pickTool) {
-        return;
-    }
-    const QString pos = m_pickPos->currentData().toString();
-    if (pos.isEmpty()) {
-        m_pickTool->setCurrentIndex(0);   // 选“空货位”时工具编号留空（认不出）
-        return;
-    }
-    // 下拉文案是 "A-01-01  JZ01-CDQ 充电式电动解锥 [在库]"，工具编号是第 2 段
-    const QString text = m_pickPos->currentText();
-    const QStringList parts = text.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
-    if (parts.size() < 2) {
-        return;
-    }
-    const QString code = parts.at(1);
-    const int index = m_pickTool->findData(code);
-    if (index >= 0) {
-        m_pickTool->setCurrentIndex(index);
-    }
 }
 
 /**
@@ -1737,10 +1559,10 @@ void EdgeSimulator::processLine(const QByteArray& line)
         } else {
             logEvent(QString(QStringLiteral("收到recognize_req → 按配置延迟%1ms回： %2")).arg(delay).arg(sceneText));
             // 兜底提醒：清单配了却没启用，是"配了不生效"最容易踩的坑，这里直接点破
-            if (scene != SceneCustomList
-                && m_orderTable && m_orderTable->rowCount() > 0) {
-                logEvent(QStringLiteral("*** 提醒：本页已配清单，但当前生效场景是“%1”，本次回的是内置场景清单；"
-                                        "要用本页清单请到“工具清单（自定义）”页点【启用自定义清单】").arg(sceneText));
+            if (scene != SceneCustomList && m_frameText
+                && !m_frameText->toPlainText().trimmed().isEmpty()) {
+                logEvent(QStringLiteral("*** 提醒：②页已有帧 JSON，但当前生效场景是“%1”，本次回的是内置场景清单；"
+                                        "要用帧 JSON 请到②页点【启用自定义清单】").arg(sceneText));
             }
             QTimer::singleShot(delay, this, [this, scene] { replyScene(scene); });
         }
@@ -1794,21 +1616,26 @@ void EdgeSimulator::togglePeriodic(bool on)
 
 // ─────────────────────── 协议3.3 识别回应 ───────────────────────
 
-/// 按当前生效场景，向下位机/上位机回送一条 recognize 回应帧（内置场景清单或自定义清单）
-/// @param scene 场景编号，决定回送"正常清单/有借有还/错放"等哪一种回应内容
+/**
+ * @brief 按当前生效场景回送一条 recognize 回应帧
+ * @param scene 场景编号；自定义清单场景读②页帧 JSON 编辑框，其余用内置场景
+ * @return 无
+ */
 void EdgeSimulator::replyScene(int scene)
 {
     if (!m_sock || m_lastRequest.isEmpty()) {
         logEvent(QStringLiteral("没有待回应的recognize请求（先等上位机发一次请求）"));
         return;
     }
-    QJsonObject ack = sceneAckFrame(scene, m_lastRequest);
     if (scene == SceneCustomList) {
-        // 自定义清单：items 由“工具清单”页的文本逐行构造，预览表所见即此处所发
-        ack["items"] = customItemsArray();
-        logEvent(QStringLiteral("按自定义清单回应，共 %1 条货位实况").arg(ack.value(QStringLiteral("items")).toArray().size()));
+        // 自定义清单：②页帧 JSON 编辑框就是发出的内容，改结构直接改那里
+        if (!m_frameText || !sendFrameText(m_frameText->toPlainText())) {
+            return;
+        }
+        logEvent(QStringLiteral("按②页帧 JSON 回应（内容以编辑框为准）"));
+        return;
     }
-    sendFrame(ack);
+    sendFrame(sceneAckFrame(scene, m_lastRequest));
 }
 
 /**
@@ -1948,6 +1775,79 @@ void EdgeSimulator::sendBadIdAck()
 // ─────────────────────── 自定义帧（扩展接口） ───────────────────────
 
 /**
+ * @brief 把识别清单组装成缩进排版的完整 recognize_ack 帧文本
+ * @param items 协议3.3 的 items 数组
+ * @return 带 {{request_id}} 占位符的帧文本，可直接编辑后发送
+ */
+QString EdgeSimulator::formatFrameText(const QJsonArray& items)
+{
+    QJsonObject frame;
+    frame[QStringLiteral("type")] = QStringLiteral("recognize_ack");
+    frame[QStringLiteral("request_id")] = QStringLiteral("{{request_id}}");
+    frame[QStringLiteral("items")] = items;
+    return QString::fromUtf8(QJsonDocument(frame).toJson(QJsonDocument::Indented)).trimmed();
+}
+
+/**
+ * @brief 解析帧文本，供发送前校验
+ * @param text 编辑框里的帧文本
+ * @param frame 解析成功时输出帧对象
+ * @return true=文本是单个 JSON 对象；false=语法坏或不是对象
+ */
+bool EdgeSimulator::parseFrameText(const QString& text, QJsonObject& frame)
+{
+    const QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
+    if (!doc.isObject()) {
+        return false;
+    }
+    frame = doc.object();
+    return true;
+}
+
+/**
+ * @brief 把帧文本写入②页编辑框（程序写入，不标记为手工改动）
+ * @param text 帧 JSON 文本
+ * @return 无
+ */
+void EdgeSimulator::loadFrameText(const QString& text)
+{
+    if (!m_frameText) {
+        return;
+    }
+    m_frameLoading = true;
+    m_frameText->setPlainText(text);
+    m_frameLoading = false;
+    m_frameEdited = false;
+}
+
+/**
+ * @brief 从②页清单表重新生成帧 JSON 并载入编辑框
+ * @return 无
+ * @note  手工改过帧之后，只有显式点【从表格重新生成帧】才会覆盖
+ */
+void EdgeSimulator::refreshFrameTextFromTable()
+{
+    loadFrameText(formatFrameText(customItemsArray()));
+    autoActivateCustomList(QStringLiteral("帧 JSON 已按清单表重新生成"));
+}
+
+/**
+ * @brief 替换占位符并发送一帧；自动回应与手动发送共用同一套规则
+ * @param text 帧 JSON 文本
+ * @return true=已发出一帧；false=文本不是合法 JSON 对象或连接未建立
+ */
+bool EdgeSimulator::sendFrameText(const QString& text)
+{
+    const QString resolved = resolveFramePlaceholders(text, m_lastRequest, m_lastOpenRequest);
+    QJsonObject frame;
+    if (!parseFrameText(resolved, frame)) {
+        logEvent(QStringLiteral("帧 JSON 解析失败，本次未发送：请检查括号、引号与字段结构"));
+        return false;
+    }
+    return sendFrame(frame);
+}
+
+/**
  * @brief 把帧文本里的占位符换成最近一次上位机请求编号
  * @param text 编辑框里的帧文本
  * @param lastRequest 最近收到的识别请求帧
@@ -2029,10 +1929,11 @@ void EdgeSimulator::sendCustomFrame()
     int okCount = 0;
     if (!m_rawSend->isChecked()) {
         // 整段优先：缩进排版后的单帧 JSON 不会被按行拆坏
-        const QJsonDocument whole = QJsonDocument::fromJson(text.toUtf8());
-        if (whole.isObject()) {
-            sendFrame(whole.object());
-            logEvent(QStringLiteral("自定义发送完成：整段 1 帧"));
+        QJsonObject whole;
+        if (parseFrameText(text, whole)) {
+            if (sendFrameText(text)) {
+                logEvent(QStringLiteral("自定义发送完成：整段 1 帧"));
+            }
             return;
         }
     }
@@ -2214,8 +2115,8 @@ QWidget* EdgeSimulator::buildConnectDataPage()
         "第①步：先在窗口顶部连上上位机，再读库。\n"
         "· 上位机IP/端口默认 127.0.0.1:9000，点【连接】即可；\n"
         "· 数据库是上位机同一个库 smart_cabinet，账号口令取自 simulator.ini（root/root），不必手输；\n"
-        "· 读到的工具与货位会填进②页的下拉框与候选列表，勾选后即可生成清单；\n"
-        "· 不想连库也能用：在②页手工加行。"));
+        "· 读到的工具与货位会填进②页的本单候选列表，勾选后即可生成清单；\n"
+        "· 不想连库也能用：在②页改帧 JSON。"));
     tip->setWordWrap(true);
     box->addWidget(tip);
     box->addStretch(1);
