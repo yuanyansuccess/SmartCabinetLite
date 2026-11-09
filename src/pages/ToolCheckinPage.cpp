@@ -32,6 +32,7 @@
 #include <QTimer>  // 结果页延后到事件循环下一轮弹出
 #include <QRegularExpression>  // 解析content字段
 #include <QSet>  // 出库位置查重
+#include <QStringList>  // 汇总行级校验错误
 #include <QDateTime>  // 记录时间简化格式化
 
 namespace {
@@ -624,6 +625,11 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
     db::ToolDAO toolDao;
     QSet<int> outMappingIds;    // 出库位置查重
     QMap<int, bool> toolInOut;  // 工具是否同时出现入库(true)与出库(false)
+    // 汇总全部问题行：一次确认把所有待修正行都列出来，避免只报第一行让用户反复提交
+    QStringList emptyToolRows;
+    QStringList dupPosRows;
+    QStringList badInfoRows;
+    QStringList conflictTools;
 
     for (int row = 0; row < m_orderTable->rowCount(); ++row) {
         auto* typeCombo = qobject_cast<QComboBox*>(m_orderTable->cellWidget(row, 0));
@@ -633,8 +639,8 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
         QString type = typeCombo->currentData().toString();
         int selectedId = toolCombo->currentData().toInt();
         if (selectedId <= 0) {
-            errorMsg = QStringLiteral("第 %1 行请选择工具").arg(row + 1);
-            return QList<OrderRow>();
+            emptyToolRows << QString::number(row + 1);
+            continue;
         }
 
         OrderRow item;
@@ -647,8 +653,8 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
             auto* posItem = m_orderTable->item(row, 3);
             item.toolId = posItem ? posItem->data(Qt::UserRole).toInt() : 0;
             if (outMappingIds.contains(item.mappingId)) {
-                errorMsg = QStringLiteral("第 %1 行位置重复出库").arg(row + 1);
-                return QList<OrderRow>();
+                dupPosRows << QString::number(row + 1);
+                continue;
             }
             outMappingIds.insert(item.mappingId);
         } else {
@@ -659,8 +665,8 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
         // 从库中补全工具基础信息（编号/名称）
         QJsonObject info = toolDao.findToolBasicInfo(item.toolId);
         if (info.isEmpty()) {
-            errorMsg = QStringLiteral("第 %1 行工具信息加载失败，请重新选择").arg(row + 1);
-            return QList<OrderRow>();
+            badInfoRows << QString::number(row + 1);
+            continue;
         }
         item.toolCode = info["toolCode"].toString();
         item.toolName = info["toolName"].toString();
@@ -668,12 +674,28 @@ QList<ToolCheckinPage::OrderRow> ToolCheckinPage::collectOrderItems(QString& err
         // 同一工具不允许同时出现入库与出库指令（状态冲突）
         bool isIn = (type != "out");
         if (toolInOut.contains(item.toolId) && toolInOut.value(item.toolId) != isIn) {
-            errorMsg = QStringLiteral("工具「%1」不能同时出现在入库和出库指令中").arg(item.toolName);
-            return QList<OrderRow>();
+            if (!conflictTools.contains(item.toolName)) conflictTools << item.toolName;
+            continue;
         }
         toolInOut.insert(item.toolId, isIn);
 
         items.append(item);
+    }
+
+    QStringList errors;
+    if (!emptyToolRows.isEmpty())
+        errors << QStringLiteral("第 %1 行请选择工具").arg(emptyToolRows.join(QStringLiteral("、")));
+    if (!dupPosRows.isEmpty())
+        errors << QStringLiteral("第 %1 行位置重复出库").arg(dupPosRows.join(QStringLiteral("、")));
+    if (!badInfoRows.isEmpty())
+        errors << QStringLiteral("第 %1 行工具信息加载失败，请重新选择")
+                      .arg(badInfoRows.join(QStringLiteral("、")));
+    if (!conflictTools.isEmpty())
+        errors << QStringLiteral("工具「%1」不能同时出现在入库和出库指令中")
+                      .arg(conflictTools.join(QStringLiteral("、")));
+    if (!errors.isEmpty()) {
+        errorMsg = errors.join(QStringLiteral("；"));
+        return QList<OrderRow>();
     }
     return items;
 }

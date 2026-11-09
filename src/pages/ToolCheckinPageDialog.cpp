@@ -376,15 +376,21 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
 
     // 未全过：本轮不写库，按轮次给出出口（文案带当前轮次，操作人一眼知道是第几轮）
     const bool reachedLimit = (round >= maxRounds);
-    QString summaryText = reachedLimit
-        ? QStringLiteral("共 %1 项，比对通过 %2 项，未完成 %3 项。第 %4 轮仍未全过，按当前实况写库（通过项写入，未过项保持原状）")
-              .arg(items.size()).arg(matchedIdx.size()).arg(items.size() - matchedIdx.size()).arg(round)
-        : QStringLiteral("共 %1 项，比对通过 %2 项，未完成 %3 项，请选择后续操作（第 %4/%5 轮）")
-              .arg(items.size()).arg(matchedIdx.size()).arg(items.size() - matchedIdx.size())
-              .arg(round).arg(maxRounds);
-    if (hasHardDiff) {
-        summaryText += QStringLiteral("\n另有 %1 处全柜差异（库里有工具但柜内没有，或柜内多出未登记工具）：实际取放与单据不一致，请确认后再写库")
-                          .arg(hardDiffs.size());
+    // 单据项全过、只是全柜有差异：没有可整理的单据项，重开柜无从下手，
+    // 改为让操作人核查柜内实物后确认写库
+    const bool onlyStockDiff = (matchedIdx.size() == items.size()) && hasHardDiff;
+
+    // 大标题只保留结论与轮次；全柜差异/错放明细由下方提示框与结果表承载。
+    // 固定宽度弹窗里 24px 粗体长句会被左右裁切，故一律控制在两行短句内。
+    QString summaryText;
+    if (reachedLimit) {
+        summaryText = QStringLiteral("第 %1 轮仍未全过\n请按当前实况写库").arg(round);
+    } else if (onlyStockDiff) {
+        summaryText = QStringLiteral("全柜账实不符\n请核对后再写库");
+    } else {
+        summaryText = QStringLiteral("比对通过 %1 项，未完成 %2 项\n第 %3/%4 轮，请选择后续操作")
+                          .arg(matchedIdx.size()).arg(items.size() - matchedIdx.size())
+                          .arg(round).arg(maxRounds);
     }
     ResultDialog dlg(QStringLiteral("出入库检查结果"), QStringLiteral("⚠️"), summaryText,
         QStringLiteral("#e67e22"), 14, this);
@@ -414,9 +420,6 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
     dlg.bodyLayout()->addWidget(tipLabel);
 
     QString action;
-    // 单据项全过、只是全柜有差异：没有可整理的单据项，重开柜无从下手，
-    // 改为让操作人核查柜内实物后确认写库
-    const bool onlyStockDiff = (matchedIdx.size() == items.size()) && hasHardDiff;
     if (round < maxRounds && m_roundState != RoundState::GivenUp && !onlyStockDiff) {
         // 未到上限：双出口（重新开柜整理 / 按当前实况写库），按钮带下一轮轮次
         m_roundState = RoundState::Partial;

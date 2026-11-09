@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QShowEvent>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 ResultDialog::ResultDialog(const QString& windowTitle, const QString& icon,
@@ -32,9 +33,11 @@ ResultDialog::ResultDialog(const QString& windowTitle, const QString& icon,
     iconLabel->setStyleSheet("font-size:56px;background:transparent;");
     m_layout->addWidget(iconLabel);
 
-    // 大标题
+    // 大标题：允许折行并跟随弹窗宽度收缩，避免长文案在固定宽度弹窗里被左右裁切
     auto* titleLabel = new QLabel(title);
     titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setWordWrap(true);
+    titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     titleLabel->setStyleSheet(QString(
         "font-size:24px;font-weight:bold;color:%1;background:transparent;").arg(titleColor));
     m_layout->addWidget(titleLabel);

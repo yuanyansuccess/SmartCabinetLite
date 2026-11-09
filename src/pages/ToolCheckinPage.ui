@@ -189,7 +189,7 @@ padding:8px 14px;</string>
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>300</height>
+              <height>200</height>
              </size>
             </property>
             <property name="styleSheet">
@@ -235,12 +235,23 @@ QHeaderView::section{background:#f8f9fb;color:#666;font-weight:600;font-size:14p
           </item>
           <item>
            <widget class="QLabel" name="tipLabel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>40</height>
+             </size>
+            </property>
             <property name="styleSheet">
-             <string notr="true">font-size:14px;color:#1890ff;background:#e6f7ff;border:1px solid #91d5ff;border-radius:10px;padding:12px 16px;</string>
+             <string notr="true">font-size:14px;color:#1890ff;background:#e6f7ff;border:1px solid #91d5ff;border-radius:10px;padding:8px 16px;</string>
             </property>
             <property name="text">
-             <string>逐行添加出入库指令：选择类型（入库/出库）与工具名称，位置由系统按对照关系自动带出。
-确认后先开柜，请按单据放入或取出工具；关闭柜门时系统逐项检查并记录。</string>
+             <string>逐行选择类型与工具，位置自动带出；确认后开柜取放，关门时系统逐项核对并记录。</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
