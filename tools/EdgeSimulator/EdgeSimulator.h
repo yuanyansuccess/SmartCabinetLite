@@ -7,16 +7,14 @@
  *   ① 连接与数据：连上位机 + 连库读工具货位（口令取自 simulator.ini，不必手输）
  *   ② 单据模拟：定义"这一单要核对什么"——清单表逐行标注本单归属与识别结果，并设识别清单反馈响应时间
  *   ③ 识别回应：收到识别请求时怎么答（场景/多轮序列/开箱策略）
- *   ④ 异常注入：链路与帧级异常（离线、超时、坏帧、摄像头闸门…）
- *   ⑤ 场景与日志：6 个典型场景一键套用 + 接口能力速查
+ *   ④ 异常注入：链路与帧级异常（离线、超时、坏帧、识别清单结构错误、摄像头闸门…）
  *
  * 覆盖范围（与《智能工具柜配置项通信协议》对应）：
  *   3.3 recognize_ack 全部场景回应（正常/有借有还/无变化/错放/未知物/
- *       置信度低/missing/自定义清单）
+ *       置信度低/missing/自定义清单/18 项结构与兼容场景）
  *   3.3 自定义工具清单：按真实单据逐行填"回什么清单"，脱离内置样例
  *   3.3 异常回应（延迟/重复×2/粘包/不回应/乱序request_id）
- *   3.4 periodic 周期帧（相机5态自检/空自检/uptime）
- *   3.5 version_ack（版本号可配/自动回应）
+ *   3.4 periodic 周期帧（相机5态自检/空自检/uptime/software_version，版本随帧上报）
  *   3.6 坏帧/未知type/超长帧/断开
  *   3.7 open_req 开箱回应（自动成功/固定失败/不回应）
  *   第5章 停发周期帧（验证离线判定与恢复补发）
@@ -64,6 +62,17 @@ public:
     void showTab(int index);
 
     /**
+     * @brief 把帧文本里的占位符换成最近一次上位机请求编号
+     * @param text 编辑框里的帧文本
+     * @param lastRequest 最近收到的识别请求帧
+     * @param lastOpenRequest 最近收到的开箱请求帧
+     * @return 替换后的文本；没有对应请求时保留原占位符
+     */
+    static QString resolveFramePlaceholders(const QString& text,
+                                            const QJsonObject& lastRequest,
+                                            const QJsonObject& lastOpenRequest);
+
+    /**
      * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
      * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
      */
@@ -88,7 +97,7 @@ private slots:
     void injectOversize();       ///< 注入超长帧（测断开保护）
     void sendBadIdAck();         ///< 回应乱序request_id（测3.6-②丢弃）
     // 自定义帧
-    void sendCustomFrame();      ///< 发送自定义内容（按行发送，JSON或原文）
+    void sendCustomFrame();      ///< 发送编辑框内容（整段单帧优先，非单对象退回逐行；原文模式逐行原样发）
     void toggleLoopSend(bool on);///< 循环发送自定义内容（压力/持续异常测试）
     // 自定义工具清单（协议3.3：按真实单据逐行配置"回什么工具清单"）
     void onCustomListActivate();     ///< 把识别回应场景切到"自定义清单"
@@ -139,9 +148,9 @@ private:
     QWidget* buildOrderPage();      ///< 页② 单据模拟（清单表 + 本单候选 + 识别清单反馈响应时间）
     QWidget* buildRecognizeTab();   ///< 页③ 识别回应（3.3）
     QWidget* buildOpenPanel();      ///< 开箱回应 3.7（放在识别回应页顶部）
-    QWidget* buildRespondPage();    ///< 页③ 识别回应（版本/开箱 + 识别场景/延迟/序列）
-    QWidget* buildPeriodicTab();    ///< 页④ 周期帧（3.4）
-    QWidget* buildFaultTab();       ///< 页④ 版本/异常（3.5-3.6）
+    QWidget* buildRespondPage();    ///< 页③ 识别回应（开箱 + 识别场景/延迟/序列）
+    QWidget* buildPeriodicTab();    ///< 页④ 周期帧（3.4，版本随帧上报）
+    QWidget* buildFaultTab();       ///< 页④ 异常注入（3.6 帧级异常 + 3.3 结构校验）
     QWidget* buildCustomTab();      ///< 页④ 自定义帧（高级）
     QWidget* buildExceptionPage();  ///< 页④ 异常注入（周期帧+异常+自定义帧）
     void buildStepNav();            ///< 左侧步骤导航
@@ -160,6 +169,7 @@ private:
     // 协议与配置
     void processLine(const QByteArray& line);   ///< 分帧解析（收）
     bool sendFrame(const QJsonObject& frame);   ///< 发送一帧
+    void exportFrameToEditor(const QJsonObject& frame); ///< 把一帧载入自定义帧编辑框，供发送前自由修改
     QJsonObject sceneAck(int scene) const;      ///< 构造场景回应帧
     QJsonArray customItemsArray() const;        ///< 按清单表构造 items 数组（所见即所发）
     QString customListFilePath() const;        ///< 清单文件路径（exe 同目录 custom_items.txt）
@@ -208,7 +218,7 @@ private:
     QComboBox*   m_openPolicy = nullptr; ///< 开箱回应策略单选（自动成功/固定失败/不回应，3.7）
     QLineEdit*   m_openFailMsg = nullptr;///< 开箱"固定失败"时 open_ack 附带的原因文案
     // 自定义帧区
-    QTextEdit*   m_custom = nullptr;     ///< 自定义内容输入（每行一帧）
+    QTextEdit*   m_custom = nullptr;     ///< 编辑框内容即最终发出的帧（支持多行缩进单帧，也可一行多帧）
     QCheckBox*   m_rawSend = nullptr;    ///< 原文发送开关（不校验JSON，可发坏帧/任意文本）
     QSpinBox*    m_loopMs = nullptr;     ///< 循环发送间隔
     QPushButton* m_btnLoop = nullptr;    ///< 循环发送启停
@@ -241,7 +251,7 @@ private:
     QComboBox*   m_groupCombo = nullptr;    ///< 机组下拉（识别清单按所选机组过滤，0=全部机组）
     int          m_selectedGroupId = 0;     ///< 当前所选机组；0 表示不过滤（全部机组）
     QPushButton* m_btnOneClick = nullptr;   ///< 一键标准联调按钮
-    QTabWidget*  m_tabs = nullptr;       ///< 异常注入页内部的分组页签（周期帧/版本异常/自定义帧）
+    QTabWidget*  m_tabs = nullptr;       ///< ④页内部分组页签（周期帧/异常注入/自定义帧），载入编辑框后自动切换
     QTimer       m_loopTimer;            ///< 循环发送定时器
     // 日志
     QTextEdit*   m_logView = nullptr;

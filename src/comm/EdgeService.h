@@ -37,7 +37,7 @@ public:
      * @brief 查询当前边缘机 8 路摄像头自检是否全部正常（开柜前置安全闸门）
      * @return true=全部正常，或周期帧未上报自检（兼容未启用自检的硬件，不拦开柜）；
      *         false=存在任一状态非 "ok" 的摄像头（offline/low_light/dirty/comm_error）
-     * @note  摄像头异常属安全红线：货位识别可信度下降，禁止开锁（袁总安全策略）
+     * @note  摄像头异常属安全红线：货位识别可信度下降，禁止开锁
      */
     bool allCamerasOk() const;
 

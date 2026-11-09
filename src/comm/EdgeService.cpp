@@ -4,7 +4,7 @@
  * @author 袁燕
  *
  * 协议依据：《智能工具柜配置项通信协议》
- *   3.2/3.3  recognize 请求/回应字段
+ *   3.2/3.3  recognize 请求/回应字段；识别清单结构不合规时整帧拒绝，不写库
  *   3.6-①    3秒未收到则重发，最多2次（共3次发送：1首发+2重发）
  *   3.6-②    request_id 认不出或 type 不对 → 丢弃并计数
  *   3.6-③    同一 request_id 多次收到 → 只认第一次（命中即移除登记表）
@@ -24,6 +24,10 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QSet>
+#include <QStringList>
 
 namespace {
 /**
@@ -33,39 +37,84 @@ namespace {
 inline qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
 
 /**
- * @brief 从 recognize_ack 的 items 数组解析识别结果清单（协议3.3字段表）
- * @param arr items 数组（JSON）
- * @return 识别结果清单；货位为空的项跳过并告警，其余字段按协议默认值补齐
- * @note  协议约定一项一货位且 5 个字段必填（position/tool_id/confidence/alert_type/present）：
- *        边缘机不再下发 class_id 与 alert_level（版本合帧同期定稿），识别类别与告警级别由上位机判定。
- *        缺 confidence 曾让"数据没给"伪装成"识别置信度不足"，故这里逐项补齐并跳过无法定位的货位
+ * @brief 校验并解析 recognize_ack 的 items 数组（协议3.3字段规整约定）
+ * @param arr   items 数组（JSON）
+ * @param out   校验通过时输出识别清单
+ * @param issue 校验失败时输出人读原因（第一条不合规项）
+ * @return true=清单结构合规可用；false=整帧不可信，调用方不得据此写库
+ * @note  协议约定一项一货位、5 个字段（position/tool_id/confidence/alert_type/present）。
+ *        任一元素不合规即拒绝整帧，不能只跳过该项：跳过会让该货位在清单里消失，
+ *        出库比对把"没有回报"当成"工具已取走"，写出账实不符的记录。
+ *        alert_type 缺席按 none、present 缺席按 true 兼容未升级的边缘机；
+ *        两字段一旦带上，类型和取值必须合规。空数组是合法的"无变化"清单。
  */
-QList<RecognizeItem> parseItems(const QJsonArray& arr)
+bool parseItems(const QJsonArray& arr, QList<RecognizeItem>& out, QString& issue)
 {
-    QList<RecognizeItem> out;
-    int skipped = 0;
-    for (const QJsonValue& v : arr) {
-        const QJsonObject o = v.toObject();
-        RecognizeItem it;
-        it.position   = o["position"].toString();
-        if (it.position.isEmpty()) {
-            // 货位是上位机比对的唯一依据，缺了就无法定位，整项作废
-            ++skipped;
-            continue;
+    out.clear();
+    const QStringList alertTypes = {
+        QStringLiteral("none"), QStringLiteral("misplaced"), QStringLiteral("unknown"),
+        QStringLiteral("missing"), QStringLiteral("low_confidence")
+    };
+    QSet<QString> seenPositions;
+    for (int idx = 0; idx < arr.size(); ++idx) {
+        const int line = idx + 1;
+        const QJsonValue value = arr.at(idx);
+        if (!value.isObject()) {
+            issue = QStringLiteral("第%1项不是对象").arg(line);
+            return false;
         }
-        it.toolId     = o["tool_id"].toString();
-        it.confidence = o["confidence"].toDouble();
-        it.alertType  = o["alert_type"].toString(QStringLiteral("none"));
-        // present 缺省 true：老边缘机不带该字段时按"已覆盖"处理，
-        // 否则全柜核对会把全部货位误报成"未覆盖"
-        it.present    = o.contains("present") ? o["present"].toBool(true) : true;
-        out.append(it);
+        const QJsonObject item = value.toObject();
+
+        const QJsonValue posValue = item.value(QStringLiteral("position"));
+        if (!posValue.isString() || posValue.toString().isEmpty()) {
+            issue = QStringLiteral("第%1项 position 缺失、为空或不是字符串").arg(line);
+            return false;
+        }
+        const QJsonValue toolValue = item.value(QStringLiteral("tool_id"));
+        if (!toolValue.isString()) {
+            issue = QStringLiteral("第%1项 tool_id 缺失或不是字符串").arg(line);
+            return false;
+        }
+        const QJsonValue confValue = item.value(QStringLiteral("confidence"));
+        if (!confValue.isDouble()) {
+            issue = QStringLiteral("第%1项 confidence 缺失或不是数值").arg(line);
+            return false;
+        }
+        const double confidence = confValue.toDouble();
+        if (confidence < 0.0 || confidence > 1.0) {
+            issue = QStringLiteral("第%1项 confidence=%2 超出 0~1").arg(line).arg(confidence);
+            return false;
+        }
+        const QJsonValue alertValue = item.value(QStringLiteral("alert_type"));
+        if (alertValue.isUndefined()) {
+            // 未升级的边缘机不带告警类型：按无告警处理，仍属合法帧
+        } else if (!alertValue.isString() || !alertTypes.contains(alertValue.toString())) {
+            issue = QStringLiteral("第%1项 alert_type 不是字符串或不在协议枚举内").arg(line);
+            return false;
+        }
+        const QJsonValue presentValue = item.value(QStringLiteral("present"));
+        if (!presentValue.isUndefined() && !presentValue.isBool()) {
+            issue = QStringLiteral("第%1项 present 不是布尔值").arg(line);
+            return false;
+        }
+
+        const QString position = posValue.toString();
+        if (seenPositions.contains(position)) {
+            issue = QStringLiteral("第%1项货位 %2 重复上报").arg(line).arg(position);
+            return false;
+        }
+        seenPositions.insert(position);
+
+        RecognizeItem parsed;
+        parsed.position   = position;
+        parsed.toolId     = toolValue.toString();
+        parsed.confidence = confidence;
+        parsed.alertType  = alertValue.isUndefined()
+                                ? QStringLiteral("none") : alertValue.toString();
+        parsed.present    = presentValue.isUndefined() ? true : presentValue.toBool();
+        out.append(parsed);
     }
-    if (skipped > 0) {
-        qWarning() << "[EdgeService] recognize_ack 有" << skipped
-                   << "项缺货位已跳过（协议3.3要求每项必填货位）";
-    }
-    return out;
+    return true;
 }
 
 /**
@@ -353,9 +402,29 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
             return;
         }
         m_pending.remove(id);          // 3.6-③：只认第一次
+
+        // 结构校验：清单字段不合规时整帧拒绝，本次不写库。
+        // 不能用默认值补齐：空的工具编号会被出库比对当成"工具已取走"。
+        const QJsonValue itemsValue = frame["items"];
+        if (!itemsValue.isArray()) {
+            qWarning() << "[EdgeService] 识别清单结构校验失败" << id
+                       << "items 字段缺失或不是数组";
+            emit recognizeFailed(id,
+                QStringLiteral("识别清单结构不符合协议：items 字段缺失或不是数组，本次不写库"));
+            return;
+        }
+        QList<RecognizeItem> parsedItems;
+        QString issue;
+        if (!parseItems(itemsValue.toArray(), parsedItems, issue)) {
+            qWarning() << "[EdgeService] 识别清单结构校验失败" << id << issue;
+            emit recognizeFailed(id,
+                QStringLiteral("识别清单结构不符合协议：") + issue + QStringLiteral("，本次不写库"));
+            return;
+        }
+
         RecognizeResult result;
         result.requestId = id;
-        result.items = parseItems(frame["items"].toArray());
+        result.items = parsedItems;
         qDebug() << "[EdgeService] 识别回应已配对" << id
                  << "识别条目数=" << result.items.size();
         emit recognizeFinished(id, result);

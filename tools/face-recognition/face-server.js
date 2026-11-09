@@ -38,33 +38,47 @@ if (!process.env.OMP_WAIT_POLICY) process.env.OMP_WAIT_POLICY = 'PASSIVE';
 
 // 特征向量由 512 维引擎（InsightFace buffalo_l，face-server-512.py @ 8090）提供：
 // landmarks(68点)/posture/yaw/pitch 仍由 face-api 完成，活体/方位/定位逻辑不受影响。
-// 512 引擎输出已 L2 归一化，余弦相似度=内积；判定阈值以 512 维实测分布标定
-// （见 src/services/FaceRecognitionService.h），不再沿用 face-api 时代的 0.94/0.96。
+// 512 引擎输出已 L2 归一化，余弦相似度=内积；判定阈值见 src/services/FaceRecognitionService.h。
 // 512 维引擎依赖 Python + InsightFace；Python 解释器路径优先取环境变量 FACE_PYTHON，
-// 否则按平台自动探测（Windows: where python/python3；Linux: which python3/python）。
-// 旧版硬编码 D:\Anaconda3\python.exe 在非该路径/非 Windows（如麒麟 Linux）下会导致
-// 512 引擎拉起失败、刷脸功能失效，故改为可配置 + 自动探测。
+// 否则按平台自动探测（Windows: where py/python/python3；Linux: which python3/python）。
 const FACE_SERVER_512_PY = path.join(__dirname, '..', 'face-recognition-512', 'face-server-512.py');
 const FACE_SERVER_512_URL = 'http://127.0.0.1:8090';
 
+/**
+ * 定位 512 维引擎使用的 Python 解释器。
+ *
+ * @brief 优先读环境变量 FACE_PYTHON，再按平台逐个探测候选命令；
+ *        Windows 应用商店的占位程序不是解释器，命中时跳过。
+ * @return 解释器路径或命令名；全部探测失败时返回平台默认命令名
+ */
 function findPython() {
   if (process.env.FACE_PYTHON) return process.env.FACE_PYTHON;
   const isWin = process.platform === 'win32';
   const probe = isWin ? 'where' : 'which';
-  const candidates = isWin ? ['python', 'python3', 'py'] : ['python3', 'python'];
-  for (const c of candidates) {
+  // py 是 Windows 官方启动器，路径固定且不会命中应用商店占位程序，优先探测。
+  const candidates = isWin ? ['py', 'python', 'python3'] : ['python3', 'python'];
+  for (const command of candidates) {
     try {
-      const out = execSync(`${probe} ${c}`, { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString().trim().split(/\r?\n/)[0];
-      if (out) return out;
-    } catch (e) { /* 未找到，尝试下一个 */ }
+      const lines = execSync(`${probe} ${command}`, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().trim().split(/\r?\n/);
+      // WindowsApps 下的 python.exe 是应用商店的占位程序，不是解释器。
+      const found = lines.map(line => line.trim()).find(
+        line => line && !line.includes('WindowsApps'));
+      if (found) return found;
+    } catch (probeErr) { /* 未找到，尝试下一个 */ }
   }
   return isWin ? 'python' : 'python3';
 }
 const PY512 = findPython();
 
+// 512 维引擎状态：/health 需要把真实状态告诉上位机，避免只报本服务就绪。
+let engine512Ready = false;
+let engine512Error = '';
+let child512 = null;
+let ensureTimer = null;
+
 // 人脸框边长下限(px)：低于此值视为距离过远，提示"请靠近"。
-// 与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先做本地提示，服务端此处兜底。
+// 与 Qt 端 SC::FACE_MIN_SIZE 保持一致；Qt 端先提示，服务端再判一次，防止漏判。
 const FACE_MIN_SIZE = 70;
 
 // 分段计时开关：SC_FACE_TIMING=0 关闭日志（timing 字段仍随响应返回）
@@ -81,7 +95,7 @@ async function init() {
         // 推理后端：优先 tfjs-node 原生(Eigen多线程)，纯JS后端下推理比原生慢约100倍。
         // 注意：tfjs-node 注册的后端名是 'tensorflow'，setBackend('cpu') 会强制走纯JS；
         // face-api 需用 node 专用入口(dist/face-api.node)才与 tfjs-node 共享后端。
-        // 兜底：原生后端加载失败（如麒麟ARM无预编译二进制）时回退纯JS，保证服务可用。
+        // 原生后端加载失败时（如麒麟ARM无预编译二进制）改用纯JS，保证服务可用。
         try {
             tf = require('@tensorflow/tfjs-node');
             faceapi = require('@vladmandic/face-api/dist/face-api.node');
@@ -94,11 +108,11 @@ async function init() {
             faceapi = require('@vladmandic/face-api');
             await tf.setBackend('cpu');
             await tf.ready();
-            console.log('[face-server] 推理后端: tfjs 纯JS(慢速兼容兜底)');
+            console.log('[face-server] 推理后端: tfjs 纯JS(兼容用，速度较慢)');
         }
 
         // face-api 仅承担人脸检测(tinyFaceDetector)与 68 点定位(faceLandmark68Net)；
-        // 特征向量由 512 维引擎(face-server-512.py @ 8090)提供，不再加载 faceRecognitionNet。
+        // 特征向量由 512 维引擎(face-server-512.py @ 8090)提供。
         await faceapi.nets.tinyFaceDetector.loadFromDisk(MODELS_PATH);
         await faceapi.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH);
 
@@ -146,8 +160,7 @@ async function extractFeature(imageBase64) {
     let tDetect = 0, tLandmarks = 0, tDescriptor = 0;
     try {
         // face-api 负责人脸检测与 68 点定位（供客户端方位判断）；
-        // 人脸特征向量由 512 维引擎（extract512）提供，此处不再跑 face-api 的
-        // faceRecognitionNet——其结果已被 512 特征取代，白跑纯属浪费（约 60ms/帧）。
+        // 人脸特征向量由 512 维引擎（extract512）提供，无需再跑 faceRecognitionNet。
         // inputSize 160：检测推理计算量随输入尺寸显著下降（约提速40~50%），
         // 160=32×5 符合 face-api 要求，正常登录距离（人脸框>35px@320图）检出无影响。
         const detectTask = faceapi.detectSingleFace(
@@ -162,7 +175,7 @@ async function extractFeature(imageBase64) {
             return { success: false, error: '未检测到人脸，请正对摄像头' };
         }
 
-        // 段3：68关键点（faceLandmark68Net），供客户端方位判断与 512 引擎对齐参考
+        // 段3：68关键点（faceLandmark68Net），供客户端方位判断使用
         const landmarkTask = detectTask.withFaceLandmarks();
         const withLandmarks = await landmarkTask.run();
         tLandmarks = Date.now() - t0 - tDecode - tDetect;
@@ -185,16 +198,28 @@ async function extractFeature(imageBase64) {
                 timing: buildTiming(tDecode, tDetect, tLandmarks, tDescriptor, t0)
             };
         }
-        // 特征向量由 512 维引擎提供；失败时透传原因，由客户端提示
+        // 特征向量由 512 维引擎提供；只有引擎失联才更新状态并尝试重新拉起，
+        // 业务失败（未检出人脸等）保持引擎状态不变，避免健康检查出现自相矛盾的取值。
         let descriptor512;
         try {
             const r512 = await extract512(imageBase64);
             if (!r512.success || !r512.descriptor) {
-                return { success: false, error: '512维引擎：' + (r512.error || '未检出人脸'), code: 'NO_FACE_512' };
+                const reason = '512维引擎：' + (r512.error || '未检出人脸');
+                if (r512.engineUnavailable) {
+                    engine512Ready = false;
+                    engine512Error = reason;
+                    ensure512();
+                }
+                return { success: false, error: reason, code: 'NO_FACE_512' };
             }
             descriptor512 = r512.descriptor;
-        } catch (e) {
-            return { success: false, error: '512维引擎调用失败：' + e.message, code: 'ENGINE_512_ERR' };
+            engine512Ready = true;
+            engine512Error = '';
+        } catch (callErr) {
+            engine512Ready = false;
+            engine512Error = '512维引擎调用失败：' + callErr.message;
+            ensure512();
+            return { success: false, error: engine512Error, code: 'ENGINE_512_ERR' };
         }
 
         // 段4：512 维引擎特征提取（含转发 8090）耗时
@@ -255,45 +280,119 @@ function extract512(imageBase64) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
         }, (resp) => {
-            let d = '';
-            resp.on('data', c => d += c);
+            let body = '';
+            resp.on('data', chunk => body += chunk);
             resp.on('end', () => {
-                try { resolve(JSON.parse(d)); }
-                catch (e) { resolve({ success: false, error: '512引擎响应解析失败' }); }
+                try { resolve(JSON.parse(body)); }
+                catch (parseErr) {
+                    resolve({ success: false, error: '512引擎响应解析失败', engineUnavailable: true });
+                }
             });
         });
-        req.on('error', (e) => resolve({ success: false, error: '512引擎连接失败：' + e.message }));
+        req.on('error', (connErr) => resolve({
+            success: false,
+            error: '512引擎连接失败：' + connErr.message,
+            engineUnavailable: true
+        }));
         req.write(payload);
         req.end();
     });
 }
 
 /**
- * 拉起 512 维引擎常驻进程（若未运行）。失败仅告警，不阻塞主服务。
+ * 拉起 512 维引擎进程，并接管其输出与退出事件。
+ *
+ * @brief 由本服务托管的子进程，随本服务退出而结束；输出用于定位模型或依赖问题。
+ * @return 无返回值；拉起结果写入 engine512Ready / engine512Error 状态
  */
 function spawn512() {
+    if (child512) return;   // 已拉起且尚未退出，避免重复启动占用 8090 端口
     try {
         console.log('[face-server] 拉起 512 维引擎：', FACE_SERVER_512_PY);
-        const p = spawn(PY512, [FACE_SERVER_512_PY], { detached: true, stdio: 'ignore' });
-        p.unref();
-    } catch (e) {
-        console.warn('[face-server] 512 维引擎拉起失败（请手动启动 face-server-512.py）：', e.message);
+        const child = spawn(PY512, [FACE_SERVER_512_PY], {
+            cwd: path.dirname(FACE_SERVER_512_PY),
+            // 子进程输出到管道时按 UTF-8 编码，转发到本服务日志才不会乱码。
+            env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }),
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        child512 = child;
+        let stderrTail = '';
+        let stdoutPending = '';
+        child.stdout.on('data', chunk => {
+            // 按整行转发，避免一行日志被拆成多段后带上重复前缀。
+            stdoutPending += chunk.toString();
+            const lines = stdoutPending.split(/\r?\n/);
+            stdoutPending = lines.pop();
+            for (const line of lines) {
+                if (line) process.stdout.write('[face-server-512] ' + line + '\n');
+            }
+        });
+        child.stderr.on('data', chunk => {
+            stderrTail = (stderrTail + chunk.toString()).slice(-2000);
+        });
+        child.on('error', err => {
+            engine512Ready = false;
+            engine512Error = '512 维引擎进程启动失败：' + err.message;
+            console.warn('[face-server]', engine512Error);
+            child512 = null;
+        });
+        child.on('exit', code => {
+            engine512Ready = false;
+            child512 = null;
+            if (code !== 0) {
+                engine512Error = stderrTail.trim().slice(-400) || ('512 维引擎退出，退出码 ' + code);
+                console.warn('[face-server] 512 维引擎退出：', engine512Error);
+            }
+        });
+    } catch (spawnErr) {
+        engine512Ready = false;
+        engine512Error = '512 维引擎拉起失败：' + spawnErr.message;
+        console.warn('[face-server]', engine512Error);
+        child512 = null;
     }
 }
 
 /**
- * 确保 512 维引擎可用：健康检查未就绪则自动拉起。
+ * 检查 512 维引擎是否就绪，未运行则拉起。
+ *
+ * @brief 供启动与定时轮询共用；端口已被占用但模型未就绪时不重复拉起。
+ * @return 无返回值；检查结果写入 engine512Ready / engine512Error 状态
  */
 function ensure512() {
-    const req = http.get(FACE_SERVER_512_URL + '/health', (r) => {
-        let d = '';
-        r.on('data', c => d += c);
-        r.on('end', () => {
-            try { if (JSON.parse(d).ready) { console.log('[face-server] 512 维引擎已就绪'); return; } } catch (e) {}
-            spawn512();
+    const req = http.get(FACE_SERVER_512_URL + '/health', (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => {
+            let ok = false;
+            try { ok = JSON.parse(body).ready === true; }
+            catch (parseErr) { /* 响应不是 JSON，按未就绪处理 */ }
+            if (ok) {
+                if (!engine512Ready) console.log('[face-server] 512 维引擎已就绪');
+                engine512Ready = true;
+                engine512Error = '';
+                return;
+            }
+            engine512Ready = false;
+            engine512Error = '512 维引擎已启动但模型未就绪，请查看引擎日志';
         });
     });
-    req.on('error', () => spawn512());
+    req.on('error', () => {
+        engine512Ready = false;
+        spawn512();
+    });
+    req.setTimeout(1500, () => req.destroy());
+}
+
+/**
+ * 结束本服务拉起的 512 维引擎进程。
+ *
+ * @brief 供退出处理与 /shutdown 接口调用；进程已退出时不做任何操作。
+ * @return 无返回值
+ */
+function stopChild512() {
+    if (!child512) return;
+    try { child512.kill(); } catch (killErr) { /* 进程已退出 */ }
+    child512 = null;
 }
 
 // 人脸方位检测：只检测landmarks不提取特征，响应更快
@@ -396,7 +495,16 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
     if (req.method === 'GET' && req.url === '/health') {
-        res.end(JSON.stringify({ ready, modelsLoaded }));
+        res.end(JSON.stringify({ ready, modelsLoaded, engine512Ready, engine512Error }));
+        return;
+    }
+
+    // 上位机退出前请求此接口：先结束 512 维引擎再关闭本服务，避免留下后台进程。
+    if (req.method === 'POST' && req.url === '/shutdown') {
+        res.end(JSON.stringify({ success: true }));
+        stopChild512();
+        server.close(() => process.exit(0));
+        setTimeout(() => process.exit(0), 500).unref();
         return;
     }
 
@@ -453,9 +561,15 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(8089, '127.0.0.1', () => {
     console.log('[face-server] HTTP服务启动 @ http://127.0.0.1:8089');
-    ensure512();   // 同步确保 512 维引擎（face-server-512.py @ 8090）运行
+    ensure512();
+    // 引擎首次加载模型可能需要几十秒；定时复查，就绪或异常退出后都能自动恢复。
+    if (!ensureTimer) {
+        ensureTimer = setInterval(ensure512, 5000);
+        ensureTimer.unref();
+    }
     init();
 });
 
-process.on('SIGINT', () => { server.close(); process.exit(0); });
-process.on('SIGTERM', () => { server.close(); process.exit(0); });
+process.on('SIGINT', () => { stopChild512(); server.close(); process.exit(0); });
+process.on('SIGTERM', () => { stopChild512(); server.close(); process.exit(0); });
+process.on('exit', () => { stopChild512(); });

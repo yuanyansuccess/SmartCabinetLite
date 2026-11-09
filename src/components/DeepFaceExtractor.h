@@ -3,11 +3,12 @@
  * @brief 深度学习人脸特征提取器 — 通过HTTP调用常驻face-server.js服务
  * @author 袁燕
  *
- * 通过HTTP调用常驻face-server.js服务提取特征：Qt启动时拉起服务（模型只加载一次），每次请求<300ms。
+ * 通过HTTP调用常驻face-server.js服务提取特征：Qt启动时拉起服务（模型只加载一次）。
+ * 服务负责拉起 512 维特征引擎，健康检查会同时确认该引擎就绪。
  * detectPosture方法只检测方位不提取特征，用于录入页方位引导。
  *
  * 工作流程：
- *   1. ensureServerRunning() 检查face-server.js是否在运行，未运行则启动
+ *   1. ensureServerRunning() 检查服务是否在运行，未运行则启动
  *   2. QImage → base64 JPEG → POST http://127.0.0.1:8089/extract 或 /posture
  *   3. 解析JSON响应 → 返回特征/方位数据
  */
@@ -24,9 +25,9 @@ public:
     explicit DeepFaceExtractor(QObject* parent = nullptr);
 
     /**
-     * @brief 从QImage提取128维深度学习人脸特征
+     * @brief 从QImage提取512维深度学习人脸特征
      * @param image  摄像头采集的人脸图片
-     * @param outFeature  输出：逗号分隔的128维特征字符串
+     * @param outFeature  输出：逗号分隔的512维特征字符串
      * @param outConfidence  输出：人脸检测置信度(0-1)
      * @param outMessage  输出：错误消息（成功时为空）
      * @return true 提取成功
@@ -47,7 +48,7 @@ public:
      * @param outMessage 输出：错误消息（成功时为空）
      * @return true 检测成功
      *
-     * 调用face-server.js的/posture接口，比/extract快（不提取128维特征）
+     * 调用face-server.js的/posture接口，比/extract快（不提取512维特征）
      * 用于人脸录入页实时方位引导
      */
     bool detectPosture(const QImage& image,
@@ -106,7 +107,7 @@ private:
     /// HTTP同步请求（阻塞等待响应）
     QString httpPostSync(const QString& url, const QByteArray& body, int timeoutMs);
 
-    /// 超时时间（毫秒）— 30s→5s，常驻服务已预热
+    /// 超时时间（毫秒）；常驻服务已预热，正常请求远小于该值
     static constexpr int TIMEOUT_MS = 5000;
 
     /// 方位检测超时（毫秒）— 真人脸推理需1~2s，预留3s保证不误判超时

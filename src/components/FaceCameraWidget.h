@@ -20,7 +20,7 @@ class QPropertyAnimation;
 
 // 人脸框检测在本地完成（不联网）：基于 YCrCb 肤色分割 + 形态学开运算 + 连通域分析，
 // 因此人脸识别服务不可用时，预览中的绿框与置信度仍会正常显示。
-// 真正用于身份判定的是 DeepFaceExtractor 提取的 128 维特征，由 Node 服务完成比对。
+// 真正用于身份判定的是 DeepFaceExtractor 提取的 512 维特征，由上位机完成比对。
 class FaceCameraWidget : public QWidget {
     Q_OBJECT
     Q_PROPERTY(int borderGlow READ borderGlow WRITE setBorderGlow)
@@ -57,7 +57,7 @@ public:
     void stopCamera();
     /// 是否正在运行
     bool isActive() const;
-    /// 提取人脸特征（返回逗号分隔的128维浮点字符串）
+    /// 提取人脸特征（返回逗号分隔的512维浮点字符串）
     QString captureFaceFeature();
 
     // ── 版本B兼容API ──
@@ -68,7 +68,7 @@ public:
     void setCaptureDelay(int ms);
     /// 捕获当前帧并发射captureReady(QImage, confidence)信号
     void captureNow();
-    /// 返回当前人脸特征描述符（逗号分隔128维浮点数）
+    /// 返回当前人脸特征描述符（逗号分隔512维浮点数）
     QString getLastDescriptor() const;
     /// 返回当前人脸检测边界框（相对于220x220显示区域）
     QRect faceRect() const;
@@ -119,7 +119,7 @@ private:
     QRect detectFace(const QImage& rgbImage);
 
     // ── 特征提取（深度学习）──
-    /// 从人脸区域提取128维特征向量（逗号分隔字符串）
+    /// 从人脸区域提取512维特征向量（逗号分隔字符串）
     QString extractFeature(const QImage& frame, const QRect& faceRect);
     /// L2归一化
     static void normalizeL2(QVector<double>& v);

@@ -7,8 +7,13 @@
 #   - onnxruntime  推理后端（CPUExecutionProvider；多线程由 ORT_NUM_THREADS 控制）
 #   - opencv-python 图像解码（cv2.imdecode）
 #   - numpy        向量运算
-# 首次运行 face-server-512.py 时，buffalo_l 模型会自动下载到
-#   ~/.insightface/models/buffalo_l；离线机器请提前预置该目录。
+# 模型目录 ~/.insightface/models/buffalo_l 需包含四个文件：
+#   det_10g.onnx（检测）、w600k_r50.onnx（512 维识别）、
+#   2d106det.onnx（关键点）、genderage.onnx（属性）。
+# w600k_r50.onnx 是输入 112x112、输出 512 维的 ArcFace 模型，
+#   缺少它只能检测人脸、提不出特征。
+# 离线机器请把 trunk/models/recognize.onnx 复制为 w600k_r50.onnx，
+#   或用环境变量 FACE_RECOGNIZE_MODEL 指向该文件；引擎启动时按候选路径自动补齐。
 insightface
 onnxruntime
 opencv-python

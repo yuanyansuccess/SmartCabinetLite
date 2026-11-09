@@ -59,6 +59,26 @@ enum Scene {
     SceneMissing,        // 缺失告警 alert_type=missing
     SceneSilent,         // 不回应（测上位机识别超时重发，第5章；作为场景选项而非开关，测完切回即恢复，无状态残留）
     SceneCustomList = 8, // 自定义清单（在“工具清单”页按真实单据逐行配置；追加在末尾不影响已有配置的下标含义）
+
+    // 结构与兼容场景组（合法JSON但字段不全/类型不符，编号独立段避免与上面冲突）
+    SceneStructNoItems = 20,      // 整帧缺 items 字段
+    SceneStructItemsObject,       // items 是对象而非数组
+    SceneStructNoPosition,       // item 缺 position 字段
+    SceneStructBadType,           // item 的 position 是数字
+    SceneStructNoRequestId,       // 缺 request_id 字段（丢弃计数 3.6-②）
+    SceneStructUnknownType,       // type 为未知值（丢弃计数 3.6-②）
+    SceneStructNoToolId,          // item 缺 tool_id 字段
+    SceneStructToolIdNumber,      // tool_id 是数字
+    SceneStructNoConfidence,      // item 缺 confidence 字段
+    SceneStructConfidenceString,  // confidence 是字符串
+    SceneStructConfidenceRange,   // confidence 超出 0~1
+    SceneStructNoAlertType,       // item 缺 alert_type（上位机按 none 兼容）
+    SceneStructBadAlertType,      // alert_type 不在协议枚举内
+    SceneStructNoPresent,         // item 缺 present（上位机按 true 兼容）
+    SceneStructPresentString,     // present 是字符串
+    SceneStructPresentFalse,      // present=false（合法帧）
+    SceneStructDuplicatePos,      // 同一货位上报两条
+    SceneStructItemNotObject,     // items 元素是字符串而非对象
 };
 
 /// 相机自检"空"选项标记：选中时该相机不出现在 camera_status（协议3.4：自检可缺席）
@@ -152,13 +172,225 @@ QJsonObject makePeriodic(const QList<QComboBox*>& cams, int uptimeSec)
 }
 
 /**
- * @brief 按场景构造 recognize_ack 回应帧（协议3.3全部场景）
- * @param scene    场景枚举
- * @param request 收到的recognize请求（取request_id回带）
+ * @brief 往回应场景下拉与注入下拉填入全部结构错误/兼容场景（单一来源）
+ * @param combo 目标下拉框
+ * @return 无
+ * @note  文案直接写出期望结果，测试人员不用查手册也知道该看什么
+ */
+void addStructScenes(QComboBox* combo)
+{
+    combo->addItem(QStringLiteral("【结构错】缺 items 字段 → 应弹核对失败、不写库"), SceneStructNoItems);
+    combo->addItem(QStringLiteral("【结构错】items 是对象非数组 → 应弹核对失败、不写库"), SceneStructItemsObject);
+    combo->addItem(QStringLiteral("【结构错】item 缺 position → 应弹核对失败、不写库"), SceneStructNoPosition);
+    combo->addItem(QStringLiteral("【结构错】position 是数字 → 应弹核对失败、不写库"), SceneStructBadType);
+    combo->addItem(QStringLiteral("【帧丢弃】缺 request_id → 上位机丢弃、约9秒超时"), SceneStructNoRequestId);
+    combo->addItem(QStringLiteral("【帧丢弃】type 未知 → 上位机丢弃、约9秒超时"), SceneStructUnknownType);
+    combo->addItem(QStringLiteral("【结构错】缺 tool_id（最危险）→ 应弹核对失败、不写库"), SceneStructNoToolId);
+    combo->addItem(QStringLiteral("【结构错】tool_id 是数字 → 应弹核对失败、不写库"), SceneStructToolIdNumber);
+    combo->addItem(QStringLiteral("【结构错】缺 confidence → 应弹核对失败、不写库"), SceneStructNoConfidence);
+    combo->addItem(QStringLiteral("【结构错】confidence 是字符串 → 应弹核对失败、不写库"), SceneStructConfidenceString);
+    combo->addItem(QStringLiteral("【结构错】confidence=99 越界 → 应弹核对失败、不写库"), SceneStructConfidenceRange);
+    combo->addItem(QStringLiteral("【兼容】缺 alert_type → 按无告警正常核对"), SceneStructNoAlertType);
+    combo->addItem(QStringLiteral("【结构错】alert_type 枚举外 → 应弹核对失败、不写库"), SceneStructBadAlertType);
+    combo->addItem(QStringLiteral("【兼容】缺 present → 按已扫到正常核对"), SceneStructNoPresent);
+    combo->addItem(QStringLiteral("【结构错】present 是字符串 → 应弹核对失败、不写库"), SceneStructPresentString);
+    combo->addItem(QStringLiteral("【合法】present=false 货位未扫到 → 正常核对"), SceneStructPresentFalse);
+    combo->addItem(QStringLiteral("【结构错】同一货位重复上报 → 应弹核对失败、不写库"), SceneStructDuplicatePos);
+    combo->addItem(QStringLiteral("【结构错】items 元素是字符串 → 应弹核对失败、不写库"), SceneStructItemNotObject);
+}
+
+/**
+ * @brief 按结构错误/兼容场景构造 recognize_ack 回应帧（协议3.3）
+ * @param kind    场景枚举（SceneStruct* 段）
+ * @param request 收到的 recognize_req，用于回带 request_id
+ * @return 单帧 recognize_ack；缺字段的项不经过字段规整
+ * @note  不合规帧应让上位机弹【核对失败】且不写库；缺 alert_type / present 与 present=false
+ *        属兼容或合法帧，应正常核对。
+ */
+QJsonObject structErrorAck(int kind, const QJsonObject& request)
+{
+    // 一条字段齐全的合法识别项：各结构错误场景只在它上面破坏一处，便于逐项对照
+    const auto baseItem = []() {
+        QJsonObject it;
+        it["position"] = "A-01-05";
+        it["tool_id"] = "C01-T0007";
+        it["confidence"] = 0.9;
+        it["alert_type"] = "none";
+        it["present"] = true;
+        return it;
+    };
+    const auto oneItemAck = [&](const QJsonObject& it) {
+        QJsonArray arr;
+        arr.append(it);
+        return arr;
+    };
+    QJsonObject ack;
+    ack["type"] = "recognize_ack";
+    switch (kind) {
+    case SceneStructNoItems: {        // 整帧缺 items 字段
+        ack["request_id"] = request["request_id"];
+        // 故意不设 items → 上位机判结构不合规，弹核对失败且不写库
+        break;
+    }
+    case SceneStructItemsObject: {    // items 是对象而非数组
+        ack["request_id"] = request["request_id"];
+        QJsonObject fake;
+        fake["position"] = "A-01-05";
+        fake["tool_id"] = "C01-T0007";
+        ack["items"] = fake;
+        break;
+    }
+    case SceneStructNoPosition: {     // item 缺 position
+        ack["request_id"] = request["request_id"];
+        QJsonArray items;
+        QJsonObject it;
+        it["tool_id"] = "C01-T0007";
+        it["confidence"] = 0.9;
+        it["alert_type"] = "none";
+        it["present"] = true;
+        items.append(it);
+        ack["items"] = items;
+        break;
+    }
+    case SceneStructBadType: {        // position 是数字（类型错）
+        ack["request_id"] = request["request_id"];
+        QJsonArray items;
+        QJsonObject it;
+        it["position"] = 12345;       // 数字而非字符串
+        it["tool_id"] = "C01-T0007";
+        it["confidence"] = 0.9;
+        it["alert_type"] = "none";
+        it["present"] = true;
+        items.append(it);
+        ack["items"] = items;
+        break;
+    }
+    case SceneStructNoRequestId: {    // 缺 request_id
+        QJsonArray items;
+        QJsonObject it;
+        it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
+        it["confidence"] = 0.9; it["alert_type"] = "none"; it["present"] = true;
+        items.append(it);
+        ack["items"] = items;
+        // 故意不设 request_id → 上位机 m_pending 查不到，丢弃计数
+        break;
+    }
+    case SceneStructUnknownType: {     // type 未知
+        ack["type"] = "weird_type";
+        ack["request_id"] = request["request_id"];
+        QJsonArray items;
+        QJsonObject it;
+        it["position"] = "A-01-05"; it["tool_id"] = "C01-T0007";
+        it["confidence"] = 0.9; it["alert_type"] = "none"; it["present"] = true;
+        items.append(it);
+        ack["items"] = items;
+        break;
+    }
+    case SceneStructNoToolId: {        // 缺 tool_id：拒绝整帧，避免把空编号当成"货位已空"
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it.remove("tool_id");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructToolIdNumber: {    // tool_id 是数字
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["tool_id"] = 12345;
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructNoConfidence: {    // 缺 confidence
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it.remove("confidence");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructConfidenceString: { // confidence 是字符串
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["confidence"] = QStringLiteral("0.9");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructConfidenceRange: {  // confidence 超出 0~1
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["confidence"] = 99;
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructNoAlertType: {     // 缺 alert_type：上位机按 none 兼容
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it.remove("alert_type");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructBadAlertType: {    // alert_type 不在协议枚举内
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["alert_type"] = QStringLiteral("banana");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructNoPresent: {       // 缺 present：上位机按 true 兼容
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it.remove("present");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructPresentString: {   // present 是字符串
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["present"] = QStringLiteral("true");
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructPresentFalse: {    // present=false：合法帧，货位未被扫到
+        ack["request_id"] = request["request_id"];
+        QJsonObject it = baseItem();
+        it["present"] = false;
+        ack["items"] = oneItemAck(it);
+        break;
+    }
+    case SceneStructDuplicatePos: {    // 同一货位上报两条
+        ack["request_id"] = request["request_id"];
+        QJsonArray arr;
+        arr.append(baseItem());
+        QJsonObject second = baseItem();
+        second["tool_id"] = QStringLiteral("C01-T0099");
+        arr.append(second);
+        ack["items"] = arr;
+        break;
+    }
+    case SceneStructItemNotObject: {   // items 元素是字符串而非对象
+        ack["request_id"] = request["request_id"];
+        QJsonArray arr;
+        arr.append(QStringLiteral("A-01-05"));
+        ack["items"] = arr;
+        break;
+    }
+    default:
+        break;
+    }
+    return ack;
+}
+
+/**
+ * @brief 按回应场景构造 recognize_ack 帧（协议3.3全部场景）
+ * @param scene   场景枚举
+ * @param request 收到的 recognize_req（取 request_id 回带）
  * @return recognize_ack 帧对象
  */
 QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
 {
+    // 结构与兼容场景：单独构造后直接返回（绕过下方字段规整）
+    if (scene >= SceneStructNoItems && scene <= SceneStructItemNotObject) {
+        return structErrorAck(scene, request);
+    }
     QJsonObject ack;
     ack["type"] = "recognize_ack";
     ack["request_id"] = request["request_id"];
@@ -220,8 +452,8 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
     default:
         break;
     }
-    // 协议3.3字段规整：内置场景同样按 5 字段必填输出，与自定义清单保持同一口径，
-    // 免得"场景回应字段齐全、自定义清单缺字段"两种形态让上位机走两套兜底逻辑
+    // 内置场景同样输出字段齐全的清单，与自定义清单保持同一口径，
+    // 避免两种回应形态让上位机走两套判定逻辑
     for (int i = 0; i < items.size(); ++i) {
         QJsonObject it = items.at(i).toObject();
         if (!it.contains(QStringLiteral("confidence"))) {
@@ -229,6 +461,9 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
         }
         if (!it.contains(QStringLiteral("alert_type"))) {
             it[QStringLiteral("alert_type")] = QStringLiteral("none");
+        }
+        if (!it.contains(QStringLiteral("present"))) {
+            it[QStringLiteral("present")] = true;   // 该货位已被摄像头扫到
         }
         items.replace(i, it);
     }
@@ -469,7 +704,7 @@ void EdgeSimulator::connectToEdge()
 
 /**
  * @brief 切换到指定页签
- * @param index 页签序号：0=周期帧 1=识别回应 2=版本/异常 3=自定义帧
+ * @param index 步骤页序号：0=连接与数据 1=单据模拟 2=识别回应 3=异常注入
  * @note  供 --tab 命令行与截图自动化调用
  */
 void EdgeSimulator::showTab(int index)
@@ -586,9 +821,11 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     m_recScene->addItem(QStringLiteral("错放告警（misplaced L2，测告警提示）"),   SceneMisplaced);
     m_recScene->addItem(QStringLiteral("未知物告警（unknown L3，测严重告警）"),   SceneUnknown);
     m_recScene->addItem(QStringLiteral("置信度不足（low_confidence L1，测不落账）"), SceneLowConf);
-    m_recScene->addItem(QStringLiteral("缺失告警（missing L2，测字段枚举边界）"),  SceneMissing);
+    m_recScene->addItem(QStringLiteral("缺失告警（missing，测字段枚举边界）"),  SceneMissing);
     m_recScene->addItem(QStringLiteral("不回应（测上位机识别超时重发，第5章）"),   SceneSilent);
     m_recScene->addItem(QStringLiteral("自定义清单（在“工具清单”页按单据逐行配置）"), SceneCustomList);
+    // 结构与兼容场景：选一项后，上位机发起识别核对时自动回一帧
+    addStructScenes(m_recScene);
     g->addWidget(new QLabel(QStringLiteral("回应场景")), 1, 0);
     g->addWidget(m_recScene, 1, 1);
 
@@ -760,18 +997,66 @@ QWidget* EdgeSimulator::buildFaultTab()
     g->addWidget(btnOver, 3, 0, 1, 2);
     g->addWidget(btnBadId, 4, 0, 1, 2);
     g->addWidget(btnDisc, 5, 0, 1, 2);
-    g->setRowStretch(6, 1);
+
+    // 识别清单结构校验：下拉选错误类型后立即回一帧，不必等上位机重新建单
+    auto* structTitle = new QLabel(QStringLiteral("识别清单结构校验（协议3.3）"));
+    structTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
+    g->addWidget(structTitle, 6, 0, 1, 2);
+    auto* structCombo = new QComboBox;
+    addStructScenes(structCombo);
+    g->addWidget(structCombo, 7, 0, 1, 2);
+    auto* btnStruct = new QPushButton(QStringLiteral("立即注入一帧（替换本次识别回应）"));
+    connect(btnStruct, &QPushButton::clicked, this, [this, structCombo] {
+        if (!m_sock || m_sock->state() != QAbstractSocket::ConnectedState) {
+            logEvent(QStringLiteral("注入失败：尚未连接上位机"));
+            return;
+        }
+        if (m_lastRequest.isEmpty()) {
+            logEvent(QStringLiteral("注入失败：还没有收到 recognize_req，请先在上位机发起一次识别核对"));
+            return;
+        }
+        const int kind = structCombo->currentData().toInt();
+        logEvent(QStringLiteral("立即注入：") + structCombo->currentText());
+        sendFrame(structErrorAck(kind, m_lastRequest));
+    });
+    g->addWidget(btnStruct, 8, 0, 1, 2);
+    auto* btnStructToEditor = new QPushButton(QStringLiteral("载入到编辑框（改完再发，不立即发）"));
+    btnStructToEditor->setToolTip(QStringLiteral("把选中的结构错帧填到自定义帧编辑框，字段与格式都能改，改完点发送"));
+    connect(btnStructToEditor, &QPushButton::clicked, this, [this, structCombo] {
+        const int kind = structCombo->currentData().toInt();
+        exportFrameToEditor(structErrorAck(kind, m_lastRequest));
+    });
+    g->addWidget(btnStructToEditor, 9, 0, 1, 2);
+    auto* structHint = new QLabel(QStringLiteral(
+        "③页选【结构错】场景，可在上位机发起核对时自动回一帧；本按钮用于请求已发出时立刻补一帧。\n"
+        "配合③页【不回应】或较长延迟使用；请求已被回应配对后再注入会被上位机按重复编号丢弃。\n"
+        "想自己改帧内容，点【载入到编辑框】改完再发；结构不合规时上位机应弹【核对失败】且不写库。"));
+    structHint->setWordWrap(true);
+    g->addWidget(structHint, 10, 0, 1, 2);
+    g->setRowStretch(11, 1);
     return w;
 }
 
+/**
+ * @brief 构建"自定义帧"子页：编辑框内容就是最终发出的帧，提供载入与排版工具
+ * @return 组装完成的页面控件
+ * @note  预制场景、清单表、结构错帧都能载入编辑框作为起点，改完点发送才真正发出
+ */
 QWidget* EdgeSimulator::buildCustomTab()
 {
     auto* w = new QWidget;
     auto* g = new QGridLayout(w);
 
     m_custom = new QTextEdit;
-    m_custom->setPlainText(QStringLiteral("{\"type\":\"recognize_ack\",\"request_id\":\"r-test\",\"items\":[{\"position\":\"A-01-05\",\"tool_id\":\"C01-T0007\",\"confidence\":0.9}]}"));
-    m_custom->setToolTip(QStringLiteral("每行一帧，点【发送】逐行发出。可构造协议任何消息与异常"));
+    m_custom->setPlainText(QStringLiteral(
+        "{\n"
+        "    \"type\": \"recognize_ack\",\n"
+        "    \"request_id\": \"{{request_id}}\",\n"
+        "    \"items\": [\n"
+        "        { \"position\": \"A-01-05\", \"tool_id\": \"C01-T0007\", \"confidence\": 0.9, \"alert_type\": \"none\", \"present\": true }\n"
+        "    ]\n"
+        "}"));
+    m_custom->setToolTip(QStringLiteral("这里的内容就是最终发出的帧：字段、取值、排版都能改，改完点【发送】"));
 
     m_rawSend = new QCheckBox(QStringLiteral("原文发送（不校验JSON，可发坏帧/任意文本）"));
     m_rawSend->setToolTip(QStringLiteral("勾选后按文本原样发出（含换行拼包），用于坏帧与粘包组合测试"));
@@ -783,17 +1068,61 @@ QWidget* EdgeSimulator::buildCustomTab()
     m_btnLoop = new QPushButton(QStringLiteral("启动循环发送"));
     connect(m_btnLoop, &QPushButton::clicked, this, [this] { toggleLoopSend(m_loopTimer.isActive() == false); });
 
-    auto* btn = new QPushButton(QStringLiteral("发送（逐行）"));
+    auto* btn = new QPushButton(QStringLiteral("发送（编辑框所见即所发）"));
     connect(btn, &QPushButton::clicked, this, &EdgeSimulator::sendCustomFrame);
 
-    g->addWidget(new QLabel(QStringLiteral("自定义内容（每行一帧）")), 0, 0, 1, 3);
+    auto* btnFromScene = new QPushButton(QStringLiteral("载入③页当前场景帧"));
+    btnFromScene->setToolTip(QStringLiteral("把③页下拉选中的场景生成一帧填到这里，只当起点，改完再发"));
+    connect(btnFromScene, &QPushButton::clicked, this, [this] {
+        const int scene = m_recScene ? m_recScene->currentData().toInt()
+                                     : static_cast<int>(SceneNormal);
+        QJsonObject ack = sceneAckFrame(scene, m_lastRequest);
+        if (scene == SceneCustomList) {
+            ack[QStringLiteral("items")] = customItemsArray();
+        }
+        exportFrameToEditor(ack);
+    });
+
+    auto* btnBlank = new QPushButton(QStringLiteral("空白帧模板"));
+    btnBlank->setToolTip(QStringLiteral("给一帧最小骨架，从零自己搭字段"));
+    connect(btnBlank, &QPushButton::clicked, this, [this] {
+        QJsonObject frame;
+        frame[QStringLiteral("type")] = QStringLiteral("recognize_ack");
+        frame[QStringLiteral("request_id")] = QStringLiteral("{{request_id}}");
+        frame[QStringLiteral("items")] = QJsonArray();
+        exportFrameToEditor(frame);
+    });
+
+    auto* btnPretty = new QPushButton(QStringLiteral("整理排版"));
+    btnPretty->setToolTip(QStringLiteral("把编辑框里的单帧 JSON 重新缩进排版，方便逐字段改；多帧或坏帧保持原样"));
+    connect(btnPretty, &QPushButton::clicked, this, [this] {
+        const QJsonDocument doc = QJsonDocument::fromJson(m_custom->toPlainText().toUtf8());
+        if (!doc.isObject()) {
+            logEvent(QStringLiteral("排版跳过：当前内容不是单个 JSON 对象（多帧或坏帧保持原样）"));
+            return;
+        }
+        m_custom->setPlainText(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)).trimmed());
+        logEvent(QStringLiteral("已按缩进重新排版"));
+    });
+
+    g->addWidget(new QLabel(QStringLiteral("自定义内容（这里的文字就是最终发出的帧）")), 0, 0, 1, 3);
     g->addWidget(m_custom, 1, 0, 1, 3);
     g->addWidget(m_rawSend, 2, 0, 1, 3);
     g->addWidget(btn, 3, 0, 1, 3);
-    g->addWidget(new QLabel(QStringLiteral("循环发送间隔")), 4, 0);
-    g->addWidget(m_loopMs, 4, 1);
-    g->addWidget(m_btnLoop, 4, 2);
-    g->addWidget(new QLabel(QStringLiteral("扩展用法：①任意协议消息都可在此构造；\n②勾选原文发送可发坏帧文本/多帧粘包；\n③循环发送可持续注入异常（压力测试）；\n④示例：两行JSON拼成粘包；改request_id测乱序")), 5, 0, 1, 3);
+    auto* toolRow = new QHBoxLayout;
+    toolRow->addWidget(btnFromScene);
+    toolRow->addWidget(btnBlank);
+    toolRow->addWidget(btnPretty);
+    toolRow->addStretch(1);
+    g->addLayout(toolRow, 4, 0, 1, 3);
+    g->addWidget(new QLabel(QStringLiteral("循环发送间隔")), 5, 0);
+    g->addWidget(m_loopMs, 5, 1);
+    g->addWidget(m_btnLoop, 5, 2);
+    g->addWidget(new QLabel(QStringLiteral(
+        "怎么用：①帧里写 {{request_id}}，发送时自动换成本次上位机发来的编号，不用手抄；\n"
+        "②缩进、换行、字段顺序都能改，整段 JSON 会当成一帧发出；\n"
+        "③一行写多帧或勾选【原文发送】仍可测粘包与坏帧；④从②页清单表或③页场景载入后，改完再点发送。")),
+        6, 0, 1, 3);
     return w;
 }
 
@@ -921,13 +1250,14 @@ QJsonArray EdgeSimulator::customItemsArray() const
         if (!row.valid || !row.reply) {
             continue;
         }
-        // 协议3.3字段规整：5 个字段每项必填，不再"有告警才带告警字段"。
-        // 上位机靠字段齐全区分"没给数据"与"给了的正常值"，缺字段会被判成非法项
+        // 每项都输出完整字段，正常项也带告警类型与覆盖标记，
+        // 上位机据此区分"没给数据"与"给了的正常值
         QJsonObject item;
         item["position"]    = row.position;
         item["tool_id"]     = row.toolCode;
         item["confidence"]  = row.confidence;
         item["alert_type"]  = row.alertType.isEmpty() ? QStringLiteral("none") : row.alertType;
+        item["present"]     = true;   // 本单/背景行均为已扫描覆盖
         items.append(item);
     }
     return items;
@@ -1618,10 +1948,61 @@ void EdgeSimulator::sendBadIdAck()
 // ─────────────────────── 自定义帧（扩展接口） ───────────────────────
 
 /**
- * @brief 发送自定义内容：按行逐条发送，支持 JSON 与原文两种模式
- * @note  JSON 模式（默认）：逐行解析校验后发送，格式错误本地提示不发；
- *        原文模式（勾选）：按文本原样发出，可构造坏帧、多帧粘包等任意异常。
- *        这是测试人员自建异常场景的扩展入口——协议任何消息都可用本页签构造。
+ * @brief 把帧文本里的占位符换成最近一次上位机请求编号
+ * @param text 编辑框里的帧文本
+ * @param lastRequest 最近收到的识别请求帧
+ * @param lastOpenRequest 最近收到的开箱请求帧
+ * @return 替换后的文本；没有对应请求时保留原占位符
+ * @note  只处理文本，不回写编辑框：循环发送时每轮都能换成最新编号
+ */
+QString EdgeSimulator::resolveFramePlaceholders(const QString& text,
+                                                const QJsonObject& lastRequest,
+                                                const QJsonObject& lastOpenRequest)
+{
+    QString resolved = text;
+    const QString reqId = lastRequest.value(QStringLiteral("request_id")).toString();
+    const QString openId = lastOpenRequest.value(QStringLiteral("request_id")).toString();
+    if (!reqId.isEmpty()) {
+        resolved.replace(QStringLiteral("{{request_id}}"), reqId);
+    }
+    if (!openId.isEmpty()) {
+        resolved.replace(QStringLiteral("{{open_request_id}}"), openId);
+    }
+    return resolved;
+}
+
+/**
+ * @brief 把一帧载入自定义帧编辑框，编号写成占位符，切到可编辑页面
+ * @param frame 待载入的协议帧
+ * @return 无
+ * @note  载入的是起点，不是成品：字段、取值、缩进格式都能在编辑框里随意改，
+ *        点【发送】时才按编辑框里的实际内容发出
+ */
+void EdgeSimulator::exportFrameToEditor(const QJsonObject& frame)
+{
+    if (!m_custom) {
+        return;
+    }
+    QJsonObject editable = frame;
+    if (editable.contains(QStringLiteral("request_id"))) {
+        editable[QStringLiteral("request_id")] = QStringLiteral("{{request_id}}");
+    }
+    const QString text = QString::fromUtf8(
+        QJsonDocument(editable).toJson(QJsonDocument::Indented)).trimmed();
+    m_custom->setPlainText(text);
+    showTab(3);
+    if (m_tabs) {
+        m_tabs->setCurrentIndex(2);
+    }
+    logEvent(QStringLiteral("帧已载入编辑框：字段与格式可随意改，发送时自动回带本次 request_id"));
+}
+
+/**
+ * @brief 发送编辑框里的内容：发送时才替换占位符，编辑框所见即所发
+ * @return 无
+ * @note  JSON 模式先把整段当一帧解析（支持缩进多行、自由排版）；整段不是单个
+ *        JSON 对象时退回逐行发送，保留多帧粘包与逐行 JSON 的原有能力。
+ *        原文模式始终逐行原样发出，坏帧与任意字节注入不受影响。
  */
 void EdgeSimulator::sendCustomFrame()
 {
@@ -1629,13 +2010,34 @@ void EdgeSimulator::sendCustomFrame()
         logEvent(QStringLiteral("发送失败：连接未建立"));
         return;
     }
-    const QString text = m_custom->toPlainText();
-    const QStringList lines = text.split(QStringLiteral("\n"), Qt::SkipEmptyParts);
-    if (lines.isEmpty()) {
+    const QString source = m_custom->toPlainText();
+    if (source.trimmed().isEmpty()) {
         logEvent(QStringLiteral("自定义内容为空"));
         return;
     }
+    const QString text = resolveFramePlaceholders(source, m_lastRequest, m_lastOpenRequest);
+    const QString reqId = m_lastRequest.value(QStringLiteral("request_id")).toString();
+    if (source.contains(QStringLiteral("{{request_id}}")) && !reqId.isEmpty()) {
+        logEvent(QStringLiteral("已回带识别请求编号：") + reqId
+            + QStringLiteral("（该请求若已被回应配对，上位机会按重复编号丢弃；可配合③页【不回应】或延迟回应使用）"));
+    }
+    if (text.contains(QStringLiteral("{{request_id}}"))
+        || text.contains(QStringLiteral("{{open_request_id}}"))) {
+        logEvent(QStringLiteral("提示：还没收到对应的上位机请求，占位符未替换，这帧会被上位机按编号不认识丢弃"));
+    }
+
     int okCount = 0;
+    if (!m_rawSend->isChecked()) {
+        // 整段优先：缩进排版后的单帧 JSON 不会被按行拆坏
+        const QJsonDocument whole = QJsonDocument::fromJson(text.toUtf8());
+        if (whole.isObject()) {
+            sendFrame(whole.object());
+            logEvent(QStringLiteral("自定义发送完成：整段 1 帧"));
+            return;
+        }
+    }
+
+    const QStringList lines = text.split(QStringLiteral("\n"), Qt::SkipEmptyParts);
     for (const QString& line : lines) {
         const QString trimmed = line.trimmed();
         if (trimmed.isEmpty()) {
@@ -1648,7 +2050,6 @@ void EdgeSimulator::sendCustomFrame()
             log("#3d63d6", QString(QStringLiteral("[TX原文] %1")).arg(trimmed.left(200)));
             ++okCount;
         } else {
-            // JSON 模式：解析校验后发送
             const QJsonDocument doc = QJsonDocument::fromJson(trimmed.toUtf8());
             if (doc.isNull() || !doc.isObject()) {
                 logEvent(QString(QStringLiteral("第%1行JSON解析失败，已跳过")).arg(okCount + 1));
@@ -1848,6 +2249,7 @@ QWidget* EdgeSimulator::buildExceptionPage()
     tabs->addTab(buildPeriodicTab(), QStringLiteral("周期帧与摄像头 3.4"));
     tabs->addTab(buildFaultTab(), QStringLiteral("异常注入 3.6"));
     tabs->addTab(buildCustomTab(), QStringLiteral("自定义帧"));
+    m_tabs = tabs;
     box->addWidget(tabs);
     return page;
 }

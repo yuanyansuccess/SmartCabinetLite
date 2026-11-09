@@ -21,18 +21,19 @@ struct EdgeConfig {
 };
 
 // ---------- recognize_ack：识别清单 ----------
-// 协议3.3字段规整约定：items 的每一项都必须带全下列5个字段，禁止字段时有时无，
-// 上位机不再为缺字段猜默认值（缺字段的项按非法项记日志并跳过）。
+// 协议3.3字段规整约定：一项一货位，position / tool_id / confidence 三项每项必填。
+// 任一项类型不符、取值越界或货位重复时，整帧判为不可信并拒绝本次核对：
+// 空的工具编号会被当成"货位已空"，工具未取走却被写成已出库。
+// alert_type 可缺席（按 none 处理）、present 可缺席（按 true 处理），兼容未升级的边缘机；
+// 两字段一旦带上，类型与取值必须合规。空 items 数组是合法的"柜内无变化"清单。
 // 边缘机只报"货位上有什么"（position/tool_id/confidence/alert_type/present），
-// 识别类别与告警级别由上位机按自身规则判定，故这两位段不再下发（版本合帧同期定稿）。
-// present 用于区分"这个货位扫过了、确实是空的"与"这个货位根本没有回报"：
-//   全柜核对（库内货位 vs 实况清单）只有靠它才能精确判定缺失，不会把没扫到的货位误报成工具丢失。
+// 识别类别与告警级别由上位机按自身规则判定，故这两位段不再下发。
 struct RecognizeItem {
-    QString position;      // A-01-05 货位（必填，非空）
-    QString toolId;        // C01-T0012，认不出为空串（必填，空串=该货位认不出）
-    double  confidence = 0.0;  // 0~1，认不出时为 0（必填）
-    QString alertType = QStringLiteral("none"); // none/misplaced/unknown/missing/low_confidence（必填）
-    bool    present = true;    // true=摄像头扫到该货位；false=该货位未覆盖/未扫到
+    QString position;      // A-01-05 货位（必填，非空字符串）
+    QString toolId;        // C01-T0012，认不出为空串（必填字符串，空串=该货位认不出）
+    double  confidence = 0.0;  // 0~1（必填数值）
+    QString alertType = QStringLiteral("none"); // 可缺席取 none；取值限 none/misplaced/unknown/missing/low_confidence
+    bool    present = true;    // 可缺席取 true；false=该货位未覆盖/未扫到
 };
 
 struct RecognizeResult {

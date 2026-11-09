@@ -1080,10 +1080,21 @@ QWidget* EdgeSimulator::buildOrderPage()
     btnRow1->addWidget(btnApply);
     btnRow1->addStretch(1);
     listLayout->addLayout(btnRow1);
+    auto* btnToEditor = new QPushButton(QStringLiteral("导出到编辑框（改完再发）"));
+    btnToEditor->setToolTip(QStringLiteral("把这张清单组装成一帧 JSON 送到④页自定义帧，字段与格式改完再点发送"));
+    connect(btnToEditor, &QPushButton::clicked, this, [this] {
+        QJsonObject frame;
+        frame[QStringLiteral("type")] = QStringLiteral("recognize_ack");
+        frame[QStringLiteral("request_id")] = m_lastRequest.value(QStringLiteral("request_id")).toString();
+        frame[QStringLiteral("items")] = customItemsArray();
+        exportFrameToEditor(frame);
+    });
+
     auto* btnRow2 = new QHBoxLayout;
     btnRow2->addWidget(btnFrom);
     btnRow2->addWidget(btnSave);
     btnRow2->addWidget(btnLoad);
+    btnRow2->addWidget(btnToEditor);
     btnRow2->addStretch(1);
     listLayout->addLayout(btnRow2);
 
