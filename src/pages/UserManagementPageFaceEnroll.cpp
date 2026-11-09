@@ -57,16 +57,17 @@ struct PostureTarget {
 };
 // 方位目标参数（yaw/pitch方向与face-server.js /posture接口一致）
 // yaw: 正值=脸偏右(用户左转露右脸)，负值=脸偏左(用户右转露左脸)
-// pitch: 正值=低头，负值=抬头
+// pitch: 按实测区间，pitch<0 对应低头(露额头)，pitch>0 对应抬头(露下巴)
+// 提示文案统一用「转头方向 + 需露出的脸侧」表述，避免「左侧/右侧」被误读成转头方向。
 // 归一化基准为人脸框宽高，阈值经实测校准。
 // pitch 判定阈值由0.15放宽到0.10：与底层"居中"定义(|pitch|<0.10)一致，
-// 自然轻微低头(pitch≈0.08~0.12)即可判定低头，不再误判"居中"。
+// 自然轻微俯仰(pitch≈0.08~0.12)即可判定偏离正脸，不再误判"居中"。
 const PostureTarget POSTURE_TARGETS[5] = {
-    { QStringLiteral("居中"), QStringLiteral("请面向摄像头，保持正脸"),          -0.15, 0.15, -0.15, 0.15 },
-    { QStringLiteral("左侧"), QStringLiteral("请将头部向右转，露出左侧面部"),   -0.50,-0.15, -0.30, 0.30 },
-    { QStringLiteral("右侧"), QStringLiteral("请将头部向左转，露出右侧面部"),    0.15, 0.50, -0.30, 0.30 },
-    { QStringLiteral("上偏"), QStringLiteral("请略微抬头，露出面部上方"),       -0.30, 0.30, -0.50,-0.10 },
-    { QStringLiteral("下偏"), QStringLiteral("请略微低头，露出面部下方"),       -0.30, 0.30,  0.10, 0.50 },
+    { QStringLiteral("正脸"), QStringLiteral("请正对摄像头，保持头部不动"),       -0.15, 0.15, -0.15, 0.15 },
+    { QStringLiteral("左脸"), QStringLiteral("请向右转头，露出左脸"),            -0.50,-0.15, -0.30, 0.30 },
+    { QStringLiteral("右脸"), QStringLiteral("请向左转头，露出右脸"),             0.15, 0.50, -0.30, 0.30 },
+    { QStringLiteral("额头"), QStringLiteral("请小幅低头，露出额头"),              -0.30, 0.30, -0.50,-0.10 },
+    { QStringLiteral("下巴"), QStringLiteral("请小幅抬头，露出下巴"),              -0.30, 0.30,  0.10, 0.50 },
 };
 
 }  // namespace
@@ -528,18 +529,18 @@ void UserManagementPage::onFacePostureReply(FaceEnrollCtx& ctx, QNetworkReply* r
         ctx.postureFirstMatchTime = 0;
         QString hint;
         // 阈值0.10（与底层"居中"定义一致，轻微动作即有反馈，不再0.08~0.14区间误判居中）
-        if (yaw > 0.10) hint = QStringLiteral("当前：右转(露右脸)");
-        else if (yaw < -0.10) hint = QStringLiteral("当前：左转(露左脸)");
-        else if (pitch > 0.10) hint = QStringLiteral("当前：低头");
-        else if (pitch < -0.10) hint = QStringLiteral("当前：抬头");
-        else hint = QStringLiteral("当前：居中");
+        if (yaw > 0.10) hint = QStringLiteral("已向左转头（露右脸）");
+        else if (yaw < -0.10) hint = QStringLiteral("已向右转头（露左脸）");
+        else if (pitch > 0.10) hint = QStringLiteral("已小幅抬头（露下巴）");
+        else if (pitch < -0.10) hint = QStringLiteral("已小幅低头（露额头）");
+        else hint = QStringLiteral("已接近正脸");
         ctx.directionLabel->setText(QStringLiteral("【 %1 】").arg(target.name));
         ctx.directionLabel->setStyleSheet(
             "font-size:32px; font-weight:900; color:#ffffff; "
             "background:#4da3ff; border-radius:14px; padding:10px 20px;");
-        // 一行说清：当前姿态 → 目标姿态；方位检测的 yaw/pitch 数值只进日志不显示
-        ctx.instructionLabel->setText(QStringLiteral("%1，请转到【%2】")
-            .arg(hint, target.name));
+        // 一行说清：当前姿态 → 目标动作；方位检测的 yaw/pitch 数值只进日志不显示
+        ctx.instructionLabel->setText(QStringLiteral("%1，%2")
+            .arg(hint, target.instruction));
         ctx.instructionLabel->setStyleSheet(StyleHelper::textStyle(StyleHelper::Token::FontLabel, StyleHelper::orangeAccent(), 700, "padding:4px 0;"));
     }
 }
