@@ -44,7 +44,6 @@ public:
                             const QString& status = "", const QString& role = "");
     int          insertUser(const User& user);
     bool         updateUser(const User& user);
-    bool         deleteUserById(int userId);
     bool         updateUserStatus(int userId, const QString& status);
     bool         updateFaceFeature(int userId, const QString& feature);
     bool         updateUserPassword(int userId, const QString& hash, const QString& salt);

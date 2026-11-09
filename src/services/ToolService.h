@@ -43,7 +43,7 @@ public:
         QString position;    ///< 货位（A-01-02）
         QString toolCode;    ///< 识别出的工具编号（空串=认不出）
         double  confidence = 0.0;  ///< 置信度 0~1
-        bool    present = true;    ///< 摄像头是否扫到该货位（false=未覆盖，无法判定）
+        ///< 工具编号为空表示该货位无工具；清单未回报该货位由列表中无此货位表示
     };
 
     /// 待比对的一行指令（由页面从单据收集后传入，字段与页面单据行对应）
@@ -113,7 +113,7 @@ public:
     enum class RecogStockDiffType {
         Missing,     ///< 库内在库、柜内已空：工具不见了
         Mismatch,    ///< 库内是A工具、柜内识别出的是B：工具被换或被放到别处
-        NotCovered,  ///< 库内在库、识别清单未回报该货位：摄像头没覆盖，无法判定
+        NotCovered,  ///< 库内在库、识别清单未回报该货位：i=0407 仅提示、不计入账实不符
         Extra        ///< 库内该货位无在库记录、柜内却识别出工具：来源不明
     };
 
@@ -154,8 +154,9 @@ public:
      * @param diffs             全柜核对异常列表（仅处理 Extra 类：借出工具柜内复现）
      * @param regPositionByCode toolCode → 登记货位（含借出在外的工具，由页面经 ToolDAO 取）
      * @return 错放告警文案列表（每条可直接上结果页，与在库工具错放同一口径）
-     * @note  上位机不读取边缘机回包里的 misplaced 标签（RecogSpot 无 alertType 字段），
-     *        错放完全由"实际货位 ≠ 登记货位"判定；本函数即归还分支的该判定，抽为纯函数便于单测。
+     * @note  按 i=0401 错放记提示、不写告警；错放由"实际货位 ≠ 登记/目标货位"判定。
+     *        通信层 RecognizeItem.alertType 保留解析与结构校验，业务层不据此写告警。
+     *        识别清单按表13 只含货位/工具编号/置信度/告警类型，工具编号为空即货位无工具。
      */
     static QStringList detectReturnMisplaced(
         const QList<RecogStockDiff>& diffs,
@@ -165,8 +166,8 @@ public:
      * @brief 判断全柜核对结果里有没有"硬差异"（账实不符，需要人工确认）
      * @param outcome 全柜核对结果
      * @return true=有硬差异：库内在库工具柜内已空(Missing)、货位上工具被换(Mismatch)、
-     *         柜内出现未登记工具(Extra)；false=只有未覆盖(NotCovered)或没有差异
-     * @note  未覆盖不算硬差异：那是摄像头没扫到该货位，属识别覆盖问题，不是账实不符；
+     *         柜内出现未登记工具(Extra)；false=只有清单未回报(NotCovered)或没有差异
+     * @note  清单未回报不算硬差异：该货位未被识别覆盖，无法核对，不是账实不符；
      *        硬差异一旦出现，本次出入库就不能判"全部成功"，要让操作人确认后再写库
      */
     static bool hasHardStockDiff(const RecogStockOutcome& outcome);

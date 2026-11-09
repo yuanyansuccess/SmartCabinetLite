@@ -166,7 +166,7 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
                 cmp.detail = QStringLiteral("货位为空，未检测到工具放入");
             } else if (spot->toolId.isEmpty()) {
                 cmp.result = RecogItemResult::UnknownItem;
-                cmp.detail = QStringLiteral("%1 货位有无法识别物品").arg(it.position);
+                cmp.detail = QStringLiteral("%1 货位无工具或物品无法识别").arg(it.position);
             } else if (spot->toolId != it.toolCode) {
                 cmp.result = RecogItemResult::WrongTool;
                 cmp.detail = QStringLiteral("货位上为%1").arg(spot->toolId);
@@ -179,12 +179,16 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
                 cmp.result = RecogItemResult::Matched;
             }
         } else {
-            // 出库项：货位上没有识别出工具即通过（工具已取走）
+            // 出库项：表13 工具编号为空即货位无工具，判定取出正确（i=0436）；
+            // i=0407 清单未回报个别货位仅作提示、不判取出正确。
             auto spot = spotByPos.constFind(it.position);
             if (spot != spotByPos.constEnd()) {
                 cmp.confidence = spot->confidence;
             }
-            if (spot == spotByPos.constEnd() || spot->toolId.isEmpty()) {
+            if (spot == spotByPos.constEnd()) {
+                cmp.result = RecogItemResult::Empty;
+                cmp.detail = QStringLiteral("识别清单未回报该货位，仅提示，不判取出正确");
+            } else if (spot->toolId.isEmpty()) {
                 cmp.result = RecogItemResult::Matched;
             } else {
                 cmp.result = RecogItemResult::StillThere;
@@ -229,7 +233,6 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
         item.position   = s.position;
         item.toolId     = s.toolCode;
         item.confidence = s.confidence;
-        item.present    = s.present;
         result.items.append(item);
     }
     return compareOrderWithRecognition(items, result);
@@ -243,7 +246,7 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
  * @return 异常明细与两侧规模；diffs 为空表示全柜一致
  * @note  单据比对只管本单几十项，本方法补上"其他货位有没有被动过"这一路：
  *        库里在库却空了=Missing；库里是A却识别出B=Mismatch；
- *        清单没回报该货位=NotCovered（未覆盖，只提示不算异常丢失）；
+ *        清单没回报该货位=NotCovered（未识别覆盖，只提示不算异常丢失）；
  *        库里无在库记录却识别出工具=Extra（未登记入库的工具出现在柜内）
  */
 ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
@@ -265,7 +268,7 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
         stockByPos.insert(st.position, st);
     }
 
-    // ① 库内在库货位逐个核对：空了 / 被换 / 没扫到
+    // ① 库内在库货位逐个核对：空了 / 被换 / 清单未回报
     for (const RecogStockItem& st : stocks) {
         if (ignorePositions.contains(st.position)) {
             continue;   // 本单正在处理的货位，写库前后状态会变，不参与
@@ -278,7 +281,7 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
             diff.position  = st.position;
             diff.toolCode  = st.toolCode;
             diff.toolName  = st.toolName;
-            diff.detail    = QStringLiteral("%1 货位未被识别覆盖，无法核对（库内为%2）")
+            diff.detail    = QStringLiteral("%1 识别清单未回报该货位，无法核对（库内为%2）")
                 .arg(st.position, nameText);
             outcome.diffs.append(diff);
             continue;
@@ -309,7 +312,7 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
     // ② 识别清单里多出来的：库内该货位没有在库记录（未登记入库的工具出现在柜内）
     for (const RecogSpot& s : spots) {
         if (s.toolCode.isEmpty()) {
-            continue;   // 认不出的货位由单据比对的"未知物品"分支负责提示
+            continue;   // 认不出或无工具的货位由单据比对与 Missing 分支负责，不算多出工具
         }
         if (ignorePositions.contains(s.position)) {
             continue;

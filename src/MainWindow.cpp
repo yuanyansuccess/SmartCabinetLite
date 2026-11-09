@@ -442,9 +442,9 @@ void MainWindow::setEdgeService(EdgeService* svc) {
         [this](const QString& requestId, const RecognizeResult& result) {
             QList<ToolService::RecogSpot> spots;
             for (const RecognizeItem& item : result.items) {
-                // present 一并带出：全柜核对靠它区分"货位已扫但是空的"与"货位根本没回报"
+                // 表13 四字段：工具编号为空即货位无工具；alertType 按 i=0401 不在业务层写告警
                 spots.append(ToolService::RecogSpot{item.position, item.toolId,
-                                                     item.confidence, item.present});
+                                                     item.confidence});
             }
             m_checkinPage->onRecognitionResult(requestId, spots);
         });
@@ -661,7 +661,7 @@ void MainWindow::startCabinetSession() {
                 QList<ToolService::RecogSpot> spots;
                 for (const RecognizeItem& item : result.items)
                     spots.append(ToolService::RecogSpot{item.position, item.toolId,
-                                                        item.confidence, item.present});
+                                                        item.confidence});
                 session.onRecognitionResult(requestId, spots);
             });
         connect(m_edgeService, &EdgeService::recognizeFailed, &session,

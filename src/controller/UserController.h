@@ -1,6 +1,6 @@
 /**
  * @file UserController.h
- * @brief 用户管理控制层：用户增删改、启用禁用与密码维护
+ * @brief 用户管理控制层：用户新增/编辑、启用禁用与口令维护
  * @author 袁燕
  */
 #pragma once

@@ -18,6 +18,7 @@
  */
 #include "EdgeService.h"
 #include "EdgeLink.h"
+#include "../common/ProtocolAlertTypes.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -42,19 +43,16 @@ inline qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
  * @param out   校验通过时输出识别清单
  * @param issue 校验失败时输出人读原因（第一条不合规项）
  * @return true=清单结构合规可用；false=整帧不可信，调用方不得据此写库
- * @note  协议约定一项一货位、5 个字段（position/tool_id/confidence/alert_type/present）。
+ * @note  协议约定一项一货位、4 个字段（position/tool_id/confidence/alert_type）。
  *        任一元素不合规即拒绝整帧，不能只跳过该项：跳过会让该货位在清单里消失，
  *        出库比对把"没有回报"当成"工具已取走"，写出账实不符的记录。
- *        alert_type 缺席按 none、present 缺席按 true 兼容未升级的边缘机；
- *        两字段一旦带上，类型和取值必须合规。空数组是合法的"无变化"清单。
+ *        tool_id 为空表示该货位无工具；边缘机须全柜逐货位回报，空货位不得省略。
+ *        alert_type 缺席按 none 兼容未升级的边缘机，一旦带上类型和取值必须合规。
+ *        收到协议外多余字段（含历史 present）忽略，不判为结构错。空数组是合法的"无变化"清单。
  */
 bool parseItems(const QJsonArray& arr, QList<RecognizeItem>& out, QString& issue)
 {
     out.clear();
-    const QStringList alertTypes = {
-        QStringLiteral("none"), QStringLiteral("misplaced"), QStringLiteral("unknown"),
-        QStringLiteral("missing"), QStringLiteral("low_confidence")
-    };
     QSet<QString> seenPositions;
     for (int idx = 0; idx < arr.size(); ++idx) {
         const int line = idx + 1;
@@ -88,16 +86,10 @@ bool parseItems(const QJsonArray& arr, QList<RecognizeItem>& out, QString& issue
         const QJsonValue alertValue = item.value(QStringLiteral("alert_type"));
         if (alertValue.isUndefined()) {
             // 未升级的边缘机不带告警类型：按无告警处理，仍属合法帧
-        } else if (!alertValue.isString() || !alertTypes.contains(alertValue.toString())) {
+        } else if (!alertValue.isString() || !Proto::ALERT_TYPE_VALUES.contains(alertValue.toString())) {
             issue = QStringLiteral("第%1项 alert_type 不是字符串或不在协议枚举内").arg(line);
             return false;
         }
-        const QJsonValue presentValue = item.value(QStringLiteral("present"));
-        if (!presentValue.isUndefined() && !presentValue.isBool()) {
-            issue = QStringLiteral("第%1项 present 不是布尔值").arg(line);
-            return false;
-        }
-
         const QString position = posValue.toString();
         if (seenPositions.contains(position)) {
             issue = QStringLiteral("第%1项货位 %2 重复上报").arg(line).arg(position);
@@ -110,8 +102,7 @@ bool parseItems(const QJsonArray& arr, QList<RecognizeItem>& out, QString& issue
         parsed.toolId     = toolValue.toString();
         parsed.confidence = confidence;
         parsed.alertType  = alertValue.isUndefined()
-                                ? QStringLiteral("none") : alertValue.toString();
-        parsed.present    = presentValue.isUndefined() ? true : presentValue.toBool();
+                                ? Proto::ALERT_TYPE_NONE : alertValue.toString();
         out.append(parsed);
     }
     return true;

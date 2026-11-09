@@ -24,16 +24,15 @@ struct EdgeConfig {
 // 协议3.3字段规整约定：一项一货位，position / tool_id / confidence 三项每项必填。
 // 任一项类型不符、取值越界或货位重复时，整帧判为不可信并拒绝本次核对：
 // 空的工具编号会被当成"货位已空"，工具未取走却被写成已出库。
-// alert_type 可缺席（按 none 处理）、present 可缺席（按 true 处理），兼容未升级的边缘机；
-// 两字段一旦带上，类型与取值必须合规。空 items 数组是合法的"柜内无变化"清单。
-// 边缘机只报"货位上有什么"（position/tool_id/confidence/alert_type/present），
-// 识别类别与告警级别由上位机按自身规则判定，故这两位段不再下发。
+// alert_type 可缺席（按 none 处理），兼容未升级的边缘机；一旦带上，类型与取值必须合规。
+// 表13：items 每项下发 position/tool_id/confidence/alert_type 四个字段；tool_id 为空表示该货位无工具。
+// 边缘机须全柜逐货位回报，空货位也要回报一条 tool_id 为空的项，不得从清单中省略。
+// alert_type 为告警类型，与上位机告警字典对应。空 items 数组是合法的"柜内无变化"清单。
 struct RecognizeItem {
     QString position;      // A-01-05 货位（必填，非空字符串）
     QString toolId;        // C01-T0012，认不出为空串（必填字符串，空串=该货位认不出）
     double  confidence = 0.0;  // 0~1（必填数值）
-    QString alertType = QStringLiteral("none"); // 可缺席取 none；取值限 none/misplaced/unknown/missing/low_confidence
-    bool    present = true;    // 可缺席取 true；false=该货位未覆盖/未扫到
+    QString alertType = QStringLiteral("none"); // 表13：告警类型，与上位机告警字典对应；可缺席取 none；取值限 none/misplaced/unknown/missing/low_confidence
 };
 
 struct RecognizeResult {

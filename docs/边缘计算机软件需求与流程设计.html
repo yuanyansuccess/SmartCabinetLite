@@ -82,12 +82,12 @@
   <tr><td><b>open_req</b></td><td>上位机 &#8594; 边缘机</td><td>用户确认出入库 / 重开柜整理</td><td>request_id、timestamp</td><td>触发开锁；同一 request_id 绝不二次执行</td></tr>
   <tr><td><b>open_ack</b></td><td>边缘机 &#8594; 上位机</td><td>开锁执行后</td><td>request_id、success、message</td><td>success=true 的唯一前提是拿到 IO 回执；失败必须带人读原因</td></tr>
   <tr><td><b>recognize_req</b></td><td>上位机 &#8594; 边缘机</td><td>收到关柜信号后</td><td>request_id、timestamp</td><td>触发全柜识别；重复请求去重</td></tr>
-  <tr><td><b>recognize_ack</b></td><td>边缘机 &#8594; 上位机</td><td>识别完成后</td><td>request_id；items[] 每项必须带全：position / tool_id / class_id / confidence / alert_type / alert_level / present</td><td>字段禁止时有时无（协议 3.3 规整约定）；present=false 表示该货位未被扫到，缺失判定靠它</td></tr>
+  <tr><td><b>recognize_ack</b></td><td>边缘机 &#8594; 上位机</td><td>识别完成后</td><td>request_id；items[] 每项必须带全：position / tool_id / class_id / confidence / alert_type / alert_level</td><td>字段禁止时有时无（协议 3.3 规整约定）；空货位仍须回报 tool_id 为空的项，不得省略</td></tr>
   <tr><td><b>version_query / version_ack</b></td><td>双向</td><td>连接后 / 验收留痕</td><td>version</td><td>上报边缘机软件版本号</td></tr>
 </table>
 </div>
 <div class="note"><b>通用规则（协议第 3.6 / 5 / 6 章）：</b>应答超时 3 秒、最多重发 2 次（首发 + 2 次重发，request_id 不变）；request_id 配对，同一请求的重复回应只算一次；单帧上限 1MB；链路离线时上位机禁止下发任何请求；断链恢复后上位机对失败请求按原 id 自动补发一次。</div>
-<div class="note"><b>取值字典：</b>alert_type：none 正常 / misplaced 错放 / unknown 未知物 / missing 缺失 / low_confidence 置信度不足；alert_level：0 无 / 1 提示 / 2 一般 / 3 严重；摄像头状态 status：ok / offline / low_light / dirty / comm_error；present：true=扫到该货位，false=未覆盖未扫到。</div>
+<div class="note"><b>取值字典：</b>alert_type：none 正常 / misplaced 错放 / unknown 未知物 / missing 缺失 / low_confidence 置信度不足；alert_level：0 无 / 1 提示 / 2 一般 / 3 严重；摄像头状态 status：ok / offline / low_light / dirty / comm_error。</div>
 <h2>四、边缘计算机软件功能架构图</h2>
 <div class="card" id="dg-arch"></div>
 
@@ -169,8 +169,8 @@
   <div class="rcard gB">
     <h4>B4 · 货位结果聚合与告警判定</h4>
     <div class="row"><b class="k">做什么：</b>检测目标按「货位-摄像头映射」聚合成全柜实况清单。</div>
-    <div class="row"><b class="k">输出：</b>每货位 7 个字段一律带全：position / tool_id / class_id / confidence / alert_type / alert_level / present。</div>
-    <div class="row"><b class="k">判定规则：</b>有物但类别不符&#8594;misplaced；有物认不出&#8594;unknown；置信度低于阈值&#8594;low_confidence；货位没被扫到&#8594;present=false（缺失由上位机判定）。</div>
+    <div class="row"><b class="k">输出：</b>每货位字段带全：position / tool_id / class_id / confidence / alert_type / alert_level；现行协议以正式需规表 13 为准。</div>
+    <div class="row"><b class="k">判定规则：</b>有物但类别不符&#8594;misplaced；有物认不出&#8594;unknown；置信度低于阈值&#8594;low_confidence；货位未回报（缺失由上位机判定）。</div>
     <div class="row"><b class="k">验收标准：</b>与模拟器内置场景逐一对拍：正常 / 有借有还 / 错放 / 未知物 / 置信度不足 / 缺失，字段口径完全一致。</div>
   </div>
   <div class="rcard gB">
@@ -314,7 +314,7 @@
   <tr><td>E05</td><td>协议</td><td>同一 request_id 重复请求</td><td>去重：回缓存结果或明确拒绝</td><td>对 open_req 二次开锁（安全事故）</td></tr>
   <tr><td>E06</td><td>业务</td><td>识别进行中又来识别请求</td><td>忙判定：明确回应忙或排队，一次只跑一套识别</td><td>并发跑两套识别互相污染结果</td></tr>
   <tr><td>E07</td><td>业务</td><td>识别处理卡死</td><td>处理超时兜底：立即回失败帧</td><td>沉默不回应，上位机白等 9 秒</td></tr>
-  <tr><td>E08</td><td>摄像头</td><td>单路断流</td><td>该路置 offline，对应货位 present=false 如实回报</td><td>用上一帧冒充当前画面（假识别）</td></tr>
+  <tr><td>E08</td><td>摄像头</td><td>单路断流</td><td>该路置 offline，对应货位不回报（清单缺项，由上机位判识别核对异常）</td><td>用上一帧冒充当前画面（假识别）</td></tr>
   <tr><td>E09</td><td>摄像头</td><td>画面脏污 / 遮挡 / 低照度</td><td>置 dirty / low_light 并上报，识别结果如实标注</td><td>恒报 ok——等于替现场拆掉开柜安全闸门</td></tr>
   <tr><td>E10</td><td>摄像头</td><td>全部摄像头离线</td><td>拒绝识别请求并回明确失败</td><td>回空清单——上位机会误判「整柜空」</td></tr>
   <tr><td>E11</td><td>IO</td><td>IO 板离线</td><td>开锁请求快速失败：立即回 success=false 与原因</td><td>假装成功或让请求干等到超时</td></tr>
@@ -657,13 +657,13 @@ flow("dg-f3", {title:"F3 识别流程", width:832, margin:26, colW:390, rowH:104
     {id:"n2", col:0, row:2, kind:"decide", title:"忙判定", sub:["上一次识别未结束？"]},
     {id:"n3", col:0, row:3, title:"逐货位采集当前帧", sub:["按货位-摄像头映射覆盖全柜"]},
     {id:"n4", col:0, row:4, title:"解码 + 模型推理", sub:["输出类别与置信度"]},
-    {id:"n5", col:0, row:5, title:"聚合货位结果", sub:["present / tool_id / class_id / confidence"]},
+    {id:"n5", col:0, row:5, title:"聚合货位结果", sub:["tool_id / class_id / confidence"]},
     {id:"n6", col:0, row:6, title:"判定告警类型与级别", sub:["misplaced / unknown / low_confidence"]},
     {id:"n7", col:0, row:7, title:"组装 recognize_ack", sub:["字段一律带全（协议 3.3）"]},
     {id:"n8", col:0, row:8, kind:"ok", title:"回应上位机", sub:["写本地识别日志（清单与耗时）"]},
     {id:"E1", col:1, row:1, kind:"red", title:"重复请求", sub:["回缓存结果或拒绝，绝不二次执行"]},
     {id:"E2", col:1, row:2, kind:"warn", title:"回 busy / 排队", sub:["必须明确回应，不能不理"]},
-    {id:"E3", col:1, row:3, kind:"warn", title:"取帧失败", sub:["该货位 present=false，如实标注"]},
+    {id:"E3", col:1, row:3, kind:"warn", title:"取帧失败", sub:["该货位不回报，如实标注"]},
     {id:"E4", col:1, row:4, kind:"red", title:"推理失败", sub:["立即回失败帧，禁止沉默"]}
   ],
   edges:[
