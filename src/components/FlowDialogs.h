@@ -54,14 +54,6 @@ public:
     static void addTitle(QVBoxLayout* body, const QString& icon, const QString& title);
 
     /**
-     * @brief 追加浅蓝提示条（图标 + 一行说明）
-     * @param body    主布局
-     * @param icon    图标文本，如 📋
-     * @param text    提示文字
-     * @param padding 提示条上下内边距，默认 8
-     */
-
-    /**
      * @brief 创建统一样式的清单表格
      * @param headers 表头文本，个数即列数，列宽自适应内容等比拉伸
      * @return 表格对象（调用方需自行加入布局）

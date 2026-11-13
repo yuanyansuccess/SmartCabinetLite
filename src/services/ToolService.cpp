@@ -332,6 +332,12 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
     return outcome;
 }
 
+/**
+ * @brief 检测归还工具是否放错货位
+ * @param diffs 柜内实况与库内基线的差异清单
+ * @param regPositionByCode 工具编号到登记货位的映射
+ * @return 错放提示文案列表，无错放时返回空列表
+ */
 QStringList ToolService::detectReturnMisplaced(
     const QList<RecogStockDiff>& diffs,
     const QHash<QString, QString>& regPositionByCode)

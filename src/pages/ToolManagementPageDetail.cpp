@@ -407,25 +407,11 @@ void ToolManagementPage::fillRecordTable(QTableWidget* recordTable, const QList<
         QString statusColor;
         if (opTypeEnum == common::OperationType::Borrow) {
             const common::BorrowStatus bs = common::toBorrowStatus(status);
-            switch (bs) {
-            case common::BorrowStatus::Borrowing:
-                statusText = QStringLiteral("借用中");
-                statusColor = QStringLiteral("#fa8c16");
-                break;
-            case common::BorrowStatus::Returned:
-                statusText = QStringLiteral("已归还");
-                statusColor = QStringLiteral("#43a047");
-                break;
-            case common::BorrowStatus::Overdue:
-                statusText = QStringLiteral("已逾期");
-                statusColor = QStringLiteral("#e53935");
-                break;
-            case common::BorrowStatus::Unknown:
-            default:
-                statusText = status.isEmpty() ? QStringLiteral("--") : status;
-                statusColor = QStringLiteral("#999999");
-                break;
-            }
+            // 未识别状态回退显示原始值或占位符，其余状态用公共展示函数，避免文案与配色散落
+            statusText = (bs == common::BorrowStatus::Unknown)
+                         ? (status.isEmpty() ? QStringLiteral("--") : status)
+                         : common::borrowStatusText(bs);
+            statusColor = common::borrowStatusColor(bs);
         } else {
             statusText = QStringLiteral("已完成");
             statusColor = QStringLiteral("#43a047");

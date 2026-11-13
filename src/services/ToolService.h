@@ -33,7 +33,6 @@ public:
         WrongTool,      ///< 入库项目标货位上是别的工具
         LowConfidence,  ///< 识别出本工具但置信度不足门槛
         UnknownItem,    ///< 目标货位上有无法识别的物品
-        Misplaced,      ///< 协议告警类型 misplaced（工具放错位置）：本单工具出现在非目标货位
         StillThere      ///< 出库项目标货位上仍有工具（没有取走）
     };
 

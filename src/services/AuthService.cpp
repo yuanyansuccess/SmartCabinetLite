@@ -207,15 +207,6 @@ AuthService::LoginResult AuthService::login(const QString& username, const QStri
 
 
 /**
- * @brief 判断用户是否为启用状态
- * @param user 用户信息对象
- * @return true=已启用
- */
-bool AuthService::isActive(const QJsonObject& user) const { 
-    return user["status"].toString() == SC::USER_ACTIVE; 
-}
-
-/**
  * @brief 计算口令哈希
  * @param password 口令明文
  * @param salt 口令盐值

@@ -48,7 +48,7 @@
  */
 void LoginPage::setupUI() {
 
-    // 小屏/高缩放时登录卡片内容可能高于可视区域：用滚动区兜底，
+    // 小屏/高缩放时登录卡片内容可能高于可视区域：放进滚动区，
     // 避免陌生人警报等状态下底部文字与操作按钮被直接裁切。
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);

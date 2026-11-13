@@ -190,17 +190,6 @@ bool UserController::resetPassword(int userId, const QString& newPwd, bool mustC
     return true;
 }
 
-
-/**
- * @brief 查询全部部门名称
- * @return 部门名称列表
- */
-
-/**
- * @brief 查询全部可用角色
- * @return 角色标识列表（管理员、普通用户）
- */
-
 /**
  * @brief 校验登录账号格式（新建账户口径）
  * @param username 登录账号

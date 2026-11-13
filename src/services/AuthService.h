@@ -27,9 +27,6 @@ public:
     // 密码登录
     LoginResult login(const QString& username, const QString& password);
 
-    // 权限检查
-    bool isActive(const QJsonObject& user) const;
-    
     // 密码工具方法
     static QString hashPassword(const QString& password, const QString& salt);
     static QString generateSalt();

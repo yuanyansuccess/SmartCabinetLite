@@ -157,6 +157,10 @@ void CabinetSessionDialog::onCloseWaitTimeout()
             + QStringLiteral("取放完成后请点击「关闭智能柜」完成核对。"));
 }
 
+/**
+ * @brief 注入边缘机通信服务，供开柜与识别请求使用
+ * @param svc 边缘机通信服务指针，由外部持有生命周期，本类不释放
+ */
 void CabinetSessionDialog::setEdgeService(EdgeService* svc)
 {
     m_edge = svc;
@@ -311,6 +315,10 @@ void CabinetSessionDialog::loadMyTaskTools()
     }
 }
 
+/**
+ * @brief 切换当前任务类型页签并重建工具卡片
+ * @param idx 目标页签下标，越界时忽略
+ */
 void CabinetSessionDialog::selectTypeTab(int idx)
 {
     if (idx < 0 || idx >= m_myTypes.size()) return;
@@ -320,6 +328,9 @@ void CabinetSessionDialog::selectTypeTab(int idx)
     rebuildToolCards();
 }
 
+/**
+ * @brief 按当前任务类型重建三列工具卡片网格，并刷新在库件数
+ */
 void CabinetSessionDialog::rebuildToolCards()
 {
     if (!m_toolsScroll) return;
@@ -352,6 +363,11 @@ void CabinetSessionDialog::rebuildToolCards()
     m_toolsScroll->setWidget(host);   // QScrollArea自动销毁旧内容
 }
 
+/**
+ * @brief 构建单个只读工具卡片
+ * @param row 工具行数据，含名称、编号、货位
+ * @return 新建的卡片控件，由调用方加入布局
+ */
 QWidget* CabinetSessionDialog::makeToolCard(const ToolRow& row)
 {
     QWidget* card = new QWidget();
@@ -499,6 +515,12 @@ void CabinetSessionDialog::buildResultPage()
 
 // ─────────────────────────── 等待框 ───────────────────────────
 
+/**
+ * @brief 显示处理中等待框，下一步按钮暂不可点
+ * @param windowTitle 窗口标题
+ * @param title 等待框主标题
+ * @param desc 等待框说明文字
+ */
 void CabinetSessionDialog::showWait(const QString& windowTitle, const QString& title, const QString& desc)
 {
     closeWait();
@@ -511,6 +533,9 @@ void CabinetSessionDialog::showWait(const QString& windowTitle, const QString& t
     dlg->show();
 }
 
+/**
+ * @brief 关闭并释放当前等待框
+ */
 void CabinetSessionDialog::closeWait()
 {
     if (m_waitDlg) {
@@ -540,6 +565,10 @@ void CabinetSessionDialog::onOpenCabinetClicked()
     onOpenStarted(m_openRequestId);
 }
 
+/**
+ * @brief 开柜请求已下发时显示开柜等待框
+ * @param requestId 本次请求编号，空串表示离线拒发、不显示
+ */
 void CabinetSessionDialog::onOpenStarted(const QString& requestId)
 {
     if (requestId.isEmpty()) return;   // requestOpen 离线拒发时已先发 openFailed，原因随后提示
@@ -547,6 +576,12 @@ void CabinetSessionDialog::onOpenStarted(const QString& requestId)
              QStringLiteral("系统正在打开智能柜，请稍候…"));
 }
 
+/**
+ * @brief 开柜完成回调：成功采集柜内在库基线，失败显示重试入口
+ * @param requestId 请求编号，与在途编号不符时忽略
+ * @param success 开柜是否成功
+ * @param message 失败原因文案
+ */
 void CabinetSessionDialog::onOpenFinished(const QString& requestId, bool success, const QString& message)
 {
     if (requestId != m_openRequestId) return;
@@ -578,6 +613,11 @@ void CabinetSessionDialog::onOpenFinished(const QString& requestId, bool success
     }
 }
 
+/**
+ * @brief 开柜失败回调：离线拒发直接弹提示，在途失败显示重试入口
+ * @param requestId 请求编号，空串表示离线拒发
+ * @param reason 失败原因文案
+ */
 void CabinetSessionDialog::onOpenFailed(const QString& requestId, const QString& reason)
 {
     if (requestId.isEmpty()) {   // 离线拒发：requestOpen 内部已先发本信号，reason 即真实原因
@@ -607,6 +647,10 @@ void CabinetSessionDialog::onCloseCabinetClicked()
     onRecognitionStarted(m_recognizeRequestId);
 }
 
+/**
+ * @brief 识别请求已下发时显示核对等待框
+ * @param requestId 本次请求编号，空串表示离线拒发、不显示
+ */
 void CabinetSessionDialog::onRecognitionStarted(const QString& requestId)
 {
     if (requestId.isEmpty()) return;   // requestRecognize 离线拒发时已先发 recognizeFailed
@@ -624,6 +668,11 @@ void CabinetSessionDialog::onRecognitionResult(const QString& requestId, const Q
     QTimer::singleShot(0, this, &CabinetSessionDialog::applyResult);
 }
 
+/**
+ * @brief 识别失败回调：离线拒发直接弹提示，在途失败显示重试入口
+ * @param requestId 请求编号，空串表示离线拒发
+ * @param reason 失败原因文案
+ */
 void CabinetSessionDialog::onRecognitionFailed(const QString& requestId, const QString& reason)
 {
     if (requestId.isEmpty()) {
@@ -637,6 +686,10 @@ void CabinetSessionDialog::onRecognitionFailed(const QString& requestId, const Q
     }
 }
 
+/**
+ * @brief 边缘机链路状态变化：断开时若正在等待则关闭等待框并提示
+ * @param online true=链路恢复，false=链路断开
+ */
 void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
 {
     if (!online && m_waitDlg) {
@@ -689,7 +742,7 @@ void CabinetSessionDialog::applyResult()
         codeToPos[s.toolCode]  = s.position;
         baselineCodes.insert(s.toolCode);
     }
-    // 借出工具的登记货位一并入映射：归还兜底取位置 + 归还错放检测（见 Extra 分支），
+    // 把借出工具的登记货位一并存入映射：识别清单缺货位时用它补全，同时用于归还错放检测（见 Extra 分支），
     // 保证每条归还日志与归还明细都带位置
     const QJsonArray borrowedPos = db::ToolDAO().findBorrowedOutPositions(m_machineGroupId);
     for (const auto& v : borrowedPos) {
@@ -736,7 +789,7 @@ void CabinetSessionDialog::applyResult()
                 ri.recordId = rec.borrowId;
                 ri.toolCode = d.toolCode;
                 ri.toolName = rec.toolName;
-                // 识别货位缺失时用登记货位兜底，归还记录不允许没有位置
+                // 识别清单没给货位时改用登记货位，归还记录不允许没有位置
                 ri.position = d.position.isEmpty() ? codeToPos.value(d.toolCode) : d.position;
                 m_returnItems.append(ri);
             } else if (!baselineCodes.contains(d.toolCode)) {
@@ -772,6 +825,9 @@ void CabinetSessionDialog::applyResult()
     fillResultUI();
 }
 
+/**
+ * @brief 把借出、归还、告警结果渲染到清单页，并控制重开柜按钮与页面切换
+ */
 void CabinetSessionDialog::fillResultUI()
 {
     LayoutHelper::clearItemsAndDeleteWidgets(m_borrowListLayout);
