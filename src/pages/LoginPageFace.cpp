@@ -110,8 +110,10 @@ void LoginPage::startFaceRecognition(bool relogin) {
     m_faceRecognitionActive = true;
     m_captureProgress->setVisible(false);
 
-    // 总超时90s→30s，用户体验优化
-    m_timeoutTimer->start(30000);
+    // 刷脸验证总超时：到点仍未通过则停止识别并提示重试
+    // 每轮只保留一个超时处理连接，避免重复启动识别时连接累积
+    m_timeoutTimer->disconnect();
+    m_timeoutTimer->start(SC::FACE_VERIFY_TIMEOUT_MS);
     connect(m_timeoutTimer, &QTimer::timeout, this, [this]() {
         if (m_destroying) return;  // 析构保护
         if (m_faceResult == FaceResult::Scanning || m_faceResult == FaceResult::Capturing) {

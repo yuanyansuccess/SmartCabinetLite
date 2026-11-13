@@ -18,12 +18,17 @@
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QPushButton>
+#include <QTimer>
 #include <QShowEvent>
 #include <QHideEvent>
+#include <QPointer>
 #include <QDebug>
 
-// 人脸检测信号每帧触发，这里按固定间隔取一次特征做比对
+// 人脸状态由检测定时器刷新，这里按固定间隔读取当前状态并取一次特征做比对
 static const int kFacePollIntervalMs = 1000;
+// 核验未通过、机会用尽两种结果面向用户显示的提示文案
+static const QString kFaceVerifyRetryText = QStringLiteral("未识别到本人，请再试一次");
+static const QString kFaceVerifyExhaustedText = QStringLiteral("次数已用尽，请联系管理员");
 
 /**
  * @brief 构造函数，初始化 ForgotPasswordDialog 对象并连接信号槽
@@ -40,7 +45,7 @@ ForgotPasswordDialog::~ForgotPasswordDialog() {
 }
 
 /**
- * @brief 构建对话框内容：验证页与设密页、安全键盘、人脸轮询定时器与底部按钮
+ * @brief 构建对话框内容：验证页与设密页、安全键盘、人脸轮询与总超时定时器、底部按钮
  */
 void ForgotPasswordDialog::setupContent() {
     auto* cl = contentLayout();
@@ -58,10 +63,15 @@ void ForgotPasswordDialog::setupContent() {
     connect(m_keypad, &NumKeypad::confirmed, this, [this]() { m_keypad->hide(); });
     connect(m_keypad, &NumKeypad::cancelled, this, [this]() { m_keypad->hide(); });
 
-    // 人脸轮询定时器：检测到人脸后按间隔取特征比对
+    // 人脸轮询定时器：当前画面有人脸时按间隔取特征比对
     m_pollTimer = new QTimer(this);
     m_pollTimer->setInterval(kFacePollIntervalMs);
     connect(m_pollTimer, &QTimer::timeout, this, &ForgotPasswordDialog::onPollFace);
+
+    // 刷脸验证总超时：与登录页共用同一时长，到点结束本轮验证
+    m_verifyTimeoutTimer = new QTimer(this);
+    m_verifyTimeoutTimer->setSingleShot(true);
+    connect(m_verifyTimeoutTimer, &QTimer::timeout, this, &ForgotPasswordDialog::onVerifyTimeout);
 
     // 底部按钮：两页共用（验证页为取消，设密页为确认重置）
     auto* bl = buttonLayout();
@@ -70,7 +80,7 @@ void ForgotPasswordDialog::setupContent() {
 }
 
 /**
- * @brief 构建身份验证页：摄像头预览 + 状态提示 + 取消按钮
+ * @brief 构建身份验证页：摄像头预览 + 状态提示 + 重新验证与取消按钮
  * @return 页面控件
  */
 QWidget* ForgotPasswordDialog::buildVerifyPage() {
@@ -83,8 +93,6 @@ QWidget* ForgotPasswordDialog::buildVerifyPage() {
     m_camera = new FaceCameraWidget();
     m_camera->setFixedSize(300, 300);
     vl->addWidget(m_camera, 0, Qt::AlignCenter);
-    connect(m_camera, &FaceCameraWidget::faceDetected, this, [this]() { m_faceSeen = true; });
-
     m_captureStatus = new QLabel(QStringLiteral("请面对摄像头完成身份验证"));
     m_captureStatus->setAlignment(Qt::AlignCenter);
     m_captureStatus->setMinimumHeight(StyleHelper::Token::ControlHeight);
@@ -98,14 +106,25 @@ QWidget* ForgotPasswordDialog::buildVerifyPage() {
     m_verifyError->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontBody) + ";color:#e74c3c;background:transparent;");
     vl->addWidget(m_verifyError);
 
+    const QString secondaryBtnStyle =
+        "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
+        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
+        "QPushButton:hover{background:#f5f5f5;}";
+
+    m_retryBtn = new QPushButton(QStringLiteral("重新验证"));
+    m_retryBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
+    m_retryBtn->setMinimumWidth(140);
+    m_retryBtn->setCursor(Qt::PointingHandCursor);
+    m_retryBtn->setStyleSheet(secondaryBtnStyle);
+    m_retryBtn->setVisible(false);
+    connect(m_retryBtn, &QPushButton::clicked, this, &ForgotPasswordDialog::onRetryVerify);
+    vl->addWidget(m_retryBtn);
+
     auto* cancelBtn = new QPushButton(QStringLiteral("取消"));
     cancelBtn->setMinimumHeight(StyleHelper::Token::ControlHeightTouch);
     cancelBtn->setMinimumWidth(140);
     cancelBtn->setCursor(Qt::PointingHandCursor);
-    cancelBtn->setStyleSheet(
-        "QPushButton{background:#fff;color:#666;border:2px solid #ddd;border-radius:12px;"
-        "" + StyleHelper::fontSize(StyleHelper::Token::FontLabel) + ";font-weight:600;}"
-        "QPushButton:hover{background:#f5f5f5;}");
+    cancelBtn->setStyleSheet(secondaryBtnStyle);
     connect(cancelBtn, &QPushButton::clicked, this, &ForgotPasswordDialog::onCancel);
     vl->addWidget(cancelBtn);
 
@@ -227,79 +246,161 @@ void ForgotPasswordDialog::openKeypad(QLineEdit* edit) {
 }
 
 /**
- * @brief 对话框显示时启动摄像头与轮询定时器
+ * @brief 对话框显示时在验证页开始一轮刷脸验证
  * @param event 显示事件
  */
 void ForgotPasswordDialog::showEvent(QShowEvent* event) {
     BaseDialog::showEvent(event);
-    if (m_pollTimer && !m_pollTimer->isActive()) m_pollTimer->start();
-    if (m_camera) m_camera->startCamera();
+    if (m_pages && m_pages->currentIndex() == 0) startVerifySession();
 }
 
 /**
- * @brief 对话框隐藏时停止摄像头与轮询定时器，释放资源
+ * @brief 对话框隐藏时结束本轮刷脸验证并释放摄像头资源
  * @param event 隐藏事件
  */
 void ForgotPasswordDialog::hideEvent(QHideEvent* event) {
-    if (m_pollTimer) m_pollTimer->stop();
-    if (m_camera) m_camera->stopCamera();
+    stopVerifySession();
     BaseDialog::hideEvent(event);
 }
 
 /**
- * @brief 轮询人脸检测：检测到人脸且未在比对时，取一次特征执行比对
+ * @brief 轮询当前画面是否有人脸，有人脸且未在比对时发起一次比对
  */
 void ForgotPasswordDialog::onPollFace() {
-    if (m_verifying || !m_faceSeen) return;
+    if (!m_sessionActive || m_verifying || !m_camera || m_camera->faceRect().isNull()) return;
     if (m_pages && m_pages->currentIndex() != 0) return;
     verifyOnce();
 }
 
 /**
- * @brief 执行一次人脸比对：成功进入设密页，失败累计次数并提示
+ * @brief 执行一次人脸比对：成功进入设密页，有效比对未通过则登记一次尝试
  */
 void ForgotPasswordDialog::verifyOnce() {
-    if (!m_camera) return;
+    if (!m_camera || m_verifying) return;
     m_verifying = true;
-    m_faceSeen = false;
     if (m_captureStatus) m_captureStatus->setText(QStringLiteral("正在验证身份..."));
 
-    // 特征提取为同步过程，放在定时器回调中执行，避免阻塞信号派发
+    // 特征提取是同步过程且内部有嵌套事件循环：先停轮询防止重入，
+    // QPointer 防止对话框析构，会话编号防止在途比对串入新一轮验证
+    if (m_pollTimer) m_pollTimer->stop();
+    QPointer<ForgotPasswordDialog> alive(this);
+    const quint64 sessionId = m_sessionId;
     const QString descriptor = m_camera->captureFaceFeature();
+    if (!alive || !m_sessionActive || m_sessionId != sessionId) return;
+    // 服务未就绪或未检出人脸不算身份试探，不占用尝试次数；30 秒内一直取不到特征时按超时提示
     if (descriptor.isEmpty()) {
-        m_verifying = false;
         if (m_captureStatus) m_captureStatus->setText(QStringLiteral("未识别人脸，请对准摄像头"));
+        resumePolling();
         return;
     }
 
     FaceRecognitionService faceSvc;
     auto result = faceSvc.matchFace(descriptor);  // 默认阈值与登录识别一致
-    m_verifying = false;
+    if (!alive || !m_sessionActive || m_sessionId != sessionId) return;
 
     if (result.success && result.userId > 0) {
         m_userId = result.userId;
-        if (m_verifyError) {
-            m_verifyError->setVisible(false);
-        }
+        if (m_verifyError) m_verifyError->setVisible(false);
         gotoResetPage(result.realName, result.workNo);
         return;
     }
-
-    ++m_attempts;
-    const int remain = SC::FACE_VERIFY_MAX_ATTEMPTS - m_attempts;
-    if (m_captureStatus) m_captureStatus->setText(QStringLiteral("未识别到本人，请再试一次"));
-    if (m_verifyError) {
-        if (remain > 0) {
-            m_verifyError->setText(QStringLiteral("还可尝试 %1 次").arg(remain));
-            m_verifyError->setVisible(true);
+    // 人脸库中无匹配人员时继续采集也不会通过，本轮到此结束，由用户决定是否再试
+    const bool noMatchedUser = result.noMatchedUser;
+    if (noMatchedUser) {
+        qInfo() << "[ForgotPassword] 人脸库中无匹配人员，按未识别到本人处理";
+        stopVerifySession();
+    }
+    if (registerFailedAttempt(kFaceVerifyRetryText) > 0) {
+        if (noMatchedUser) {
+            if (m_retryBtn) m_retryBtn->setVisible(true);
         } else {
-            // 超过上限：关闭入口，避免反复刷脸试探
-            m_verifyError->setText(QStringLiteral("次数已用尽，请联系管理员"));
-            m_verifyError->setVisible(true);
-            if (m_pollTimer) m_pollTimer->stop();
-            if (m_camera) m_camera->stopCamera();
+            resumePolling();
         }
     }
+}
+
+/**
+ * @brief 登记一次核验失败：累计次数、刷新提示，机会用尽时关闭核验入口
+ * @param statusText 摄像头下方显示的状态文案
+ * @return 剩余可尝试次数；0 表示机会已用尽
+ */
+int ForgotPasswordDialog::registerFailedAttempt(const QString& statusText) {
+    ++m_attempts;
+    const int remain = SC::FACE_VERIFY_MAX_ATTEMPTS - m_attempts;
+    if (m_captureStatus) {
+        m_captureStatus->setText(remain > 0 ? statusText : QStringLiteral("未识别到本人"));
+    }
+    if (m_verifyError) {
+        m_verifyError->setText(remain > 0
+                                   ? QStringLiteral("还可尝试 %1 次").arg(remain)
+                                   : kFaceVerifyExhaustedText);
+        m_verifyError->setVisible(true);
+    }
+    if (remain <= 0) {
+        stopVerifySession();
+        if (m_retryBtn) m_retryBtn->setVisible(false);
+        return 0;
+    }
+    return remain;
+}
+
+/**
+ * @brief 继续下一轮人脸轮询：仅在本轮验证仍有效时重启轮询
+ */
+void ForgotPasswordDialog::resumePolling() {
+    m_verifying = false;
+    if (m_sessionActive && m_pollTimer) m_pollTimer->start();
+}
+
+/**
+ * @brief 开始一轮刷脸验证：分配新编号并启动摄像头、轮询与总超时
+ * @param resetAttempts true=新开对话框从零计次数；false=重新验证沿用已用次数
+ */
+void ForgotPasswordDialog::startVerifySession(bool resetAttempts) {
+    ++m_sessionId;
+    m_sessionActive = true;
+    if (resetAttempts) {
+        m_attempts = 0;
+        if (m_verifyError) m_verifyError->setVisible(false);
+    }
+    m_verifying = false;
+    if (m_retryBtn) m_retryBtn->setVisible(false);
+    if (m_captureStatus) m_captureStatus->setText(QStringLiteral("请面对摄像头完成身份验证"));
+    if (m_camera) m_camera->startCamera();
+    if (m_pollTimer) m_pollTimer->start();
+    if (m_verifyTimeoutTimer) m_verifyTimeoutTimer->start(SC::FACE_VERIFY_TIMEOUT_MS);
+}
+
+/**
+ * @brief 停止本轮刷脸验证：停轮询与总超时并关闭摄像头
+ */
+void ForgotPasswordDialog::stopVerifySession() {
+    m_sessionActive = false;
+    if (m_pollTimer) m_pollTimer->stop();
+    if (m_verifyTimeoutTimer) m_verifyTimeoutTimer->stop();
+    if (m_camera) m_camera->stopCamera();
+    m_verifying = false;
+}
+
+/**
+ * @brief 刷脸验证总超时：占用一次尝试机会，给出与核验失败相同的提示
+ */
+void ForgotPasswordDialog::onVerifyTimeout() {
+    if (!m_sessionActive) return;
+    if (m_pages && m_pages->currentIndex() != 0) return;
+    stopVerifySession();
+    // 超时同样消耗一次机会，剩余次数大于零才允许重新验证
+    if (registerFailedAttempt(kFaceVerifyRetryText) > 0 && m_retryBtn) {
+        m_retryBtn->setVisible(true);
+    }
+}
+
+/**
+ * @brief 重新验证：沿用已用次数，在验证页开启下一轮刷脸验证
+ */
+void ForgotPasswordDialog::onRetryVerify() {
+    if (m_pages && m_pages->currentIndex() != 0) return;
+    startVerifySession(false);
 }
 
 /**
@@ -308,8 +409,7 @@ void ForgotPasswordDialog::verifyOnce() {
  * @param workNo 工号
  */
 void ForgotPasswordDialog::gotoResetPage(const QString& realName, const QString& workNo) {
-    if (m_camera) m_camera->stopCamera();
-    if (m_pollTimer) m_pollTimer->stop();
+    stopVerifySession();
     if (m_userLabel) {
         m_userLabel->setText(QStringLiteral("✓ 身份验证通过：%1（工号 %2）")
                                  .arg(realName.isEmpty() ? QStringLiteral("本人") : realName)

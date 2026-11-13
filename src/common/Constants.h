@@ -219,6 +219,8 @@ const int  BORROW_BRIGHTNESS       = 80;
 const int  BORROW_FACE_SENSITIVITY = 0;
 
 // ── 人脸识别超时/延迟配置 ──
+// 刷脸验证总超时(毫秒)：登录页与忘记密码页共用，到点仍未通过则停止识别并提示重试
+const int FACE_VERIFY_TIMEOUT_MS     = 30 * 1000;
 const int FACE_RETRY_DELAY_MS        = 500;    // 人脸识别重试延迟
 
 // ── UI延迟配置 ──

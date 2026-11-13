@@ -38,8 +38,12 @@ protected:
     void hideEvent(QHideEvent* event) override;
 
 private slots:
-    /// 轮询人脸检测状态：检测到人脸且未在比对时，取特征执行一次比对
+    /// 轮询当前画面是否有人脸，有则发起一次比对
     void onPollFace();
+    /// 刷脸验证总超时：结束本轮验证并给出重新验证入口
+    void onVerifyTimeout();
+    /// 重新验证：开启新一轮刷脸验证
+    void onRetryVerify();
     /// 新密码确认提交：校验规则并写库
     void onResetSubmit();
     /// 取消：关闭对话框回到登录页
@@ -60,8 +64,19 @@ private:
     /// 弹出安全键盘并绑定到指定输入框
     /// @param edit 目标输入框
     void openKeypad(QLineEdit* edit);
-    /// 执行一次人脸比对：成功进入设密页，失败累计次数
+    /// 执行一次人脸比对：成功进入设密页，有效比对未通过则登记一次尝试
     void verifyOnce();
+    /// 登记一次核验失败：累计次数、刷新提示，机会用尽时关闭核验入口
+    /// @param statusText 摄像头下方显示的状态文案
+    /// @return 剩余可尝试次数；0 表示机会已用尽
+    int registerFailedAttempt(const QString& statusText);
+    /// 继续下一轮人脸轮询：仅在本轮验证仍有效时重启轮询
+    void resumePolling();
+    /// 开始一轮刷脸验证：分配新编号并启动摄像头、轮询与总超时
+    /// @param resetAttempts true=新开对话框从零计次数；false=重新验证沿用已用次数
+    void startVerifySession(bool resetAttempts = true);
+    /// 停止本轮刷脸验证：停轮询与总超时并关闭摄像头
+    void stopVerifySession();
     /// 切换到设密页并显示已验证用户信息
     /// @param realName 用户姓名
     /// @param workNo 工号
@@ -71,15 +86,18 @@ private:
     FaceCameraWidget* m_camera = nullptr;
     NumKeypad*        m_keypad = nullptr;
     QTimer*           m_pollTimer = nullptr;
+    QTimer*           m_verifyTimeoutTimer = nullptr;  // 刷脸验证总超时（单次）
     QLabel*           m_captureStatus = nullptr;  // 摄像头下方状态文字
     QLabel*           m_verifyError = nullptr;   // 验证失败提示
+    QPushButton*      m_retryBtn = nullptr;      // 本轮核验结束后的重新验证入口
     QLabel*           m_userLabel = nullptr;      // 已验证用户信息
     QLineEdit*        m_newPwdEdit = nullptr;
     QLineEdit*        m_confirmPwdEdit = nullptr;
     QLabel*           m_resetError = nullptr;
-    bool  m_faceSeen = false;        // 本轮是否检测到人脸（由 faceDetected 置位）
+    bool  m_sessionActive = false;   // 本轮刷脸验证是否仍在进行
+    quint64 m_sessionId = 0;         // 本轮验证编号，用于丢弃上一轮的在途比对结果
     bool  m_verifying = false;       // 比对进行中，防止重复触发
-    int   m_attempts = 0;            // 已失败次数，上限 SC::FACE_VERIFY_MAX_ATTEMPTS
+    int   m_attempts = 0;            // 本轮已失败次数，上限 SC::FACE_VERIFY_MAX_ATTEMPTS
     int   m_userId = 0;              // 验证通过的用户ID
     bool  m_passwordReset = false;   // 是否已成功重置密码
 };
