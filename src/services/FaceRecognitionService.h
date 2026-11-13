@@ -21,6 +21,7 @@ public:
         // 识别结果直接决定能否登录，基础类型必须给确定初值，不能靠调用方记得赋值
         bool success = false;
         bool isStranger = false;
+        bool noMatchedUser = false;  ///< 人脸库中无匹配人员：库内无人脸数据，或库内无人与采集特征相近
         int userId = 0;
         QString username;
         QString realName;

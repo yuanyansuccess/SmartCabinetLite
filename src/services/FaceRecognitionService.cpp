@@ -90,7 +90,7 @@ double FaceRecognitionService::euclideanDistance(const QVector<double>& a, const
  * @param faceDescriptor 采集到的特征串
  * @param threshold 判定为同一人的相似度下限
  * @param highConfidence 高置信度帧的相似度下限，用于优先采用最佳帧
- * @return 匹配结果，含是否匹配、最佳相似度、命中用户与候选明细
+ * @return 匹配结果，含是否匹配、最佳相似度、命中用户、候选明细与人脸库中是否有匹配人员；未通过时 success 为 false
  * @note 入库人脸特征已归一化，比对前同样归一化；低于阈值一律判为陌生人
  */
 FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
@@ -122,6 +122,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 获取所有已录入人脸
     QJsonArray enrolled = enrolledFaces;
     if (enrolled.isEmpty()) {
+        // 库内没有已录入的人脸特征，本次核验不存在匹配人员
+        result.noMatchedUser = true;
         result.message = QStringLiteral("系统中没有人脸数据，请先录入人脸");
         FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_ERROR, 0, 1, threshold, mode, candidateCnt,
                                       int(recogTimer.elapsed()), "" });
@@ -168,6 +170,8 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     }
 
     if (candidates.isEmpty()) {
+        // 库内所有人员都与采集特征不相近，本次核验没有匹配人员
+        result.noMatchedUser = true;
         result.isStranger = true;
         result.message = QStringLiteral("检测到陌生人，未在系统中注册");
         FaceRecogLogDAO().insertLog({ SC::FACE_RESULT_STRANGER, globalBestSim, globalBestDist, threshold,
