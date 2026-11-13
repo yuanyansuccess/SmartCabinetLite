@@ -336,7 +336,11 @@ QJsonObject sceneAckFrame(int scene, const QJsonObject& request)
         items.append(it2);
         break;
     }
-    case SceneBorrowReturn: {  // 3.3-① 有借有还：A-01-05被借走，A-01-06放回套筒
+    case SceneBorrowReturn: {  // 3.3-① 有借有还：A-01-05已取走（空货位照样回报），A-01-06放回套筒
+        QJsonObject empty;
+        empty["position"] = "A-01-05"; empty["tool_id"] = "";
+        empty["confidence"] = 0.91;
+        items.append(empty);
         QJsonObject it;
         it["position"] = "A-01-06"; it["tool_id"] = "C01-T0012";
         it["confidence"] = 0.91;
@@ -421,7 +425,7 @@ EdgeSimulator::EdgeSimulator(QWidget* parent)
     auto* topBar = new QHBoxLayout;
     topBar->addWidget(buildConnPanel());
     m_btnOneClick = new QPushButton(QStringLiteral("一键标准联调"));
-    m_btnOneClick->setToolTip(QStringLiteral("连上位机 + 读库 + 生成全柜在库基线清单 + 切到自定义清单 + 开周期帧"));
+    m_btnOneClick->setToolTip(QStringLiteral("连上位机 + 读库 + 生成本机组全部已登记货位清单 + 切到自定义清单 + 开周期帧"));
     connect(m_btnOneClick, &QPushButton::clicked, this, &EdgeSimulator::onOneClickStart);
     topBar->addWidget(m_btnOneClick);
     topBar->addStretch(1);
@@ -730,7 +734,10 @@ QWidget* EdgeSimulator::buildRecognizeTab()
     auto* g = new QGridLayout(w);
 
     // ── 自动回应配置区（连接前配好，连接后即改即生效；下一条请求按当前配置回）──
-    auto* cfgTitle = new QLabel(QStringLiteral("识别自动回应配置（协议3.3 · 连接前后可随时切换，下一条请求即生效）"));
+    auto* cfgTitle = new QLabel(QStringLiteral(
+        "识别自动回应配置（协议3.3 · 连接前后可随时切换，下一条请求即生效）\n"
+        "内置场景是协议样例帧，不读库；要回报本机组全部已登记货位请用②页【按本单生成清单】或【一键标准联调】"));
+    cfgTitle->setWordWrap(true);
     cfgTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
     g->addWidget(cfgTitle, 0, 1, 1, 1);
 
@@ -862,22 +869,24 @@ QWidget* EdgeSimulator::buildRecognizeTab()
  * @return 组装完成的面板控件
  * @note  放在"识别回应"页顶部：上位机发 open_req、边缘机按配置回应的配置项，
  *        与识别回应放在一起，测试人员不用翻到异常页去找。
+ *        另有两枚立即发送按钮，不依赖下一条 open_req，直接按最近一次请求编号回 open_ack。
  *        注：原协议3.5版本查询已取消，软件版本随 periodic 周期帧上报，不再单独回 version_ack。
  */
 QWidget* EdgeSimulator::buildOpenPanel()
 {
-    auto* box = new QGroupBox(QStringLiteral("开箱回应 3.7（上位机发 open_req，按这里配置回应）"));
+    auto* box = new QGroupBox(QStringLiteral("开箱回应 3.7（按配置自动回应，或点按钮立即回应）"));
     auto* g = new QGridLayout(box);
 
     // ── 开箱回应（3.7）──
-    auto* openTitle = new QLabel(QStringLiteral("开箱回应（协议3.7：下一条 open_req 即按此回应）"));
+    auto* openTitle = new QLabel(QStringLiteral("开箱回应（协议3.7：下一条 open_req 按策略回应，或点下方按钮立即回应）"));
     openTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
     g->addWidget(openTitle, 0, 1, 1, 1);
     m_openPolicy = new QComboBox;
     m_openPolicy->addItem(QStringLiteral("自动成功（摄像头异常时联动拒绝，与真实边缘机一致）"), 0);
     m_openPolicy->addItem(QStringLiteral("固定失败（回 result=0，测上位机开箱失败分支）"), 1);
     m_openPolicy->addItem(QStringLiteral("不回应（测上位机开箱超时重发，第5章）"), 2);
-    m_openPolicy->setToolTip(QStringLiteral("上位机点确认后会下发开箱请求，这里决定模拟器怎么回"));
+    m_openPolicy->setToolTip(QStringLiteral("上位机点确认后会下发开箱请求，这里决定模拟器怎么回；"
+                                            "下方两枚立即发送按钮不受本策略约束"));
     // 下拉项文字较长：显式限定宽度上限，避免把整页撑宽导致右侧按钮被裁掉
     m_openPolicy->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     m_openPolicy->setMinimumContentsLength(16);
@@ -886,9 +895,22 @@ QWidget* EdgeSimulator::buildOpenPanel()
     g->addWidget(new QLabel(QStringLiteral("回应策略")), 1, 0);
     g->addWidget(m_openPolicy, 1, 1, 1, 1);
     m_openFailMsg = new QLineEdit(QStringLiteral("开箱失败（模拟）"));
-    m_openFailMsg->setToolTip(QStringLiteral("策略为“固定失败”时 open_ack 携带的原因文案"));
+    m_openFailMsg->setToolTip(QStringLiteral("策略为“固定失败”或点【回开柜失败】时 open_ack 携带的原因文案"));
     g->addWidget(new QLabel(QStringLiteral("失败原因文案")), 2, 0);
     g->addWidget(m_openFailMsg, 2, 1, 1, 1);
+
+    // 立即发送：主动回一条 open_ack，不必等上位机再发一次开箱请求
+    auto* btnOpenOk = new QPushButton(QStringLiteral("回开柜成功"));
+    connect(btnOpenOk, &QPushButton::clicked, this, &EdgeSimulator::onSendOpenSuccessClicked);
+    btnOpenOk->setToolTip(QStringLiteral("立即发送 open_ack（result=1）：编号取最近一次 open_req"));
+    auto* btnOpenFail = new QPushButton(QStringLiteral("回开柜失败"));
+    connect(btnOpenFail, &QPushButton::clicked, this, &EdgeSimulator::onSendOpenFailureClicked);
+    btnOpenFail->setToolTip(QStringLiteral("立即发送 open_ack（result=0）：原因取上方文案，编号取最近一次 open_req"));
+    auto* sendRow = new QHBoxLayout;
+    sendRow->addWidget(btnOpenOk);
+    sendRow->addWidget(btnOpenFail);
+    sendRow->addStretch(1);
+    g->addLayout(sendRow, 3, 0, 1, 2);
     g->setColumnStretch(1, 1);   // 多余宽度给控件列，按钮列不被推走
     return box;
 }
@@ -1382,9 +1404,10 @@ void EdgeSimulator::onLoadToolsFromDb()
 
 
 /**
- * @brief 按库内在库全量生成清单，并自动切到自定义清单场景
+ * @brief 按本机组全部已登记货位生成清单，并自动切到自定义清单场景
  * @return 无。覆盖当前清单（原清单可先用【保存帧 JSON】备份）；失败只在状态行与日志区提示
- * @note  生成的是"上一轮全部在库"的真实基线：测试人员再在其上改几行就能造出各类场景
+ * @note  生成的是本机组全部已登记货位的实况基线：在库货位带真实工具编号，
+ *        其余货位编号为空但行不省略。测试人员再在其上改几行就能造出各类场景
  */
 void EdgeSimulator::onGenerateStockList()
 {
@@ -1394,13 +1417,21 @@ void EdgeSimulator::onGenerateStockList()
     QList<CustomRow> rows;
     if (!collectStockRows(rows) || rows.isEmpty()) {
         if (m_dbStat) {
-            m_dbStat->setText(QStringLiteral("生成失败：库里没有可用货位（不影响手改帧 JSON）"));
+            m_dbStat->setText(QStringLiteral("生成失败：库里没有已登记货位（不影响手改帧 JSON）"));
         }
-        logEvent(QStringLiteral("按在库全量生成清单失败：库里没有可用货位"));
+        logEvent(QStringLiteral("按本机组全部已登记货位生成清单失败：库里没有已登记货位"));
         return;
     }
     fillOrderTable(rows);
-    logEvent(QStringLiteral("已按在库全量生成清单：%1 条（可在此表上改几行造场景）").arg(rows.size()));
+    int emptySlots = 0;
+    for (const CustomRow& row : rows) {
+        if (row.toolCode.isEmpty()) {
+            ++emptySlots;
+        }
+    }
+    logEvent(QStringLiteral("已按本机组全部已登记货位生成清单：%1 条（其中空货位 %2 条，"
+                            "工具编号为空但行不省略；可在此表上改几行造场景）")
+                 .arg(rows.size()).arg(emptySlots));
     onCustomListActivate();
 }
 
@@ -1706,6 +1737,31 @@ QString EdgeSimulator::cameraAbnormalText() const
     return parts.join(QChar(' '));
 }
 
+/**
+ * @brief 构造一条 open_ack 帧
+ * @param requestId 与开箱请求配对的编号
+ * @param success   true=柜体已真实打开，false=开柜失败
+ * @param message   失败原因（success=true 时传空串）
+ * @return 含 type/request_id/result/message 四字段的帧对象，result 为 1 或 0
+ */
+QJsonObject EdgeSimulator::buildOpenAckFrame(const QString& requestId, bool success,
+                                             const QString& message)
+{
+    QJsonObject frame;
+    frame["type"] = QStringLiteral("open_ack");
+    frame["request_id"] = requestId;
+    frame["result"] = success ? 1 : 0;
+    frame["message"] = message;
+    return frame;
+}
+
+/**
+ * @brief 立即发送一条 open_ack（自动回应策略与两枚主动按钮共用入口）
+ * @param success true=开柜成功，false=开柜失败
+ * @param message 失败原因；成功时传空串
+ * @return 无
+ * @note  编号取最近一次收到的 open_req；从未收到过或连接未建立时只提示、不发帧
+ */
 void EdgeSimulator::sendOpenAckNow(bool success, const QString& message)
 {
     if (!m_sock || m_sock->state() != QAbstractSocket::ConnectedState) {
@@ -1713,15 +1769,35 @@ void EdgeSimulator::sendOpenAckNow(bool success, const QString& message)
         return;
     }
     if (m_lastOpenRequest.isEmpty()) {
-        logEvent(QStringLiteral("没有待回应的open_req（先等上位机发一次开箱请求）"));
+        logEvent(QStringLiteral("未收到过 open_req：本次不发送 open_ack（避免发出编号为空的帧）。"
+                                "请先在上位机点一次开柜，或到④页自定义帧手填编号后发送"));
         return;
     }
-    QJsonObject a;
-    a["type"] = "open_ack";
-    a["request_id"] = m_lastOpenRequest["request_id"].toString();
-    a["result"] = success ? 1 : 0;
-    a["message"] = message;
-    sendFrame(a);
+    const QString id = m_lastOpenRequest["request_id"].toString();
+    logEvent(QString(QStringLiteral("主动发送 open_ack（result=%1）：request_id=%2 取自最近一次 open_req；"
+                                    "若该请求已被回应配对或已超时，上位机会按重复/未知编号丢弃，"
+                                    "请重新发起开柜后再点按钮"))
+                 .arg(success ? 1 : 0).arg(id));
+    sendFrame(buildOpenAckFrame(id, success, message));
+}
+
+/**
+ * @brief 点【回开柜成功】：立即回一条 result=1 的 open_ack
+ * @return 无
+ */
+void EdgeSimulator::onSendOpenSuccessClicked()
+{
+    sendOpenAckNow(true, QString());
+}
+
+/**
+ * @brief 点【回开柜失败】：立即回一条 result=0 的 open_ack，原因取界面文案
+ * @return 无
+ */
+void EdgeSimulator::onSendOpenFailureClicked()
+{
+    const QString msg = m_openFailMsg ? m_openFailMsg->text() : QStringLiteral("开箱失败（模拟）");
+    sendOpenAckNow(false, msg);
 }
 
 // ─────────────────────── 协议3.6 异常注入 ───────────────────────
@@ -2171,7 +2247,7 @@ void EdgeSimulator::onStepClicked(int row)
 /**
  * @brief 一键标准联调：把常用配置一次摆好
  * @return 无
- * @note  做四件事：连上位机、读库、生成全柜在库基线清单、识别回应切自定义清单并打开周期帧
+ * @note  做四件事：连上位机、读库、生成本机组全部已登记货位清单、识别回应切自定义清单并打开周期帧
  */
 void EdgeSimulator::onOneClickStart()
 {
@@ -2187,5 +2263,5 @@ void EdgeSimulator::onOneClickStart()
     if (m_periodicOn && !m_periodicOn->isChecked()) {
         m_periodicOn->setChecked(true);
     }
-    logEvent(QStringLiteral("一键标准联调已就绪：上位机已连接、库已读取、清单已按全柜在库生成、识别回应切到自定义清单、周期帧已开"));
+    logEvent(QStringLiteral("一键标准联调已就绪：上位机已连接、库已读取、清单已按本机组全部已登记货位生成（空货位编号为空但行不省略）、识别回应切到自定义清单、周期帧已开"));
 }

@@ -11,12 +11,13 @@
  *
  * 覆盖范围（与《智能工具柜配置项通信协议》对应）：
  *   3.3 recognize_ack 全部场景回应（正常/有借有还/无变化/错放/未知物/
- *       置信度低/missing/自定义清单/15 项结构与兼容场景）
+ *       置信度低/missing/自定义清单/结构与兼容场景）
+ *   3.3 本机组全部已登记货位清单：在库货位带真实编号，其余货位编号为空但行不省略
  *   3.3 自定义工具清单：按真实单据逐行填"回什么清单"，脱离内置样例
  *   3.3 异常回应（延迟/重复×2/粘包/不回应/乱序request_id）
  *   3.4 periodic 周期帧（相机5态自检/空自检/uptime/software_version，版本随帧上报）
  *   3.6 坏帧/未知type/超长帧/断开
- *   3.7 open_req 开箱回应（自动成功/固定失败/不回应）
+ *   3.7 open_req 开箱回应（自动成功/固定失败/不回应，另有两枚立即发送按钮主动回 open_ack）
  *   第5章 停发周期帧（验证离线判定与恢复补发）
  *   断线自动重连（模拟真实边缘机退避重连行为）
  */
@@ -93,6 +94,16 @@ public:
      */
     QString cameraAbnormalText() const;
 
+    /**
+     * @brief 构造一条 open_ack 帧（协议3.7）
+     * @param requestId 与开箱请求配对的编号
+     * @param success   true=柜体已真实打开，false=开柜失败
+     * @param message   失败原因（success=true 时传空串）
+     * @return open_ack 帧对象；result 为 1 或 0，与上位机 OpenResult 一致
+     */
+    static QJsonObject buildOpenAckFrame(const QString& requestId, bool success,
+                                         const QString& message);
+
 private slots:
     // 连接
     void onConnectToggle();      ///< 连接/断开上位机
@@ -121,17 +132,20 @@ private slots:
     void onCustomListReload();       ///< 从 exe 同目录 custom_frame.json 重载帧 JSON
     // 清单数据直读数据库（与上位机同一库同一批表，选出来的编号货位保证与单据一致）
     void onLoadToolsFromDb();        ///< 连接数据库并读取工具与货位，填入两个选择框
-    void onGenerateStockList();      ///< 按库内在库货位一键生成全量清单（造"上一轮在库"基线，再在其上改）
+    void onGenerateStockList();      ///< 按本机组全部已登记货位一键生成全量清单（在库货位带编号，其余编号为空但行不省略）
     // 单据模拟（页②）
     void onOrderCellChanged(int row, int column); ///< 清单表某格被改：识别结果联动告警类型，告警类型下拉手选后刷新帧
-    void onGenerateOrderList();      ///< 按勾选的本单内容生成清单（本单-入库/出库/借出转出库 + 全柜背景行）
-    void onSetAllNormal();           ///< 把所有非出库行改成"识别正常"
+    void onGenerateOrderList();      ///< 按勾选的本单内容生成清单（本单行 + 本机组全部已登记货位背景行）
+    void onSetAllNormal();           ///< 把带工具编号的非出库行改成"识别正常"（空货位行保持"货位空"）
     void onKeepOnlyOrderRows();      ///< 只保留本单行（背景行不回应，模拟只扫本单区域）
     void onClearOrderList();         ///< 清空清单（造"识别清单为空"场景）
     void onLoadOrderCandidates();    ///< 从库读本单候选（待入库/在库/借出中）
     // 工作台（顶部）
     void onOneClickStart();          ///< 一键标准联调：连上位机+读库+生成基线+开周期帧
     void onStepClicked(int row);     ///< 左侧步骤导航切换
+    // 开箱回应（协议3.7）：主动立即发送
+    void onSendOpenSuccessClicked(); ///< 立即回一条开柜成功 open_ack（编号取最近一次 open_req）
+    void onSendOpenFailureClicked(); ///< 立即回一条开柜失败 open_ack（原因取界面文案）
     // 日志
     void onSaveLogClicked();     ///< 保存日志：导出日志区内容为文本文件
 
@@ -168,7 +182,7 @@ private:
     // 清单处理
     void fillOrderTable(const QList<CustomRow>& rows);              ///< 用生成结果填清单表
     QList<CustomRow> orderRowsFromTable() const;                    ///< 从清单表取当前各行
-    bool collectStockRows(QList<CustomRow>& rows);                   ///< 取库内全柜在库货位作为清单背景行
+    bool collectStockRows(QList<CustomRow>& rows);                   ///< 取本机组全部已登记货位作为清单背景行
     void refreshOrderStat();                                        ///< 刷新清单统计与"是否生效"提示
     void refreshFrameTextFromTable();                               ///< 从清单表重新生成帧 JSON 并载入编辑框
     void loadFrameText(const QString& text);                        ///< 写入帧 JSON 编辑框（程序写入，不算手改）
@@ -242,7 +256,7 @@ private:
     QListWidget* m_outList = nullptr;    ///< 本单出库候选（在库工具 + 其当前货位）
     QListWidget* m_borrowOutList = nullptr; ///< 本单借出转出库候选（借出中工具 + 其原位置）
     QListWidget* m_returnList = nullptr;    ///< 本单归还候选（借出中工具 + 其原位置，勾选生成“本单-归还”行）
-    QCheckBox*   m_bgBaseline = nullptr; ///< 生成清单时是否附带全柜在库背景行
+    QCheckBox*   m_bgBaseline = nullptr; ///< 生成清单时是否附带本机组全部已登记货位背景行
     QLabel*      m_sceneHint = nullptr;     ///< 清单页顶部状态条：当前识别回应场景，这份清单生效没有
     // 数据库区
     QLineEdit*   m_dbHost = nullptr;        ///< 数据库地址

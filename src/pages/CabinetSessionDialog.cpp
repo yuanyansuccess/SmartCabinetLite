@@ -703,15 +703,27 @@ void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
 
 void CabinetSessionDialog::applyResult()
 {
-    // 反馈完整性校验：边缘机回报的货位数量必须与开柜快照（库内映射表）长度一致。
-    // 两者长度不一致即视为位置反馈不全（漏报/多报），本次不予识别并反馈错误
-    if (m_spots.size() != m_baselineStock.size()) {
-        // 位置反馈异常属识别故障：落系统告警便于运维排查边缘机识别漏报/多报
+    // 反馈完整性校验：边缘机回报本机组全部已登记货位，其中含 pending/checked_out/borrowed
+    // 空货位（工具编号为空但行不省略），清单条数天然多于开柜时在库货位数，不能再用条数相等判定。
+    // 改为按货位覆盖：开柜基线里每个在库货位都被回报即通过；多回报的空货位由全柜核对跳过，不算异常。
+    QSet<QString> reportedPositions;
+    reportedPositions.reserve(m_spots.size());
+    for (const ToolService::RecogSpot& spot : m_spots) {
+        reportedPositions.insert(spot.position);
+    }
+    QStringList uncovered;
+    for (const StockItem& stock : m_baselineStock) {
+        if (!reportedPositions.contains(stock.position)) {
+            uncovered.append(stock.position);
+        }
+    }
+    if (!uncovered.isEmpty()) {
+        // 位置反馈异常属识别故障：落系统告警便于运维排查边缘机识别漏报
         const QString detail = m_spots.isEmpty()
-            ? QStringLiteral("边缘机返回识别清单为空（0 条），与库内 %1 个货位不符，本次不予识别。")
+            ? QStringLiteral("边缘机返回识别清单为空（0 条），未回报库内 %1 个在库货位，本次不予识别。")
                   .arg(m_baselineStock.size())
-            : QStringLiteral("边缘机反馈的货位数量（%1）与库内映射表（%2）不一致，疑似位置反馈不全，本次不予识别。")
-                  .arg(m_spots.size()).arg(m_baselineStock.size());
+            : QStringLiteral("边缘机反馈清单未覆盖库内 %1 个在库货位（%2），疑似位置反馈不全，本次不予识别。")
+                  .arg(uncovered.size()).arg(uncovered.join(QStringLiteral("、")));
         AlertService().recordRecogFaultAlert(m_userId,
             QStringLiteral("借用归还核对失败：") + detail);
         MessageDialog::showWarning(this, QStringLiteral("核对失败"), detail);

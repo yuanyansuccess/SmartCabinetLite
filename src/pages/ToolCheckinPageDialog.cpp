@@ -28,6 +28,10 @@
 #include <QLabel>
 #include <QTimer>  // 关柜等待超时计时（柜体打开后起算）
 #include <QJsonDocument>
+#include <QAbstractItemView>  // 摘要表按像素滚动（触屏拖动跟手）
+#include <QGuiApplication>    // 取屏幕可用高度，限制弹窗不超出屏幕
+#include <QScreen>
+#include <QScroller>          // 触屏手势：拖动摘要表查看全部条目
 // ═══════════ 开箱环节：柜体打开动画 + 单据摘要 ═══════════
 
 /**
@@ -35,15 +39,43 @@
  * @param items 本次要展示的出入库单据（首次=全量单据；重新开柜整理=未通过项）
  * @return 新建弹窗指针（显示与关闭由调用方负责）
  * @note 弹窗初始为"正在打开柜体"并禁用下一步按钮；开柜成功后由 applyOpenOpenedState
- *       原地切换标题、提示文案与按钮，全程只有一个页面，避免两个弹窗先后出现造成画面跳闪
+ *       原地切换标题、提示文案与按钮，全程只有一个页面，避免两个弹窗先后出现造成画面跳闪。
+ *       窗口高度按摘要表可见行数计算并限制在屏幕内，摘要表按窗口可用高度反算，
+ *       多出的单据条目由表格滚动承接，底部按钮不受单据条数影响，始终留在窗口内
  */
 DrawerOpeningDialog* ToolCheckinPage::buildOpenExecuteDialog(const QList<OrderRow>& items) {
+    // 摘要表布局常量：行高、最多铺开行数、表头高度
+    const int kRowHeight      = 36;
+    const int kMaxPreviewRows = 6;
+    const int kHeaderHeight   = 38;
+    // 弹窗内除摘要表外的固定高度：标题、开柜动画、提示文案（柜体已打开时为两行）、
+    // 底部按钮行、上下边距与各处间距，含字体行距余量
+    const int kFixedPartsHeight = 360;
+    const int kMinDialogHeight  = 480;
+    const int kScreenMargin     = 80;   // 为任务栏与窗口装饰预留的上下余量，弹窗不贴屏幕边缘
+
+    const int previewRows = qMin(static_cast<int>(items.size()), kMaxPreviewRows);
+    const int wantedTableHeight = previewRows * kRowHeight + kHeaderHeight;
+
+    // 窗口按摘要表可见行数给足高度；屏幕较小时以可用高度为上限，弹窗不超出屏幕
+    QScreen* screen = QGuiApplication::primaryScreen();
+    const int screenLimit = screen
+        ? qMax(kMinDialogHeight, screen->availableGeometry().height() - kScreenMargin)
+        : qMax(kMinDialogHeight, kFixedPartsHeight + wantedTableHeight);
+    const int dialogHeight = qBound(kMinDialogHeight,
+                                    kFixedPartsHeight + wantedTableHeight,
+                                    screenLimit);
+    // 由窗口可用高度反算摘要表高度：固定部分加表格高度不超过窗口高度，底部按钮行才有位置
+    const int tableHeight = qBound(kHeaderHeight + kRowHeight,
+                                   qMin(wantedTableHeight, dialogHeight - kFixedPartsHeight),
+                                   kMaxPreviewRows * kRowHeight + kHeaderHeight);
+
     auto* dlg = new DrawerOpeningDialog(QStringLiteral("工具出入库"),
         QStringLiteral("正在打开柜体"),
         QStringLiteral("系统正在向边缘计算机发送开箱指令，请稍候…"), 32, 60, this);
     // 应用级模态：弹窗期间屏蔽主页面操作（与原模态等待框的行为一致）
     dlg->setWindowModality(Qt::ApplicationModal);
-    dlg->setFixedSize(560, 480);
+    dlg->setFixedSize(560, dialogHeight);
     // 先按"柜体已打开"状态的最长文案预留按钮宽度，再切回开柜中文案：
     // 这样开柜成功时按钮变成"我已关柜，开始核对 →"不会被裁切，且按钮宽度全程不变（无跳动）
     dlg->setNextButtonText(QStringLiteral("我已关柜，开始核对 →"));
@@ -51,11 +83,6 @@ DrawerOpeningDialog* ToolCheckinPage::buildOpenExecuteDialog(const QList<OrderRo
     dlg->setNextEnabled(false);
 
     // 单据摘要表：类型/工具名称/位置（用户照单操作）
-    // 布局常量：摘要行高；默认最多铺开6行（超出由表格滚动条承接）；表头近似高度（用于总高估算）
-    const int kRowHeight      = 36;
-    const int kMaxPreviewRows = 6;
-    const int kHeaderHeight   = 38;
-
     auto* orderTable = new QTableWidget();
     orderTable->setColumnCount(3);
     orderTable->setHorizontalHeaderLabels({QStringLiteral("类型"), QStringLiteral("工具名称"), QStringLiteral("位置")});
@@ -89,8 +116,11 @@ DrawerOpeningDialog* ToolCheckinPage::buildOpenExecuteDialog(const QList<OrderRo
         orderTable->setItem(i, 2, posItem);
         orderTable->setRowHeight(i, kRowHeight);
     }
-    // 表格总高 = 显示行数 × 行高 + 表头高度；超过6行不继续增高，由滚动条承接
-    orderTable->setFixedHeight(qMin(items.size(), kMaxPreviewRows) * kRowHeight + kHeaderHeight);
+    // 表格高度由窗口可用高度反算：可见行数之外由表格自身滚动承接，不把底部按钮顶出窗口
+    orderTable->setFixedHeight(tableHeight);
+    // 按像素滚动并接入触屏手势：单据条目多时手指可直接拖动清单，无需去点细滚动条
+    orderTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    QScroller::grabGesture(orderTable->viewport(), QScroller::LeftMouseButtonGesture);
     dlg->bodyLayout()->addWidget(orderTable);
     return dlg;
 }

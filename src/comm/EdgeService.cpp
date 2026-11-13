@@ -46,9 +46,11 @@ inline qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
  * @note  协议约定一项一货位、4 个字段（position/tool_id/confidence/alert_type）。
  *        任一元素不合规即拒绝整帧，不能只跳过该项：跳过会让该货位在清单里消失，
  *        出库比对把"没有回报"当成"工具已取走"，写出账实不符的记录。
- *        tool_id 为空表示该货位无工具；边缘机须全柜逐货位回报，空货位不得省略。
+ *        tool_id 为空表示该货位无工具；边缘机须回报本机组全部已登记货位
+ *        （in_stock/pending/checked_out/borrowed 各一条），非在库货位编号为空但行不得省略。
  *        alert_type 缺席按 none 兼容未升级的边缘机，一旦带上类型和取值必须合规。
- *        收到协议外多余字段（含历史 present）忽略，不判为结构错。空数组是合法的"无变化"清单。
+ *        收到协议外多余字段（含历史 present）忽略，不判为结构错。空数组在结构层合法，
+ *        业务层按覆盖不全处理（ToolService::recognitionListIssue）。
  */
 bool parseItems(const QJsonArray& arr, QList<RecognizeItem>& out, QString& issue)
 {

@@ -82,6 +82,9 @@ const QString kResultLabelEmpty     = QStringLiteral("货位空");
 /// 生成清单时在库行的默认置信度（0~1）
 const double kGeneratedConfidence = 0.95;
 
+/// 货位映射状态：在库（该货位上放有工具，回报真实工具编号）
+const QString kMappingInStock = QStringLiteral("in_stock");
+
 /**
  * @brief 识别结果对应的协议告警类型
  * @param result 识别结果取值
@@ -480,10 +483,15 @@ bool EdgeSimulator::loadOrderCandidates()
 }
 
 /**
- * @brief 取库内全柜在库货位作为清单背景行
- * @param rows 出参：追加在库货位行（归属"非本单"，识别正常）
+ * @brief 取本机组全部已登记货位作为清单背景行
+ * @param rows 出参：全部已登记货位行（在库货位带真实工具编号，其余货位工具编号为空）
  * @return true=取数成功；false=连不上库或查询失败
- * @note  只做 SELECT，不改任何数据；这是"边缘机扫全柜"的真实基线
+ * @note  只做 SELECT，不改任何数据；这是"边缘机扫全柜"的真实基线。
+ *        回报范围是本机组全部已登记货位：in_stock/pending/checked_out/borrowed 四种状态各一条，
+ *        在库货位带真实工具编号，其余货位工具编号为空但这一行照样回报，不得从清单中省略。
+ *        库里没有货位定义表，从未登记过的物理空位取不到，不在回报范围内。
+ *        机组只能经 tool_info.machine_group_id 关联；按机组过滤时 LEFT JOIN 的过滤条件
+ *        写在 WHERE 上会退化成只保留能关联到本机组工具的已登记货位。
  */
 bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
 {
@@ -493,12 +501,13 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
     }
     QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
     QSqlQuery q(db);
+    // 不按 status 过滤：本机组全部已登记货位逐条回报，status 只用来判断该货位上有没有工具
     QString stockSql = QStringLiteral(
-        "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name "
+        "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name, mpm.status "
         "FROM tool_position_mapping mpm "
         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
         "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id "
-        "WHERE mpm.status = 'in_stock'");
+        "WHERE 1=1");
     if (m_selectedGroupId != 0) {
         stockSql += QStringLiteral(" AND t.machine_group_id = %1").arg(m_selectedGroupId);
     }
@@ -510,10 +519,11 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
             row.position   = common::formatPosition(q.value(0).toString(),
                                                     q.value(1).toString(),
                                                     q.value(2).toString());
-            row.toolCode   = q.value(3).toString();
-            row.toolName   = q.value(4).toString();
+            const bool inStock = (q.value(5).toString() == kMappingInStock);
+            row.toolCode   = inStock ? q.value(3).toString() : QString();
+            row.toolName   = inStock ? q.value(4).toString() : QString();
             row.belong     = kBelongOther;
-            row.result     = kResultNormal;
+            row.result     = inStock ? kResultNormal : kResultEmpty;
             row.confidence = kGeneratedConfidence;
             row.alertType  = QStringLiteral("none");
             row.alertLevel = 0;
@@ -529,11 +539,12 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
  * @brief 按勾选的候选生成本单清单
  * @return 无。生成结果直接写进清单表
  * @note  生成规则（与上位机判定口径一致）：
- *        背景行 = 库内全柜在库货位（归属"非本单"，模拟边缘机扫全柜）；
+ *        背景行 = 本机组全部已登记货位（归属"非本单"，模拟边缘机扫全柜）；
  *        本单-入库行 = 该工具的可入库位置上有这件工具、识别正常（上位机判"入库通过"）；
  *        本单-出库行 = 该货位上已经没有工具（工具编号留空、识别结果"货位空"，上位机判"已取走"）；
  *        本单-借出转出库行 = 借出中工具留在原位（上位机免开箱，不参与柜内核对）
  *        本单-归还行 = 借出中工具放回原位（柜内识别出现该工具，上位机判归还）
+ *        同一货位被多行用到时按货位覆盖，保证一个货位只回报一条
  */
 void EdgeSimulator::generateOrderList()
 {
@@ -542,15 +553,29 @@ void EdgeSimulator::generateOrderList()
     }
     QList<CustomRow> rows;
 
-    // 背景行：库内全柜在库货位
-    if (m_bgBaseline && m_bgBaseline->isChecked()) {
-        collectStockRows(rows);
-    }
-
-    // 货位 → 行号索引：出库行要覆盖同货位的背景行（一个货位只发一条）
+    // 货位 → 行号索引：本机组全部已登记货位一项一条，本单行按同货位覆盖背景行
     QHash<QString, int> rowByPosition;
-    for (int i = 0; i < rows.size(); ++i) {
-        rowByPosition.insert(rows.at(i).position, i);
+    // 按货位写入：已有该货位就整行覆盖，没有就追加；保证一个货位只回报一条，
+    // 否则上位机会按"货位重复上报"整帧拒绝
+    auto upsertRow = [&rows, &rowByPosition](const CustomRow& row) {
+        const auto it = rowByPosition.constFind(row.position);
+        if (it != rowByPosition.constEnd()) {
+            rows[it.value()] = row;
+        } else {
+            rowByPosition.insert(row.position, rows.size());
+            rows.append(row);
+        }
+    };
+
+    // 背景行：本机组全部已登记货位（在库货位带真实编号，其余货位编号为空但行不省略）
+    if (m_bgBaseline && m_bgBaseline->isChecked()) {
+        QList<CustomRow> background;
+        collectStockRows(background);
+        for (const CustomRow& row : background) {
+            if (!row.position.isEmpty()) {
+                upsertRow(row);   // 柜体同名等造成的重复货位合成一条
+            }
+        }
     }
 
     // 本单-入库行：目标货位上出现该工具
@@ -571,8 +596,7 @@ void EdgeSimulator::generateOrderList()
             row.alertType  = QStringLiteral("none");
             row.alertLevel = 0;
             row.reply      = true;
-            rowByPosition.insert(row.position, rows.size());
-            rows.append(row);
+            upsertRow(row);
         }
     }
 
@@ -584,30 +608,16 @@ void EdgeSimulator::generateOrderList()
                 continue;
             }
             const QVariantMap data = item->data(Qt::UserRole).toMap();
-            const QString position = data.value(QStringLiteral("position")).toString();
-            const int existing = rowByPosition.value(position, -1);
-            if (existing >= 0) {
-                CustomRow& row = rows[existing];
-                row.belong     = kBelongOut;
-                row.toolCode   = QString();   // 工具已取走，这个货位上认不出工具
-                row.toolName   = QString();
-                row.result     = kResultEmpty;
-                row.confidence = kGeneratedConfidence;
-                row.alertType  = QStringLiteral("none");
-                row.alertLevel = 0;
-                row.reply      = true;
-            } else {
-                CustomRow row;
-                row.position   = position;
-                row.belong     = kBelongOut;
-                row.result     = kResultEmpty;
-                row.confidence = kGeneratedConfidence;
-                row.alertType  = QStringLiteral("none");
-                row.alertLevel = 0;
-                row.reply      = true;
-                rowByPosition.insert(position, rows.size());
-                rows.append(row);
-            }
+            CustomRow row;
+            row.position   = data.value(QStringLiteral("position")).toString();
+            row.toolCode   = QString();   // 工具已取走，这个货位上认不出工具
+            row.belong     = kBelongOut;
+            row.result     = kResultEmpty;
+            row.confidence = kGeneratedConfidence;
+            row.alertType  = QStringLiteral("none");
+            row.alertLevel = 0;
+            row.reply      = true;
+            upsertRow(row);
         }
     }
 
@@ -629,8 +639,7 @@ void EdgeSimulator::generateOrderList()
             row.alertType  = QStringLiteral("none");
             row.alertLevel = 0;
             row.reply      = true;
-            rowByPosition.insert(row.position, rows.size());
-            rows.append(row);
+            upsertRow(row);
         }
     }
 
@@ -652,21 +661,27 @@ void EdgeSimulator::generateOrderList()
             row.alertType  = QStringLiteral("none");
             row.alertLevel = 0;
             row.reply      = true;
-            rowByPosition.insert(row.position, rows.size());
-            rows.append(row);
+            upsertRow(row);
         }
     }
 
     fillOrderTable(rows);
-    logEvent(QStringLiteral("已按勾选内容生成清单：共 %1 行（背景行 + 本单行），下一步确认识别回应场景为“自定义清单”")
-                 .arg(rows.size()));
+    int emptySlots = 0;
+    for (const CustomRow& row : rows) {
+        if (row.toolCode.isEmpty()) {
+            ++emptySlots;
+        }
+    }
+    logEvent(QStringLiteral("已按勾选内容生成清单：共 %1 行（其中空货位 %2 行，工具编号为空但照样回报），"
+                            "下一步确认识别回应场景为“自定义清单”")
+                 .arg(rows.size()).arg(emptySlots));
 }
 
 /**
- * @brief 把非出库行全部改成"识别正常"
+ * @brief 把带工具编号的非出库行改成"识别正常"
  * @return 无
- * @note  出库行保持"货位空"不动：那一条表达的是"工具已被取走"，
- *        改成正常会让上位机判成"货位上仍有工具"，出库项就变成未通过
+ * @note  出库行与空货位行保持"货位空"不动：这些行工具编号为空，
+ *        改成正常会让表格显示与帧里的空编号自相矛盾
  */
 void EdgeSimulator::setAllResultsNormal()
 {
@@ -678,7 +693,8 @@ void EdgeSimulator::setAllResultsNormal()
     for (int r = 0; r < count; ++r) {
         auto* belongBox = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, ColBelong));
         const QString belong = belongBox ? belongBox->currentData().toString() : kBelongOther;
-        if (belong == kBelongOut) {
+        const QTableWidgetItem* codeItem = m_orderTable->item(r, ColToolCode);
+        if (belong == kBelongOut || (codeItem && codeItem->text().isEmpty())) {
             continue;
         }
         if (auto* resultBox = qobject_cast<QComboBox*>(m_orderTable->cellWidget(r, ColResult))) {
@@ -699,7 +715,7 @@ void EdgeSimulator::setAllResultsNormal()
     }
     m_tableUpdating = false;
     refreshOrderStat();
-    logEvent(QStringLiteral("已把非出库行统一改成“识别正常”（出库行保持货位空）"));
+    logEvent(QStringLiteral("已把带工具编号的非出库行统一改成“识别正常”（出库行与空货位行保持货位空）"));
 }
 
 /**
@@ -727,7 +743,7 @@ void EdgeSimulator::keepOnlyOrderRows()
     }
     m_tableUpdating = false;
     refreshOrderStat();
-    logEvent(QStringLiteral("已取消 %1 条背景行的回应（模拟边缘机只扫本单区域）").arg(hidden));
+    logEvent(QStringLiteral("已取消 %1 条背景行的回应（模拟边缘机只扫本单区域，含本机组非在库空货位）").arg(hidden));
 }
 
 /**
@@ -769,11 +785,11 @@ QWidget* EdgeSimulator::buildDbPanel()
     dbGrid->addWidget(btnLoadDb, 0, 3, 1, 2);
     dbGrid->addWidget(btnLoadCand, 2, 3, 1, 2);
 
-    // 机组筛选：选了具体机组后，读库生成的候选/货位/全柜基线只含该机组，
+    // 机组筛选：选了具体机组后，读库生成的候选/货位/全柜实况清单只含该机组，
     // 避免把别的机组的货位一起推给上位机、在上位机全柜核对里被误报成异常
     m_groupCombo = new QComboBox;
     m_groupCombo->addItem(QStringLiteral("全部机组"), 0);
-    m_groupCombo->setToolTip(QStringLiteral("选具体机组后，读取的候选/货位/全柜基线只含该机组；"
+    m_groupCombo->setToolTip(QStringLiteral("选具体机组后，读取的候选/货位/全柜实况清单只含该机组；"
                                             "默认“全部机组”保持原有全量行为"));
     connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int) {
@@ -835,7 +851,7 @@ QWidget* EdgeSimulator::buildOrderPage()
     replyTimeLayout->addWidget(replyTimeTip, 1);
     box->addWidget(replyTimeBox);
 
-    // ── 本单配置：三类候选勾选 ──
+    // ── 本单配置：四类候选勾选 ──
     auto* orderBox = new QGroupBox(QStringLiteral("① 本单配置（勾选本次要核对的内容，再点【按本单生成清单】）"));
     auto* orderGrid = new QGridLayout(orderBox);
 
@@ -864,10 +880,11 @@ QWidget* EdgeSimulator::buildOrderPage()
                                        "· 本单-入库：目标货位上出现该工具（上位机判入库通过）\n"
                                        "· 本单-出库：该货位上工具已被取走（上位机判出库通过）\n"
                                        "· 本单-借出转出库：借出中的工具留在原位（免开箱）\n"
-                                       "· 非本单：库内其它在库货位，模拟边缘机扫全柜"));
-    m_bgBaseline = new QCheckBox(QStringLiteral("附带全柜在库背景行"));
+                                       "· 非本单：本机组全部已登记货位，模拟边缘机扫全柜"));
+    m_bgBaseline = new QCheckBox(QStringLiteral("附带本机组全部已登记货位"));
     m_bgBaseline->setChecked(true);
-    m_bgBaseline->setToolTip(QStringLiteral("勾选：清单里带上库内所有在库货位（边缘机回报全柜的真实形态）\n"
+    m_bgBaseline->setToolTip(QStringLiteral("勾选：清单里带上本机组全部已登记货位（边缘机回报全柜的真实形态）\n"
+                                            "其中在库货位带真实工具编号，其余货位工具编号为空但行不省略\n"
                                             "不勾：清单里只有本单相关货位"));
 
     orderGrid->addWidget(new QLabel(QStringLiteral("本单-入库\n（待入库工具）")), 0, 0);
@@ -913,16 +930,18 @@ QWidget* EdgeSimulator::buildOrderPage()
         "本单归属：本单-入库/本单-出库/本单-借出转出库/非本单 —— 决定上位机拿这一行跟单据的哪一项比\n"
         "识别结果：正常/错放/未知物品/缺失/置信度不足/货位空 —— 决定协议里的告警字段与工具编号\n"
         "告警类型：可下拉选，取值 none/misplaced/unknown/missing/low_confidence 与上位机一致\n"
+        "工具编号为空表示该货位没有工具，这一行照样回报，不要删行\n"
         "回应：不勾的行不发出去（模拟这个货位没被扫到）"));
     connect(m_orderTable, &QTableWidget::cellChanged, this, &EdgeSimulator::onOrderCellChanged);
     listLayout->addWidget(m_orderTable, 1);
 
     auto* btnNormal = new QPushButton(QStringLiteral("全部改正常"));
     connect(btnNormal, &QPushButton::clicked, this, &EdgeSimulator::onSetAllNormal);
-    btnNormal->setToolTip(QStringLiteral("把非出库行统一改成“识别正常”（出库行保持“货位空”，那是已取走的意思）"));
+    btnNormal->setToolTip(QStringLiteral("把带工具编号的非出库行统一改成“识别正常”\n"
+                                         "出库行与空货位行保持“货位空”，那是柜内没有工具的意思"));
     auto* btnOnly = new QPushButton(QStringLiteral("只保留本单行"));
     connect(btnOnly, &QPushButton::clicked, this, &EdgeSimulator::onKeepOnlyOrderRows);
-    btnOnly->setToolTip(QStringLiteral("背景行取消回应：模拟边缘机只扫了本单所在区域"));
+    btnOnly->setToolTip(QStringLiteral("背景行取消回应：模拟边缘机只扫了本单所在区域（含本机组非在库空货位）"));
     auto* btnClear = new QPushButton(QStringLiteral("清空清单"));
     connect(btnClear, &QPushButton::clicked, this, &EdgeSimulator::onClearOrderList);
     btnClear->setToolTip(QStringLiteral("清空后上位机收到空清单，会把整单判为“未检测到”"));

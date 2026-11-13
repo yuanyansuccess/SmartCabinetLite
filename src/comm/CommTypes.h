@@ -26,8 +26,10 @@ struct EdgeConfig {
 // 空的工具编号会被当成"货位已空"，工具未取走却被写成已出库。
 // alert_type 可缺席（按 none 处理），兼容未升级的边缘机；一旦带上，类型与取值必须合规。
 // 表13：items 每项下发 position/tool_id/confidence/alert_type 四个字段；tool_id 为空表示该货位无工具。
-// 边缘机须全柜逐货位回报，空货位也要回报一条 tool_id 为空的项，不得从清单中省略。
-// alert_type 为告警类型，与上位机告警字典对应。空 items 数组是合法的"柜内无变化"清单。
+// 回报范围是本机组全部已登记货位：tool_position_mapping 中 in_stock/pending/checked_out/borrowed
+// 四种状态各一条，一项一货位不得重复；在库货位 tool_id 为真实编号，其余状态 tool_id 置空但行不得省略。
+// 从未登记过的物理空位不在回报范围内（库内无货位定义表，取不到）。
+// alert_type 为告警类型，与上位机告警字典对应。空 items 数组在结构层合法，业务层按覆盖不全处理。
 struct RecognizeItem {
     QString position;      // A-01-05 货位（必填，非空字符串）
     QString toolId;        // C01-T0012，认不出为空串（必填字符串，空串=该货位认不出）
@@ -37,7 +39,7 @@ struct RecognizeItem {
 
 struct RecognizeResult {
     QString requestId;                 // 与请求配对（协议3.6）
-    QList<RecognizeItem> items;        // 全柜实况清单
+    QList<RecognizeItem> items;        // 本机组全部已登记货位实况清单
 };
 
 // ---------- open_ack：开箱（开锁）结果 ----------
