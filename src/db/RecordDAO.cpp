@@ -10,6 +10,7 @@
 #include <QSqlError>
 #include <QDebug>
 #include "common/Constants.h"
+#include <functional>
 
 namespace db {
 
@@ -435,6 +436,50 @@ int RecordDAO::insertOperationLog(int userId, const QString& operationType,
 }
 
 /**
+ * @brief 操作日志分页查询通用骨架：先统计总数，再按页取数据，行映射由回调完成。
+ * @param db 已打开的数据库连接（由调用方 getDb() 取得）
+ * @param countSql 统计总数的 SQL（? 占位符与 countParams 一一对应）
+ * @param countParams 总数查询绑定参数
+ * @param dataSql 取本页数据的 SQL（末尾须含 LIMIT ? OFFSET ? 占位符）
+ * @param dataParams 数据查询绑定参数（不含 LIMIT/OFFSET，函数自动追加）
+ * @param page 页码（从1开始）
+ * @param pageSize 每页条数
+ * @param mapRow 行映射回调，将当前 QSqlQuery 的一行转为 QJsonObject
+ * @return 含 total（总数）与 list（本页数据）的对象
+ */
+static QJsonObject pagedOperationLogs(QSqlDatabase db,
+                                     const QString& countSql,
+                                     const QVariantList& countParams,
+                                     const QString& dataSql,
+                                     QVariantList dataParams,
+                                     int page, int pageSize,
+                                     const std::function<QJsonObject(QSqlQuery&)>& mapRow)
+{
+    QJsonObject result;
+    QSqlQuery countQ(db);
+    countQ.prepare(countSql);
+    for (const QVariant& v : countParams) countQ.addBindValue(v);
+    BaseDAO::safeExec(countQ);
+    int total = 0;
+    if (countQ.next()) total = countQ.value(0).toInt();
+    result["total"] = total;
+
+    int offset = (page - 1) * pageSize;
+    dataParams.append(pageSize);
+    dataParams.append(offset);
+    QSqlQuery q(db);
+    q.prepare(dataSql);
+    for (const QVariant& v : dataParams) q.addBindValue(v);
+    BaseDAO::safeExec(q);
+    QJsonArray list;
+    while (q.next()) {
+        list.append(mapRow(q));
+    }
+    result["list"] = list;
+    return result;
+}
+
+/**
  * @brief 分页查询指定类型的操作日志（含操作人信息）
  * @param operationType 操作类型
  * @param page 页码（从1开始）
@@ -444,20 +489,19 @@ int RecordDAO::insertOperationLog(int userId, const QString& operationType,
 QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int page, int pageSize)
 {
     QSqlDatabase db = getDb();
-    QJsonObject result;
-    // 总数
-    QSqlQuery countQ(db);
-    countQ.prepare("SELECT COUNT(*) FROM sys_operation_log WHERE operation_type=?");
-    countQ.addBindValue(operationType);
-    safeExec(countQ);
-    int total = 0;
-    if (countQ.next()) total = countQ.value(0).toInt();
-    result["total"] = total;
-    // 分页数据
-    // log.target_id 存放的是工具编号（写入方统一传入 tool_code），故按 tool_code 关联工具表
-    int offset = (page - 1) * pageSize;
-    QSqlQuery q(db);
-    q.prepare(
+    auto mapRow = [&](QSqlQuery& q) -> QJsonObject {
+        QJsonObject r;
+        r["createdAt"] = q.value(0).toString();
+        r["content"]   = q.value(1).toString();
+        r["toolId"]    = q.value(2).toInt();
+        r["toolCode"]  = q.value(3).toString();
+        r["realName"]  = q.value(4).toString();
+        r["workNo"]    = q.value(5).toString();
+        return r;
+    };
+    return pagedOperationLogs(db,
+        "SELECT COUNT(*) FROM sys_operation_log WHERE operation_type=?",
+        { operationType },
         "SELECT log.created_at, log.content, log.target_id, "
         "       t.tool_code, u.real_name, u.work_no "
         "FROM sys_operation_log log "
@@ -465,25 +509,9 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
         "LEFT JOIN tool_info t ON t.tool_code = log.target_id "
         "WHERE log.operation_type = ? "
         "ORDER BY log.created_at DESC "
-        "LIMIT ? OFFSET ?"
-    );
-    q.addBindValue(operationType);
-    q.addBindValue(pageSize);
-    q.addBindValue(offset);
-    safeExec(q);
-    QJsonArray list;
-    while (q.next()) {
-        QJsonObject r;
-        r["createdAt"] = q.value(0).toString();
-        r["content"] = q.value(1).toString();
-        r["toolId"] = q.value(2).toInt();
-        r["toolCode"] = q.value(3).toString();
-        r["realName"] = q.value(4).toString();
-        r["workNo"] = q.value(5).toString();
-        list.append(r);
-    }
-    result["list"] = list;
-    return result;
+        "LIMIT ? OFFSET ?",
+        { operationType },
+        page, pageSize, mapRow);
 }
 
 /**
@@ -495,40 +523,26 @@ QJsonObject RecordDAO::findOperationLogsByType(const QString& operationType, int
 QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
 {
     QSqlDatabase db = getDb();
-    QJsonObject result;
-    // 总数
-    QSqlQuery countQ(db);
-    countQ.prepare("SELECT COUNT(*) FROM sys_operation_log");
-    safeExec(countQ);
-    int total = 0;
-    if (countQ.next()) total = countQ.value(0).toInt();
-    result["total"] = total;
-    // 分页数据（类型字段一并返回，供展示层做中文映射）
-    int offset = (page - 1) * pageSize;
-    QSqlQuery q(db);
-    q.prepare(
-        "SELECT log.created_at, log.operation_type, log.content, "
-        "       u.real_name, u.work_no "
-        "FROM sys_operation_log log "
-        "LEFT JOIN sys_user u ON log.user_id = u.user_id "
-        "ORDER BY log.created_at DESC "
-        "LIMIT ? OFFSET ?"
-    );
-    q.addBindValue(pageSize);
-    q.addBindValue(offset);
-    safeExec(q);
-    QJsonArray list;
-    while (q.next()) {
+    auto mapRow = [&](QSqlQuery& q) -> QJsonObject {
         QJsonObject r;
         r["createdAt"] = q.value(0).toString();
         r["type"]      = q.value(1).toString();
         r["content"]   = q.value(2).toString();
         r["realName"]  = q.value(3).toString();
         r["workNo"]    = q.value(4).toString();
-        list.append(r);
-    }
-    result["list"] = list;
-    return result;
+        return r;
+    };
+    return pagedOperationLogs(db,
+        "SELECT COUNT(*) FROM sys_operation_log",
+        {},
+        "SELECT log.created_at, log.operation_type, log.content, "
+        "       u.real_name, u.work_no "
+        "FROM sys_operation_log log "
+        "LEFT JOIN sys_user u ON log.user_id = u.user_id "
+        "ORDER BY log.created_at DESC "
+        "LIMIT ? OFFSET ?",
+        {},
+        page, pageSize, mapRow);
 }
 
 /**
@@ -540,22 +554,26 @@ QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
 QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 {
     QSqlDatabase db = getDb();
-    QJsonObject result;
-    // 总数
-    QSqlQuery countQ(db);
-    countQ.prepare("SELECT COUNT(*) FROM sys_operation_log WHERE operation_type='checkin'");
-    safeExec(countQ);
-    int total = 0;
-    if (countQ.next()) total = countQ.value(0).toInt();
-    result["total"] = total;
-    // 分页数据
-    int offset = (page - 1) * pageSize;
-    QSqlQuery q(db);
-    // 位置一律从 tool_position_mapping 取（按 tool_id 关联，避免用 ti 冗余列反查 mpm 产生漂移）
-    // 列顺序/别名保持与 C++ 读取一致（ti_* 与 mpm_* 现在都填映射表的值）
-    // 关联条件用 MIN(mapping_id) 而非直接关联 tool_id：一个工具可能占多个货位，
-    // 直接关联会让同一条日志膨胀成多行，取最小 mapping_id 可保证每条日志至多一行
-    q.prepare(
+    auto mapRow = [&](QSqlQuery& q) -> QJsonObject {
+        QJsonObject r;
+        r["createdAt"]  = q.value(0).toString();
+        r["content"]    = q.value(1).toString();
+        r["targetId"]   = q.value(2).toString();
+        r["realName"]   = q.value(3).toString();
+        r["workNo"]     = q.value(4).toString();
+        r["tiCabId"]    = q.value(5).toInt();
+        r["tiCabName"]  = q.value(6).toString();
+        r["tiLayer"]    = q.value(7).toString();
+        r["tiPos"]      = q.value(8).toString();
+        r["mpmCabId"]   = q.value(9).toInt();
+        r["mpmCabName"] = q.value(10).toString();
+        r["mpmLayer"]   = q.value(11).toString();
+        r["mpmPos"]     = q.value(12).toString();
+        return r;
+    };
+    return pagedOperationLogs(db,
+        "SELECT COUNT(*) FROM sys_operation_log WHERE operation_type='checkin'",
+        {},
         "SELECT log.created_at, log.content, log.target_id, "
         "       u.real_name, u.work_no, "
         "       mpm.cabinet_id  AS ti_cab_id, "
@@ -575,31 +593,9 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
         "LEFT JOIN tool_cabinet cb ON mpm.cabinet_id = cb.cabinet_id "
         "WHERE log.operation_type = 'checkin' "
         "ORDER BY log.created_at DESC "
-        "LIMIT ? OFFSET ?"
-    );
-    q.addBindValue(pageSize);
-    q.addBindValue(offset);
-    safeExec(q);
-    QJsonArray list;
-    while (q.next()) {
-        QJsonObject r;
-        r["createdAt"]  = q.value(0).toString();
-        r["content"]    = q.value(1).toString();
-        r["targetId"]   = q.value(2).toString();
-        r["realName"]   = q.value(3).toString();
-        r["workNo"]     = q.value(4).toString();
-        r["tiCabId"]    = q.value(5).toInt();
-        r["tiCabName"]  = q.value(6).toString();
-        r["tiLayer"]    = q.value(7).toString();
-        r["tiPos"]      = q.value(8).toString();
-        r["mpmCabId"]   = q.value(9).toInt();
-        r["mpmCabName"] = q.value(10).toString();
-        r["mpmLayer"]   = q.value(11).toString();
-        r["mpmPos"]     = q.value(12).toString();
-        list.append(r);
-    }
-    result["list"] = list;
-    return result;
+        "LIMIT ? OFFSET ?",
+        {},
+        page, pageSize, mapRow);
 }
 
 // ═══════════════════════════════════════════════

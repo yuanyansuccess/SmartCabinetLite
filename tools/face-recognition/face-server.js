@@ -126,6 +126,30 @@ async function init() {
 }
 
 /**
+ * 将 Base64 编码的 JPEG 解码为 face-api 推理用的 RGB 张量。
+ *
+ * @brief extractFeature 与 detectPosture 共用，避免两处重复的解码与通道转换逻辑。
+ * @param imageBase64  JPEG 图像的 Base64 文本
+ * @returns {{tensor: tf.Tensor3D, width:number, height:number}}
+ *          推理张量（形状为 [height, width, 3]）与图像尺寸，调用方负责 dispose 张量
+ */
+function decodeJpegToTensor(imageBase64) {
+    const imageBuffer = Buffer.from(imageBase64, 'base64');
+    const rawImageData = jpeg.decode(imageBuffer, { useTArray: true });
+    const width = rawImageData.width;
+    const height = rawImageData.height;
+    const rgbaData = rawImageData.data;
+    const rgbData = new Uint8Array(width * height * 3);
+    for (let i = 0, j = 0; i < rgbaData.length; i += 4, j += 3) {
+        rgbData[j] = rgbaData[i];
+        rgbData[j + 1] = rgbaData[i + 1];
+        rgbData[j + 2] = rgbaData[i + 2];
+    }
+    const tensor = tf.tensor3d(rgbData, [height, width, 3]);
+    return { tensor, width, height };
+}
+
+/**
  * 提取人脸特征（含五段耗时计时）：检测与 68 点定位由 face-api 完成，
  * 特征向量由 512 维引擎提供。
  *
@@ -139,21 +163,7 @@ async function extractFeature(imageBase64) {
 
     // 分段计时起点（t0 含解码，定位"传输/解码 vs 推理"的构成）
     const t0 = Date.now();
-
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-    const rawImageData = jpeg.decode(imageBuffer, { useTArray: true });
-
-    const width = rawImageData.width;
-    const height = rawImageData.height;
-    const rgbaData = rawImageData.data;
-    const rgbData = new Uint8Array(width * height * 3);
-    for (let i = 0, j = 0; i < rgbaData.length; i += 4, j += 3) {
-        rgbData[j] = rgbaData[i];
-        rgbData[j + 1] = rgbaData[i + 1];
-        rgbData[j + 2] = rgbaData[i + 2];
-    }
-
-    const tensor = tf.tensor3d(rgbData, [height, width, 3]);
+    const { tensor } = decodeJpegToTensor(imageBase64);
     const tDecode = Date.now() - t0;   // 段1：base64解码+jpeg解码+张量构建
 
     // 五段计时的分段时刻（在 try 内逐段刷新，finally 统一 disposal）
@@ -415,22 +425,8 @@ function stopChild512() {
 async function detectPosture(imageBase64) {
     if (!modelsLoaded) throw new Error('模型未加载完成');
 
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-    const rawImageData = jpeg.decode(imageBuffer, { useTArray: true });
-
-    const width = rawImageData.width;
-    const height = rawImageData.height;
-    const rgbaData = rawImageData.data;
-    const rgbData = new Uint8Array(width * height * 3);
-    for (let i = 0, j = 0; i < rgbaData.length; i += 4, j += 3) {
-        rgbData[j] = rgbaData[i];
-        rgbData[j + 1] = rgbaData[i + 1];
-        rgbData[j + 2] = rgbaData[i + 2];
-    }
-
-    const tensor = tf.tensor3d(rgbData, [height, width, 3]);
     const t0 = Date.now();
-    const tDecode = 0;   // posture 调用方为方位引导，暂不拆分 decode 段（保持轻量）
+    const { tensor } = decodeJpegToTensor(imageBase64);
     let tDetect = 0, tLandmarks = 0;
     try {
         // 只检测landmarks，不提取descriptor，速度更快
