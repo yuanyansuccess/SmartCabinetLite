@@ -466,13 +466,21 @@ void ToolBorrowPage::executeBorrow() {
                 detailLayout->addWidget(failInfo);
             }
         }
-        // 明细放进可滚动区域，行多时由滚动承接，底部按钮行始终留在窗口内
+        // 明细区固定高度由窗口反算：窗口扣掉图标、标题、提示和按钮等固定部分后，
+        // 余量留给明细；行多时由滚动承接，底部「知道了」按钮始终留在窗口内
+        const int kDetailMinHeight  = 90;
+        const int kDetailFixedParts = 260;
+        const int kDetailMaxHeight  = 320;
         auto* detailScroll = new QScrollArea();
         detailScroll->setWidgetResizable(true);
         detailScroll->setFrameShape(QFrame::NoFrame);
         detailScroll->setStyleSheet(QStringLiteral("background:transparent;"));
-        detailScroll->setFixedHeight(qBound(90, dialogHeight - 260, 320));
+        detailScroll->setFixedHeight(qBound(kDetailMinHeight,
+                                           dialogHeight - kDetailFixedParts,
+                                           kDetailMaxHeight));
         detailScroll->setWidget(detailFrame);
+        // 触屏手势：明细多时手指可直接拖动查看，不依赖细滚动条
+        QScroller::grabGesture(detailScroll->viewport(), QScroller::LeftMouseButtonGesture);
         successDlg.bodyLayout()->addWidget(detailScroll);
         // 提示
         successDlg.setHint(QStringLiteral("请在预计归还时间前归还，逾期将产生记录"));
