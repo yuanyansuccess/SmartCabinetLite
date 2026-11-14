@@ -26,6 +26,7 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QThread>
+#include <QElapsedTimer>
 #include <atomic>
 
 namespace {
@@ -35,6 +36,20 @@ std::atomic<bool> g_serverReady{false};
 
 // 512 维引擎首次加载模型需要几秒，启动轮询期间只提示一次，避免重复刷同一条警告
 std::atomic<bool> g_engine512WarningLogged{false};
+
+// 等待人脸服务就绪最多 30 秒，按墙钟计时（健康探测自身耗时也算在内）
+constexpr int kServerWaitTimeoutMs = 30000;
+
+/**
+ * @brief 等待指定毫秒，期间让事件循环继续派发事件
+ * @param ms 等待的毫秒数
+ * @note 等待期间事件循环照常跑，30 秒超时才能按时提示，主线程不被冻结
+ */
+static void waitMsWithEvents(int ms) {
+    QEventLoop loop;
+    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+    loop.exec();
+}
 }
 
 /**
@@ -289,8 +304,11 @@ bool DeepFaceExtractor::ensureServerRunning() {
 
     // 2. 本程序已持有子进程但还在加载模型 → 同步等待就绪
     if (g_faceServerProcess && g_faceServerProcess->state() != QProcess::NotRunning) {
-        for (int i = 0; i < 60; ++i) {
-            QThread::msleep(500);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        // 按墙钟计时：健康探测自身耗时也计入 30 秒，保证整体不超过 30 秒
+        while (elapsed.elapsed() < kServerWaitTimeoutMs) {
+            waitMsWithEvents(500);
             if (checkServerHealth()) {
                 g_serverReady = true;
                 return true;
@@ -319,11 +337,14 @@ bool DeepFaceExtractor::ensureServerRunning() {
     }
 
     // 4. 等待服务就绪（最多30秒，512 维模型首次加载较慢）
-    for (int i = 0; i < 60; ++i) {
-        QThread::msleep(500);
+    QElapsedTimer elapsed;
+    elapsed.start();
+    // 按墙钟计时：健康探测自身耗时也计入 30 秒，保证整体不超过 30 秒
+    while (elapsed.elapsed() < kServerWaitTimeoutMs) {
+        waitMsWithEvents(500);
         if (checkServerHealth()) {
             g_serverReady = true;
-            qDebug() << "[DeepFaceExtractor] 人脸识别服务就绪，用时" << (i + 1) * 500 << "ms";
+            qDebug() << "[DeepFaceExtractor] 人脸识别服务就绪，用时" << elapsed.elapsed() << "ms";
             return true;
         }
     }

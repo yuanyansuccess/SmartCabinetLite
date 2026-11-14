@@ -442,7 +442,7 @@ void MainWindow::setEdgeService(EdgeService* svc) {
         [this](const QString& requestId, const RecognizeResult& result) {
             QList<ToolService::RecogSpot> spots;
             for (const RecognizeItem& item : result.items) {
-                // 表13 四字段：工具编号为空即货位无工具；alertType 按 i=0401 不在业务层写告警
+                // 识别清单四字段：工具编号为空即货位无工具；alertType 只做协议解析与结构校验，业务层不据此写告警
                 spots.append(ToolService::RecogSpot{item.position, item.toolId,
                                                      item.confidence});
             }

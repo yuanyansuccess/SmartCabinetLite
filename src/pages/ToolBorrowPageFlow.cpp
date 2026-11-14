@@ -32,6 +32,53 @@
 #include <QFrame>
 #include <QDebug>
 #include <QTimer>  // 勾选跳页延迟重建，避免信号回调中销毁widget
+#include <QAbstractItemView>
+#include <QScroller>          // 清单表触屏拖动
+#include <QGuiApplication>    // 取屏幕可用高度封顶弹窗
+#include <QScreen>
+#include <QWidget>
+
+namespace {
+const int kPageMinDialogHeight  = 460;  // 抽屉弹窗高度下限，短单据维持原有高度
+const int kPageMinTableHeight   = 120;  // 清单表高度下限，短单据维持原有高度
+const int kPageMinResultHeight  = 380;  // 结果弹窗高度下限
+const int kPageFixedPartsHeight = 284;  // 抽屉弹窗内除清单表外的固定高度（标题/动画/提示/按钮/边距/间距）
+const int kPageResultBaseHeight = 300;  // 结果弹窗基础高度
+const int kPageResultRowHeight  = 30;   // 结果弹窗按明细行数递增的高度
+const int kPageRowHeight        = 36;   // 清单表单行高度
+const int kPageHeaderHeight     = 36;   // 清单表表头高度
+const int kPageMaxVisibleRows   = 6;    // 清单表最多铺开的行数
+const int kPageScreenMargin     = 80;   // 屏幕上下为任务栏与窗口装饰预留的余量
+
+/**
+ * @brief 按屏幕可用高度给弹窗高度封顶，清单过长也不把底部按钮挤出屏幕
+ * @param parent 父窗口，用于取所在屏幕
+ * @param wanted 按内容行数算出的期望高度
+ * @param minHeight 弹窗高度下限
+ * @return 封顶后的弹窗高度
+ */
+static int clampPageDialogHeight(QWidget* parent, int wanted, int minHeight) {
+    QScreen* screen = parent ? parent->screen() : nullptr;
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    const int limit = screen
+        ? qMax(minHeight, screen->availableGeometry().height() - kPageScreenMargin)
+        : qMax(minHeight, wanted);
+    return qBound(minHeight, wanted, limit);
+}
+
+/**
+ * @brief 按窗口有效高度反算清单表高度，多余行由表格滚动承接
+ * @param wanted 按行数算出的期望表格高度
+ * @param dialogHeight 封顶后的窗口高度
+ * @param fixedParts 窗口内除表格外的固定高度
+ * @return 表格高度，与固定部分相加不超过窗口高度
+ */
+static int clampPageTableHeight(int wanted, int dialogHeight, int fixedParts) {
+    return qBound(kPageHeaderHeight + kPageRowHeight,
+                  qMin(wanted, dialogHeight - fixedParts),
+                  kPageMaxVisibleRows * kPageRowHeight + kPageHeaderHeight);
+}
+}
 
 /**
  * @brief 处理确认
@@ -146,11 +193,14 @@ void ToolBorrowPage::showBorrowConfirmDialog() {
     FlowDialogs::Setup setup;
     setup.windowTitle = QStringLiteral("确认借用");
     setup.width  = 560;
-    setup.height = qMax(460, 340 + m_expandedBorrowList.size() * 40);
+    // 期望高度按明细行数计算，下限与屏幕封顶统一由骨架处理，此处只传值不二次钳制
+    setup.height = 340 + static_cast<int>(m_expandedBorrowList.size()) * 40;
     setup.spacing = 14;
 
     QVBoxLayout* body = nullptr;
-    QDialog* dlg = FlowDialogs::createDialog(this, setup, &body);
+    // 骨架按屏幕可用高度封顶窗口并回写有效高度，清单表据此反算，底部按钮行不被挤出
+    int effectiveHeight = setup.height;
+    QDialog* dlg = FlowDialogs::createDialog(this, setup, &body, &effectiveHeight);
     FlowDialogs::addTitle(body, QStringLiteral("📋"), QStringLiteral("待借用工具清单"));
 
     // 借用详情表格用展开清单：工具名/位置/数量(每行1件1位置)
@@ -163,7 +213,7 @@ void ToolBorrowPage::showBorrowConfirmDialog() {
                       tool.position,
                       QStringLiteral("%1 件").arg(tool.quantity) });
     }
-    FlowDialogs::fillTable(table, rows, QStringLiteral("--"));
+    FlowDialogs::fillTable(table, rows, QStringLiteral("--"), effectiveHeight);
     body->addWidget(table);
 
     // 借用人信息 + 归还时间
@@ -215,7 +265,9 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
         QStringLiteral("对应工具抽屉已自动打开，<br/>"
                        "请按下方清单取用工具后手动关闭抽屉再点击下一步。"),
         28, 48, this);  // [等价保留] 本页历史边距28/动画区高48
-    dlg.setFixedSize(560, qMax(460, 320 + listCount * 36));
+    const int wantedHeight = qMax(kPageMinDialogHeight, 320 + listCount * 36);
+    const int dialogHeight = clampPageDialogHeight(this, wantedHeight, kPageMinDialogHeight);
+    dlg.setFixedSize(560, dialogHeight);
     // 待借用工具列表，便于用户按列表取用
     if (listCount > 0) {
         auto* table = new QTableWidget();
@@ -252,7 +304,11 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
             table->setItem(i, 3, new QTableWidgetItem(QStringLiteral("%1 件").arg(it.quantity)));
             table->setRowHeight(i, 36);
         }
-        table->setFixedHeight(qMax(120, listCount * 36 + 36));
+        const int wantedTable = qMax(kPageMinTableHeight,
+                                     listCount * kPageRowHeight + kPageHeaderHeight);
+        table->setFixedHeight(clampPageTableHeight(wantedTable, dialogHeight, kPageFixedPartsHeight));
+        table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+        QScroller::grabGesture(table->viewport(), QScroller::LeftMouseButtonGesture);
         dlg.bodyLayout()->addWidget(table);
     }
     if (dlg.exec() == QDialog::Accepted) {
@@ -381,7 +437,13 @@ void ToolBorrowPage::executeBorrow() {
         // 借用成功 - 显示美观的成功提示
         ResultDialog successDlg(QStringLiteral("借用成功"), QStringLiteral("✅"),
             QStringLiteral("借用成功！"), QStringLiteral("#43a047"), 16, this);
-        successDlg.setFixedSize(460, qMax(380, 300 + successTools.size() * 30));
+        // 成功项与失败项都计入高度预算：部分成功时明细不再把「知道了」按钮挤出窗口
+        const int detailRows = successTools.size() + failTools.size()
+                               + (failTools.isEmpty() ? 0 : 1);
+        const int wantedHeight = qMax(kPageMinResultHeight,
+                                      kPageResultBaseHeight + detailRows * kPageResultRowHeight);
+        const int dialogHeight = clampPageDialogHeight(this, wantedHeight, kPageMinResultHeight);
+        successDlg.setFixedSize(460, dialogHeight);
         // 借用详情 — 去掉绿色背景，纯文本显示工具清单，更清爽
         auto* detailFrame = new QFrame();
         detailFrame->setStyleSheet("background:transparent;border:none;");
@@ -404,7 +466,14 @@ void ToolBorrowPage::executeBorrow() {
                 detailLayout->addWidget(failInfo);
             }
         }
-        successDlg.bodyLayout()->addWidget(detailFrame);
+        // 明细放进可滚动区域，行多时由滚动承接，底部按钮行始终留在窗口内
+        auto* detailScroll = new QScrollArea();
+        detailScroll->setWidgetResizable(true);
+        detailScroll->setFrameShape(QFrame::NoFrame);
+        detailScroll->setStyleSheet(QStringLiteral("background:transparent;"));
+        detailScroll->setFixedHeight(qBound(90, dialogHeight - 260, 320));
+        detailScroll->setWidget(detailFrame);
+        successDlg.bodyLayout()->addWidget(detailScroll);
         // 提示
         successDlg.setHint(QStringLiteral("请在预计归还时间前归还，逾期将产生记录"));
         // 确定按钮 — 缩小按钮尺寸，44px，18px字体→15px，去掉过大padding

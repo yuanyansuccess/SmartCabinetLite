@@ -63,7 +63,7 @@
   </div>
   <div class="rcard gC">
     <h4>③ 控制：真的开锁、真的知道门关没关</h4>
-    <div class="row">作为 Modbus TCP 主站驱动 IO 下位机；</div>
+    <div class="row">通过 TCP 与 IO 板通信；</div>
     <div class="row">收到 open_req 后开锁，必须拿到 IO 回执才算成功；</div>
     <div class="row">门磁输入点去抖后产生「柜门已关」事件上报，触发识别；</div>
     <div class="row">IO 板离线时开锁请求直接拒绝，绝不假装执行。</div>
@@ -188,11 +188,11 @@
   </div>
 </div>
 <h3>C 组 · IO 控制（4 张）</h3>
-<div class="warnbox">IO 板硬件尚未到位（2026-10-25 拍板）：本组 4 张卡软件先行——按协议桩开发，联调期用 Modbus 模拟器代替真实 IO 板（开锁线圈 / 门磁点位可配置模拟）；真实点位表到位后只改配置与地址，不改架构。</div>
+<div class="warnbox">IO 板硬件尚未到位（2026-10-25 拍板）：本组 4 张卡软件先行——按协议桩开发，联调期用 IO 板模拟器（TCP 接口）代替真实 IO 板（开锁与门磁信号可配置模拟）；真实点位表到位后只改配置与地址，不改架构。</div>
 <div class="cards">
   <div class="rcard gC">
     <h4>C1 · IO 板连接与自检</h4>
-    <div class="row"><b class="k">做什么：</b>作为 Modbus TCP 主站连接 IO 下位机，持续维护连接状态。</div>
+    <div class="row"><b class="k">做什么：</b>通过 TCP 与 IO 板通信，持续维护连接状态。</div>
     <div class="row"><b class="k">关键规则：</b>断线即时感知并记日志；开锁前必查 IO 在线。</div>
     <div class="row"><b class="k">验收标准：</b>断开 IO 板网线，边缘机 1 秒内感知并记录。</div>
   </div>
@@ -347,7 +347,7 @@
   <tr><th style="width:130px;">项目</th><th>要点</th></tr>
   <tr><td><b>系统服务</b></td><td>systemd unit 托管：Restart=always、开机自启（WantedBy=multi-user.target）、独立运行账号、启动失败日志可查</td></tr>
   <tr><td><b>视频接入</b></td><td>视频卡驱动 / SDK 随交付并附安装步骤；摄像头清单（IP / 通道 / 对应货位）随配置交付</td></tr>
-  <tr><td><b>网络</b></td><td>静态 IP；到上位机 9000 端口可达（边缘机为客户端、主动出站）；到 IO 板 Modbus TCP 端口可达；防火墙规则写进部署文档</td></tr>
+  <tr><td><b>网络</b></td><td>静态 IP；到上位机 9000 端口可达（边缘机为客户端、主动出站）；到 IO 板 TCP 端口可达；防火墙规则写进部署文档</td></tr>
   <tr><td><b>时间</b></td><td>chrony / ntpd 指向内网 NTP 源；与上位机时间偏差 1 秒内</td></tr>
   <tr><td><b>日志</b></td><td>应用日志滚动 + 大小上限；部署目录规范统一，现场按文档即可定位日志</td></tr>
   <tr><td><b>交付清单</b></td><td>程序 + 配置模板 + 模型文件 + 驱动 + 部署文档；软件版本号接入 version_ack，验收可查</td></tr>
@@ -358,10 +358,10 @@
 <div class="note"><b>已拍板（2026-10-25）：</b><br>
 ✔ 视频接入形态 = 网络摄像头 RTSP 拉流（对应卡 B1/B2、流程图 F6）；<br>
 ✔ 识别耗时上限 = 3 秒内给结果，超时立即回失败帧（对应卡 B5）；<br>
-✔ IO 板硬件暂未到位——软件按协议桩先行，联调用 Modbus 模拟器，点位表到位后只改配置不改架构（对应 C 组）。</div>
+✔ IO 板硬件暂未到位——软件按协议桩先行，联调用 IO 板模拟器（TCP 接口），点位表到位后只改配置不改架构（对应 C 组）。</div>
 <div class="warnbox">
 <b>仍待确认：</b><br>
-1）<b>IO 板点位表</b>：Modbus 地址（开锁线圈、门磁输入点）、回执方式（读回状态还是 IO 主动上报）——硬件到位后定。<br>
+1）<b>IO 板点位表</b>：开锁点、门磁输入点等点位，回执方式（读回状态还是 IO 主动上报）——硬件到位后定。<br>
 2）<b>关柜事件帧</b>：帧名与字段定稿（当前上位机按钮顶替路径保留，事件到达即无缝切换）。<br>
 3）<b>货位-摄像头映射</b>：边缘机本地配置，还是上位机下发 + 本地缓存？建议后者，保证与台账一致。<br>
 4）<b>多连接策略</b>：只允许一台上位机连接时，第二连接拒绝还是踢旧？<br>
@@ -556,7 +556,7 @@ flow("dg-topo", {title:"拓扑图", width:1164, margin:30, colW:368, rowH:150, t
   edges:[
     {from:"host", to:"edge", route:"side", color:"blue", both:true, bold:true,
       label:"TCP：上位机为服务端（端口 9000），边缘机为客户端", aly:20},
-    {from:"edge", to:"io", route:"side", color:"gray", label:"Modbus TCP：边缘机为主站", aly:20},
+    {from:"edge", to:"io", route:"side", color:"gray", label:"TCP 对接 IO 板", aly:20},
     {from:"edge", to:"cam",  route:"down", color:"gray", label:"RTSP 拉流（网络摄像头）"},
     {from:"io",   to:"lock", route:"down", color:"gray", label:"驱动 / 采样"}
   ]});
@@ -566,11 +566,11 @@ flow("dg-arch", {title:"架构图", width:1160, margin:25, colW:370, rowH:120, t
     {id:"up",   col:1, row:0, kind:"ext", title:"上位机（TCP 服务端 :9000）", sub:["下发 open_req / recognize_req / version_query"]},
     {id:"comm", col:0, row:1, kind:"normal", title:"通信模块", sub:["TCP 客户端 / 断线退避重连", "周期帧心跳 / 帧编解码"]},
     {id:"sched",col:1, row:1, kind:"dark", title:"业务调度", sub:["request_id 配对与去重", "忙判定 / 超时兜底 / 事件缓存补报"]},
-    {id:"io",   col:2, row:1, kind:"warn", title:"IO 控制模块", sub:["Modbus 主站 / 开锁 / 门磁去抖"]},
+    {id:"io",   col:2, row:1, kind:"warn", title:"IO 控制模块", sub:["TCP 接口 / 开锁 / 门磁去抖"]},
     {id:"rec",  col:1, row:2, kind:"ok", title:"识别模块", sub:["采集 / 解码 / 模型推理", "货位聚合与告警判定"]},
     {id:"sys",  col:1, row:3, kind:"dark", title:"系统服务", sub:["启动自检 / 配置 / 日志 / 看门狗", "NTP 时间同步（支撑以上全部模块）"]},
     {id:"camx", col:0, row:4, kind:"ext", title:"视频卡 + 摄像头 8 路"},
-    {id:"iob",  col:2, row:4, kind:"ext", title:"IO 下位机（Modbus TCP）"}
+    {id:"iob",  col:2, row:4, kind:"ext", title:"IO 下位机（TCP 接口）"}
   ],
   edges:[
     {from:"up", to:"comm", route:"elbow", color:"blue", both:true, bold:true,
@@ -580,7 +580,7 @@ flow("dg-arch", {title:"架构图", width:1160, margin:25, colW:370, rowH:120, t
     {from:"sched", to:"rec", route:"down", color:"gray", label:"识别任务"},
     {from:"rec", to:"camx", route:"loop", color:"gray", label:"采集当前帧", lp:[327,293],
       points:"M420,303 L210,303 L210,504"},
-    {from:"io", to:"iob", route:"down", color:"gray", label:"Modbus 读写 / 回执"}
+    {from:"io", to:"iob", route:"down", color:"gray", label:"TCP 下发指令 / 回执"}
   ]});
 flow("dg-f1", {title:"F1 启动自检", width:860, margin:30, colW:400, rowH:96, top:24, w:340,
   nodes:[
@@ -686,7 +686,7 @@ flow("dg-f4", {title:"F4 开锁流程", width:832, margin:26, colW:390, rowH:104
     {id:"k0", col:0, row:0, title:"收到 open_req", sub:["带 request_id"]},
     {id:"k1", col:0, row:1, kind:"decide", title:"去重检查", sub:["同 id 已执行或在途？"]},
     {id:"k2", col:0, row:2, kind:"decide", title:"IO 板在线？"},
-    {id:"k3", col:0, row:3, title:"Modbus 写开锁线圈"},
+    {id:"k3", col:0, row:3, title:"TCP 下发开锁指令"},
     {id:"k4", col:0, row:4, kind:"decide", title:"等待 IO 回执", sub:["限时等待"]},
     {id:"k5", col:0, row:5, kind:"ok", title:"回 open_ack（success = true）", sub:["柜体已真实打开"]},
     {id:"F1", col:1, row:1, kind:"red", title:"重复请求", sub:["拒绝：绝不二次开锁"]},
@@ -821,7 +821,7 @@ seq("dg-s1", {title:"S1 正常出入库", width:1180, margin:30, laneW:224, rowH
   msgs:[
     {from:0, to:1, text:"确认出入库单据"},
     {from:1, to:2, text:"open_req（request_id）", color:"blue", bold:true},
-    {from:2, to:3, text:"Modbus 写开锁线圈", color:"blue"},
+    {from:2, to:3, text:"TCP 下发开锁指令", color:"blue"},
     {from:3, to:2, text:"开锁回执", color:"green", dashed:true},
     {from:2, to:1, text:"open_ack（success = true）", color:"green", dashed:true},
     {from:1, to:0, text:"开箱弹窗 + 单据摘要"},

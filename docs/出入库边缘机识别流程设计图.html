@@ -94,7 +94,7 @@
     <text x="555" y="355" class="node-title">④ 边缘机链路 + 摄像头在线检查</text>
     <text x="555" y="374" class="node-sub">EdgeService.m_online（周期帧15秒判活）+ 8 路摄像头自检（任一非 ok→拒开柜）</text>
     <text x="555" y="455" class="node-title">⑤ 下发开锁指令</text>
-    <text x="555" y="474" class="node-sub">IO 板 Modbus TCP</text>
+    <text x="555" y="474" class="node-sub">IO 板 TCP 接口</text>
     <text x="555" y="555" class="node-title">⑥ 开箱弹窗：柜体动画 + 单据摘要</text>
     <text x="555" y="574" class="node-sub">提示"请按单据操作并关闭柜门"</text>
     <text x="555" y="655" class="node-title">⑦ 等待关柜（禁用操作）</text>
@@ -256,7 +256,7 @@
     <text x="510" y="403" class="node-title">记第 N 轮整理日志</text>
     <text x="510" y="421" class="node-sub">操作人 / 第几轮 / 待修正项清单（写操作日志）</text>
     <text x="510" y="503" class="node-title">再次下发开锁指令</text>
-    <text x="510" y="521" class="node-sub">IO 板 Modbus TCP</text>
+    <text x="510" y="521" class="node-sub">IO 板 TCP 接口</text>
     <text x="510" y="603" class="node-title">开箱弹窗：仅列未过项单据</text>
     <text x="510" y="621" class="node-sub">未过项红色标记 + 错放提示"X货位有异常工具"</text>
     <text x="510" y="723" class="node-title">用户按提示整理（把工具放进正确货位）</text>
@@ -458,7 +458,7 @@
 <table class="grid">
   <tr><th style="width:150px;">落点</th><th>本期做法</th><th style="width:200px;">理由</th></tr>
   <tr><td><b>操作日志</b><br/>sys_operation_log</td><td>每轮识别写一条 <code>operation_type='checkin_round'/'checkout_round'</code>，content 为 JSON：<code>{round, order:[{toolCode,position,result}], misplaced:[{actualPosition,toolCode,expectedOwner}], unknown:[position], confidence}</code>，result=success/fail</td><td>表结构现成（type 是自由字符串、content 是 JSON text），<b>零改表</b>；满足"每轮留痕可追溯"</td></tr>
-  <tr><td><b>告警</b><br/>sys_alert + sys_alert_type</td><td><b>本期不写</b>（遵袁总前议"先提示"）。字典表已存在 <code>mismatch</code>（工具错放）/ <code>rack_mismatch</code>（货架错放）/ <code>missing</code> 三个现成类型</td><td>将来要告警联动时直接启用，<b>零建表零加类型</b></td></tr>
+  <tr><td><b>告警</b><br/>sys_alert + sys_alert_type</td><td>发现工具放错时写一条操作告警，类型用字典里现成的 <code>mismatch</code>（工具错放），不新建类型也不改表</td><td>在"操作告警"入口能查到，<b>零建表零加类型</b></td></tr>
   <tr><td><b>新表</b><br/>tool_misplacement</td><td><b>不建</b></td><td>单柜场景人工修正即可闭环；多柜场合作业队列是将来的独立需求，现在建属过度设计</td></tr>
 </table>
 <h3 style="font-size:15px;margin:14px 0 10px;">3.3 本期新增状态枚举（全部走 SC:: 常量，禁裸字符串）</h3>
@@ -490,7 +490,7 @@
 <h3 style="font-size:15px;margin:14px 0 10px;">二期（IO 板就绪后）</h3>
 <table class="grid">
   <tr><th style="width:60px;">序号</th><th style="width:230px;">模块</th><th>内容</th></tr>
-  <tr><td>1</td><td>src/comm/IoLink + IoService（新建）</td><td>Modbus TCP 客户端，照 EdgeLink/EdgeService 分层范式；CommTypes.h 追加 IoConfig/IoResult</td></tr>
+  <tr><td>1</td><td>src/comm/IoLink + IoService（新建）</td><td>通过 TCP 与 IO 板通信，照 EdgeLink/EdgeService 分层范式；CommTypes.h 追加 IoConfig/IoResult</td></tr>
   <tr><td>2</td><td>开锁指令</td><td>IoService 公开 openCabinet()，ToolCheckinPage 调用点替换"直接进入开箱弹窗"</td></tr>
   <tr><td>3</td><td>关柜信号</td><td>IoService doorClosed 信号 → 页面 onCabinetClosed()；删除"我已关柜"顶替按钮</td></tr>
   <tr><td>4</td><td>借用归还会话接入</td><td>CabinetSessionDialog 的内存模拟快照换成 IO 板真实开关柜事件 + 边缘机识别</td></tr>
@@ -514,12 +514,12 @@
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">1</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">写库拆"通信→回调写库"异步两段</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">showCheckResultDialog 拆出 startEdgeCheck / onRecognizeFinished / applyOrderResults</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">2</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">边缘机离线/超时/未部署</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">禁止出入库，提示"边缘机链路离线"后不写库</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">3</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">比对逻辑归属</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">先放 ToolCheckinPage 私有方法，独立成方法预留将来自抽取口</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
-  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">4</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">开锁指令 / 关柜信号</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">IO 板 Modbus TCP 通信（新建 IoLink/IoService，照 EdgeLink/EdgeService 分层）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">4</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">开锁指令 / 关柜信号</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">通过 TCP 与 IO 板通信（新建 IoLink/IoService，照 EdgeLink/EdgeService 分层）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">5</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">识别触发点</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">IO 板"已关柜"硬件信号触发识别，与软件按钮解耦</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">6</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">等待态体验</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">点确认即发起，等待动画承接耗时，结果回来自动弹结果页，含【取消】</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">7</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">写库时机</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">3 轮内全过则整单写库；3 轮仍不全过（或用户主动选择）则按实况写库：通过项写入、未过项保持原状，日志标注"第3轮未全过，按实况写入"</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">8</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">重试上限</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">收敛为红线常量（如 SC::ORDER_MAX_RETRY_ROUNDS），当前值 3，后续可调</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
-  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">9</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">错放提示</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">结果页加"检测到 X 货位有异常工具"提示行，不写告警</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
+  <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">9</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">错放提示</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">结果页给一条提示，同时写一条操作告警（mismatch）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">10</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">操作日志</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">每轮重开箱都记：操作人 / 第几轮 / 修正了哪些项</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr><td style="border:1px solid #e8e8e8; padding:9px 12px;">11</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">三轮仍不全过的兜底</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">不死循环、不零写库：按当前实况写库（通过项写入、未过项保持原状），结果页如实呈现，日志标注（袁总 10-21 拍板）</td><td style="border:1px solid #e8e8e8; padding:9px 12px; color:#3da33d; font-weight:700;">已定</td></tr>
   <tr style="background:#fffaf0;"><td style="border:1px solid #e8e8e8; padding:9px 12px;">12</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">重开箱的摘要与比对范围</td><td style="border:1px solid #e8e8e8; padding:9px 12px;">建议：摘要只列失败项（少误导），比对核对全部项（防已通过项被被动过）</td><td style="border:1px solid #f0c36d; padding:9px 12px; color:#d97a1e; font-weight:700;">待确认</td></tr>

@@ -39,11 +39,13 @@ public:
     /**
      * @brief 创建统一样式的无边框对话框
      * @param parent 父对象
-     * @param setup  骨架参数
+     * @param setup  骨架参数（height 为按内容计算的期望高度，屏幕封顶在此统一处理）
      * @param body   输出主布局指针，调用方继续往里添加内容
+     * @param outEffectiveHeight 可选输出：回写封顶后的窗口有效高度，供 fillTable 反算表格高度；不需要时传空
      * @return 新建的对话框（未执行模态）
      */
-    static QDialog* createDialog(QWidget* parent, const Setup& setup, QVBoxLayout** body);
+    static QDialog* createDialog(QWidget* parent, const Setup& setup, QVBoxLayout** body,
+                                 int* outEffectiveHeight = nullptr);
 
     /**
      * @brief 追加标题栏（图标 + 标题 + 弹性空白）
@@ -57,17 +59,20 @@ public:
      * @brief 创建统一样式的清单表格
      * @param headers 表头文本，个数即列数，列宽自适应内容等比拉伸
      * @return 表格对象（调用方需自行加入布局）
+     * @note 表格按像素滚动并接入触屏手势，条目多时可直接手指拖动查看全部
      */
     static QTableWidget* createListTable(const QStringList& headers);
 
     /**
-     * @brief 填充清单表格
-     * @param table       表格对象
-     * @param rows        每行单元格文本，列数需与表头一致
-     * @param placeholder 单元格为空时显示的占位文本，为空则显示空串
+     * @brief 填充清单表格并按窗口可用高度确定表格高度
+     * @param table          表格对象
+     * @param rows           每行单元格文本，列数需与表头一致
+     * @param placeholder    单元格为空时显示的占位文本，为空则显示空串
+     * @param maxTableHeight 骨架回写的窗口有效高度；大于 0 时按窗口可用高度反算表格高度
+     *                       （多余行由表格滚动承接，底部按钮不被挤出），-1 沿用原有按行数的高度
      */
     static void fillTable(QTableWidget* table, const QList<QStringList>& rows,
-                          const QString& placeholder = QString());
+                          const QString& placeholder = QString(), int maxTableHeight = -1);
 
     /**
      * @brief 追加底部按钮栏（取消 + 主操作）

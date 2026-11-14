@@ -72,3 +72,10 @@ tools/face-recognition/test_face_sample.*
 tools/ui_test/__pycache__/
 tools/ui_test/reports/
 tools/face-recognition-512/__pycache__/
+
+# 运行时/现场配置（含明文口令），不入库
+*.ini
+# 现场数据库备份（含明文业务数据）
+/db_backup/
+# 需求/设计文档源件（体积大、副本多）
+/docs/*.docx

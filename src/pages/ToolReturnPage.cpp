@@ -33,6 +33,47 @@
 #include "services/AlertService.h"  // 告警写入
 #include "model/AlertLog.h"  // AlertLog实体
 #include "common/Constants.h"
+#include <QScroller>          // 清单表触屏拖动
+#include <QGuiApplication>    // 取屏幕可用高度封顶弹窗
+#include <QScreen>
+
+namespace {
+const int kPageMinDialogHeight  = 460;  // 短单据维持原有高度
+const int kPageFixedPartsHeight = 320;  // 抽屉弹窗内除清单表外的固定高度
+const int kPageRowHeight        = 36;   // 清单表单行高度
+const int kPageHeaderHeight     = 36;   // 清单表表头高度
+const int kPageMaxVisibleRows   = 6;    // 清单表最多铺开的行数
+const int kPageScreenMargin     = 80;   // 屏幕上下为任务栏与窗口装饰预留的余量
+
+/**
+ * @brief 按屏幕可用高度给弹窗高度封顶，清单过长也不把底部按钮挤出屏幕
+ * @param parent 父窗口，用于取所在屏幕
+ * @param wanted 按内容行数算出的期望高度
+ * @param minHeight 弹窗高度下限
+ * @return 封顶后的弹窗高度
+ */
+static int clampPageDialogHeight(QWidget* parent, int wanted, int minHeight) {
+    QScreen* screen = parent ? parent->screen() : nullptr;
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    const int limit = screen
+        ? qMax(minHeight, screen->availableGeometry().height() - kPageScreenMargin)
+        : qMax(minHeight, wanted);
+    return qBound(minHeight, wanted, limit);
+}
+
+/**
+ * @brief 按窗口有效高度反算清单表高度，多余行由表格滚动承接
+ * @param wanted 按行数算出的期望表格高度
+ * @param dialogHeight 封顶后的窗口高度
+ * @param fixedParts 窗口内除表格外的固定高度
+ * @return 表格高度，与固定部分相加不超过窗口高度
+ */
+static int clampPageTableHeight(int wanted, int dialogHeight, int fixedParts) {
+    return qBound(kPageHeaderHeight + kPageRowHeight,
+                  qMin(wanted, dialogHeight - fixedParts),
+                  kPageMaxVisibleRows * kPageRowHeight + kPageHeaderHeight);
+}
+}
 
 /**
  * @brief 构造函数，初始化 ToolReturnPage 对象并连接信号槽
@@ -305,7 +346,9 @@ void ToolReturnPage::showReturnConfirmDialog() {
     setup.spacing = 14;
 
     QVBoxLayout* body = nullptr;
-    QDialog* dlg = FlowDialogs::createDialog(this, setup, &body);
+    // 骨架按屏幕可用高度封顶窗口并回写有效高度，清单表据此反算，底部按钮行不被挤出
+    int effectiveHeight = setup.height;
+    QDialog* dlg = FlowDialogs::createDialog(this, setup, &body, &effectiveHeight);
     FlowDialogs::addTitle(body, QStringLiteral("📋"), QStringLiteral("待归还工具清单"));
 
     // 归还详情表格：工具名/位置/数量
@@ -318,7 +361,7 @@ void ToolReturnPage::showReturnConfirmDialog() {
                       r["position"].toString(),
                       QStringLiteral("%1 件").arg(r["borrowQty"].toInt()) });
     }
-    FlowDialogs::fillTable(table, rows, QStringLiteral("--"));
+    FlowDialogs::fillTable(table, rows, QStringLiteral("--"), effectiveHeight);
     body->addWidget(table);
 
     // 归还人信息
@@ -358,7 +401,9 @@ void ToolReturnPage::showReturnDrawerOpeningDialog() {
     DrawerOpeningDialog dlg(QStringLiteral("抽屉打开中"), QStringLiteral("抽屉已打开"),
         QStringLiteral("对应工具抽屉已自动打开，<br/>"
                        "请按清单将工具放回指定位置手动关闭抽屉后再点击下一步。"), 32, 60, this);
-    dlg.setFixedSize(560, qMax(460, 320 + previewRecords.size() * 36));
+    const int wantedHeight = qMax(kPageMinDialogHeight, 320 + previewRecords.size() * 36);
+    const int dialogHeight = clampPageDialogHeight(this, wantedHeight, kPageMinDialogHeight);
+    dlg.setFixedSize(560, dialogHeight);
 
     // 归还清单（精简版表格）
     // 列从2列扩展为4列：工具名称/归还位置/归还数量/借用人，便于用户按清单归还
@@ -408,7 +453,10 @@ void ToolReturnPage::showReturnDrawerOpeningDialog() {
         table->setItem(i, 3, new QTableWidgetItem(userName.isEmpty() ? QStringLiteral("--") : userName));
         table->setRowHeight(i, 36);
     }
-    table->setFixedHeight(qMax(120, selectedRecords.size() * 36 + 36));
+    const int wantedTable = qMax(120, selectedRecords.size() * 36 + 36);
+    table->setFixedHeight(clampPageTableHeight(wantedTable, dialogHeight, kPageFixedPartsHeight));
+    table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    QScroller::grabGesture(table->viewport(), QScroller::LeftMouseButtonGesture);
     dlg.bodyLayout()->addWidget(table);
 
     if (dlg.exec() == QDialog::Accepted) {

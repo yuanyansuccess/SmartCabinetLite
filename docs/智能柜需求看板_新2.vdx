@@ -1835,7 +1835,7 @@ ABwAAAAQAAAARU1GKwJAAAAMAAAAAAAAAA4AAAAUAAAAAAAAABAAAAAUAAAA</PreviewPicture><Cu
         <LineTo IX='5'><X F='Geometry1.X1'>0</X><Y F='Geometry1.Y1'>0</Y></LineTo>
       </Geom>
       <Text><cp IX='0'/>I01 与上位机通信
-<cp IX='1'/>需求概述：Modbus收发指令与状态，异常码拒绝执行
+<cp IX='1'/>需求概述：TCP收发指令与状态，异常码拒绝执行
 确认情况：待PO确认
 阻塞项：协议初稿待PO确认
 开发情况：未开始

@@ -151,7 +151,7 @@
 4）幂等：open_req 执行前先落盘登记（PendingRequestStore），崩溃重启后先查 IO 锁状态——已开只补回执，未知拒绝重发（F8/E25）。
 </div>
 <div class="note">
-<b>松耦合落地建议（Python）：</b>数据层四个 Store 全部以 <b>抽象基类/Protocol</b> 定义接口，由 EdgeControl 通过构造函数注入具体实现；TCP 模块、Controllers、IO、识别模块之间只依赖接口与信号对象（Signal dataclass），不互相持有具体类。这样后期替换 Modbus 模拟器、换识别框架、换存储后端都不动控制层。线程用 <code>threading.Thread</code> + <code>queue.Queue</code> + <code>threading.Lock</code> 实现，TcpControlLayer 持有 socket 与锁，三个线程通过 Queue 把"已解码信号 / 链路状态变化 / 待发帧"交给大控制层与心跳线程，避免共享状态竞态。
+<b>松耦合落地建议（Python）：</b>数据层四个 Store 全部以 <b>抽象基类/Protocol</b> 定义接口，由 EdgeControl 通过构造函数注入具体实现；TCP 模块、Controllers、IO、识别模块之间只依赖接口与信号对象（Signal dataclass），不互相持有具体类。这样后期替换 IO 板模拟器（TCP 接口）、换识别框架、换存储后端都不动控制层。线程用 <code>threading.Thread</code> + <code>queue.Queue</code> + <code>threading.Lock</code> 实现，TcpControlLayer 持有 socket 与锁，三个线程通过 Queue 把"已解码信号 / 链路状态变化 / 待发帧"交给大控制层与心跳线程，避免共享状态竞态。
 </div>
 
 </div>
@@ -382,7 +382,7 @@ activity("d-arch",{title:"总体分层架构", margin:24, colW:236, rowH:118, to
     {id:"t2",lane:2,row:2,kind:"normal",title:"接收线程",sub:["收字节→内聚：分帧+解析","→SignalSink.on_signal()"]},
     {id:"t3",lane:2,row:3,kind:"normal",title:"心跳线程",sub:["每 3s 发 periodic"]},
     {id:"rec",lane:3,row:0,kind:"ok",title:"识别模块",sub:["RTSP/解码/推理","货位聚合+告警"]},
-    {id:"io",lane:3,row:1,kind:"warn",title:"IO 控制模块",sub:["Modbus 主站","开锁/门磁去抖"]},
+    {id:"io",lane:3,row:1,kind:"warn",title:"IO 控制模块",sub:["TCP 接口","开锁/门磁去抖"]},
     {id:"sys",lane:3,row:2,kind:"warn",title:"系统服务",sub:["自检/配置/日志","NTP/看门狗"]},
     {id:"data",lane:4,row:0,kind:"ext",title:"数据层接口",sub:["ConfigStore","EventCache"]},
     {id:"data2",lane:4,row:1,kind:"ext",title:"数据层接口",sub:["PendingRequestStore","LogStore"]}
@@ -445,10 +445,10 @@ classDiagram("d-cls-tcp",{margin:24,
 classDiagram("d-cls-ctrl",{margin:24,
   boxes:[
     {id:"ec",x:30,y:30,kind:"dark",title:"EdgeControl",stereotype:"《大控制层/抗冲落层》",
-      attrs:["- _comm : TcpControlLayer","- _controllers : list","- _io : ModbusMaster","- _recog : RecognitionHub","- _data : DataLayer(接口)"],
+      attrs:["- _comm : TcpControlLayer","- _controllers : list","- _io : IoController","- _recog : RecognitionHub","- _data : DataLayer(接口)"],
       methods:["init(config)","startup_selfcheck() -> SelfCheckResult","route_signal(sig: Signal)","on_link_up()  # 补报缓存+重发在途","on_link_down()  # 停心跳+缓存事件","register_module(...)","fault_isolate(module)"]},
     {id:"oc",x:30,y:330,kind:"blue",title:"OpenController",
-      attrs:["- _io : ModbusMaster","- _pending : PendingRequestStore"],
+      attrs:["- _io : IoController","- _pending : PendingRequestStore"],
       methods:["handle(req: OpenReqSignal)","_dedup(req_id) -> bool  # A4","_check_io_online() -> bool  # C4 fail-fast","_wait_receipt(timeout) -> bool","_emit_ack(req_id, success, msg)"]},
     {id:"rc",x:320,y:330,kind:"green",title:"RecognizeController",
       attrs:["- _busy : bool","- _recog : RecognitionHub","- _pending : PendingRequestStore"],
@@ -514,7 +514,7 @@ classDiagram("d-cls-other",{margin:24,
     {id:"qg",x:610,y:30,kind:"green",title:"QualityGate",stereotype:"F7",
       attrs:["- _stable_ms = 1000~2000"],
       methods:["door_closed() -> bool  # 门磁复核","stable_frames() -> bool  # 多帧一致","pick_best()  # 多目标取最高置信度"]},
-    {id:"mb",x:30,y:470,kind:"amber",title:"ModbusMaster",stereotype:"IO 控制模块",
+    {id:"mb",x:30,y:470,kind:"amber",title:"IoController",stereotype:"IO 控制模块",
       attrs:["- _online : bool"],
       methods:["connect() / is_online()","write_coil(addr,val)","read_coil(addr) -> bool"]},
     {id:"lock",x:320,y:470,kind:"amber",title:"LockController",
@@ -550,7 +550,7 @@ classDiagram("d-cls-all",{margin:24,
     {id:"tv",x:260,y:640,kind:"normal",title:"TcpRecvThread",methods:["run() 收字节→解析Signal"]},
     {id:"th",x:500,y:640,kind:"normal",title:"TcpHeartbeatThread",methods:["run() 每3s"]},
     {id:"sink",x:740,y:640,kind:"gray",title:"SignalSink（抽象接口）",methods:["on_signal(Signal)","TCP 仅依赖此，不依赖 Controller"]},
-    {id:"io",x:20,y:860,kind:"amber",title:"ModbusMaster",methods:["write_coil()","is_online()"]},
+    {id:"io",x:20,y:860,kind:"amber",title:"IoController",methods:["send(open)","is_online()"]},
     {id:"rec",x:260,y:860,kind:"green",title:"RecognitionHub",methods:["run_pipeline()"]},
     {id:"data",x:560,y:860,kind:"ext",title:"DataLayer(接口)",methods:["ConfigStore/EventCache","PendingRequestStore/LogStore"]}
   ],
@@ -681,7 +681,7 @@ activity("d-act-f4",{title:"开锁控制流程", margin:22, colW:260, rowH:96, t
     {id:"k1",lane:1,row:1,kind:"decide",title:"去重检查",sub:["PendingRequestStore"]},
     {id:"k2",lane:1,row:2,kind:"decide",title:"IO 在线？"},
     {id:"k3",lane:1,row:3,title:"落盘登记",sub:["register(id) F8"]},
-    {id:"k4",lane:2,row:4,title:"写开锁线圈",sub:["Modbus write_coil"]},
+    {id:"k4",lane:2,row:4,title:"写开锁线圈",sub:["tcp_send(open)"]},
     {id:"k5",lane:2,row:5,kind:"decide",title:"等 IO 回执",sub:["限时"]},
     {id:"k6",lane:1,row:6,kind:"ok",title:"open_ack(success)",sub:["真实打开"]},
     {id:"F1",lane:0,row:1,kind:"red",title:"重复请求",sub:["拒绝，绝不二次开"]},

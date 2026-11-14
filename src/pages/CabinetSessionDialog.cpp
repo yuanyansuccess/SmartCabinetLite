@@ -859,17 +859,28 @@ void CabinetSessionDialog::applyResult()
 
     // 归还错放（借出工具回归非登记货位）：与在库工具错放同一判定口径，
     // 由静态纯函数统一计算，便于单元测试覆盖
-    m_alertItems.append(ToolService::detectReturnMisplaced(outcome.diffs, codeToPos));
+    const QStringList returnMisplaced = ToolService::detectReturnMisplaced(outcome.diffs, codeToPos);
+    m_alertItems.append(returnMisplaced);
+    QStringList misplacedTips = returnMisplaced;
 
     // 错放检测：识别到某在库工具但不在其登记货位
     for (const ToolService::RecogSpot& s : m_spots) {
         if (s.toolCode.isEmpty()) continue;
         if (baselineCodes.contains(s.toolCode)) {
             const QString exp = codeToPos.value(s.toolCode);
-            if (!exp.isEmpty() && s.position != exp)
-                m_alertItems.append(
-                    QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）").arg(s.toolCode, exp, s.position));
+            if (!exp.isEmpty() && s.position != exp) {
+                const QString tip = QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）")
+                                        .arg(s.toolCode, exp, s.position);
+                m_alertItems.append(tip);
+                misplacedTips.append(tip);
+            }
         }
+    }
+
+    // 错放属于操作告警：结果页提示之外再写一条，运维在"操作告警"入口能查到
+    if (!misplacedTips.isEmpty()) {
+        AlertService().recordVerifyAlert(m_userId, 0,
+            QStringLiteral("借用归还会话检测到错放：") + misplacedTips.join(QStringLiteral("；")));
     }
 
     fillResultUI();
