@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <QStandardPaths>  // 备份默认路径按平台落到用户主目录（麒麟普通用户无 /mnt 写入权限）
+#include "common/StatusValues.h"  // 工具状态取值，状态展示层可独立包含，不依赖本文件
 
 namespace SC {
 // ── 应用信息 ──
@@ -26,14 +27,14 @@ const QString DB_HOST     = "127.0.0.1";
 const int     DB_PORT     = 3306;
 const QString DB_NAME     = "smart_cabinet";
 const QString DB_USER     = "root";
-const QString DB_PASS     = "root";  // 默认口令占位；实际以 system.ini [Database]pass 为准（可用 SC_DB_PASS 环境变量覆盖）
+const QString DB_PASS     = "root";  // 默认口令；实际以 system.ini [Database]pass 为准
 
 // ── 用户角色 ──
 const QString ROLE_ADMIN   = "admin";    // 管理员：登录后直接进管理界面
 const QString ROLE_MANAGER = "manager";  // 管理用户（管理员+普通用户双重身份）：登录后先选身份
 const QString ROLE_USER    = "user";     // 普通用户：登录后进功能选择页（借用归还/查询）
 
-// ── 用户状态（值与页面实际写入/播种数据一致，新人勿另造值） ──
+// ── 用户状态（与 sys_user.status 取值一致，新增状态在此登记） ──
 const QString USER_ACTIVE   = "active";
 const QString USER_DISABLED = "disabled";  // 禁用（UserManagementPage启用/禁用切换写入值）
 const QString USER_DELETED  = "deleted";
@@ -65,16 +66,11 @@ const double RECOG_MIN_CONFIDENCE = 0.85;
 // 关柜等待超时（毫秒）：开箱后等待 IO 板"已关柜"信号的上限，超时提示用户确认柜门已关
 const int CABINET_CLOSE_WAIT_MS = 2 * 60 * 1000;
 
-// ── 工具状态 ──
-const QString TOOL_IN_STOCK    = "in_stock";
-const QString TOOL_BORROWED    = "borrowed";
-const QString TOOL_MAINTENANCE = "maintenance";
-const QString TOOL_CHECKED_OUT = "checked_out";  // 已出库（区别于借用）
-const QString TOOL_PENDING     = "pending";      // 待入库（配置层已建未物理入库）
+// ── 工具状态取值见 common/StatusValues.h ──
 
 // ── 工具状态显示映射（全系统唯一定义点，转发到 common/ToolStatus.h） ──
-// borrowed 状态存在历史显示差异：工具管理页="已借用"，其余页="已借出"。
-// keepLegacyBorrowText=true 时保持工具管理页旧行为，默认为新口径"已借出"。
+// borrowed 在工具管理页显示"已借用"，其余页显示"已借出"；
+// keepLegacyBorrowText=true 时取工具管理页口径，默认显示"已借出"。
 inline QString toolStatusText(const QString& status, bool keepLegacyBorrowText = false);
 inline QString toolStatusColor(const QString& status);
 // 位置状态显示（空状态视为待入库；不含"维护中"，未知状态原样）
@@ -120,14 +116,14 @@ const QString ALERT_TYPE_RECOG_FAULT = "recog_fault"; // 识别故障（边缘�
 const QStringList ALERT_SYSTEM_TYPES = {
     "missing", "offline", "low_stock", "system", "power",
     "network_error", "door_open", "stranger",
-    "temp_high", "power_low", "sensor_fail", "hw_comm", "hw_fault",
-    "recog_fault"
+    "temp_high", "power_low", "sensor_fail", ALERT_TYPE_HW_COMM, ALERT_TYPE_HW_FAULT,
+    ALERT_TYPE_RECOG_FAULT
 };
 const QStringList ALERT_OPERATION_TYPES = {
-    "login_fail", "unauthorized", "mismatch", "rack_mismatch"
+    ALERT_TYPE_LOGIN_FAIL, "unauthorized", "mismatch", "rack_mismatch"
 };
 
-/// 告警级别显示值→库值 单一映射（历史上 SettingService 与 AlertDAO 各硬编码一份）
+/// 告警级别显示值→库值 单一映射（页面与数据层共用这一份）
 /// "严重/一般/提示"→error/warn/info；传入已是库值（crit/warn/info 等）则原样返回
 inline QString alertLevelCodeFromText(const QString& level)
 {
@@ -229,7 +225,7 @@ const int UI_LOCK_COUNTDOWN_MS      = 1000;  // 密码锁定倒计时刷新间�
 const bool    BACKUP_AUTO_ENABLED = true;
 const int     BACKUP_PERIOD       = 0;   // 0=每日
 const int     BACKUP_CACHE_HOURS  = 4;
-const QString BACKUP_PATH         = "/mnt/backup";
+const QString BACKUP_PATH         = "/mnt/backup";  // 非 Linux 分支的备份默认路径
 
 /**
  * @brief 备份目录默认值（分平台，保证开箱即用可写）

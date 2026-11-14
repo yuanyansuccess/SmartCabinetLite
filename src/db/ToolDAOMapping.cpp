@@ -1,10 +1,7 @@
 /**
  * @file ToolDAOMapping.cpp
- * @brief ToolDAO 物理拆分 — 位置映射写操作与按名查ID辅助
+ * @brief 位置映射写操作与按名查ID辅助
  * @author 袁燕
- *
- * 说明：由 ToolDAO.cpp 按业务域拆分而来，类声明仍在 ToolDAO.h，仅实现分文件。
- * 新增方法请按职责放到对应文件，不要全部堆回 ToolDAO.cpp。
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"
@@ -63,7 +60,7 @@ QJsonArray ToolDAO::allToolsSimple(int categoryId)
         q.prepare("SELECT tool_id, tool_code, tool_name FROM tool_info ORDER BY tool_id");
     if (categoryId > 0)
         q.bindValue(0, categoryId);
-    safeExec(q);
+    if (!safeExec(q)) qWarning() << "[ToolDAO::allToolsSimple] 查询工具简要清单失败";
     QJsonArray arr;
     while (q.next()) {
         QJsonObject obj;
@@ -80,7 +77,7 @@ QJsonArray ToolDAO::allToolsSimple(int categoryId)
  * @param cabinetId 柜体ID
  * @param layer 层号
  * @param position 位号
- * @return 含 mappingId 与 status 的对象；该位置未配置时返回空对象
+ * @return 含 mappingId 与 occupier 的对象；该位置未配置时返回空对象
  */
 QJsonObject ToolDAO::checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position)
 {
@@ -92,7 +89,7 @@ QJsonObject ToolDAO::checkPositionMappingExists(int cabinetId, const QString& la
     q.addBindValue(cabinetId);
     q.addBindValue(layer);
     q.addBindValue(position);
-    safeExec(q);
+    if (!safeExec(q)) qWarning() << "[ToolDAO::checkPositionMappingExists] 查询位置对照关系失败";
     QJsonObject obj;
     if (q.next()) {
         obj["mappingId"] = q.value(0).toInt();
@@ -139,7 +136,7 @@ int ToolDAO::findCabinetIdByPrefix(const QString& prefix)
 /**
  * @brief 在库位置明细（位置维度，出库下拉用）：一条映射记录=一个在库位置
  * @param machineGroupId 机组编号，用于按机组隔离数据
- * @return 查询结果数组，每个元素为一个对象
+ * @return 在库位置数组，每项含 mappingId、工具信息与柜体层位信息
  */
 QJsonArray ToolDAO::findAllInStockPositions(int machineGroupId)
 {
@@ -226,9 +223,9 @@ QJsonArray ToolDAO::findAllRegisteredPositions(int machineGroupId)
 }
 
 /**
- * @brief 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
+ * @brief 统计工具in_stock位置数
  * @param toolId 工具唯一标识 tool_id
- * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）
+ * @return 在库位置数量；查询失败或无在库位置返回 0
  */
 int ToolDAO::countInStockPositions(int toolId)
 {
@@ -241,9 +238,9 @@ int ToolDAO::countInStockPositions(int toolId)
 }
 
 /**
- * @brief 查询映射表状态（迁移自BorrowService::borrowTool状态校验）
+ * @brief 查询映射表状态
  * @param mappingId 位置映射编号
- * @return 返回生成的字符串（失败时可能为空串）
+ * @return 映射表状态字符串；查询失败或映射不存在时返回空串
  */
 QString ToolDAO::findMappingStatus(int mappingId)
 {

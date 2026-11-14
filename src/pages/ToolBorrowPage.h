@@ -30,9 +30,7 @@ class SoftKeyboard;
 
 // 选中的工具信息结构
 // 按工具种类选中，借用时自动分配位置
-// 加回mappingId，展开清单时保存具体位置ID
-// 根因：若丢失mappingId，executeBorrow会重新查"第一个in_stock位置"，
-// 可能与展开分配的位置不匹配→借用记录mappingId与实际借用的位置不一致
+// mappingId 保存展开清单分配的具体位置，借用记录按该位置写入
 struct SelectedToolInfo {
     int toolId = 0;
     int mappingId = 0;  // 展开清单时保存的具体位置mappingId
@@ -95,7 +93,7 @@ private:
     // 借用确认流程四步走（原三步基础上增加"抽屉打开"步骤）
     void showBorrowConfirmDialog();   // 第一步：确认借用信息（清单+借用人+归还时间）
     void showBorrowDrawerOpeningDialog();  // 第二步：抽屉打开中（动态旋转框）
-    void showToolVerifyDialog();      // 第三步：工具核对（假异常提示）
+    void showToolVerifyDialog();      // 第三步：工具核对（核对异常提示）
     void executeBorrow();             // 第四步：执行借用（DAO写入记录）
 
     QJsonObject m_user;

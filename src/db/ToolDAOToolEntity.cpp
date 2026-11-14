@@ -1,10 +1,7 @@
 /**
  * @file ToolDAOToolEntity.cpp
- * @brief ToolDAO 物理拆分 — 工具实体查询与写操作（借用/归还/状态/文档）
+ * @brief 工具实体查询与写操作（借用/归还/状态/文档）
  * @author 袁燕
- *
- * 说明：由 ToolDAO.cpp 按业务域拆分而来，类声明仍在 ToolDAO.h，仅实现分文件。
- * 新增方法请按职责放到对应文件，不要全部堆回 ToolDAO.cpp。
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"
@@ -15,6 +12,30 @@
 #include "common/Constants.h"
 
 namespace db {
+
+namespace {
+
+// 工具实体查询的公共列清单与表关联：按工具ID与按工具编号两处查询共用这一份，
+// 改列时只改这里，避免两处字段错位
+const QString kToolEntitySelectSql = QStringLiteral(
+    "SELECT t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
+                         "COALESCE(mpm.cabinet_id, t.cabinet_id) AS cabinet_id, "
+                         "t.machine_group_id, "
+                         "COALESCE(mpm.layer, t.layer) AS layer, "
+                         "COALESCE(mpm.position, t.position) AS position, "
+                         "t.total_qty, t.current_qty, t.vision_tag, t.status, t.is_recommended, "
+                         "t.recognition_method, t.document_path, t.checkout_reason, t.created_at, t.updated_at, "
+                         "c.category_name, "
+                         "COALESCE(mpm_cb.cabinet_name, cb.cabinet_name) AS cabinet_name, "
+                         "mg.group_name "
+                         "FROM tool_info t "
+                         "LEFT JOIN tool_category c ON t.category_id=c.category_id "
+                         "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
+                         "LEFT JOIN machine_group mg ON t.machine_group_id=mg.group_id "
+                         "LEFT JOIN tool_position_mapping mpm ON mpm.mapping_id=(SELECT MIN(m.mapping_id) FROM tool_position_mapping m WHERE m.tool_id=t.tool_id AND m.status='in_stock') "
+                         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id ");
+
+} // namespace
 
 /**
  * @brief 分页查询工具实体列表
@@ -34,10 +55,7 @@ QList<ToolInfo> ToolDAO::findAllTools(int page, int pageSize, const QString& key
     // 映射表status: pending=待入库, in_stock=在库, borrowed=已借出
     // 不依赖tool_info的cabinet_id/layer/position判断位置占用
     // 一个工具可在多个位置入库，tool_info只存基础信息
-    // 位置维度查询必须包含mapping_id字段
-    // 根因：原posSql缺少mpm.mapping_id，fromQuery读不到mappingId→onDetailTool中t.mappingId=0
-    // →走保底findByToolId(toolId)而非findByMappingId(mappingId)→显示所有位置的借用记录
-    // 注意：posSql显式SELECT mpm.mapping_id，确保每个位置的ToolInfo.mappingId正确
+    // 位置维度查询必须包含 mapping_id：ToolInfo.mappingId 决定借用记录按位置还是按工具查询
     QString posSql = "SELECT "
                   "  mpm.mapping_id, "
                   "  t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
@@ -289,23 +307,7 @@ int ToolDAO::countTools(const QString& keyword, const QString& cat,
  * @return 工具实体；不存在时返回默认构造的空实体
  */
 ToolInfo ToolDAO::findToolById(int toolId) {
-    QSqlQuery q = query("SELECT t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
-                         "COALESCE(mpm.cabinet_id, t.cabinet_id) AS cabinet_id, "
-                         "t.machine_group_id, "
-                         "COALESCE(mpm.layer, t.layer) AS layer, "
-                         "COALESCE(mpm.position, t.position) AS position, "
-                         "t.total_qty, t.current_qty, t.vision_tag, t.status, t.is_recommended, "
-                         "t.recognition_method, t.document_path, t.checkout_reason, t.created_at, t.updated_at, "
-                         "c.category_name, "
-                         "COALESCE(mpm_cb.cabinet_name, cb.cabinet_name) AS cabinet_name, "
-                         "mg.group_name "
-                         "FROM tool_info t "
-                         "LEFT JOIN tool_category c ON t.category_id=c.category_id "
-                         "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
-                         "LEFT JOIN machine_group mg ON t.machine_group_id=mg.group_id "
-                         "LEFT JOIN tool_position_mapping mpm ON mpm.mapping_id=(SELECT MIN(m.mapping_id) FROM tool_position_mapping m WHERE m.tool_id=t.tool_id AND m.status='in_stock') "
-                         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
-                         "WHERE t.tool_id = ?", {toolId});
+    QSqlQuery q = query(kToolEntitySelectSql + QStringLiteral("WHERE t.tool_id = ?"), {toolId});
     if (q.next()) return fromQuery(q);
     return ToolInfo();
 }
@@ -316,23 +318,7 @@ ToolInfo ToolDAO::findToolById(int toolId) {
  * @return 工具实体；不存在时返回默认构造的空实体
  */
 ToolInfo ToolDAO::findToolByCode(const QString& code) {
-    QSqlQuery q = query("SELECT t.tool_id, t.tool_code, t.tool_name, t.spec, t.category_id, "
-                         "COALESCE(mpm.cabinet_id, t.cabinet_id) AS cabinet_id, "
-                         "t.machine_group_id, "
-                         "COALESCE(mpm.layer, t.layer) AS layer, "
-                         "COALESCE(mpm.position, t.position) AS position, "
-                         "t.total_qty, t.current_qty, t.vision_tag, t.status, t.is_recommended, "
-                         "t.recognition_method, t.document_path, t.checkout_reason, t.created_at, t.updated_at, "
-                         "c.category_name, "
-                         "COALESCE(mpm_cb.cabinet_name, cb.cabinet_name) AS cabinet_name, "
-                         "mg.group_name "
-                         "FROM tool_info t "
-                         "LEFT JOIN tool_category c ON t.category_id=c.category_id "
-                         "LEFT JOIN tool_cabinet cb ON t.cabinet_id=cb.cabinet_id "
-                         "LEFT JOIN machine_group mg ON t.machine_group_id=mg.group_id "
-                         "LEFT JOIN tool_position_mapping mpm ON mpm.mapping_id=(SELECT MIN(m.mapping_id) FROM tool_position_mapping m WHERE m.tool_id=t.tool_id AND m.status='in_stock') "
-                         "LEFT JOIN tool_cabinet mpm_cb ON mpm.cabinet_id=mpm_cb.cabinet_id "
-                         "WHERE t.tool_code = ?", {code});
+    QSqlQuery q = query(kToolEntitySelectSql + QStringLiteral("WHERE t.tool_code = ?"), {code});
     if (q.next()) return fromQuery(q);
     return ToolInfo();
 }

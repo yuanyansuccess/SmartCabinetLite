@@ -17,7 +17,7 @@ struct AlertLog {
     int     toolId       = 0;
     int     recordId     = 0;
     QString message;           // 对应sys_alert.content
-    QString status;  // unhandled|handled|ignored (替代isHandled)
+    QString status;  // 告警处理状态：unhandled|handled|ignored
     QDateTime handledAt;
     QString handledBy;         // 对应sys_alert.handler_id（显示时转为用户名）
     QDateTime createdAt;

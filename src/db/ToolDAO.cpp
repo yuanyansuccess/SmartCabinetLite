@@ -2,10 +2,6 @@
  * @file ToolDAO.cpp
  * @brief 工具数据访问对象实现 — 核心查询与 QJsonObject CRUD
  * @author 袁燕
- *
- * 说明：本文件按业务域物理拆分，类声明仍集中在 ToolDAO.h，接口零变化。
- * 其余实现分文件：ToolDAOToolEntity / ToolDAOCategory / ToolDAOMachineGroup /
- *                ToolDAOPosition / ToolDAOMaintenance / ToolDAOMapping
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"

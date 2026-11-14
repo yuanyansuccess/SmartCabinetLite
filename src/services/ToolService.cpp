@@ -3,7 +3,7 @@
  * @brief 工具服务类实现 - 工具入库业务逻辑
  * @author 袁燕
  *
- * 所有SQL操作迁移到ToolDAO，Service层纯业务逻辑
+ * 所有 SQL 操作由 ToolDAO 承担，Service 层只处理业务逻辑
  */
 #include "ToolService.h"
 #include "db/ToolDAO.h"
@@ -85,7 +85,7 @@ bool ToolService::checkinTool(const QJsonObject& data) {
 
         // 入库后同步 tool_info 状态
         // 有任一在库位置则工具为在库（覆盖待入库新建与已出库回流两种场景）；
-        // current_qty 由 tool_position_mapping 触发器自动维护，此处不再手算
+        // current_qty 由 tool_position_mapping 触发器自动维护，本服务不直接修改
         const int inStockCount = dao.countInStockPositions(selectedToolId);
         const QString oldStatus = existing["status"].toString();
         if (inStockCount > 0

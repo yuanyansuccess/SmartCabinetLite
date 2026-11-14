@@ -410,7 +410,7 @@ bool UserDAO::setMustChangePwd(int userId, int mustChange) {
 
 /**
  * @brief 查询数据库中最大数字工号，生成下一个可用工号
- * @return 下一个工号字符串（001 起步，3 位补零，超过 999 自然进位为 4 位）
+ * @return 下一个工号字符串（纯数字 6 位补零，超出 6 位自然进位）
  */
 QString UserDAO::generateNextWorkNo()
 {

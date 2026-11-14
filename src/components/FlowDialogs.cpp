@@ -15,6 +15,7 @@
 #include <QHeaderView>
 #include <QPushButton>
 #include <QAbstractItemView>
+#include <QAbstractScrollArea>
 #include <QScroller>          // 触屏拖动清单
 #include <QGuiApplication>    // 取屏幕可用高度封顶弹窗
 #include <QScreen>
@@ -38,13 +39,7 @@ const int kScreenMargin      = 80;   // 屏幕上下为任务栏与窗口装饰�
  * @return 封顶后的弹窗有效高度；短单据等于期望高度，长单据不超过屏幕可用高度
  */
 static int clampDialogHeight(QWidget* parent, int wanted, int minHeight) {
-    // 弹窗最高只到屏幕可用高度减去上下余量，标题与底部按钮始终留在屏幕内
-    QScreen* screen = parent ? parent->screen() : nullptr;
-    if (!screen) screen = QGuiApplication::primaryScreen();
-    const int screenLimit = screen
-        ? qMax(minHeight, screen->availableGeometry().height() - kScreenMargin)
-        : qMax(minHeight, wanted);  // 取不到屏幕信息时不封顶，维持原有高度
-    return qBound(minHeight, wanted, screenLimit);
+    return FlowDialogs::fitDialogHeight(parent, wanted, minHeight, kScreenMargin);
 }
 
 /**
@@ -132,8 +127,7 @@ QTableWidget* FlowDialogs::createListTable(const QStringList& headers) {
         table->horizontalHeader()->setSectionResizeMode(col, QHeaderView::Stretch);
     }
     // 清单条目多时可手指拖动查看全部，不依赖细滚动条
-    table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    QScroller::grabGesture(table->viewport(), QScroller::LeftMouseButtonGesture);
+    enableTouchScroll(table);
     return table;
 }
 
@@ -166,8 +160,42 @@ void FlowDialogs::fillTable(QTableWidget* table, const QList<QStringList>& rows,
 }
 
 /**
- * @brief 在表格下方追加合计或提示信息行
- * @param text 提示文本
+ * @brief 按屏幕可用高度给弹窗高度封顶，保证标题与底部按钮始终留在屏幕内
+ * @param parent 父窗口，为空时取主屏
+ * @param wanted 按内容算出的期望高度
+ * @param minHeight 弹窗高度下限
+ * @param screenMargin 屏幕上下预留余量
+ * @return 封顶后的弹窗高度；取不到屏幕信息时不封顶
+ */
+int FlowDialogs::fitDialogHeight(QWidget* parent, int wanted, int minHeight,
+                                int screenMargin) {
+    QScreen* screen = parent ? parent->screen() : nullptr;
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    const int limit = screen
+        ? qMax(minHeight, screen->availableGeometry().height() - screenMargin)
+        : qMax(minHeight, wanted);
+    return qBound(minHeight, wanted, limit);
+}
+
+/**
+ * @brief 给清单表格或滚动区域接入按像素滚动与触屏拖动手势
+ * @param area 表格或滚动区域；为空时不做处理，条目多时可直接手指拖动查看全部
+ */
+void FlowDialogs::enableTouchScroll(QAbstractScrollArea* area) {
+    if (!area) return;
+    if (auto* view = qobject_cast<QAbstractItemView*>(area))
+        view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    QScroller::grabGesture(area->viewport(), QScroller::LeftMouseButtonGesture);
+}
+
+/**
+ * @brief 追加底部按钮栏（取消 + 主操作）
+ * @param dlg 对话框，用于关闭自身
+ * @param body 主布局
+ * @param setup 骨架参数（按钮宽度、高度与间距）
+ * @param actionText 主操作按钮文案
+ * @param onAccepted 主操作被点击后的回调（对话框已接受）
+ * @param cancelText 取消按钮文案
  */
 void FlowDialogs::addFooter(QDialog* dlg, QVBoxLayout* body, const Setup& setup,
                             const QString& actionText,

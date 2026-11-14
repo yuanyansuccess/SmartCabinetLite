@@ -48,7 +48,7 @@ static QString resolveMysqldumpPath() {
     for (const QString& candidate : candidates) {
         if (QFile::exists(candidate)) return candidate;
     }
-    // 优先使用系统 PATH 查找 mysqldump（保持旧行为，启动失败时日志会明确提示）
+    // 优先使用系统 PATH 查找 mysqldump，启动失败时日志会明确提示
     return QStringLiteral("mysqldump");
 }
 

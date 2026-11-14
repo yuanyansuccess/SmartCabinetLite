@@ -24,7 +24,7 @@ public:
     ~SoftKeyboard();  // 显式析构清理独立顶层窗口m_panel
     void attach(QLineEdit* target);
     void show(QLineEdit* target, const QPoint& pos);
-    void show();                     // 版本B兼容：无参数show
+    void show();                     // 无参数显示入口
     void hide();
     void setMode(KeyMode mode);      // 切换键盘模式（英文/中文）
     void setConfirmText(const QString& text);  // 动态确认按钮文本 (Web: confirmText)
@@ -34,9 +34,9 @@ signals:
     void keyPressed(const QString& key);
     void enterPressed();
     void backspacePressed();
-    void confirmed();         // 版本B兼容：确认信号
-    void cancelled();         // 版本B兼容：取消信号
-    void inputCancelled();    // 版本B兼容：输入取消信号
+    void confirmed();         // 确认输入时发出
+    void cancelled();         // 取消输入时发出
+    void inputCancelled();    // 输入取消时发出
 
 private slots:
     void onPrevPage();     // 候选上一页

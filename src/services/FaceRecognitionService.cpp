@@ -189,9 +189,9 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     QString secondUser = candidates.size() > 1 ? candidates[1].workNo : "";
 
   // 单人脸严格策略：系统仅1人脸时必须达到更高门槛
-    // 根因：只有1个候选时无法做第二名差距检查(marginThreshold)，
+    // 只有1个候选时无法做第二名差距检查(marginThreshold)，
     // 陌生人（未录入者）与库内特征的相似度实测可达 0.22（512 维引擎）
-    // 设计理念：宁误拒不误识——陌生人绝对不能登录系统
+    // 判定原则：宁误拒不误识，陌生人绝对不能登录系统
 
     // 单人脸相似度门槛：低于此值判为非本人。
     // 取 0.50：512 维引擎同人跨时段实测 0.595~0.86（2026-11-02 现场校准），跨人上限约 0.22。
@@ -227,7 +227,7 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     // 相似度严格等价（d = sqrt(2-2c)），距离上限必须由本次生效的余弦阈值反算，
     // 否则会变成比声明阈值更严的隐形门槛：固定 0.80 等价于要求余弦 ≥ 0.68，
     // 而单人/多人通过线只有 0.50/0.45，会导致余弦已过线、距离略超的本人帧被拒
-    // （现场表现为反复提示"已接近识别成功"）。maxEuclideanDist 只作兜底天花板，
+    // （现场表现为反复提示"已接近识别成功"）。maxEuclideanDist 只拦未归一化的异常特征，
     // 用于拦住"特征未归一化/数值异常"这类距离虚高的情况。
     const double cosDistLimit = qSqrt(qMax(0.0, 2.0 - 2.0 * effThreshold));
     const double distLimit = qMin(maxEuclideanDist, cosDistLimit);

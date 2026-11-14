@@ -1,6 +1,6 @@
 /**
  * @file VerifyAlertDialog.cpp
- * @brief 校验异常对话框实现（样式与倒计时逻辑与原各页面内联实现逐字一致）
+ * @brief 校验异常对话框实现
  * @author 袁燕
  */
 #include "VerifyAlertDialog.h"

@@ -2,8 +2,6 @@
  * @file ReturnService.cpp
  * @brief 归还业务服务实现 - 超期计算、损坏检测
  * @author 袁燕
- *
- * 映射表操作已迁移到ToolDAO，移除死代码
  */
 #include "ReturnService.h"
 #include "RecordDAO.h"

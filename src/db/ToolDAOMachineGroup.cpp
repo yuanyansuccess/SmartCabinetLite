@@ -1,10 +1,7 @@
 /**
  * @file ToolDAOMachineGroup.cpp
- * @brief ToolDAO 物理拆分 — 统计与机组
+ * @brief 统计与机组
  * @author 袁燕
- *
- * 说明：由 ToolDAO.cpp 按业务域拆分而来，类声明仍在 ToolDAO.h，仅实现分文件。
- * 新增方法请按职责放到对应文件，不要全部堆回 ToolDAO.cpp。
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"
@@ -15,6 +12,25 @@
 #include "common/Constants.h"
 
 namespace db {
+
+namespace {
+/**
+ * @brief 把机组查询结果的一行组装成结果对象
+ * @param row 输出对象，写入机组、部门、负责人与工具数量字段
+ * @param q 已定位到当前行的查询对象
+ */
+void fillMachineGroupJson(QJsonObject& row, const QSqlQuery& q) {
+    row["groupId"]     = q.value("group_id").toInt();
+    row["groupName"]   = q.value("group_name").toString();
+    row["deptId"]      = q.value("dept_id").toInt();
+    row["deptName"]    = q.value("dept_name").toString();
+    row["leaderName"]  = q.value("leader_name").toString();
+    row["leaderPhone"] = q.value("leader_phone").toString();
+    row["description"] = q.value("description").toString();
+    row["status"]      = q.value("status").toString();
+    row["toolCount"]   = q.value("tool_count").toInt();
+}
+} // namespace
 
 /**
  * @brief 统计工具总数与各状态数量（全系统"工具数量"的唯一取数入口，各页面共用同一口径）
@@ -83,15 +99,7 @@ QList<QJsonObject> ToolDAO::allMachineGroups() {
     );
     while (q.next()) {
         QJsonObject obj;
-        obj["groupId"]      = q.value("group_id").toInt();
-        obj["groupName"]    = q.value("group_name").toString();
-        obj["deptId"]       = q.value("dept_id").toInt();
-        obj["deptName"]     = q.value("dept_name").toString();
-        obj["leaderName"]   = q.value("leader_name").toString();
-        obj["leaderPhone"]  = q.value("leader_phone").toString();
-        obj["description"]  = q.value("description").toString();
-        obj["status"]       = q.value("status").toString();
-        obj["toolCount"]    = q.value("tool_count").toInt();
+        fillMachineGroupJson(obj, q);
         obj["createdAt"]    = q.value("created_at").toString();
         list.append(obj);
     }
@@ -113,15 +121,7 @@ QJsonObject ToolDAO::getMachineGroupById(int groupId) {
         "WHERE mg.group_id = ?", {groupId}
     );
     if (q.next()) {
-        obj["groupId"]      = q.value("group_id").toInt();
-        obj["groupName"]    = q.value("group_name").toString();
-        obj["deptId"]       = q.value("dept_id").toInt();
-        obj["deptName"]     = q.value("dept_name").toString();
-        obj["leaderName"]   = q.value("leader_name").toString();
-        obj["leaderPhone"]  = q.value("leader_phone").toString();
-        obj["description"]  = q.value("description").toString();
-        obj["status"]       = q.value("status").toString();
-        obj["toolCount"]    = q.value("tool_count").toInt();
+        fillMachineGroupJson(obj, q);
     }
     return obj;
 }

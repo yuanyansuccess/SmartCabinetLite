@@ -6,14 +6,14 @@
  * 把 tool_info.status 的英文枚举（SC::TOOL_*）统一映射为中文文案与配色，
  * 供工具列表、工具详情等页面共用，避免各处裸写一长串 if-else 与散落的硬编码颜色。
  * 配色语义：在库绿 / 已借出橙 / 已出库红 / 维护中灰 / 待入库蓝。
- * borrowed 存在历史显示差异：工具管理页沿用旧口径"已借用"，其余页统一"已借出"，
- * 由 keepLegacyBorrowText 参数控制，默认新口径。
+ * borrowed 在工具管理页显示"已借用"，其余页显示"已借出"，
+ * 由 keepLegacyBorrowText 参数控制，默认显示"已借出"。
  */
 #pragma once
 
 #include <QString>
 
-#include "common/Constants.h"
+#include "common/StatusValues.h"
 #include "utils/StyleHelper.h"
 
 namespace common {

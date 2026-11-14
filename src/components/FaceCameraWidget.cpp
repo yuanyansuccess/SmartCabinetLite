@@ -248,7 +248,7 @@ QString FaceCameraWidget::captureFaceFeature()
 bool FaceCameraWidget::hasCamera() const { return CameraCapture::hasCamera(); }
 
 // ════════════════════════════════════════
-// 版本B兼容API
+// 采集与检测接口
 // ════════════════════════════════════════
 
 /**

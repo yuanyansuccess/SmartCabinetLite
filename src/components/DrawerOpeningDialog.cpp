@@ -1,6 +1,6 @@
 /**
  * @file DrawerOpeningDialog.cpp
- * @brief 抽屉/柜体打开中对话框实现（样式与原各页面内联实现逐字一致）
+ * @brief 抽屉/柜体打开中对话框实现
  * @author 袁燕
  */
 #include "DrawerOpeningDialog.h"

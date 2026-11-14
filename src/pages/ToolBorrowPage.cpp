@@ -578,8 +578,8 @@ void ToolBorrowPage::populateToolTableRow(int row, const QJsonObject& t, bool is
 
     // Col 6: 状态
     {
-        auto* statusItem = new QTableWidgetItem(QStringLiteral("在库"));
-        statusItem->setForeground(QColor("#43a047"));
+        auto* statusItem = new QTableWidgetItem(SC::toolStatusText(SC::TOOL_IN_STOCK));
+        statusItem->setForeground(QColor(SC::toolStatusColor(SC::TOOL_IN_STOCK)));
         QFont f = statusItem->font();
         f.setBold(true);
         statusItem->setFont(f);

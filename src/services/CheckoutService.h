@@ -2,7 +2,7 @@
  * @file CheckoutService.h
  * @brief 工具出库业务服务（出库落库的唯一业务入口）
  * @author 袁燕
- * @说明 出库涉及三个DAO协作（映射表状态/库存扣减/操作日志），
+ * @说明 出库涉及映射表状态、操作日志与借用记录等多处写入，
  *   收口到本服务，页面只负责界面与清单收集。
  */
 #pragma once
@@ -35,8 +35,8 @@ public:
     };
 
     /// 执行出库落库（整批单事务，任一失败整体回滚）：
-    /// 1)映射表状态→checked_out  2)扣减库存(current_qty/total_qty)
-    /// 3)库存清零则工具状态→checked_out  4)写操作日志
+    /// 1)映射表状态→checked_out  2)编制库存 total_qty 不变，current_qty 由映射表触发器维护
+    /// 3)在库位置取空则工具状态→checked_out  4)写操作日志
     /// 5)fromBorrow=true 的项额外结清该工具仍在借的记录（借出转出库）
     /// @param userId 操作人用户ID
     /// @param items 出库清单项（含在库位置出库与借出转出库两种）

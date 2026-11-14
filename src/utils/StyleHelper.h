@@ -16,6 +16,7 @@
 #include <QFontDatabase>
 #include <QDebug>
 #include <QRegularExpression>
+#include "common/PositionFormatter.h"
 
 class StyleHelper {
 public:
@@ -498,6 +499,7 @@ public:
 
     // ============ 位置格式统一 ============
     /// 提取层/位号中的数字并规范为两位（不足两位补零，超过两位原样保留）
+    /// 完整位置显示统一走 common::formatPosition，本方法供单独格式化层号/位号时使用
     /// 注意：按字符串长度判断补零，不能按数值大小（"03"数值3<10会被误补成"003"）
     static QString twoDigitCode(const QString& raw) {
         QString code = raw;
@@ -513,7 +515,6 @@ public:
     /// @param position 位号字符串（如"05位"或"5"），提取数字后两位补零
     /// @return 格式化后的位置字符串，如"A-01-03"
     static QString formatPosition(const QString& cabinetName, const QString& layer, const QString& position) {
-        QString cabCode = cabinetName.isEmpty() ? "-" : cabinetName.left(1);
-        return QStringLiteral("%1-%2-%3").arg(cabCode, twoDigitCode(layer), twoDigitCode(position));
+        return common::formatPosition(cabinetName, layer, position);
     }
 };

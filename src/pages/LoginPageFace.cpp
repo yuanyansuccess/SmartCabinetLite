@@ -240,9 +240,8 @@ void LoginPage::onFaceCaptured(const QImage& image, double confidence) {
     // 不拦截会把状态拉回Scanning并在密码页或失败页写下"请保持不动"等人脸提示
     if (m_passwordMode || !m_faceRecognitionActive) return;
 
-    // 竞态条件防护：已登录成功或待登录中，拒绝任何后续采集回调
-    // 根因：captureNow()异步提取完成后emit captureReady，此时handleFaceSuccess()已调用
-    // stopFaceRecognition()但没有等待异步提取完成，导致fail状态覆盖success显示
+    // 已登录成功或待登录中，拒绝后续采集回调：
+    // captureNow() 的异步采集回调可能晚于登录成功到达，避免失败状态覆盖成功显示
 
     if (m_faceResult == FaceResult::Success || !m_pendingUser.isEmpty()) {
         qDebug() << "[LoginPage] onFaceCaptured ignored: already in success/pending state";
@@ -392,7 +391,7 @@ void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
     FaceRecognitionService svc;
     // 阈值与 FaceRecognitionService.h 标定一致（2026-11-02 现场校准）：
     //   单人脸门槛 0.50、多人脸线 0.45、跨人上限 0.22；512 引擎同人跨时段 0.537~0.86
-    //   末位距离上限只作兜底（1.05），实际生效值由余弦阈值反算，
+    //   末位距离上限 1.05 只拦未归一化的异常特征，实际生效值由余弦阈值反算，
     //   避免固定距离上限把余弦已过线的本人帧拒掉
     auto result = svc.matchFace(descriptor, 0.45, 0.50, 0.30, 0.15, 1.05, quality);
 

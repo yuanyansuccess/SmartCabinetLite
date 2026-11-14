@@ -15,9 +15,9 @@ DB = os.path.join(ROOT, "db")
 CONTROLLER = os.path.join(ROOT, "controller")
 MODEL = os.path.join(ROOT, "model")
 UTILS = os.path.join(ROOT, "utils")
+COMM = os.path.join(ROOT, "comm")
 violations = []
-# 规则2 例外：数据库备份属基础设施操作，需连接信息判断DB类型，由页面层调度
-# 注：备份已统一走 mysqldump 外部命令，不再需要直呼 DatabaseManager
+# 规则2 例外：系统设置页调度数据库备份时需判断数据库类型，属基础设施操作
 PAGE_DB_MANAGER_ALLOW = {"SystemSettingsPage.cpp"}
 
 # 生成文件前缀（由 moc/uic/rcc 产生，含 SIGNAL/SLOT 宏与裸数字，应跳过避免误报）
@@ -47,11 +47,7 @@ def strip_comments(content):
     return content
 
 
-# ═══════════════════════════════════════════════════════════════
-# 性能优化：单次遍历 + 内容缓存。
-# 原本每条规则独立 read + os.walk，pages 文件被重复读取 8 次；
-# 现一次性收集「文件清单 + 内容」到缓存，所有规则复用同一份内容。
-# ═══════════════════════════════════════════════════════════════
+# 文件清单与内容一次性收集缓存，所有规则复用，避免重复读盘。
 FILE_CACHE = {}
 
 
@@ -72,12 +68,20 @@ DB_FILES = collect_files(DB)
 CONTROLLER_FILES = collect_files(CONTROLLER)
 MODEL_FILES = collect_files(MODEL)
 UTILS_FILES = collect_files(UTILS)
-# 全量文件（含 utils，供技术债统计与规则6/8 使用）
+COMM_FILES = collect_files(COMM)
+# src/ 根目录文件（main.cpp、MainWindow.cpp/.h）不在任何分层子目录内，单独收集
+ROOT_FILES = []
+for _fn in os.listdir(ROOT):
+    _path = os.path.join(ROOT, _fn)
+    if _fn.endswith((".cpp", ".h")) and os.path.isfile(_path):
+        FILE_CACHE[_path] = read(_path)
+        ROOT_FILES.append((_path, _fn, FILE_CACHE[_path]))
+# 全量文件（各分层 + comm/utils + 根目录，供技术债统计与规则6/8 使用）
 ALL_FILES = (PAGES_FILES + COMPONENTS_FILES + SERVICES_FILES + COMMON_FILES
-             + DB_FILES + CONTROLLER_FILES + MODEL_FILES + UTILS_FILES)
-# 规则6 原覆盖范围不含 utils，单独列出以保持与历史一致
-RULE6_FILES = (PAGES_FILES + SERVICES_FILES + COMPONENTS_FILES
-               + DB_FILES + CONTROLLER_FILES + MODEL_FILES + COMMON_FILES)
+             + DB_FILES + CONTROLLER_FILES + MODEL_FILES + UTILS_FILES
+             + COMM_FILES + ROOT_FILES)
+# 状态值规则覆盖范围（Constants.h 为常量定义处，DatabaseManager.cpp 为连接实现，规则内单独跳过）
+RULE6_FILES = ALL_FILES
 
 # 规则1：pages 不得写 SQL（剥注释后匹配，避免注释误报）
 for path, fn, content in PAGES_FILES:
@@ -96,7 +100,7 @@ for path, fn, content in PAGES_FILES:
             break
 
 # 规则3：禁止 Qt4 信号槽宏（应统一函数指针/lambda；剥注释后匹配）
-for path, fn, content in PAGES_FILES + COMPONENTS_FILES + SERVICES_FILES + COMMON_FILES:
+for path, fn, content in ALL_FILES:
     if re.search(r"SIGNAL\(|SLOT\(", strip_comments(content)):
         violations.append("[信号槽] 禁止 SIGNAL/SLOT 宏: %s" % fn)
 
@@ -166,7 +170,7 @@ for path, fn, content in PAGES_FILES + COMPONENTS_FILES:
 
 # ═══════════════════════════════════════════════════════════════
 # 规则8：禁止遗留待办标记（TODO/FIXME/XXX/HACK）
-# 待办必须记入 docs 手册的遗留待办表，而不是留在代码里腐烂。
+# 待办统一记入 docs 手册的遗留待办表，代码里只保留当前实现。
 # 仅查注释行（tr("TODO") 等字符串字面量不算），消除字符串误报。
 # ═══════════════════════════════════════════════════════════════
 TODO_MARK_RE = r"\b(TODO|FIXME|XXX|HACK)\b"
@@ -179,9 +183,8 @@ for path, fn, content in ALL_FILES:
 
 # ═══════════════════════════════════════════════════════════════
 # 技术债提示项：只统计不阻断。
-# 这些是存量问题，治理需要逐个人工确认（改命名、删历史注释、迁 Token），
-# 一次性报成违规会让守护脚本长期红灯，反而失去约束力。
-# 待存量清零后，可逐条升级为硬规则。
+# 这些是存量问题，治理需要逐个人工确认（改命名、删历史注释、迁 Token）；
+# 存量清零后，可逐条升级为硬规则。
 # ═══════════════════════════════════════════════════════════════
 HIST_COMMENT_RE = (r"\[V\d+(\.\d+)+\]"
                    r"|(修复|重构|新增|变更|修改|调整|改为|删除|移除)\s*[:：]\s*\S"

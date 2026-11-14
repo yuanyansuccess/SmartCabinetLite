@@ -60,7 +60,7 @@ public:
     /// 提取人脸特征（返回逗号分隔的512维浮点字符串）
     QString captureFaceFeature();
 
-    // ── 版本B兼容API ──
+    // ── 采集与检测接口 ──
     void setAutoCapture(bool enable);
     void setMinConfidence(double val);
     void setStableFrames(int frames);
@@ -90,10 +90,10 @@ public:
     void setBorderGlow(int v) { m_borderGlow = v; emit borderGlowChanged(); }
 
 signals:
-    // 版本A信号
+    // 人脸特征与摄像头异常信号
     void faceDetected(const QString& feature);
     void cameraError(const QString& error);
-    // 版本B信号
+    // 采集过程与状态信号
     void faceLost();
     void captureReady(QImage image, double confidence);
     void stateChanged(int state);   // 0=off 1=scanning 2=detected 3=capturing 4=success 5=error
@@ -155,7 +155,7 @@ private:
     int m_borderGlow = 0;
     DetectPolicy m_policy;                      ///< 本地检测策略（可外部覆盖）
 
-    // ── 配置参数（版本B兼容）──
+    // ── 配置参数 ──
     bool m_autoCapture = false;
     double m_minConfidence = 0.70;  // 0.70 降低陌生人误识
     int m_stableFrames = 3;  // 3 更快确认

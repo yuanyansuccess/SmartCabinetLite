@@ -169,7 +169,7 @@ bool DeepFaceExtractor::checkServerHealth() {
     QJsonObject obj = doc.object();
     if (!obj["ready"].toBool(false)) return false;
 
-    // 新版服务会一并回报 512 维引擎状态；字段不存在时按旧版服务处理，不阻断启动。
+    // 服务会一并回报 512 维引擎状态；响应中没有该字段时不阻断启动。
     if (obj.contains("engine512Ready") && !obj["engine512Ready"].toBool(false)) {
         if (!g_engine512WarningLogged.exchange(true)) {
             qWarning() << "[DeepFaceExtractor] 512 维人脸引擎未就绪:"

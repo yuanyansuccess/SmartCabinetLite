@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(QtSmartCabinet VERSION 2.0.0 LANGUAGES CXX)
-# 作者：袁燕  智能柜Qt Widget 2.0 融合版
-# 日期：2026-06-21  功能：版本B页面(功能完整)+版本A组件(TopBar/软键盘/摄像头)
+# 作者：袁燕  智能工具柜上位机管理系统（Qt Widgets）
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -86,7 +85,7 @@ else()
 endif()
 
 # ═══════════════════════════════════════════
-# 源文件配置 (版本B pages/services/db + 版本A components)
+# 源文件配置
 # ═══════════════════════════════════════════
 
 # Common层 (共享)
@@ -97,15 +96,12 @@ set(COMMON_SOURCES
     src/common/Logger.cpp
 )
 
-# Model层 (纯头文件, 无cpp)
-set(MODEL_SOURCES)
-
-# 数据层 (db/ — V6.9统一namespace db，合并原dao/实体类API)
+# 数据层 (db/)
 set(DB_SOURCES
     src/db/UserDAO.cpp
     src/db/FaceRecogLogDAO.cpp
     src/db/ToolDAO.cpp
-    # ToolDAO 按业务域物理拆分（类声明仍在 ToolDAO.h，仅实现分文件，接口零变化）
+    # ToolDAO 按业务域分文件实现，类声明见 ToolDAO.h
     src/db/ToolDAOToolEntity.cpp
     src/db/ToolDAOCategory.cpp
     src/db/ToolDAOMachineGroup.cpp
@@ -118,22 +114,19 @@ set(DB_SOURCES
     src/db/DepartmentDAO.cpp
 )
 
-# dao/层已全部合并到db/，此变量保留为空以兼容
-set(DAO_SOURCES)
-
-# 添加controller层（统一通过controller访问业务逻辑） —— 作者：袁燕
+# 控制层（页面通过控制器访问业务逻辑）
 set(CONTROLLER_SOURCES
     src/controller/ToolController.cpp
     src/controller/UserController.cpp
 )
 
-# 通信层 (comm/ — 与边缘计算机通信接口，V2.1新增)
+# 通信层 (comm/ — 与边缘计算机通信接口)
 set(COMM_SOURCES
     src/comm/EdgeLink.cpp
     src/comm/EdgeService.cpp
 )
 
-# 服务层 (版本B)
+# 服务层
 set(SERVICE_SOURCES
     src/services/AuthService.cpp
     src/services/AlertService.cpp
@@ -146,7 +139,7 @@ set(SERVICE_SOURCES
     src/services/MaintenanceService.cpp
 )
 
-# 页面层 (版本B的pages/)
+# 页面层
 # UI布局文件（Qt Designer可视化维护，AUTOUIC生成ui_*.h）
 set(PAGE_UIS
     src/pages/LedgerStatsPage.ui
@@ -192,7 +185,7 @@ set(PAGE_SOURCES
     src/pages/SystemSettingsPageTaskConfig.cpp
 )
 
-# 工具类 (版本B)
+# 工具类
 set(UTILS_SOURCES
     src/utils/StyleHelper.cpp
     src/utils/DeviceProfile.cpp
@@ -200,7 +193,7 @@ set(UTILS_SOURCES
     src/utils/PinyinInput.cpp       # 拼音输入引擎（与界面解耦的纯逻辑层）
 )
 
-# 组件层 (版本A的触屏组件)
+# 组件层（触屏组件）
 set(COMPONENT_SOURCES
     src/components/SoftKeyboard.cpp
     src/components/NumKeypad.cpp
@@ -220,7 +213,7 @@ set(COMPONENT_SOURCES
     src/components/BaseDialog.cpp
 )
 
-# 主窗口 (版本B, src/根目录)
+# 主窗口 (src/根目录)
 set(MAINWINDOW_SOURCE
     src/MainWindow.cpp
 )
@@ -230,7 +223,6 @@ set(ALL_SOURCES
     ${COMMON_SOURCES}
     ${COMM_SOURCES}
     ${DB_SOURCES}
-    ${DAO_SOURCES}
     ${CONTROLLER_SOURCES}
     ${SERVICE_SOURCES}
     ${PAGE_SOURCES}
@@ -250,7 +242,7 @@ endif()
 # 头文件 (用于MOC)
 # ═══════════════════════════════════════════
 set(ALL_HEADERS
-    # Comm (V2.1 与边缘计算机通信接口)
+    # Comm
     src/comm/CommTypes.h
     src/comm/EdgeLink.h
     src/comm/EdgeService.h
@@ -260,6 +252,10 @@ set(ALL_HEADERS
     src/common/Constants.h
     src/common/DiskSpaceGuard.h
     src/common/PositionFormatter.h
+    src/common/Logger.h
+    src/common/StatusDisplay.h
+    src/common/ToolStatus.h
+    src/common/StatusValues.h
     src/common/ProtocolAlertTypes.h
     src/common/UserInputValidator.h
     # Model (共享)
@@ -270,7 +266,7 @@ set(ALL_HEADERS
     src/model/BorrowRecord.h
     src/model/AlertLog.h
     src/model/TaskType.h
-    # DB (V6.9统一namespace db，合并QJsonObject + 实体类API)
+    # DB
     src/db/BaseDAO.h
     src/db/UserDAO.h
     src/db/FaceRecogLogDAO.h
@@ -279,10 +275,10 @@ set(ALL_HEADERS
     src/db/AlertDAO.h
     src/db/TaskTypeDAO.h
     src/db/DepartmentDAO.h
-    # Controller (版本A)
+    # Controller
     src/controller/ToolController.h
     src/controller/UserController.h
-    # Services (版本B)
+    # Services
     src/services/AuthService.h
     src/services/BorrowService.h
     src/services/ToolService.h
@@ -292,7 +288,7 @@ set(ALL_HEADERS
     src/services/AlertService.h
     src/services/CheckoutService.h
     src/services/MaintenanceService.h
-    # Pages (版本B)
+    # Pages
     src/pages/LoginPage.h
     src/pages/MenuHomePage.h
     src/pages/CabinetSessionDialog.h
@@ -310,7 +306,7 @@ set(ALL_HEADERS
     src/pages/AlertLogsPage.h
     src/pages/HelpManualDialog.h
     src/pages/SystemSettingsPage.h
-    # Utils (版本B)
+    # Utils
     src/utils/StyleHelper.h
     src/utils/LayoutHelper.h       # 布局清理工具（统一清空布局的写法）
     src/utils/DeviceProfile.h
@@ -319,7 +315,7 @@ set(ALL_HEADERS
     src/utils/PinyinInput.h         # 拼音输入引擎接口
     src/utils/PinyinDictData.h      # 拼音词库数据（自动生成）
     src/utils/PinyinPhraseData.h    # 拼音词组联想数据（自动生成）
-    # Components (版本A)
+    # Components
     src/components/SoftKeyboard.h
     src/components/NumKeypad.h        # 独立数字软键盘
     src/components/FaceCameraWidget.h
@@ -330,7 +326,14 @@ set(ALL_HEADERS
     src/components/MessageDialog.h
     src/components/BaseDialog.h
     src/components/CameraCapture.h
-    # MainWindow (版本B)
+    src/components/DrawerOpeningDialog.h
+    src/components/FlowDialogs.h
+    src/components/FormFactory.h
+    src/components/PaginationBar.h
+    src/components/ResultDialog.h
+    src/components/SearchBar.h
+    src/components/VerifyAlertDialog.h
+    # MainWindow
     src/MainWindow.h
 )
 
@@ -339,11 +342,11 @@ set(ALL_HEADERS
 # ═══════════════════════════════════════════
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/comm     # V2.1 与边缘计算机通信接口
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/comm
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common   # DatabaseManager优先使用common版本
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model
     ${CMAKE_CURRENT_SOURCE_DIR}/src/db       # 统一DAO层 namespace db::
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/controller  # 版本A控制器
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/controller
     ${CMAKE_CURRENT_SOURCE_DIR}/src/services
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pages
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
@@ -351,9 +354,8 @@ include_directories(
 )
 
 # ═══════════════════════════════════════════
-# VS解决方案资源管理器文件夹分组 —— 作者：袁燕
-# 使用source_group TREE让VS按目录树显示源文件，消除同名文件(如两个AlertDAO.cpp)显示混淆
-# db/DatabaseManager.cpp/.h已删除（未参与编译的废弃文件）
+# VS解决方案资源管理器文件夹分组
+# 使用 source_group TREE 让 VS 按目录树显示源文件，同名文件按目录区分
 # ═══════════════════════════════════════════
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "Source" FILES ${ALL_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "Header" FILES ${ALL_HEADERS})
@@ -418,4 +420,4 @@ install(TARGETS QtSmartCabinet RUNTIME DESTINATION bin)
 install(DIRECTORY resources/ DESTINATION share/QtSmartCabinet/resources OPTIONAL)
 install(FILES styles/global.qss DESTINATION share/QtSmartCabinet/style OPTIONAL)
 
-message(STATUS "QtSmartCabinet 2.0 Fusion configuration complete")
+message(STATUS "QtSmartCabinet configuration complete")

@@ -33,7 +33,6 @@
 #include <QDebug>
 #include <QTimer>  // 勾选跳页延迟重建，避免信号回调中销毁widget
 #include <QAbstractItemView>
-#include <QScroller>          // 清单表触屏拖动
 #include <QGuiApplication>    // 取屏幕可用高度封顶弹窗
 #include <QScreen>
 #include <QWidget>
@@ -58,12 +57,7 @@ const int kPageScreenMargin     = 80;   // 屏幕上下为任务栏与窗口装�
  * @return 封顶后的弹窗高度
  */
 static int clampPageDialogHeight(QWidget* parent, int wanted, int minHeight) {
-    QScreen* screen = parent ? parent->screen() : nullptr;
-    if (!screen) screen = QGuiApplication::primaryScreen();
-    const int limit = screen
-        ? qMax(minHeight, screen->availableGeometry().height() - kPageScreenMargin)
-        : qMax(minHeight, wanted);
-    return qBound(minHeight, wanted, limit);
+    return FlowDialogs::fitDialogHeight(parent, wanted, minHeight, kPageScreenMargin);
 }
 
 /**
@@ -127,7 +121,7 @@ void ToolBorrowPage::onBorrowConfirm() {
                               .toString(SC::TIMESTAMP_FORMAT);
     // 校验借用总数量不超过系统设置的单次最大借出数量
     int maxBorrow = AppConfig::instance().borrowMaxCount();
-    if (maxBorrow <= 0) maxBorrow = 5;  // 保底默认值
+    if (maxBorrow <= 0) maxBorrow = SC::BORROW_MAX_COUNT;  // 保底默认值
     int totalQty = 0;
     for (const auto& tool : m_selectedTools) totalQty += tool.quantity;
     if (totalQty > maxBorrow) {
@@ -139,7 +133,7 @@ void ToolBorrowPage::onBorrowConfirm() {
     }
     // 构建按位置展开的借用清单
     // 设计理念：一个位置(机组-柜-层-位号)=一个工具，quantity>1时需找到同名同规格的多个位置
-    //   展开后每条记录对应一个具体位置，quantity恒为1。作者：袁燕
+    //   展开后每条记录对应一个具体位置，quantity 恒为 1。
     // 从映射表自动分配in_stock位置（不从缓存匹配）
     // 每个选中工具按quantity从映射表找对应数量的in_stock位置
     m_expandedBorrowList.clear();
@@ -179,15 +173,8 @@ void ToolBorrowPage::onBorrowConfirm() {
 
 
 /**
-
- * 第一步：确认借用信息对话框（改造版）
-
- *   展示借用详情（工具名、位置、数量、借用人、归还时间），用户确认后进入"抽屉打开中"
-
- */
-
-/**
- * @brief ToolBorrowPage::showBorrowConfirmDialog 的业务实现
+ * @brief 显示借用信息确认对话框
+ * @note 展示工具名、位置、数量、借用人、归还时间，用户确认后进入抽屉打开提示
  */
 void ToolBorrowPage::showBorrowConfirmDialog() {
     FlowDialogs::Setup setup;
@@ -245,17 +232,7 @@ void ToolBorrowPage::showBorrowConfirmDialog() {
 
 
 /**
-
- * 第二步：抽屉打开中（动态旋转框）
-
- *   提示用户对应抽屉已打开，按清单借用工具
-
- * 加入待借用工具列表，便于用户按列表取用
-
- */
-
-/**
- * @brief ToolBorrowPage::showBorrowDrawerOpeningDialog 的业务实现
+ * @brief 显示抽屉已打开提示与待借用工具清单
  */
 void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
     // 根据借用工具数量动态调整高度，确保列表完整显示
@@ -264,7 +241,7 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
     DrawerOpeningDialog dlg(QStringLiteral("抽屉打开中"), QStringLiteral("抽屉已打开"),
         QStringLiteral("对应工具抽屉已自动打开，<br/>"
                        "请按下方清单取用工具后手动关闭抽屉再点击下一步。"),
-        28, 48, this);  // [等价保留] 本页历史边距28/动画区高48
+        28, 48, this);  // 本页边距 28px、动画区高 48px
     const int wantedHeight = qMax(kPageMinDialogHeight, 320 + listCount * 36);
     const int dialogHeight = clampPageDialogHeight(this, wantedHeight, kPageMinDialogHeight);
     dlg.setFixedSize(560, dialogHeight);
@@ -307,8 +284,7 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
         const int wantedTable = qMax(kPageMinTableHeight,
                                      listCount * kPageRowHeight + kPageHeaderHeight);
         table->setFixedHeight(clampPageTableHeight(wantedTable, dialogHeight, kPageFixedPartsHeight));
-        table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-        QScroller::grabGesture(table->viewport(), QScroller::LeftMouseButtonGesture);
+        FlowDialogs::enableTouchScroll(table);
         dlg.bodyLayout()->addWidget(table);
     }
     if (dlg.exec() == QDialog::Accepted) {
@@ -320,15 +296,8 @@ void ToolBorrowPage::showBorrowDrawerOpeningDialog() {
 
 
 /**
-
- * 第三步：工具核对对话框（假异常提示）
-
- *   提示用户工具未正确放置/数量不符，确认后执行实际借用
-
- */
-
-/**
- * @brief ToolBorrowPage::showToolVerifyDialog 的业务实现
+ * @brief 显示工具核对异常提示
+ * @note 用户确认后执行实际借用
  */
 void ToolBorrowPage::showToolVerifyDialog() {
     // 右上角倒计时+左下角忽略+告警入库+退出系统
@@ -368,19 +337,8 @@ void ToolBorrowPage::showToolVerifyDialog() {
 
 
 /**
-
- * 第三步：执行借用（DAO层写入数据库）
-
- * 支持多工具批量借用
-
- * 通过BorrowService执行实际借用操作，写入tool_borrow_record表
-
- * 成功后弹出美观的成功提示
-
- */
-
-/**
- * @brief ToolBorrowPage::executeBorrow 的业务实现
+ * @brief 按展开清单逐件执行借用并写入借用记录
+ * @note 成功项与失败项在结果页分别列出
  */
 void ToolBorrowPage::executeBorrow() {
     BorrowService svc;
@@ -390,7 +348,7 @@ void ToolBorrowPage::executeBorrow() {
     int successCount = 0;
     // 逐个工具借用
     // MySQL flow_no有UNIQUE约束，多工具共用同一flowNo会导致只有第1条插入成功
-    // 修复方案：每个工具的flowNo加序号后缀(-01,-02,...)，既保持批次关联性又满足UNIQUE约束
+    // 每个工具的 flowNo 加序号后缀(-01,-02,...)，既保持批次关联性又满足 UNIQUE 约束
     // 展开清单(m_expandedBorrowList)，每条对应一个位置，quantity=1
     int totalTools = m_expandedBorrowList.size();
     int seqIndex = 0;
@@ -408,10 +366,7 @@ void ToolBorrowPage::executeBorrow() {
         QString reason = m_selectedTypeNames.isEmpty()
             ? QStringLiteral("任务借用")
             : m_selectedTypeNames.join("、");
-        // 直接用展开清单中保存的mappingId，不重新查
-        // 根因：原代码查"第一个in_stock位置"可能匹配到错误位置，
-        // 导致借用记录mappingId与实际借用的位置不一致→数据混乱
-        // 注意：展开清单时已保存mappingId，直接用
+        // 展开清单时已保存 mappingId，直接沿用可避免借用记录与实际位置不一致
         int borrowMappingId = tool.mappingId;
         if (borrowMappingId <= 0) {
             failTools.append(QStringLiteral("%1: 位置分配异常(mappingId=0)").arg(tool.toolName));
@@ -433,10 +388,9 @@ void ToolBorrowPage::executeBorrow() {
         }
     }
     if (successCount > 0) {
-        // 借用成功 - 显示美观的成功提示
-        // 借用成功 - 显示美观的成功提示
+        // 显示借用成功提示
         ResultDialog successDlg(QStringLiteral("借用成功"), QStringLiteral("✅"),
-            QStringLiteral("借用成功！"), QStringLiteral("#43a047"), 16, this);
+            QStringLiteral("借用成功！"), StyleHelper::successColor(), 16, this);
         // 成功项与失败项都计入高度预算：部分成功时明细不再把「知道了」按钮挤出窗口
         const int detailRows = successTools.size() + failTools.size()
                                + (failTools.isEmpty() ? 0 : 1);
@@ -444,7 +398,7 @@ void ToolBorrowPage::executeBorrow() {
                                       kPageResultBaseHeight + detailRows * kPageResultRowHeight);
         const int dialogHeight = clampPageDialogHeight(this, wantedHeight, kPageMinResultHeight);
         successDlg.setFixedSize(460, dialogHeight);
-        // 借用详情 — 去掉绿色背景，纯文本显示工具清单，更清爽
+        // 借用详情用纯文本展示工具清单
         auto* detailFrame = new QFrame();
         detailFrame->setStyleSheet("background:transparent;border:none;");
         auto* detailLayout = new QVBoxLayout(detailFrame);
@@ -480,7 +434,7 @@ void ToolBorrowPage::executeBorrow() {
                                            kDetailMaxHeight));
         detailScroll->setWidget(detailFrame);
         // 触屏手势：明细多时手指可直接拖动查看，不依赖细滚动条
-        QScroller::grabGesture(detailScroll->viewport(), QScroller::LeftMouseButtonGesture);
+        FlowDialogs::enableTouchScroll(detailScroll);
         successDlg.bodyLayout()->addWidget(detailScroll);
         // 提示
         successDlg.setHint(QStringLiteral("请在预计归还时间前归还，逾期将产生记录"));

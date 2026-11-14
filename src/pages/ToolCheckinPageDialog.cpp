@@ -16,6 +16,7 @@
 #include "utils/StyleHelper.h"
 #include "components/DrawerOpeningDialog.h"
 #include "components/ResultDialog.h"
+#include "components/FlowDialogs.h"
 #include "services/ToolService.h"       // 入库落库唯一业务入口
 #include "services/CheckoutService.h"  // 出库落库唯一业务入口
 #include "services/AlertService.h"     // 错放告警的唯一业务入口
@@ -32,7 +33,6 @@
 #include <QAbstractItemView>  // 摘要表按像素滚动（触屏拖动跟手）
 #include <QGuiApplication>    // 取屏幕可用高度，限制弹窗不超出屏幕
 #include <QScreen>
-#include <QScroller>          // 触屏手势：拖动摘要表查看全部条目
 // ═══════════ 开箱环节：柜体打开动画 + 单据摘要 ═══════════
 
 /**
@@ -120,8 +120,7 @@ DrawerOpeningDialog* ToolCheckinPage::buildOpenExecuteDialog(const QList<OrderRo
     // 表格高度由窗口可用高度反算：可见行数之外由表格自身滚动承接，不把底部按钮顶出窗口
     orderTable->setFixedHeight(tableHeight);
     // 按像素滚动并接入触屏手势：单据条目多时手指可直接拖动清单，无需去点细滚动条
-    orderTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    QScroller::grabGesture(orderTable->viewport(), QScroller::LeftMouseButtonGesture);
+    FlowDialogs::enableTouchScroll(orderTable);
     dlg->bodyLayout()->addWidget(orderTable);
     return dlg;
 }
@@ -434,8 +433,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         // 结果表按窗口可用高度反算固定高度：多余行由表格自身滚动承接，
         // 底部按钮行始终留在窗口内；按像素滚动并接入触屏手势
         resultTable->setFixedHeight(dlgSize.tableHeight);
-        resultTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-        QScroller::grabGesture(resultTable->viewport(), QScroller::LeftMouseButtonGesture);
+        FlowDialogs::enableTouchScroll(resultTable);
         return resultTable;
     };
 
@@ -453,7 +451,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
             allWriteOk ? QStringLiteral("全部指令执行成功！")
                        : QStringLiteral("共 %1 项，成功 %2 项，未完成 %3 项")
                              .arg(items.size()).arg(okIdx.size()).arg(items.size() - okIdx.size()),
-            allWriteOk ? QStringLiteral("#43a047") : QStringLiteral("#e67e22"), 14, this);
+            allWriteOk ? StyleHelper::successColor() : QStringLiteral("#e67e22"), 14, this);
         dlg.setFixedSize(620, dlgSize.dialogHeight);
 
         if (!misplaced.isEmpty()) {

@@ -29,7 +29,7 @@ const char* const ALERT_SORT_ORDER =
 
 
 /**
- * @brief 分页查询告警列表（AlertLogsPage数据源，自SettingService原样迁移）
+ * @brief 分页查询告警列表（AlertLogsPage 数据源）
  *        JOIN sys_alert_type + tool_info + tool_cabinet + sys_user，
  *        与 findAll 的区别：本方法含 tool_cabinet JOIN 与位置格式化字段，
  *        且显示所有状态告警（含已忽略），排序复用 ALERT_SORT_ORDER。

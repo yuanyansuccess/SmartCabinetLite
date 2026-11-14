@@ -1,6 +1,6 @@
 /**
  * @file DatabaseManager.cpp
- * @brief MySQL 连接单例实现：建连、建表建视图、播种基础数据，并提供查询与事务接口
+ * @brief MySQL 连接单例实现：建连、查询与事务接口
  * @author 袁燕
  */
 #include "DatabaseManager.h"
@@ -14,7 +14,6 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QDateTime>
-#include <QCryptographicHash>  // SQLite播种用SHA256
 
 /**
          * @brief 获取数据库连接单例

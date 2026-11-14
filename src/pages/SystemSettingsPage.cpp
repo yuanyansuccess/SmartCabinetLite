@@ -12,7 +12,7 @@
 #include "utils/StyleHelper.h"
 #include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
 #include "common/AppConfig.h"  // 配置读写
-#include "common/Constants.h"  // SC::BACKUP_PATH 等常量
+#include "common/Constants.h"  // 本页使用的配置常量
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -93,7 +93,7 @@ void SystemSettingsPage::setupUI() {
         tab->installEventFilter(this);
         m_tabLabels.append(tab);
         // 全部选项卡均加入标签栏：告警参数面板配置蜂鸣器/LED/逾期/柜门/断电/自动确认，
-        // 是系统设置必需功能，必须保持可达（历史上曾误隐藏，导致配置项无法访问）
+        // 是系统设置必需功能，必须保持可达
         tabBar->addWidget(tab);
     }
     tabBar->addStretch();
@@ -566,7 +566,7 @@ void SystemSettingsPage::showEvent(QShowEvent* event) {
 }
 
 /**
- * @brief 替换QMessageBox为统一MessageDialog::showDirtyConfirm（风格统一+无取消按钮） 离开页面时检测脏数据 → 弹窗询问是否保存
+ * @brief 页面隐藏时检测未保存设置并询问是否保存
  * @param event 事件对象，由 Qt 事件系统传入
  */
 void SystemSettingsPage::hideEvent(QHideEvent* event) {

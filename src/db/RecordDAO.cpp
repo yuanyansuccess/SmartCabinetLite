@@ -392,7 +392,7 @@ QJsonObject RecordDAO::findToolInfoByRecordId(int recordId)
     QSqlQuery q(db);
     q.prepare("SELECT tool_id, tool_code FROM tool_borrow_record WHERE record_id=?");
     q.addBindValue(recordId);
-    safeExec(q);
+    if (!safeExec(q)) qWarning() << "[RecordDAO::findToolInfoByRecordId] 查询借用记录工具信息失败";
     QJsonObject obj;
     if (q.next()) {
         obj["toolId"] = q.value(0).toInt();
@@ -603,7 +603,7 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 }
 
 // ═══════════════════════════════════════════════
-// 台账统计（自SettingService原样迁移，SQL一字未改）
+// 台账统计
 // ═══════════════════════════════════════════════
 /**
  * @brief 汇总台账统计数据（LedgerStatsPage数据源）
@@ -613,7 +613,7 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 QJsonObject RecordDAO::getLedgerStats() {
     // 字段名与LedgerStatsPage期望一致：
     // totalBorrows(复数)/totalReturns(复数)/currentBorrowed/overdueCount/categoryStats/departmentStats
-    // 同时保留旧字段totalBorrow/totalReturn/activeUsers向后兼容
+    // 同时提供 totalBorrow/totalReturn/activeUsers，供既有页面读取
     QJsonObject s;
     QSqlDatabase db = getDb();
     if (!db.isValid()) {

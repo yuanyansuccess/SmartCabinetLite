@@ -3,7 +3,7 @@
  * @brief 借用业务服务实现 - 表单校验、错误处理
  * @author 袁燕
  *
- * 映射表操作迁移到ToolDAO，Service层纯业务逻辑
+ * 映射表操作由 ToolDAO 承担，Service 层只处理业务逻辑
  */
 #include "BorrowService.h"
 #include "db/RecordDAO.h"
@@ -69,7 +69,7 @@ BorrowService::Result BorrowService::borrowTool(int userId, int toolId, int mapp
     // 按位置维度借用：检查映射表status必须为in_stock
     // 不检查tool_info.status（一个工具多位置时tool_info.status不代表单个位置状态）
     // 映射表status才是位置占用的权威数据源
-    // 迁移到ToolDAO::findMappingStatus/updateMappingStatus
+    // 状态读写由 ToolDAO::findMappingStatus/updateMappingStatus 承担
     QString posStatus = toolDao.findMappingStatus(mappingId);
     if (posStatus.isEmpty()) {
         r.message = QStringLiteral("位置映射记录不存在");

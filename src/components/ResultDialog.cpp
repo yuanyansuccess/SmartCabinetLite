@@ -1,6 +1,6 @@
 /**
  * @file ResultDialog.cpp
- * @brief 流程结果对话框骨架实现（样式与原各页面内联实现逐字一致）
+ * @brief 流程结果对话框骨架实现
  * @author 袁燕
  */
 #include "ResultDialog.h"

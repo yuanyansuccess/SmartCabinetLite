@@ -1,10 +1,7 @@
 /**
  * @file ToolDAOPosition.cpp
- * @brief ToolDAO 物理拆分 — 位置映射查询（位置维度铁律）
+ * @brief 位置映射查询（位置维度铁律）
  * @author 袁燕
- *
- * 说明：由 ToolDAO.cpp 按业务域拆分而来，类声明仍在 ToolDAO.h，仅实现分文件。
- * 新增方法请按职责放到对应文件，不要全部堆回 ToolDAO.cpp。
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"
@@ -71,7 +68,7 @@ bool ToolDAO::updateMappingStatus(int mappingId, const QString& status)
  * @brief 查找待入库工具（映射表中有可入库位置：待入库pending或已出库checked_out）
  * @param categoryId 工具品类编号
  * @param machineGroupId 机组编号，用于按机组隔离数据
- * @return 查询结果数组，每个元素为一个对象
+ * @return 待入库工具数组，每项含 toolId、toolCode、toolName、status、spec、freePosCount
  */
 QJsonArray ToolDAO::findPendingTools(int categoryId, int machineGroupId)
 {
@@ -142,7 +139,7 @@ QJsonObject ToolDAO::findToolBasicInfo(int toolId)
 /**
  * @brief 查找工具的可入库位置（映射表status为pending待入库或checked_out已出库回流）
  * @param toolId 工具唯一标识 tool_id
- * @return 查询结果数组，每个元素为一个对象
+ * @return 可入库位置数组，每项含 cabinetId、layer、position、cabinetName、cabinetCode
  */
 QJsonArray ToolDAO::findPendingPositions(int toolId)
 {

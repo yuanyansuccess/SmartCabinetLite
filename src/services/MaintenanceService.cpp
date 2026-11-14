@@ -6,7 +6,6 @@
 #include "MaintenanceService.h"
 
 #include "db/ToolDAO.h"
-#include "common/Constants.h"
 
 /**
  * @brief 更新任务类型下工具的数量

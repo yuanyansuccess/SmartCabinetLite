@@ -1,10 +1,7 @@
 /**
  * @file ToolDAOCategory.cpp
- * @brief ToolDAO 物理拆分 — 分类与柜体字典
+ * @brief 分类与柜体字典
  * @author 袁燕
- *
- * 说明：由 ToolDAO.cpp 按业务域拆分而来，类声明仍在 ToolDAO.h，仅实现分文件。
- * 新增方法请按职责放到对应文件，不要全部堆回 ToolDAO.cpp。
  */
 #include "ToolDAO.h"
 #include "DatabaseManager.h"

@@ -3,9 +3,8 @@
  * @brief 借用/归还/入库/出库四类页面共用的对话框骨架
  * @author 袁燕
  *
- * 四个页面原本各自复制一份"清单确认对话框"，结构与样式完全一致：
- * 无边框对话框 + 标题栏 + 浅蓝提示条 + 清单表格 + 取消/下一步按钮。
- * 抽到此处统一维护，页面只负责数据与文案，避免样式分叉。
+ * 清单确认对话框由本类统一构建（标题栏 + 提示条 + 清单表格 + 底部按钮），
+ * 页面只负责数据与文案，保证四类流程的样式一致。
  */
 #pragma once
 
@@ -18,6 +17,7 @@ class QDialog;
 class QVBoxLayout;
 class QTableWidget;
 class QWidget;
+class QAbstractScrollArea;
 
 class FlowDialogs {
 public:
@@ -46,6 +46,23 @@ public:
      */
     static QDialog* createDialog(QWidget* parent, const Setup& setup, QVBoxLayout** body,
                                  int* outEffectiveHeight = nullptr);
+
+    /**
+     * @brief 按屏幕可用高度给弹窗高度封顶
+     * @param parent 父窗口，为空时取主屏
+     * @param wanted 按内容算出的期望高度
+     * @param minHeight 弹窗高度下限
+     * @param screenMargin 屏幕上下预留余量
+     * @return 封顶后的弹窗高度
+     */
+    static int fitDialogHeight(QWidget* parent, int wanted, int minHeight,
+                              int screenMargin = 80);
+
+    /**
+     * @brief 给清单表格或滚动区域接入按像素滚动与触屏拖动手势
+     * @param area 表格或滚动区域，为空时不做处理
+     */
+    static void enableTouchScroll(QAbstractScrollArea* area);
 
     /**
      * @brief 追加标题栏（图标 + 标题 + 弹性空白）

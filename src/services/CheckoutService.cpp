@@ -1,6 +1,6 @@
 /**
  * @file CheckoutService.cpp
- * @brief 工具出库业务服务实现（落库逻辑与原页面内联实现逐字一致）
+ * @brief 工具出库业务服务实现
  * @author 袁燕
  */
 #include "CheckoutService.h"
@@ -45,13 +45,9 @@ CheckoutService::CheckoutResult CheckoutService::executeCheckout(
             }
 
             // 出库=工具从柜中取出使用（编制库存total_qty不变，放回时恢复）
-            // current_qty 由 tool_position_mapping 触发器自动维护，此处不再手算
+            // current_qty 由 tool_position_mapping 触发器自动维护，本服务不直接修改
             // inStockCount 仅用于下方"全部取空则工具置 checked_out"的状态判断
             int inStockCount = toolDao.countInStockPositions(it.toolId);
-            if (!stepOk) {
-                failedNames.append(it.toolName.isEmpty() ? it.toolCode : it.toolName);
-                return false;
-            }
             if (inStockCount <= 0) {
                 stepOk = toolDao.updateStatus(it.toolId, SC::TOOL_CHECKED_OUT);
             }

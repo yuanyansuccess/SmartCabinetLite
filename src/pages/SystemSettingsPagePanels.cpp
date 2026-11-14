@@ -15,7 +15,7 @@
 #include "components/FormFactory.h"  // 表单控件工厂（收敛重复lambda）
 #include "services/SettingService.h"
 #include "services/AuthService.h"
-#include "common/Constants.h"  // SC::BACKUP_PATH 等常量
+#include "common/Constants.h"  // 本页使用的配置常量
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>

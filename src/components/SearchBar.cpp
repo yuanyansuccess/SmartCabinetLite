@@ -1,6 +1,6 @@
 /**
  * @file SearchBar.cpp
- * @brief 通用搜索栏组件实现（样式与原各页面内联样式逐字一致）
+ * @brief 通用搜索栏组件实现
  * @author 袁燕
  */
 #include "SearchBar.h"

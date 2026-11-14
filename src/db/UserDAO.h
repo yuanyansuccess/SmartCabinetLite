@@ -30,11 +30,11 @@ public:
     ///                   禁用/待激活账户的人脸同样占用一张脸，防止账户重新启用后一张脸挂两户）
     QJsonArray   getAllFaceFeatures(bool activeOnly = true);
     bool         recordLoginSuccess(int userId, const QString& ip = "");
-    // 查询DB中CF格式最大工号，返回下一个可用工号（CF001~CF999）
+    /// 查询库中最大纯数字工号，返回下一个 6 位补零工号
     QString      generateNextWorkNo();
 
     // ═══════════════════════════════════════════════
-    // 实体类API（Controller层使用）——从dao/UserDAO合并
+    // 实体类API（Controller层使用）
     // ═══════════════════════════════════════════════
     User         findUserById(int userId);
     User         findUserByWorkNo(const QString& workNo);

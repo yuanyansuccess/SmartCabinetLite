@@ -1,6 +1,6 @@
 /**
  * @file DatabaseManager.h
- * @brief MySQL 连接单例：建连、建表建视图、播种基础数据，并提供查询与事务接口
+ * @brief MySQL 连接单例：建连、查询与事务接口
  * @author 袁燕
  */
 #pragma once
@@ -22,7 +22,7 @@ public:
     void close();
 
     QSqlDatabase database() const;
-    QSqlDatabase getConnection() const;  // 兼容版本B的services
+    QSqlDatabase getConnection() const;  // 供服务层获取数据库连接
 
     // 便捷查询
     QSqlQuery executeQuery(const QString& sql, const QVariantList& params = {});
@@ -45,8 +45,8 @@ private:
 
     bool ensureConnected();
     bool tryMysql();  // 直连MySQL（127.0.0.1:3306/smart_cabinet）
-    // 部署策略为恢复标准生产库备份（db_backup/*.sql，含表/视图/真实账号），
-    // 软件不再自动建表/建视图/播种演示数据，避免双数据源漂移与演示数据污染生产库。
+    // 表结构、视图与基础账号由部署时恢复的标准生产库备份提供，
+    // 本类只负责连接、查询与事务，不在运行时创建业务数据。
 
     QSqlDatabase m_db;
     QString m_host, m_dbName, m_user, m_pass;

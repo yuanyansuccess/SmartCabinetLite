@@ -58,7 +58,7 @@ public:
      */
     void recordRecognizeTimeout(const QString& requestId);
 
-    // ── 读路径（自SettingService迁移，告警域查询统一入口） ──
+    // ── 读路径（告警域查询统一入口） ──
 
     /// 所有启用的告警类型（筛选下拉）
     QJsonArray getAlertTypes();

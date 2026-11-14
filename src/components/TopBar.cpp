@@ -295,7 +295,7 @@ void TopBar::updateClock() {
 /// 更新电池电量显示（跨平台：Windows API + 麒麟sysfs）
 /// Windows: GetSystemPowerStatus
 /// 麒麟/Linux: 读取 /sys/class/power_supply/BAT0/capacity 和 status
-/// 电量<20%红色警告，20-50%橙色，>50%灰色正常，充电中蓝色
+/// 电量<20%红色警告，20~49%橙色，>=50%灰色正常；充电中>=80%绿色、其余蓝色
 void TopBar::updateBatteryStatus() {
     if (!m_batteryLabel) return;
 

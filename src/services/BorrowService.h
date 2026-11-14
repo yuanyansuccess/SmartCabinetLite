@@ -2,7 +2,6 @@
  * @file BorrowService.h
  * @brief 借用业务服务 - 表单校验、错误处理
  * @author 袁燕
- * 添加表单校验方法
  */
 #pragma once
 #include <QObject>
@@ -15,8 +14,7 @@ class BorrowService : public QObject {
 public:
     explicit BorrowService(QObject* parent = nullptr);
     /**
-     * 借用结果。约定：失败时 recordId = 0（"未创建记录"，与其余 Service 的
-     * count=0 风格一致）；历史上一度用 -1，现已统一为 0。
+     * 借用结果。失败时 recordId = 0，表示未创建记录。
      */
     struct Result { bool success = false; QString message; int recordId = 0; };
 
@@ -24,7 +22,7 @@ public:
      * @brief 借用工具
      * @param userId 用户ID
      * @param toolId 工具ID
-     * @param mappingId 位置映射ID（V2.11 按位置维度借用，更新映射表status=borrowed）
+     * @param mappingId 位置映射ID（按位置维度借用，更新映射表状态为已借出）
      * @param quantity 数量
      * @param reason 借用原因
      * @param expectedReturnTime 预计归还时间

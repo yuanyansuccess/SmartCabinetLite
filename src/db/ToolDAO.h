@@ -135,8 +135,8 @@ public:
     // 入参：mappingId位置映射ID
     // 返回：位置状态字符串；不存在时返回空字符串
     QString findMappingStatus(int mappingId);
-    // 按位置条件更新映射表状态（条件更新，防止并发覆盖）
-    // 入参：toolId/cabinetId/layer/position定位, newStatus新状态, expectedStatus期望原状态
+    // 按映射编号直接更新映射表状态
+    // 入参：mappingId映射编号, status目标状态
     // 返回：更新成功返回true
     bool updateMappingStatus(int mappingId, const QString& status);
     // 按位置条件更新映射表状态（预期状态匹配才更新）
@@ -194,11 +194,11 @@ public:
     // ═══════════════════════════════════════════════
     // 工具下拉列表
     // 返回：QJsonArray 每项{toolId,toolCode,toolName}
-    // 入参：categoryId 大于 0 时只返回该分类下的工具，否则返回全部（向后兼容默认参数）
+    // 入参：categoryId 大于 0 时只返回该分类下的工具，否则返回全部
     QJsonArray  allToolsSimple(int categoryId = 0);
     // 检查位置对照关系是否存在
     // 入参：cabinetId/layer/position定位
-    // 返回：QJsonObject含exists(bool)与已有信息
+    // 返回：QJsonObject含mappingId与occupier；该位置未配置时返回空对象
     QJsonObject checkPositionMappingExists(int cabinetId, const QString& layer, const QString& position);
     // 插入位置对照关系
     // 入参：toolId/cabinetId/layer/position定位, status初始状态（默认SC::TOOL_PENDING）

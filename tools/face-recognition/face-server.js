@@ -232,7 +232,7 @@ async function extractFeature(imageBase64) {
                 + ` landmarks=${timing.landmarks}ms descriptor(512引擎)=${timing.descriptor}ms`
                 + ` total=${timing.total}ms faceSize=${Math.round(faceSize)}px`);
         }
-        // 保持原有响应结构（含 landmarks），确保与客户端行为完全一致
+        // 响应包含 landmarks 坐标，供上位机进行方位判断
         const landmarks = withLandmarks.landmarks.positions.map(p => [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]);
         return {
             success: true,
@@ -276,6 +276,12 @@ function buildTiming(decode, detect, landmarks, descriptor, t0) {
 function extract512(imageBase64) {
     const payload = JSON.stringify({ image: imageBase64 });
     return new Promise((resolve) => {
+        let settled = false;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            resolve(result);
+        };
         const req = http.request(FACE_SERVER_512_URL + '/extract', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
@@ -283,17 +289,22 @@ function extract512(imageBase64) {
             let body = '';
             resp.on('data', chunk => body += chunk);
             resp.on('end', () => {
-                try { resolve(JSON.parse(body)); }
+                try { finish(JSON.parse(body)); }
                 catch (parseErr) {
-                    resolve({ success: false, error: '512引擎响应解析失败', engineUnavailable: true });
+                    finish({ success: false, error: '512引擎响应解析失败', engineUnavailable: true });
                 }
             });
         });
-        req.on('error', (connErr) => resolve({
+        req.on('error', (connErr) => finish({
             success: false,
             error: '512引擎连接失败：' + connErr.message,
             engineUnavailable: true
         }));
+        // 略早于上位机 5 秒请求超时返回明确原因，避免推理卡住时请求一直挂着
+        req.setTimeout(4800, () => {
+            finish({ success: false, error: '512引擎响应超时', engineUnavailable: true });
+            req.destroy();
+        });
         req.write(payload);
         req.end();
     });
@@ -376,9 +387,10 @@ function ensure512() {
             engine512Error = '512 维引擎已启动但模型未就绪，请查看引擎日志';
         });
     });
-    req.on('error', () => {
+    req.on('error', (connErr) => {
         engine512Ready = false;
-        spawn512();
+        // 只有端口无人监听才拉起引擎；端口被占用或响应超时时拉起只会反复绑定失败
+        if (connErr.code === 'ECONNREFUSED') spawn512();
     });
     req.setTimeout(1500, () => req.destroy());
 }

@@ -5,7 +5,7 @@
  */
 #include "UserController.h"
 #include "services/AuthService.h"  // 口令加盐哈希工具（与登录链路共用同一实现）
-#include "db/DepartmentDAO.h"  // 从 dao/ 迁移到 db/
+#include "db/DepartmentDAO.h"  // 部门数据访问接口
 #include "services/FaceRecognitionService.h"  // 人脸录入统一入口（内含查重）
 #include "common/Constants.h"
 
@@ -112,7 +112,7 @@ bool UserController::setUserStatus(int userId, const QString& status) {
  * @brief 用户自助修改口令
  * @param userId 用户ID
  * @param oldPwd 原口令（需与库中哈希比对通过）
- * @param newPwd 新口令：长度6~64位，不能是初始口令123456，不能与原口令相同
+ * @param newPwd 新口令：长度6~12位，不能是初始口令123456，不能与原口令相同
  * @return true=修改成功；false=原口令错误或新口令不合法
  * @note 修改成功后强制改密标志由DAO自动清除，下次登录不再弹强制改密窗
  */
@@ -142,7 +142,7 @@ bool UserController::changePassword(int userId, const QString& oldPwd, const QSt
 /**
  * @brief 首次登录强制修改口令（不校验原口令）
  * @param userId 用户ID
- * @param newPwd 新口令：长度6~64位，且不能是初始口令123456
+ * @param newPwd 新口令：长度6~12位，且不能是初始口令123456
  * @return true=修改成功；false=新口令不合法或写库失败
  * @note 适用场景：用户用初始口令（公开默认值）登录后被要求自行设置新口令。
  *       此时原口令就是初始口令，校验它没有任何安全意义，故本接口不做原口令校验；

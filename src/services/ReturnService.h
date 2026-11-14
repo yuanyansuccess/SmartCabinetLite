@@ -2,7 +2,6 @@
  * @file ReturnService.h
  * @brief 归还业务服务 - 超期计算、损坏检测
  * @author 袁燕
- * 完善归还逻辑
  */
 #pragma once
 #include <QObject>

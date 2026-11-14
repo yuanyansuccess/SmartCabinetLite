@@ -114,7 +114,7 @@ void ToolManagementPage::buildDetailHeader(QVBoxLayout* cl, const ToolInfo& t) {
     nameLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontDisplay) + ";font-weight:700;color:#1a1a2e;background:transparent;");
     headerRow->addWidget(nameLabel);
 
-    QString statusText = SC::toolStatusText(t.status, true);   // [等价保留] 本页borrowed历史文案"已借用"
+    QString statusText = SC::toolStatusText(t.status, true);   // 本页 borrowed 沿用「已借用」文案
     QString statusBg = SC::toolStatusColor(t.status);
 
     auto* statusLabel = new QLabel(statusText);

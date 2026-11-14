@@ -2,7 +2,6 @@
  * @file DepartmentDAO.h
  * @brief 部门数据访问对象 — db/层统一namespace
  * @author 袁燕
- * 从 dao/ 迁移到 db/，添加 namespace db 消除与 dao/ 的冗余
  */
 #pragma once
 #include <QStringList>

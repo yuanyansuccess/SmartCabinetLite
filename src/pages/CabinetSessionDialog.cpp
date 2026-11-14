@@ -23,6 +23,7 @@
 #include "services/AlertService.h"       // 位置反馈异常落告警（alert 域统一入口）
 #include "components/TopBar.h"          // 会话顶栏与管理页面共用同一组件
 #include "components/DrawerOpeningDialog.h"
+#include "components/FlowDialogs.h"
 #include "components/MessageDialog.h"
 #include "HelpManualDialog.h"            // 顶栏"帮助"按钮打开内置操作手册
 #include "utils/ScreenFit.h"             // 全屏对话框按屏幕矩形铺满（麒麟窗口管理器兼容）
@@ -35,7 +36,6 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QScroller>
 #include <QFrame>
 #include <QApplication>
 #include <QDateTime>
@@ -257,14 +257,14 @@ void CabinetSessionDialog::buildOpenPage()
     }
     tabLay->addStretch();
     tabScroll->setWidget(tabHost);
-    QScroller::grabGesture(tabScroll->viewport(), QScroller::LeftMouseButtonGesture);
+    FlowDialogs::enableTouchScroll(tabScroll);
     readyLay->addWidget(tabScroll);
 
     // 工具卡片滚动区（三列网格，垂直滚动，触屏拖动）
     m_toolsScroll = new QScrollArea();
     m_toolsScroll->setWidgetResizable(true);
     m_toolsScroll->setStyleSheet("QScrollArea { background: transparent; border: none; }");
-    QScroller::grabGesture(m_toolsScroll->viewport(), QScroller::LeftMouseButtonGesture);
+    FlowDialogs::enableTouchScroll(m_toolsScroll);
     readyLay->addWidget(m_toolsScroll, 1);
     rebuildToolCards();
 
@@ -943,6 +943,10 @@ void CabinetSessionDialog::onReopenClicked()
     onOpenCabinetClicked();   // 重新下发开箱；开柜成功后回到开柜页，用户整理后再次关柜触发识别
 }
 
+/**
+ * @brief 用户确认关柜后按差异清单执行借用与归还写库
+ * @note 借用项与归还项分别交由借用服务、归还服务处理，结果由页面统一展示
+ */
 void CabinetSessionDialog::onConfirmCloseClicked()
 {
     // 借：调用既有 BorrowService（单事务写库 + 状态更新）

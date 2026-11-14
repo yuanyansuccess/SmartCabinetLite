@@ -47,7 +47,6 @@
 #include <QFile>
 #include <QDir>
 #include <QProcess>
-#include "common/Constants.h"
 
 // ── 页面注册表（唯一真相源：页面名/栈索引/标题） ──
 // 新人新增页面只需：1)本表加一行 2)setupUI()里addWidget 3)refreshPage()加一分支。
@@ -91,6 +90,18 @@ static const QVector<MenuEntry>& adminMenuEntries() {
 const QString kActionBorrowReturn = QStringLiteral("borrow_return");  // 借用/归还会话
 const QString kActionQuery        = QStringLiteral("query");          // 借用明细查询
 const QString kActionOpLog        = QStringLiteral("oplog");          // 操作日志查看
+
+/**
+ * @brief 把通信层识别清单转成页面中立的货位实况列表
+ * @param result 通信层识别结果，items 为全柜货位清单
+ * @return 货位实况列表，每项含位置、工具编号与置信度；工具编号为空表示该货位无工具
+ */
+static QList<ToolService::RecogSpot> toRecogSpots(const RecognizeResult& result) {
+    QList<ToolService::RecogSpot> spots;
+    for (const RecognizeItem& item : result.items)
+        spots.append(ToolService::RecogSpot{item.position, item.toolId, item.confidence});
+    return spots;
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
@@ -440,13 +451,8 @@ void MainWindow::setEdgeService(EdgeService* svc) {
     // 避免识别/开箱结果晚到时打进已销毁的页面
     connect(m_edgeService, &EdgeService::recognizeFinished, m_checkinPage,
         [this](const QString& requestId, const RecognizeResult& result) {
-            QList<ToolService::RecogSpot> spots;
-            for (const RecognizeItem& item : result.items) {
-                // 识别清单四字段：工具编号为空即货位无工具；alertType 只做协议解析与结构校验，业务层不据此写告警
-                spots.append(ToolService::RecogSpot{item.position, item.toolId,
-                                                     item.confidence});
-            }
-            m_checkinPage->onRecognitionResult(requestId, spots);
+            // 工具编号为空即货位无工具；alertType 只做协议解析与结构校验，业务层不据此写告警
+            m_checkinPage->onRecognitionResult(requestId, toRecogSpots(result));
         });
 
     // 识别失败（超时/离线/补发放弃） → 透传原因
@@ -664,11 +670,7 @@ void MainWindow::startCabinetSession() {
     if (m_edgeService) {
         connect(m_edgeService, &EdgeService::recognizeFinished, &session,
             [this, &session](const QString& requestId, const RecognizeResult& result) {
-                QList<ToolService::RecogSpot> spots;
-                for (const RecognizeItem& item : result.items)
-                    spots.append(ToolService::RecogSpot{item.position, item.toolId,
-                                                        item.confidence});
-                session.onRecognitionResult(requestId, spots);
+                session.onRecognitionResult(requestId, toRecogSpots(result));
             });
         connect(m_edgeService, &EdgeService::recognizeFailed, &session,
             [this, &session](const QString& requestId, const QString& reason) {
@@ -1015,7 +1017,7 @@ void MainWindow::onBackupCheckTimeout() {
     // 磁盘容量保护：可用比例不足时先静默清理最旧的备份文件，用户无感知
     DiskGuard::ensureFreePercent(backupPath, { QStringLiteral("smartcabinet_backup_*.sql") });
 
-    // 本工程为纯 MySQL 架构（SQLite 已彻底移除，无回退），备份统一走 mysqldump 导出。
+    // 数据库连接统一由 MySQL 提供，备份统一走 mysqldump 导出。
     QString backupFile = backupPath + QDir::separator() +
                          QStringLiteral("smartcabinet_backup_%1.sql").arg(timestamp);
     auto* proc = new QProcess(this);

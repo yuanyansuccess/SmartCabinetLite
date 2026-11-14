@@ -33,7 +33,6 @@
 #include "services/AlertService.h"  // 告警写入
 #include "model/AlertLog.h"  // AlertLog实体
 #include "common/Constants.h"
-#include <QScroller>          // 清单表触屏拖动
 #include <QGuiApplication>    // 取屏幕可用高度封顶弹窗
 #include <QScreen>
 
@@ -53,12 +52,7 @@ const int kPageScreenMargin     = 80;   // 屏幕上下为任务栏与窗口装�
  * @return 封顶后的弹窗高度
  */
 static int clampPageDialogHeight(QWidget* parent, int wanted, int minHeight) {
-    QScreen* screen = parent ? parent->screen() : nullptr;
-    if (!screen) screen = QGuiApplication::primaryScreen();
-    const int limit = screen
-        ? qMax(minHeight, screen->availableGeometry().height() - kPageScreenMargin)
-        : qMax(minHeight, wanted);
-    return qBound(minHeight, wanted, limit);
+    return FlowDialogs::fitDialogHeight(parent, wanted, minHeight, kPageScreenMargin);
 }
 
 /**
@@ -289,7 +283,7 @@ void ToolReturnPage::onReturnSelected() {
         MessageDialog::showWarning(this, QStringLiteral("提示"), QStringLiteral("请先勾选需要归还的工具"));
         return;
     }
-    // 改造为四步流程：清单确认 → 抽屉打开 → 异常校验 → 归还成功
+    // 归还按四步执行：清单确认 → 抽屉打开 → 异常校验 → 归还成功
     showReturnConfirmDialog();
 }
 
@@ -455,8 +449,7 @@ void ToolReturnPage::showReturnDrawerOpeningDialog() {
     }
     const int wantedTable = qMax(120, selectedRecords.size() * 36 + 36);
     table->setFixedHeight(clampPageTableHeight(wantedTable, dialogHeight, kPageFixedPartsHeight));
-    table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    QScroller::grabGesture(table->viewport(), QScroller::LeftMouseButtonGesture);
+    FlowDialogs::enableTouchScroll(table);
     dlg.bodyLayout()->addWidget(table);
 
     if (dlg.exec() == QDialog::Accepted) {
@@ -540,7 +533,7 @@ void ToolReturnPage::executeReturn() {
  */
 void ToolReturnPage::showReturnSuccessDialog(const ReturnService::Result& result) {
     ResultDialog dlg(QStringLiteral("归还成功"), QStringLiteral("✅"),
-        QStringLiteral("归还成功！"), QStringLiteral("#43a047"), 16, this);
+        QStringLiteral("归还成功！"), StyleHelper::successColor(), 16, this);
     dlg.setFixedSize(440, 300);
 
     // 去掉绿色背景，透明，与借用成功对话框风格统一
