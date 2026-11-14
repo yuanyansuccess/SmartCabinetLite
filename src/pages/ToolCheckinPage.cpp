@@ -1291,13 +1291,15 @@ void ToolCheckinPage::applyRecognitionOutcome() {
         if (!it.position.isEmpty()) ignorePositions.insert(it.position);
     }
 
-    // 全柜核对基准：本机组（localMachineGroupId）库内全部在库货位（只读查询，经 DAO 取数）
-    // 一台边缘计算机只服务一个机组的柜子，扫到的也是本机组货位；
-    // 按本机组过滤后，跨机组的货位不会混入核对，避免被误报成"来源不明"或"缺失"
+    // 全柜核对基准：本机组（localMachineGroupId）全部已登记货位，含空位（只读查询，经 DAO 取数）
+    // 一台边缘计算机只服务一个机组的柜子，扫到的也是本机组全部已登记货位（含空位）；
+    // 用全货位基线能把"登记过但当前空着"的货位也纳入核对，避免空位被误判成未登记工具。
+    // 借/还页仍以 in_stock 货位为基线（findAllInStockPositions），出入库页以全部已登记货位为基线，
+    // 两处口径不同是有意设计：借/还只关心有工具在柜的货位，全柜核对还要能判断空位是否被塞入工具
     QList<ToolService::RecogStockItem> stocks;
     db::ToolDAO toolDao;
-    const QJsonArray inStock = toolDao.findAllInStockPositions(m_localMachineGroupId);
-    for (const QJsonValue& v : inStock) {
+    const QJsonArray registered = toolDao.findAllRegisteredPositions(m_localMachineGroupId);
+    for (const QJsonValue& v : registered) {
         const QJsonObject o = v.toObject();
         ToolService::RecogStockItem st;
         st.mappingId = o["mappingId"].toInt();

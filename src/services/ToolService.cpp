@@ -286,6 +286,21 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
             outcome.diffs.append(diff);
             continue;
         }
+        // 基线货位本就空（已登记但无工具，全货位基线才会出现）：识别到工具才算异常，仍空则账实一致
+        // 该判断必须放在 Missing 之前——Missing 只在"基线确实有工具、货位却空了"时成立
+        if (st.toolCode.isEmpty()) {
+            if (!spot->toolCode.isEmpty()) {
+                RecogStockDiff diff;
+                diff.type      = RecogStockDiffType::Mismatch;
+                diff.position  = st.position;
+                diff.toolCode  = spot->toolCode;
+                diff.toolName  = QString();
+                diff.detail    = QStringLiteral("%1 货位库内本为空，实际识别为%2")
+                    .arg(st.position, spot->toolCode);
+                outcome.diffs.append(diff);
+            }
+            continue;
+        }
         if (spot->toolCode.isEmpty()) {
             RecogStockDiff diff;
             diff.type      = RecogStockDiffType::Missing;

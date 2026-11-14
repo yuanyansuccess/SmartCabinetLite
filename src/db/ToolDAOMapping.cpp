@@ -188,6 +188,44 @@ QJsonArray ToolDAO::findBorrowedOutPositions(int machineGroupId)
 }
 
 /**
+ * @brief 全货位基线（出入库页全柜核对用）：本机组全部已登记货位，含空位
+ * @param machineGroupId 机组编号，用于按机组隔离数据；<=0 表示不限机组
+ * @return 查询结果数组，字段与 findAllInStockPositions 完全一致；空位货位的 toolId/toolCode/toolName/spec 为空
+ * @note  与 findAllInStockPositions 的区别：后者只返回 in_stock（有工具在柜）的货位，
+ *        本方法返回全部已登记货位（in_stock/pending/checked_out/borrowed 各一条），
+ *        空位货位照样返回，用于全柜核对时把"登记过但当前空着"的货位也纳入比对，
+ *        避免空位被误判成未登记工具（Extra）。
+ *        机组过滤必须下沉到 LEFT JOIN 的 ON 子句：写成 WHERE 会让空位（tool_id 为空）
+ *        被 WHERE 排除，退化成只保留有工具的行（与 findAllInStockPositions 等价，失去意义）。
+ */
+QJsonArray ToolDAO::findAllRegisteredPositions(int machineGroupId)
+{
+    QSqlDatabase db = getDb();
+    QSqlQuery q(db);
+    const QString sql = QStringLiteral(
+        "SELECT m.mapping_id, COALESCE(t.tool_id,0), COALESCE(t.tool_code,''), "
+        "COALESCE(t.tool_name,''), COALESCE(t.spec,''), "
+        "c.cabinet_name, m.layer, m.position "
+        "FROM tool_position_mapping m "
+        "JOIN tool_cabinet c ON m.cabinet_id=c.cabinet_id "
+        "LEFT JOIN tool_info t ON t.tool_id=m.tool_id%1 "
+        "ORDER BY c.cabinet_name, m.layer, m.position")
+        .arg(machineGroupId > 0
+                 ? QStringLiteral(" AND t.machine_group_id=?")
+                 : QString());
+    q.prepare(sql);
+    if (machineGroupId > 0) {
+        q.addBindValue(machineGroupId);
+    }
+    safeExec(q);
+    QJsonArray arr;
+    while (q.next()) {
+        arr.append(positionRowFromQuery(q));
+    }
+    return arr;
+}
+
+/**
  * @brief 统计工具in_stock位置数（迁移自ToolService::checkinTool COUNT查询）
  * @param toolId 工具唯一标识 tool_id
  * @return 返回查询得到的编号或计数（找不到返回 -1 或 0）

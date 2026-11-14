@@ -212,6 +212,10 @@ public:
     // 入参：machineGroupId机组（<=0 表示不限机组）
     // 返回：QJsonArray 字段与 findAllInStockPositions 一致
     QJsonArray  findBorrowedOutPositions(int machineGroupId);
+    // 全货位基线（出入库页全柜核对用）：本机组全部已登记货位，含空位
+    // 入参：machineGroupId机组（<=0 表示不限机组）
+    // 返回：QJsonArray 字段与 findAllInStockPositions 一致；空位货位的 toolId/toolCode/toolName/spec 为空
+    QJsonArray  findAllRegisteredPositions(int machineGroupId);
 
     // 从查询结果构造ToolInfo实体
     // 入参：q已定位到某行的查询对象
