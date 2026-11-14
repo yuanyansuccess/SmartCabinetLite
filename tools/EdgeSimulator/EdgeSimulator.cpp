@@ -911,6 +911,33 @@ QWidget* EdgeSimulator::buildOpenPanel()
     sendRow->addWidget(btnOpenFail);
     sendRow->addStretch(1);
     g->addLayout(sendRow, 3, 0, 1, 2);
+
+    // ── IO 板关柜回应（模拟器一并模拟的 IO 板功能）──
+    auto* closeTitle = new QLabel(
+        QStringLiteral("IO 板关柜回应（close_ack：模拟器代答柜门是否关到位）"));
+    closeTitle->setStyleSheet(QStringLiteral("font-weight:bold;color:#333;"));
+    g->addWidget(closeTitle, 4, 1, 1, 1);
+    m_closeFailMsg = new QLineEdit(QStringLiteral("柜门未关到位（模拟）"));
+    m_closeFailMsg->setMinimumHeight(48);
+    m_closeFailMsg->setToolTip(QStringLiteral("点【回关柜失败】时 close_ack 携带的原因文案"));
+    g->addWidget(new QLabel(QStringLiteral("关柜失败原因")), 5, 0);
+    g->addWidget(m_closeFailMsg, 5, 1, 1, 1);
+
+    auto* btnCloseOk = new QPushButton(QStringLiteral("回关柜成功"));
+    connect(btnCloseOk, &QPushButton::clicked, this, &EdgeSimulator::onSendCloseSuccessClicked);
+    btnCloseOk->setToolTip(QStringLiteral("立即发送 close_ack（result=1）：上位机自动开始柜内核对"));
+    auto* btnCloseFail = new QPushButton(QStringLiteral("回关柜失败"));
+    connect(btnCloseFail, &QPushButton::clicked, this, &EdgeSimulator::onSendCloseFailureClicked);
+    btnCloseFail->setToolTip(QStringLiteral("立即发送 close_ack（result=0）：上位机提示重新关柜且零写库"));
+    btnOpenOk->setMinimumHeight(48);
+    btnOpenFail->setMinimumHeight(48);
+    btnCloseOk->setMinimumHeight(48);
+    btnCloseFail->setMinimumHeight(48);
+    auto* closeRow = new QHBoxLayout;
+    closeRow->addWidget(btnCloseOk);
+    closeRow->addWidget(btnCloseFail);
+    closeRow->addStretch(1);
+    g->addLayout(closeRow, 6, 0, 1, 2);
     g->setColumnStretch(1, 1);   // 多余宽度给控件列，按钮列不被推走
     return box;
 }
@@ -1400,6 +1427,10 @@ void EdgeSimulator::onLoadToolsFromDb()
     // 连库成功后把机组列表填进下拉：选了具体机组后，
     // 后续读库生成的清单只含该机组工具与货位（避免跨机组误报）
     loadMachineGroups();
+    // 联调口径提醒：不覆盖现场已保存的清单配置，只把回报范围要求写在日志区
+    logEvent(QStringLiteral("清单口径提醒：上位机要求本机组全部已登记货位逐条回报，"
+                            "空货位 tool_id 为空串但行不省略；联调前请点【一键标准联调】"
+                            "或②页【按本单生成清单】刷新为全货位清单"));
 }
 
 
@@ -1798,6 +1829,64 @@ void EdgeSimulator::onSendOpenFailureClicked()
 {
     const QString msg = m_openFailMsg ? m_openFailMsg->text() : QStringLiteral("开箱失败（模拟）");
     sendOpenAckNow(false, msg);
+}
+
+/**
+ * @brief 构造一条 close_ack 帧（IO 板关柜信号，由模拟器代答）
+ * @param requestId 最近一次开箱请求编号，可为空
+ * @param success   true=柜门已关到位，false=柜门未关到位
+ * @param message   关柜失败原因（success=true 时传空串）
+ * @return 含 type/request_id/result/message 四字段的帧对象，result 为 1 或 0
+ */
+QJsonObject EdgeSimulator::buildCloseAckFrame(const QString& requestId, bool success,
+                                              const QString& message)
+{
+    QJsonObject frame;
+    frame["type"] = QStringLiteral("close_ack");
+    frame["request_id"] = requestId;
+    frame["result"] = success ? 1 : 0;
+    frame["message"] = message;
+    return frame;
+}
+
+/**
+ * @brief 立即发送一条 close_ack（IO 板关柜信号，事件型帧不做请求配对）
+ * @param success true=柜门已关到位，false=柜门未关到位
+ * @param message 关柜失败原因；成功时传空串
+ * @return 无
+ * @note  上位机收到后自行判断当前是否处于等待关柜状态；未连接时只提示、不发帧
+ */
+void EdgeSimulator::sendCloseAckNow(bool success, const QString& message)
+{
+    if (!m_sock || m_sock->state() != QAbstractSocket::ConnectedState) {
+        logEvent(QStringLiteral("发送close_ack失败：未连接"));
+        return;
+    }
+    const QString id = m_lastOpenRequest.isEmpty()
+        ? QString() : m_lastOpenRequest["request_id"].toString();
+    logEvent(QString(QStringLiteral("主动发送 close_ack（result=%1，IO 板关柜信号）：request_id=%2"))
+                 .arg(success ? 1 : 0).arg(id.isEmpty() ? QStringLiteral("空") : id));
+    sendFrame(buildCloseAckFrame(id, success, message));
+}
+
+/**
+ * @brief 点【回关柜成功】：立即回一条 result=1 的 close_ack
+ * @return 无
+ */
+void EdgeSimulator::onSendCloseSuccessClicked()
+{
+    sendCloseAckNow(true, QString());
+}
+
+/**
+ * @brief 点【回关柜失败】：立即回一条 result=0 的 close_ack，原因取界面文案
+ * @return 无
+ */
+void EdgeSimulator::onSendCloseFailureClicked()
+{
+    const QString msg = m_closeFailMsg ? m_closeFailMsg->text()
+                                       : QStringLiteral("柜门未关到位（模拟）");
+    sendCloseAckNow(false, msg);
 }
 
 // ─────────────────────── 协议3.6 异常注入 ───────────────────────

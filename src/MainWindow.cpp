@@ -484,6 +484,12 @@ void MainWindow::setEdgeService(EdgeService* svc) {
             m_checkinPage->onOpenFailed(requestId, reason);
         });
 
+    // IO 板关柜信号（close_ack，由模拟器一并模拟 IO 板代答）：页面据此发起核对或提示重新关柜
+    connect(m_edgeService, &EdgeService::cabinetCloseResult, m_checkinPage,
+        [this](const QString& requestId, bool success, const QString& message) {
+            m_checkinPage->onCabinetCloseResult(requestId, success, message);
+        });
+
     // 补发当前在线状态，避免页面订阅前边缘机已在线导致初始误判离线（开箱闸门误拒）
     m_checkinPage->onEdgeOnlineChanged(m_edgeService->isOnline());
 
@@ -678,6 +684,11 @@ void MainWindow::startCabinetSession() {
             });
         connect(m_edgeService, &EdgeService::onlineChanged, &session,
             [this, &session](bool online) { session.onEdgeOnlineChanged(online); });
+        // IO 板关柜信号（close_ack，由模拟器一并模拟 IO 板代答）：会话按柜门是否关到位发起核对或提示重新关柜
+        connect(m_edgeService, &EdgeService::cabinetCloseResult, &session,
+            [this, &session](const QString& requestId, bool success, const QString& message) {
+                session.onCabinetCloseResult(requestId, success, message);
+            });
     }
     session.startSession();
 }

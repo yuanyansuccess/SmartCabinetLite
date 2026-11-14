@@ -29,6 +29,10 @@ static const int kFacePollIntervalMs = 1000;
 // 核验未通过、机会用尽两种结果面向用户显示的提示文案
 static const QString kFaceVerifyRetryText = QStringLiteral("未识别到本人，请再试一次");
 static const QString kFaceVerifyExhaustedText = QStringLiteral("次数已用尽，请联系管理员");
+// 人脸库中无匹配人员、刷脸总超时两种终局面向用户显示的专属提示文案；
+// 主句统一沿用"未识别到本人，请再试一次"，人脸库原因只作括号补充
+static const QString kNoMatchedUserNotice = QStringLiteral("未识别到本人，请再试一次（人脸库中未找到您的信息）");
+static const QString kVerifyTimeoutNotice = QStringLiteral("身份验证超时，请在 30 秒内完成刷脸，或联系管理员");
 
 /**
  * @brief 构造函数，初始化 ForgotPasswordDialog 对象并连接信号槽
@@ -310,21 +314,35 @@ void ForgotPasswordDialog::verifyOnce() {
         qInfo() << "[ForgotPassword] 人脸库中无匹配人员，按未识别到本人处理";
         stopVerifySession();
     }
-    if (registerFailedAttempt(kFaceVerifyRetryText) > 0) {
-        if (noMatchedUser) {
-            if (m_retryBtn) m_retryBtn->setVisible(true);
-        } else {
-            resumePolling();
-        }
+    // 主句沿用"未识别到本人，请再试一次"；人脸库原因只放括号里作补充
+    const QString reason = result.message.isEmpty()
+        ? QStringLiteral("人脸库中未找到您的信息") : result.message;
+    const QString notice = noMatchedUser
+        ? (result.message.isEmpty() ? kNoMatchedUserNotice
+                                   : QStringLiteral("%1（%2）").arg(kFaceVerifyRetryText, reason))
+        : kFaceVerifyRetryText;
+    const QString exhaustedNotice = noMatchedUser
+        ? QStringLiteral("%1（%2）").arg(kFaceVerifyExhaustedText, reason)
+        : QString();
+    const int remain = registerFailedAttempt(kFaceVerifyRetryText, exhaustedNotice);
+    if (remain > 0) {
+        // 失败后停掉本轮轮询，等用户点「重新验证」再开下一轮：
+        // 强提醒弹窗是模态的，弹窗显示期间继续轮询会在背后比对并提前耗尽尝试次数
+        stopVerifySession();
+        showVerifyFailureNotice(notice);
+        if (m_retryBtn) m_retryBtn->setVisible(true);
     }
+    // 次数用尽（remain<=0）：registerFailedAttempt 内已弹通用或带原因的用尽提示
 }
 
 /**
  * @brief 登记一次核验失败：累计次数、刷新提示，机会用尽时关闭核验入口
  * @param statusText 摄像头下方显示的状态文案
+ * @param exhaustedNotice 次数用尽时的弹窗文案；空串表示用通用文案
  * @return 剩余可尝试次数；0 表示机会已用尽
  */
-int ForgotPasswordDialog::registerFailedAttempt(const QString& statusText) {
+int ForgotPasswordDialog::registerFailedAttempt(const QString& statusText,
+                                                const QString& exhaustedNotice) {
     ++m_attempts;
     const int remain = SC::FACE_VERIFY_MAX_ATTEMPTS - m_attempts;
     if (m_captureStatus) {
@@ -339,9 +357,26 @@ int ForgotPasswordDialog::registerFailedAttempt(const QString& statusText) {
     if (remain <= 0) {
         stopVerifySession();
         if (m_retryBtn) m_retryBtn->setVisible(false);
+        showVerifyFailureNotice(exhaustedNotice.isEmpty()
+                                    ? kFaceVerifyExhaustedText : exhaustedNotice);
         return 0;
     }
     return remain;
+}
+
+/**
+ * @brief 核验失败强提醒：一轮验证内只弹一次，事件派发结束后弹出避免模态假死
+ * @param message 提示正文
+ */
+void ForgotPasswordDialog::showVerifyFailureNotice(const QString& message) {
+    if (m_verifyNoticeShown) return;   // 本轮已弹过，避免每 1 秒轮询反复弹
+    m_verifyNoticeShown = true;
+    QPointer<ForgotPasswordDialog> alive(this);
+    // 派发结束后再弹模态框：不在按钮或轮询事件栈内同步弹，避免页面假死
+    QTimer::singleShot(0, this, [alive, message]() {
+        if (!alive) return;            // 对话框已析构，不再弹
+        MessageDialog::showWarning(alive, QStringLiteral("身份验证失败"), message);
+    });
 }
 
 /**
@@ -359,6 +394,7 @@ void ForgotPasswordDialog::resumePolling() {
 void ForgotPasswordDialog::startVerifySession(bool resetAttempts) {
     ++m_sessionId;
     m_sessionActive = true;
+    m_verifyNoticeShown = false;   // 新一轮验证允许再弹一次失败强提醒
     if (resetAttempts) {
         m_attempts = 0;
         if (m_verifyError) m_verifyError->setVisible(false);
@@ -390,9 +426,13 @@ void ForgotPasswordDialog::onVerifyTimeout() {
     if (m_pages && m_pages->currentIndex() != 0) return;
     stopVerifySession();
     // 超时同样消耗一次机会，剩余次数大于零才允许重新验证
-    if (registerFailedAttempt(kFaceVerifyRetryText) > 0 && m_retryBtn) {
-        m_retryBtn->setVisible(true);
+    const int remain = registerFailedAttempt(kFaceVerifyRetryText);
+    if (remain > 0) {
+        // 30 秒总超时与普通核验失败区分提示；本轮只强提醒一次
+        showVerifyFailureNotice(kVerifyTimeoutNotice);
+        if (m_retryBtn) m_retryBtn->setVisible(true);
     }
+    // 次数用尽（remain<=0）：registerFailedAttempt 内已弹专属提示
 }
 
 /**

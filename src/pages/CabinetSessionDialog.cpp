@@ -278,9 +278,13 @@ void CabinetSessionDialog::buildOpenPage()
         "QPushButton:hover { background: %2; }"
         "QPushButton:pressed { background: #b71c1c; }"
     ).arg(StyleHelper::dangerColor(), StyleHelper::dangerHover()));
-    // 待办（协议未定）：IO 板下位机「已关柜」信号协议定稿后，改由该硬件信号触发 onCloseCabinetClicked()，
-    //           替代当前"关闭智能柜"按钮手动触发；协议帧与 EdgeService 接线待定。
-    connect(m_closeBtn, &QPushButton::clicked, this, &CabinetSessionDialog::onCloseCabinetClicked);
+    // 关柜核对有两条入口：用户点本按钮，或 IO 板关柜信号（由模拟器一并模拟 IO 板代答）报到柜门已关。
+    // 两条入口共用同一状态锁，同一次开柜会话只发起一次全柜核对，不会重复。
+    connect(m_closeBtn, &QPushButton::clicked, this, [this]() {
+        if (m_closeAckHandled) return;   // 本次关柜核对已由关柜信号发起，忽略重复点击
+        m_closeAckHandled = true;
+        onCloseCabinetClicked();
+    });
     readyLay->addWidget(m_closeBtn, 0, Qt::AlignCenter);
 
     lay->addWidget(m_openReady);
@@ -603,6 +607,7 @@ void CabinetSessionDialog::onOpenFinished(const QString& requestId, bool success
             m_baselineStock.append(s);
         }
         m_opened = true;
+        m_closeAckHandled = false;   // 新一轮取放：允许接收本次关柜信号或按钮触发核对
         m_openReady->show();
         m_titleLabel->setText(QStringLiteral("智能柜已开启"));
         m_stack->setCurrentIndex(0);
@@ -635,8 +640,8 @@ void CabinetSessionDialog::onOpenFailed(const QString& requestId, const QString&
 
 void CabinetSessionDialog::onCloseCabinetClicked()
 {
-    // 待办（协议未定）：IO 板下位机「已关柜」信号协议定稿后，由该硬件信号触发本函数，
-    //           替代"关闭智能柜"按钮手动触发。
+    // 用户点「关闭智能柜」，或 IO 板关柜信号（由模拟器一并模拟 IO 板代答）报到柜门已关时，都会走到这里：
+    // 停掉关柜等待计时，再发起全柜识别。
     if (!m_opened) { onOpenCabinetClicked(); return; }   // 防护：未开柜先开柜
     if (m_closeWaitTimer) m_closeWaitTimer->stop();   // 用户已主动关柜，结束等待计时
     if (!m_edge) {
@@ -645,6 +650,39 @@ void CabinetSessionDialog::onCloseCabinetClicked()
     }
     m_recognizeRequestId = m_edge->requestRecognize();
     onRecognitionStarted(m_recognizeRequestId);
+}
+
+/**
+ * @brief 处理 IO 板关柜信号（close_ack，由模拟器一并模拟 IO 板代答）：柜门已关则进入关柜核对，未关到位则提示重新关柜（零写库）
+ * @param requestId 关柜信号携带的请求编号。该信号是事件帧，按协议不做编号强配对
+ * @param success   true=柜门已关到位；false=柜门未关到位
+ * @param message   失败原因（success=false 时有效，为空则给默认提示）
+ * @return 无
+ * @note  仅处理"柜体已打开、等待关柜"状态；关柜信号与页面「关闭智能柜」按钮是两条
+ *        等价入口，先处理者先用状态标志锁定，另一条不再重复发起全柜核对
+ */
+void CabinetSessionDialog::onCabinetCloseResult(const QString& requestId, bool success, const QString& message)
+{
+    Q_UNUSED(requestId);
+    // 未在取放阶段，或本次关柜已有入口触发核对：忽略，避免重复核对
+    if (!m_opened || m_closeAckHandled) return;
+    m_closeAckHandled = true;
+
+    if (success) {
+        onCloseCabinetClicked();   // 停关柜计时 → 发起全柜识别 → 进入核对等待
+        return;
+    }
+
+    // 柜门未关到位：不发起核对、不写任何记录；关柜等待计时继续跑，用户仍可重新关柜
+    const QString text = message.isEmpty()
+        ? QStringLiteral("柜门未关到位，请重新关柜后再试") : message;
+    QTimer::singleShot(0, this, [this, text]() {
+        // 提示排到事件循环下一轮弹出（防模态假死）
+        MessageDialog::showWarning(this, QStringLiteral("柜门未关到位"), text);
+        // 用户看完提示后才解锁：弹窗显示期间迟到的失败帧不会重复弹；
+        // 解锁后重新关柜再次收到关柜信号仍可正常发起核对
+        m_closeAckHandled = false;
+    });
 }
 
 /**

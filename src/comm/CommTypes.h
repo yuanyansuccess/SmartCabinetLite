@@ -4,7 +4,7 @@
  * @author 袁燕
  * @note  依赖方向：本文件只被 comm/ 和 services/ 包含，pages/ 不许直接包含。
  *        JSON 字段为下划线（tool_id），结构体为驼峰（toolId），序列化时转换。
- *        与IO下位机通信接口（Modbus TCP）实现时再追加 IoConfig/IoResult。
+ *        与 IO 板通信接口按 TCP 帧接入时再补充相应配置与结果结构。
  */
 #pragma once
 #include <QString>
@@ -19,6 +19,10 @@ struct EdgeConfig {
     int  maxRetry = 2;                // 最大重发次数（协议3.6/第5章）
     int  frameMaxBytes = 1024 * 1024; // 单帧上限，防异常数据撑爆缓冲
 };
+
+// ---------- 帧归属一览 ----------
+// open_ack（开柜结果）与 close_ack（关柜信号）是上位机与 IO 板之间的开柜、关柜结果，由模拟器一并模拟 IO 板代答。
+// recognize_ack（识别清单）与 periodic（周期帧）由边缘计算机回报，边缘机只负责柜内工具识别与自身状态上报。
 
 // ---------- recognize_ack：识别清单 ----------
 // 协议3.3字段规整约定：一项一货位，position / tool_id / confidence 三项每项必填。
@@ -47,6 +51,14 @@ struct OpenResult {
     QString requestId;   // 与开箱请求配对
     bool    success = false;  // true=柜体已真实打开（开锁成功）
     QString message;      // 失败原因（人读，success=false 时有效）
+};
+
+// ---------- close_ack：关柜结果（IO 板回报的关柜信号，由模拟器一并模拟 IO 板代答） ----------
+// 事件型帧：不与开箱请求强配对，也不参与超时重发，仅把关柜结果交给上层。
+struct CloseResult {
+    QString requestId;        // 最近一次开箱请求编号，可为空
+    bool    success = false;  // true=柜门已关到位；false=未关到位
+    QString message;          // 关柜失败原因（人读，success=false 时有效）
 };
 
 // ---------- periodic：周期帧（边缘机健康状态） ----------

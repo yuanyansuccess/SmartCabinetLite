@@ -353,7 +353,7 @@ QString EdgeService::requestOpen()
 /**
  * @brief 收到边缘机一帧合法JSON（EdgeLink 转发）
  * @param clientId 来源连接编号
- * @param frame    已解析的JSON对象，type 为 periodic/recognize_ack/open_ack
+ * @param frame    已解析的JSON对象，type 为 periodic/recognize_ack/open_ack/close_ack
  * @note  按消息类型分发；认不出的类型丢弃并计数（协议3.6-②）
  */
 void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
@@ -438,6 +438,25 @@ void EdgeService::onFrameReceived(quintptr clientId, const QJsonObject& frame)
         result.success = (frame["result"].toInt(0) == 1);
         result.message = frame["message"].toString();
         emit openFinished(id, result);
+        return;
+    }
+
+    if (type == QStringLiteral("close_ack")) {
+        // 关柜结果来自 IO 板回报的关柜信号（由模拟器一并模拟 IO 板代答），属事件型帧：
+        // 不做 request_id 配对、不登记在途请求、不触发超时重发，只把结果转给上层。
+        // result 缺失或不是数值时按坏帧丢弃，绝不 emit 关柜成功（否则会误触发柜内核对）。
+        const QJsonValue resultValue = frame.value(QStringLiteral("result"));
+        if (!resultValue.isDouble()) {
+            ++m_dropCount;
+            qWarning() << "[EdgeService] 丢弃帧 #" << m_dropCount
+                       << ": close_ack 的 result 缺失或不是数值";
+            return;
+        }
+        CloseResult result;
+        result.requestId = frame.value(QStringLiteral("request_id")).toString();
+        result.success   = (resultValue.toInt(0) == 1);
+        result.message   = frame.value(QStringLiteral("message")).toString();
+        emit cabinetCloseResult(result.requestId, result.success, result.message);
         return;
     }
 

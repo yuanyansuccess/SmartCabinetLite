@@ -4,7 +4,7 @@
  * @author 袁燕
  * @说明 普通用户登录成功后进入本会话，不进管理主界面。
  *   开柜：经 EdgeService 下发开箱指令（在线/摄像头闸门），IO 板真实开柜；
- *   关柜：用户点"关闭智能柜"触发（TODO: 接入下位机 IO 板「已关柜」信号），
+ *   关柜：用户点"关闭智能柜"，或 IO 板关柜信号（由模拟器一并模拟 IO 板代答）报到柜门已关时触发，
  *        随后发起全柜识别，与开柜基线（本机组在库货位）比对，得出借/还/错放清单；
  *   落库：确认关闭时调用 BorrowService/ReturnService 写库并记操作日志。
  *   复用：EdgeService（开箱/识别/在线/摄像头）、ToolService（全柜比对）、
@@ -57,6 +57,8 @@ public slots:
     void onRecognitionResult(const QString& requestId, const QList<ToolService::RecogSpot>& spots);
     void onRecognitionFailed(const QString& requestId, const QString& reason);
     void onEdgeOnlineChanged(bool online);
+    // 处理 IO 板关柜信号（由模拟器一并模拟 IO 板代答）：柜门已关进入核对，未关到位提示重新关柜（零写库）
+    void onCabinetCloseResult(const QString& requestId, bool success, const QString& message);
 
 private slots:
     // ── 开柜 ──
@@ -141,6 +143,7 @@ private:
     int m_round = 1;                  // 当前轮次（错放重开柜，上限见 kMaxRounds）
     bool m_opened = false;            // 是否已真实开柜
     QTimer* m_closeWaitTimer = nullptr; // 关柜等待计时（柜体打开起算，超时提示确认柜门已关）
+    bool m_closeAckHandled = false;   // 本次开柜会话是否已触发关柜核对（按钮与关柜信号共用，避免重复核对）
 
     static const int kMaxRounds = 3;  // 错放重开柜次数上限（含首次共 3 轮）
 };

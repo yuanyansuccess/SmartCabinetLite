@@ -18,6 +18,7 @@
 #include "components/ResultDialog.h"
 #include "services/ToolService.h"       // 入库落库唯一业务入口
 #include "services/CheckoutService.h"  // 出库落库唯一业务入口
+#include "services/AlertService.h"     // 错放告警的唯一业务入口
 #include "common/Constants.h"
 #include "common/StatusDisplay.h"
 #include "db/RecordDAO.h"
@@ -72,7 +73,7 @@ DrawerOpeningDialog* ToolCheckinPage::buildOpenExecuteDialog(const QList<OrderRo
 
     auto* dlg = new DrawerOpeningDialog(QStringLiteral("工具出入库"),
         QStringLiteral("正在打开柜体"),
-        QStringLiteral("系统正在向边缘计算机发送开箱指令，请稍候…"), 32, 60, this);
+        QStringLiteral("系统正在下发开锁指令，请稍候…"), 32, 60, this);
     // 应用级模态：弹窗期间屏蔽主页面操作（与原模态等待框的行为一致）
     dlg->setWindowModality(Qt::ApplicationModal);
     dlg->setFixedSize(560, dialogHeight);
@@ -146,11 +147,75 @@ void ToolCheckinPage::applyOpenOpenedState(DrawerOpeningDialog* dlg) {
 }
 // ═══════════ 关柜检查：逐项执行 + 结果展示 ═══════════
 
+// 结果页高度预算：行高与结果表 setRowHeight(40) 一致，最多铺开 6 行；
+// 提示行按含换行与内边距的保守高度计入，保证底部按钮行始终留在窗口内
+struct ResultDialogSize {
+    int dialogHeight;  ///< 弹窗高度（下限 480，上限为屏幕可用高度减边距）
+    int tableHeight;   ///< 结果表高度（按窗口可用高度反算并钳制）
+};
+
+// 结果页可选提示行的保守高度（用于弹窗高度预算）
+static const int kMisplacedLabelHeight = 56;  // 错放提示行
+static const int kStockHintHeight      = 64;  // 全柜核对提示行
+static const int kTipLabelHeight       = 24;  // 未完成项说明行
+
+/**
+ * @brief 按结果表行数与提示行高度计算结果页弹窗高度与结果表高度
+ * @param rowCount         结果表行数
+ * @param extraLabelHeight 结果表之外的提示行折算高度
+ * @return 弹窗与结果表高度：短单据保持 480 下限，单据行多或提示行多时按内容增高并以
+ *         屏幕可用高度封顶；结果表按窗口可用高度反算，多余行由表格自身滚动承接，
+ *         底部按钮行始终留在窗口内
+ * @note  与开箱弹窗 buildOpenExecuteDialog 同一套高度预算口径
+ */
+static ResultDialogSize calcResultDialogSize(int rowCount, int extraLabelHeight) {
+    const int kRowHeight        = 40;   // 与结果表 setRowHeight(40) 一致
+    const int kMaxVisibleRows   = 6;
+    const int kHeaderHeight     = 38;
+    const int kFixedPartsHeight = 300;  // 图标、标题、按钮行、边距与间距
+    const int kMinDialogHeight  = 480;
+    const int kScreenMargin     = 80;   // 为任务栏与窗口装饰预留的上下余量
+
+    const int visibleRows = qMin(rowCount, kMaxVisibleRows);
+    const int wantedTableHeight = visibleRows * kRowHeight + kHeaderHeight;
+    const int needed = kFixedPartsHeight + extraLabelHeight + wantedTableHeight;
+
+    QScreen* screen = QGuiApplication::primaryScreen();
+    const int screenLimit = screen
+        ? qMax(kMinDialogHeight, screen->availableGeometry().height() - kScreenMargin)
+        : qMax(kMinDialogHeight, needed);
+    const int dialogHeight = qBound(kMinDialogHeight, needed, screenLimit);
+    const int tableHeight = qBound(kHeaderHeight + kRowHeight,
+                                   qMin(wantedTableHeight, dialogHeight - kFixedPartsHeight - extraLabelHeight),
+                                   kMaxVisibleRows * kRowHeight + kHeaderHeight);
+    return {dialogHeight, tableHeight};
+}
+
+/**
+ * @brief 出入库核对发现错放时写一条操作告警
+ * @param userId    当前操作人 ID
+ * @param misplaced 本轮识别出的错放明细（含货位与异常工具）
+ * @note  复用流程校验类告警类型，经告警服务写入，页面不直接访问数据库；
+ *        与"识别清单为空或覆盖不全"的识别故障告警语义不同，两者互不替代
+ */
+static void writeMisplacedAlert(int userId, const QList<ToolService::RecogMisplaced>& misplaced) {
+    if (misplaced.isEmpty()) return;
+    QStringList tips;
+    for (const auto& m : misplaced) {
+        tips << QStringLiteral("%1 货位有异常工具（%2 应放 %3）")
+                .arg(m.actualPosition,
+                     m.toolName.isEmpty() ? m.toolCode : m.toolName,
+                     m.expectedPosition);
+    }
+    const QString message = QStringLiteral("出入库核对检测到错放：") + tips.join(QStringLiteral("；"));
+    AlertService().recordVerifyAlert(userId, 0, message);
+}
+
 /**
  * @brief 关柜检查：按边缘机比对结论逐项执行并显示结果
  * @param items         已通过校验的出入库指令列表（入库行已分配好位置）
  * @param compareItems  边缘机比对结论（与 items 同序）：Matched 项才写库，其余红字展示
- * @param misplaced     错放明细（结果页提示行，只提示不告警）
+ * @param misplaced     错放明细（结果页提示行，并写一条操作告警）
  *
  * 执行约定：比对通过的项写库并写操作日志（入库 checkin / 出库 checkout）；
  * 比对未过的项红字提示原因且不写任何记录。
@@ -196,6 +261,12 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
             results.append({false, typeText, it.toolName, it.position, reason});
         }
     }
+    // 结果页高度按最坏内容组合一次算好：两处出口共用同一预算，结果表固定高度
+    // 保证底部按钮行不会被长清单挤出窗口
+    const int extraLabelHeight = (misplaced.isEmpty() ? 0 : kMisplacedLabelHeight)
+                               + (stockOutcome.checked ? kStockHintHeight : 0)
+                               + kTipLabelHeight;
+    const ResultDialogSize dlgSize = calcResultDialogSize(static_cast<int>(results.size()), extraLabelHeight);
     // 全柜核对出现硬差异（库内在库工具柜内已空 / 货位上工具被换 / 柜内多出未登记工具）
     // 说明实际取放与账实对不上：本次不能判"全部成功"，按未全过处理，
     // 走【重新开柜整理】/【按当前实况写库】双出口，并受三轮上限约束。
@@ -360,6 +431,11 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
             resultTable->setItem(i, 3, msgItem);
             resultTable->setRowHeight(i, 40);
         }
+        // 结果表按窗口可用高度反算固定高度：多余行由表格自身滚动承接，
+        // 底部按钮行始终留在窗口内；按像素滚动并接入触屏手势
+        resultTable->setFixedHeight(dlgSize.tableHeight);
+        resultTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+        QScroller::grabGesture(resultTable->viewport(), QScroller::LeftMouseButtonGesture);
         return resultTable;
     };
 
@@ -378,7 +454,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
                        : QStringLiteral("共 %1 项，成功 %2 项，未完成 %3 项")
                              .arg(items.size()).arg(okIdx.size()).arg(items.size() - okIdx.size()),
             allWriteOk ? QStringLiteral("#43a047") : QStringLiteral("#e67e22"), 14, this);
-        dlg.setFixedSize(620, 480);
+        dlg.setFixedSize(620, dlgSize.dialogHeight);
 
         if (!misplaced.isEmpty()) {
             QStringList tips;
@@ -388,13 +464,21 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
                          m.toolName.isEmpty() ? m.toolCode : m.toolName,
                          m.expectedPosition);
             }
+            const int misplacedCount = tips.size();
+            if (tips.size() > 2) {
+                tips = tips.mid(0, 2);
+                tips << QStringLiteral("另有 %1 处错放，详见本轮操作日志与告警记录").arg(misplacedCount - 2);
+            }
             auto* misplacedLabel = new QLabel(QStringLiteral("⚠ 检测到错放：") + tips.join(QStringLiteral("；")));
             misplacedLabel->setWordWrap(true);
+            misplacedLabel->setFixedHeight(kMisplacedLabelHeight);
             misplacedLabel->setStyleSheet(QString(
                 "" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";"
                 "color:#d97a1e;background:#fff7e6;border:1px solid #f0c36d;"
                 "border-radius:10px;padding:8px 12px;"));
             dlg.bodyLayout()->addWidget(misplacedLabel);
+            // 全过或仍写入了部分记录：本轮识别发现错放，落一条操作告警便于运维追溯
+            writeMisplacedAlert(userId, misplaced);
         }
         if (stockOutcome.checked) dlg.bodyLayout()->addWidget(buildStockHint());
         dlg.bodyLayout()->addWidget(buildResultTable(true, okIdx));
@@ -424,7 +508,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
     }
     ResultDialog dlg(QStringLiteral("出入库检查结果"), QStringLiteral("⚠️"), summaryText,
         QStringLiteral("#e67e22"), 14, this);
-    dlg.setFixedSize(620, 480);
+    dlg.setFixedSize(620, dlgSize.dialogHeight);
 
     if (!misplaced.isEmpty()) {
         QStringList tips;
@@ -433,16 +517,22 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
                 .arg(m.toolName.isEmpty() ? m.toolCode : m.toolName,
                      m.actualPosition, m.expectedPosition);
         }
+        const int misplacedCount = tips.size();
+        if (tips.size() > 2) {
+            tips = tips.mid(0, 2);
+            tips << QStringLiteral("另有 %1 处错放，详见本轮操作日志与告警记录").arg(misplacedCount - 2);
+        }
         auto* misplacedLabel = new QLabel(QStringLiteral("⚠ 检测到错放：") + tips.join(QStringLiteral("；")));
         misplacedLabel->setWordWrap(true);
+        misplacedLabel->setFixedHeight(kMisplacedLabelHeight);
         misplacedLabel->setStyleSheet(QString(
             "" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";"
             "color:#d97a1e;background:#fff7e6;border:1px solid #f0c36d;"
             "border-radius:10px;padding:8px 12px;"));
         dlg.bodyLayout()->addWidget(misplacedLabel);
-        }
-        if (stockOutcome.checked) dlg.bodyLayout()->addWidget(buildStockHint());
-        dlg.bodyLayout()->addWidget(buildResultTable(false, QSet<int>()));
+    }
+    if (stockOutcome.checked) dlg.bodyLayout()->addWidget(buildStockHint());
+    dlg.bodyLayout()->addWidget(buildResultTable(false, QSet<int>()));
 
     auto* tipLabel = new QLabel(QStringLiteral("未完成项未写入记录，可重新开柜整理或按当前实况写库"));
     tipLabel->setStyleSheet("" + StyleHelper::fontSize(StyleHelper::Token::FontSmall) + ";color:#999;background:transparent;");
@@ -494,6 +584,8 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
 
     // 按当前实况写库（本轮通过项写入，未过项保持原状）
     QSet<int> okIdx = commitByIndices(matchedIdx);
+    // 本轮识别发现错放，落一条操作告警；用户放弃或重新开柜整理（零写库）不写
+    writeMisplacedAlert(userId, misplaced);
     // 保底轮次同样写日志：结果记 fail，便于事后追溯为何按实况写入
     writeRoundLog(round, items, compareItems, misplaced, false);
     // 保底结果如实呈现：一项未写也必须明确告知，避免操作人误以为已入库

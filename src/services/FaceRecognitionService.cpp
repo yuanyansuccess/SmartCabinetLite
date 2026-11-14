@@ -184,21 +184,6 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
     std::sort(candidates.begin(), candidates.end(),
               [](const Candidate& a, const Candidate& b) { return a.similarity > b.similarity; });
 
-    // ⚠ 无候选时必须先返回：candidates 为空时下面 candidates[0] 会越界访问
-    //   这种情况说明无人脸与库内任何特征达到 rejectThreshold，属"识别失败"
-    //   而非陌生人，不应让上层显示陌生人警报。
-    if (candidates.isEmpty()) {
-        // 质量不足：本次未产生有效候选，交给上层继续采样重试
-        result.success = false;
-        result.isStranger = false;
-        result.message = QStringLiteral("未匹配，请重试");
-        FaceRecogLogDAO().insertLog({ "no_candidate", globalBestSim, globalBestDist,
-                                      rejectThreshold, "none",
-                                      candidateCnt,                                       int(recogTimer.elapsed()), "",
-                                      0.0, QString(), quality });
-        return result;
-    }
-
     auto& best = candidates[0];
     double secondSim = candidates.size() > 1 ? candidates[1].similarity : 0;
     QString secondUser = candidates.size() > 1 ? candidates[1].workNo : "";

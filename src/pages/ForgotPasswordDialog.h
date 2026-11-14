@@ -68,10 +68,15 @@ private:
     void verifyOnce();
     /// 登记一次核验失败：累计次数、刷新提示，机会用尽时关闭核验入口
     /// @param statusText 摄像头下方显示的状态文案
+    /// @param exhaustedNotice 次数用尽时的弹窗文案；空串表示用通用文案
     /// @return 剩余可尝试次数；0 表示机会已用尽
-    int registerFailedAttempt(const QString& statusText);
+    int registerFailedAttempt(const QString& statusText,
+                              const QString& exhaustedNotice = QString());
     /// 继续下一轮人脸轮询：仅在本轮验证仍有效时重启轮询
     void resumePolling();
+    /// 核验失败强提醒：一轮验证内只弹一次，事件派发结束后弹出避免模态假死
+    /// @param message 提示正文
+    void showVerifyFailureNotice(const QString& message);
     /// 开始一轮刷脸验证：分配新编号并启动摄像头、轮询与总超时
     /// @param resetAttempts true=新开对话框从零计次数；false=重新验证沿用已用次数
     void startVerifySession(bool resetAttempts = true);
@@ -100,4 +105,5 @@ private:
     int   m_attempts = 0;            // 本轮已失败次数，上限 SC::FACE_VERIFY_MAX_ATTEMPTS
     int   m_userId = 0;              // 验证通过的用户ID
     bool  m_passwordReset = false;   // 是否已成功重置密码
+    bool  m_verifyNoticeShown = false;  // 本轮验证是否已弹过失败强提醒（防止轮询反复弹）
 };

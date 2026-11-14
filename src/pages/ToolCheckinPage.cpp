@@ -926,6 +926,7 @@ void ToolCheckinPage::onOpenStarted(const QString& requestId) {
     auto* dlg = buildOpenExecuteDialog(m_pendingOpenItems);
     m_openExecuteDialog = dlg;
     m_openDialogOpened = false;
+    m_closeAckHandled = false;   // 新一轮开柜：允许接收本次关柜信号
     connect(dlg, &QDialog::finished, this, [this, dlg](int result) {
         if (m_openExecuteDialog == dlg) {
             m_openExecuteDialog = nullptr;
@@ -1051,6 +1052,42 @@ void ToolCheckinPage::onCloseWaitTimeout() {
     closeOpenExecuteDialog();
     MessageDialog::showWarning(this, QStringLiteral("请确认柜门已关"),
         QStringLiteral("等待关柜超时，本次操作已取消，未写入任何记录。\n请确认柜门已关后重新发起本次出入库。"));
+}
+
+/**
+ * @brief 处理 IO 板关柜信号（close_ack，由模拟器一并模拟 IO 板代答）：柜门已关则发起全柜核对，未关到位则提示重新关柜（零写库）
+ * @param requestId 关柜信号携带的请求编号。该信号是事件帧，按协议不做编号强配对
+ * @param success   true=柜门已关到位；false=柜门未关到位
+ * @param message   失败原因（success=false 时有效，为空则给默认提示）
+ * @return 无
+ * @note  仅处理"柜体已打开、等待关柜"状态；关柜信号与页面"我已关柜，开始核对"按钮
+ *        是两条等价入口，先处理者先用状态标志锁定，另一条不再重复发起核对
+ */
+void ToolCheckinPage::onCabinetCloseResult(const QString& requestId, bool success, const QString& message) {
+    Q_UNUSED(requestId);
+    // 不是等待关柜状态，或本次关柜信号已处理过：忽略，避免重复核对
+    if (!m_openExecuteDialog || !m_openDialogOpened
+        || !m_openExecuteDialog->isVisible() || m_closeAckHandled) {
+        return;
+    }
+    m_closeAckHandled = true;
+
+    // 两条分支都先内部关闭统一弹窗：reject 触发的 finished 回调因内部关闭标记直接返回，
+    // 不会再走 Accepted 分支重复调用 startEdgeCheck，也不会弹出"用户取消"提示
+    closeOpenExecuteDialog();
+    if (m_closeWaitTimer) m_closeWaitTimer->stop();
+
+    if (success) {
+        startEdgeCheck();
+        return;
+    }
+
+    // 柜门未关到位：不发起核对、不写任何记录，提示用户重新关柜后再试
+    const QString text = message.isEmpty()
+        ? QStringLiteral("柜门未关到位，本次出入库已取消，未写入任何记录。请关好柜门后重新发起") : message;
+    QTimer::singleShot(0, this, [this, text]() {
+        MessageDialog::showWarning(this, QStringLiteral("柜门未关到位"), text);
+    });
 }
 
 // ═══════════ 边缘机识别两段式流程 ═══════════

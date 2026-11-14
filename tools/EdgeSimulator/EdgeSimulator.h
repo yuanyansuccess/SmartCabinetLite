@@ -104,6 +104,16 @@ public:
     static QJsonObject buildOpenAckFrame(const QString& requestId, bool success,
                                          const QString& message);
 
+    /**
+     * @brief 构造一条 close_ack 帧（IO 板关柜信号，由模拟器代答）
+     * @param requestId 最近一次开箱请求编号，可为空（事件型帧不做请求配对）
+     * @param success   true=柜门已关到位，false=柜门未关到位
+     * @param message   关柜失败原因（success=true 时传空串）
+     * @return close_ack 帧对象；result 为 1 或 0
+     */
+    static QJsonObject buildCloseAckFrame(const QString& requestId, bool success,
+                                          const QString& message);
+
 private slots:
     // 连接
     void onConnectToggle();      ///< 连接/断开上位机
@@ -146,6 +156,9 @@ private slots:
     // 开箱回应（协议3.7）：主动立即发送
     void onSendOpenSuccessClicked(); ///< 立即回一条开柜成功 open_ack（编号取最近一次 open_req）
     void onSendOpenFailureClicked(); ///< 立即回一条开柜失败 open_ack（原因取界面文案）
+    // IO 板关柜回应（模拟器多模拟的一节 IO 板功能）：主动立即发送
+    void onSendCloseSuccessClicked();///< 立即回一条关柜成功 close_ack
+    void onSendCloseFailureClicked();///< 立即回一条关柜失败 close_ack（原因取界面文案）
     // 日志
     void onSaveLogClicked();     ///< 保存日志：导出日志区内容为文本文件
 
@@ -204,6 +217,7 @@ private:
     void updateSceneHint();                     ///< 刷新顶部状态条：这份清单到底生效没有
     void autoActivateCustomList(const QString& why); ///< 有清单且场景不是自定义清单时自动切过去（避免"配了不生效"）
     void sendOpenAckNow(bool success, const QString& message);  ///< 立即回应最近open_req（开箱协议3.7）
+    void sendCloseAckNow(bool success, const QString& message); ///< 立即发送 IO 板关柜信号 close_ack
     void saveConfig();           ///< 全部回应配置持久化到 exe 同目录 simulator.ini
     void loadConfig();           ///< 启动时恢复上次的回应配置（连接前配好即可长期复用）
     void addSeqScene(int scene); ///< 向识别回应序列列表追加一个场景（同时写入场景枚举值供回放）
@@ -241,6 +255,7 @@ private:
     // 版本/开箱/异常区
     QComboBox*   m_openPolicy = nullptr; ///< 开箱回应策略单选（自动成功/固定失败/不回应，3.7）
     QLineEdit*   m_openFailMsg = nullptr;///< 开箱"固定失败"时 open_ack 附带的原因文案
+    QLineEdit*   m_closeFailMsg = nullptr;///< IO 板关柜失败时 close_ack 附带的原因文案
     // 自定义帧区
     QTextEdit*   m_custom = nullptr;     ///< 编辑框内容即最终发出的帧（支持多行缩进单帧，也可一行多帧）
     QCheckBox*   m_rawSend = nullptr;    ///< 原文发送开关（不校验JSON，可发坏帧/任意文本）

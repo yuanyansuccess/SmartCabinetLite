@@ -68,6 +68,8 @@ public slots:
     void onOpenFinished(const QString& requestId, bool success, const QString& message);
     /// 开箱失败（超时/离线/补发放弃）：提示并终止本次
     void onOpenFailed(const QString& requestId, const QString& reason);
+    /// 处理 IO 板关柜信号（由模拟器一并模拟 IO 板代答）：柜门已关则发起全柜核对，未关到位则提示重新关柜（零写库）
+    void onCabinetCloseResult(const QString& requestId, bool success, const QString& message);
 
 private slots:
     void onAddOrderRow();      // 添加一行入库指令
@@ -195,6 +197,7 @@ private:
     DrawerOpeningDialog* m_openExecuteDialog = nullptr; ///< 开柜+取放工具统一弹窗（开柜中→柜体已打开，同一页面原地切换）
     bool m_openDialogOpened = false;      ///< 统一弹窗是否已切换到"柜体已打开"状态（区分开柜阶段与取放阶段）
     bool m_openDialogInternalClose = false; ///< 统一弹窗是否为程序内部关闭（区分用户取消与程序关闭）
+    bool m_closeAckHandled = false;         ///< 本次开柜会话是否已处理关柜信号（成功/失败）：与手动按钮互斥，避免重复发起核对
     QTimer* m_closeWaitTimer = nullptr;   ///< 关柜等待超时计时（柜体打开后起算，超时提示确认柜门已关）
 
     // 状态

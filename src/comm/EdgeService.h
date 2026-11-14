@@ -116,6 +116,15 @@ signals:
      */
     void cameraStatusChanged(const QString& cameraId, const QString& oldStatus, const QString& newStatus);
 
+    /**
+     * @brief 关柜结果上报（收到 IO 板回报的关柜信号时触发，该信号由模拟器一并模拟 IO 板代答）
+     * @param requestId 最近一次开箱请求编号；帧中未携带时为空串（事件型帧，不做请求配对）
+     * @param success    true=柜门已关到位，上层可据此开始柜内核对；false=未关到位
+     * @param message    关柜失败原因（人读，success=false 时用于提示用户）
+     * @note  本信号只上报事件，不参与在途请求登记与超时重发；是否开始核对由界面判断
+     */
+    void cabinetCloseResult(const QString& requestId, bool success, const QString& message);
+
 private slots:
     void onClientConnected(quintptr clientId);   ///< 边缘机接入
     void onClientDisconnected(quintptr clientId); ///< 边缘机断开
