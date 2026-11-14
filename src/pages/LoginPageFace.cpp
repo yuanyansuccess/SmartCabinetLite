@@ -391,8 +391,10 @@ void LoginPage::verifyFace(const QString& descriptor, const QImage& image, doubl
 void LoginPage::doLocalFaceVerify(const QString& descriptor, double quality) {
     FaceRecognitionService svc;
     // 阈值与 FaceRecognitionService.h 标定一致（2026-11-02 现场校准）：
-    //   单人脸门槛 0.50、多人脸线 0.45、跨人上限 0.22；512 引擎同人跨时段 0.595~0.86
-    auto result = svc.matchFace(descriptor, 0.45, 0.50, 0.30, 0.15, 0.80, quality);
+    //   单人脸门槛 0.50、多人脸线 0.45、跨人上限 0.22；512 引擎同人跨时段 0.537~0.86
+    //   末位距离上限只作兜底（1.05），实际生效值由余弦阈值反算，
+    //   避免固定距离上限把余弦已过线的本人帧拒掉
+    auto result = svc.matchFace(descriptor, 0.45, 0.50, 0.30, 0.15, 1.05, quality);
 
     // 记录本次相似度：便于现场判断"差多少到阈值"（SC_LOG_SENSITIVE=1 可见）
     ++m_verifyBudget;

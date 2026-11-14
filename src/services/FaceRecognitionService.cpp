@@ -218,12 +218,20 @@ FaceRecognitionService::FaceMatchResult FaceRecognitionService::matchFace(
         cosOk = true;
     }
     // 其余情况（第一名未达登录线 / 第二名同样达到同人线）一律拒绝
-    // 欧氏距离验证（第二道防线）
-    bool distOk = (best.euclideanDist <= maxEuclideanDist);
 
     // 统计埋点：记录本次生效的判定模式（单/多人脸）与最终阈值
     const QString effMode = (candidates.size() == 1) ? "single" : "multi";
     const double effThreshold = (candidates.size() == 1) ? singleFaceThreshold : threshold;
+
+    // 欧氏距离验证（第二道防线）：入库与采集特征都已做 L2 归一化，此时欧氏距离与余弦
+    // 相似度严格等价（d = sqrt(2-2c)），距离上限必须由本次生效的余弦阈值反算，
+    // 否则会变成比声明阈值更严的隐形门槛：固定 0.80 等价于要求余弦 ≥ 0.68，
+    // 而单人/多人通过线只有 0.50/0.45，会导致余弦已过线、距离略超的本人帧被拒
+    // （现场表现为反复提示"已接近识别成功"）。maxEuclideanDist 只作兜底天花板，
+    // 用于拦住"特征未归一化/数值异常"这类距离虚高的情况。
+    const double cosDistLimit = qSqrt(qMax(0.0, 2.0 - 2.0 * effThreshold));
+    const double distLimit = qMin(maxEuclideanDist, cosDistLimit);
+    bool distOk = (best.euclideanDist <= distLimit);
 
     if (cosOk && distOk) {
         result.success = true;
