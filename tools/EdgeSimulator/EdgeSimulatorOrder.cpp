@@ -490,8 +490,8 @@ bool EdgeSimulator::loadOrderCandidates()
  *        回报范围是本机组全部已登记货位：in_stock/pending/checked_out/borrowed 四种状态各一条，
  *        在库货位带真实工具编号，其余货位工具编号为空但这一行照样回报，不得从清单中省略。
  *        库里没有货位定义表，从未登记过的物理空位取不到，不在回报范围内。
- *        机组只能经 tool_info.machine_group_id 关联；按机组过滤时 LEFT JOIN 的过滤条件
- *        写在 WHERE 上会退化成只保留能关联到本机组工具的已登记货位。
+ *        机组只能经 tool_info.machine_group_id 关联；过滤条件必须下沉到 LEFT JOIN 的 ON 子句，
+ *        写在 WHERE 上会让空货位（tool_id 为空）被 WHERE 排除，退化成只保留有工具的行。
  */
 bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
 {
@@ -501,17 +501,17 @@ bool EdgeSimulator::collectStockRows(QList<CustomRow>& rows)
     }
     QSqlDatabase db = QSqlDatabase::database(QStringLiteral("edge_sim_tools"));
     QSqlQuery q(db);
-    // 不按 status 过滤：本机组全部已登记货位逐条回报，status 只用来判断该货位上有没有工具
+    // 不按 status 过滤：本机组全部已登记货位逐条回报，status 只用来判断该货位上有没有工具；
+    // 机组过滤下沉到 LEFT JOIN ON，保证空货位（tool_id 为空）不被排除
     QString stockSql = QStringLiteral(
         "SELECT cb.cabinet_name, mpm.layer, mpm.position, t.tool_code, t.tool_name, mpm.status "
         "FROM tool_position_mapping mpm "
         "JOIN tool_cabinet cb ON cb.cabinet_id = mpm.cabinet_id "
-        "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id "
-        "WHERE 1=1");
-    if (m_selectedGroupId != 0) {
-        stockSql += QStringLiteral(" AND t.machine_group_id = %1").arg(m_selectedGroupId);
-    }
-    stockSql += QStringLiteral(" ORDER BY cb.cabinet_name, mpm.layer, mpm.position");
+        "LEFT JOIN tool_info t ON t.tool_id = mpm.tool_id%1 "
+        "ORDER BY cb.cabinet_name, mpm.layer, mpm.position")
+        .arg(m_selectedGroupId != 0
+                 ? QStringLiteral(" AND t.machine_group_id = %1").arg(m_selectedGroupId)
+                 : QStringLiteral(""));
     const bool ok = q.exec(stockSql);
     if (ok) {
         while (q.next()) {

@@ -40,15 +40,10 @@ public:
     explicit CameraCapture(QObject* parent = nullptr);
     ~CameraCapture();
 
-    /// 获取可用摄像头列表
-    static QStringList availableCameras();
-
     /// 开始采集 (使用默认摄像头)
     bool start(int width = 640, int height = 480, int fps = 30);
     /// 停止采集
     void stop();
-    /// 是否正在采集
-    bool isRunning() const;
     /// 是否有真实摄像头可用
     static bool hasCamera();
 

@@ -76,22 +76,33 @@ void PaginationBar::setTotalRecords(int totalRecords) {
 }
 
 /**
- * @brief 读取当前页码显示文本
- * @return 形如"第 3 / 10 页"的文本
+ * @brief 读取当前页码文本
+ * @return 页码标签当前文本（格式"第 x/y 页"）
  */
-QString PaginationBar::pageText() const { return m_pageLabel->text(); }
+QString PaginationBar::pageText() const {
+    return m_pageLabel->text();
+}
+
 /**
- * @brief 读取总条数显示文本
- * @return 形如"共 128 条"的文本
+ * @brief 读取总条数文本
+ * @return 总条数标签当前文本（格式"共 N 条"）
  */
-QString PaginationBar::totalText() const { return m_totalLabel->text(); }
+QString PaginationBar::totalText() const {
+    return m_totalLabel->text();
+}
+
 /**
- * @brief 判断上一页按钮是否可用
- * @return true=可回到上一页
+ * @brief 上一页按钮使能状态
+ * @return 按钮是否可点击
  */
-bool PaginationBar::prevEnabled() const { return m_prevBtn->isEnabled(); }
+bool PaginationBar::prevEnabled() const {
+    return m_prevBtn->isEnabled();
+}
+
 /**
- * @brief 判断下一页按钮是否可用
- * @return true=可进入下一页
+ * @brief 下一页按钮使能状态
+ * @return 按钮是否可点击
  */
-bool PaginationBar::nextEnabled() const { return m_nextBtn->isEnabled(); }
+bool PaginationBar::nextEnabled() const {
+    return m_nextBtn->isEnabled();
+}

@@ -695,13 +695,7 @@ void SoftKeyboard::setConfirmText(const QString& text) {
     }
 }
 
-/**
-         * @brief 读取当前输入内容
-         * @return 输入文本
-         */
-QString SoftKeyboard::currentText() const {
-    return m_target ? m_target->text() : QString();
-}
+
 
 /**
  * @brief 遮罩点击事件拦截 — 点击遮罩区域关闭键盘

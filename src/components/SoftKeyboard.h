@@ -38,9 +38,6 @@ signals:
     void cancelled();         // 版本B兼容：取消信号
     void inputCancelled();    // 版本B兼容：输入取消信号
 
-public:
-    QString currentText() const;  // 版本B兼容：获取当前输入文本
-
 private slots:
     void onPrevPage();     // 候选上一页
     void onNextPage();     // 候选下一页

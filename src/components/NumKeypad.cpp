@@ -247,15 +247,6 @@ void NumKeypad::setShowPassword(bool show)
 }
 
 /**
- * @brief 读取当前输入内容
- * @return 输入文本
- */
-QString NumKeypad::currentText() const
-{
-    return m_target ? m_target->text() : QString();
-}
-
-/**
  * @brief 清空当前输入内容
  */
 void NumKeypad::clear()

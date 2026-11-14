@@ -27,9 +27,6 @@ public:
     /// 设置占位文本
     void setPlaceholderText(const QString& text);
 
-    /// 清空所有选中
-    void clear();
-
     /// 设置全部选中
     void selectAll();
 

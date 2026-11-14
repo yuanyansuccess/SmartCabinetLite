@@ -61,42 +61,7 @@ bool CameraCapture::hasCamera() {
 }
 #endif // HAS_QT_MULTIMEDIA
 
-/**
- * @brief 枚举本机可用摄像头
- * @return 摄像头名称列表
- * @note 返回第一个可用采集后端与全部设备名，供设置页选择
- */
-#ifndef HAS_QT_MULTIMEDIA
-QStringList CameraCapture::availableCameras() {
-    QStringList result;
-#ifdef _WIN32
-    IMFActivate** devices = nullptr;
-    UINT32 count = 0;
-    IMFAttributes* attr = nullptr;
-    HRESULT hr = MFCreateAttributes(&attr, 1);
-    if (SUCCEEDED(hr))
-        attr->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
-                      MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
-    if (SUCCEEDED(hr))
-        hr = MFEnumDeviceSources(attr, &devices, &count);
-    if (SUCCEEDED(hr) && devices) {
-        for (UINT32 i = 0; i < count; i++) {
-            WCHAR* name = nullptr;
-            UINT32 len = 0;
-            devices[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME, &name, &len);
-            if (name) {
-                result.append(QString::fromWCharArray(name));
-                CoTaskMemFree(name);
-            }
-            devices[i]->Release();
-        }
-        CoTaskMemFree(devices);
-    }
-    if (attr) attr->Release();
-#endif
-    return result;
-}
-#endif // HAS_QT_MULTIMEDIA
+
 
 /**
  * @brief 按指定的分辨率与帧率启动采集，已经在采集时直接返回成功
@@ -143,12 +108,6 @@ void CameraCapture::stop() {
 #endif
 }
 #endif // HAS_QT_MULTIMEDIA
-
-/**
- * @brief 判断采集是否正在运行
- * @return true=正在采集
- */
-bool CameraCapture::isRunning() const { return m_running; }
 
 // ==================== 内部实现 ====================
 
@@ -448,20 +407,6 @@ QImage CameraCapture::yuy2ToRgb(const unsigned char* data, int width, int height
 bool CameraCapture::hasCamera() {
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
     return !cameras.isEmpty();
-}
-
-/**
- * @brief 枚举本机可用摄像头
- * @return 摄像头名称列表
- * @note 返回第一个可用采集后端与全部设备名，供设置页选择
- */
-QStringList CameraCapture::availableCameras() {
-    QStringList result;
-    QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-    for (const QCameraDevice &camera : cameras) {
-        result.append(camera.description());
-    }
-    return result;
 }
 
 /**

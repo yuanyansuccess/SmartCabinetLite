@@ -27,9 +27,6 @@ public:
     QJsonArray findInStockToolsByType(int typeId, int machineGroupId = 0);
 
     // 实体类API（Controller层使用）— 从dao/TaskTypeDAO合并
-    QList<TaskType> findAll();
-
-    static TaskType fromQuery(const QSqlQuery& q);
 };
 
 } // namespace db

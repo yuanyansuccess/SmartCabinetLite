@@ -182,19 +182,6 @@ void MultiSelectFilter::setPlaceholderText(const QString& text) {
 }
 
 /**
- * @brief 清空已选内容
- */
-void MultiSelectFilter::clear() {
-    for (auto& pair : m_checkBoxes) {
-        if (pair.second) {
-            pair.second->setChecked(false);
-        }
-    }
-    m_selectedCache.clear();
-    m_filterBtn->setText(m_placeholder);
-}
-
-/**
  * @brief 选择全部
  */
 void MultiSelectFilter::selectAll() {

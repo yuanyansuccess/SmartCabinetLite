@@ -14,27 +14,6 @@
 namespace db {
 
 // ═══════════════════════════════════════════════
-// 实体类转换 — 从dao/TaskTypeDAO.cpp合并
-// ═══════════════════════════════════════════════
-/**
- * @brief 查询结果行转换为任务类型实体
- * @param q 已定位到有效行的查询结果
- * @return 任务类型实体
- */
-TaskType TaskTypeDAO::fromQuery(const QSqlQuery& q) {
-    TaskType t;
-    t.taskTypeId      = q.value("type_id").toInt();
-    t.taskName        = q.value("type_name").toString();
-    t.taskCode        = q.value("type_code").toString();
-    t.description     = q.value("description").toString();
-    t.defaultDuration = 30;
-    t.sortOrder       = q.value("sort_order").toInt();
-    t.status          = q.value("is_active").toInt();
-    t.createdAt       = q.value("created_at").toDateTime();
-    return t;
-}
-
-// ═══════════════════════════════════════════════
 // QJsonObject API（Service层使用）
 // ═══════════════════════════════════════════════
 /**
@@ -118,17 +97,6 @@ QJsonArray TaskTypeDAO::findRecommendedToolsByTypes(const QList<int>& typeIds, i
 // ═══════════════════════════════════════════════
 // 实体类API（Controller层使用）— 从dao/TaskTypeDAO.cpp合并
 // ═══════════════════════════════════════════════
-/**
- * @brief 查询全部已启用的任务类型
- * @return 任务类型列表（按 sort_order 升序）
- */
-QList<TaskType> TaskTypeDAO::findAll() {
-    QList<TaskType> list;
-    QSqlQuery q = query("SELECT * FROM task_type WHERE is_active=1 ORDER BY sort_order");
-    while (q.next()) list.append(fromQuery(q));
-    return list;
-}
-
 /**
  * @brief 按任务类型查询本机组在库工具（位置维度，每个在库位置一行）
  * @param typeId 任务类型ID

@@ -26,9 +26,6 @@ public:
     /** 设置是否显示密码明文 */
     void setShowPassword(bool show);
 
-    /** 获取当前输入文本 */
-    QString currentText() const;
-
     /** 清除输入 */
     void clear();
 

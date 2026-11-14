@@ -20,11 +20,17 @@ public:
     /// 更新总条数显示（格式"共 N 条"）
     void setTotalRecords(int totalRecords);
 
-    // ── 只读访问器（单元测试与外层布局读取当前展示状态用） ──
-    QString pageText() const;       ///< 当前页码文本
-    QString totalText() const;      ///< 当前总条数文本
-    bool prevEnabled() const;       ///< 上一页按钮是否可用
-    bool nextEnabled() const;       ///< 下一页按钮是否可用
+    /// 读取当前页码文本（"第 x/y 页"），供测试与外部读取
+    QString pageText() const;
+
+    /// 读取总条数文本（"共 N 条"），供测试与外部读取
+    QString totalText() const;
+
+    /// 上一页按钮是否可用
+    bool prevEnabled() const;
+
+    /// 下一页按钮是否可用
+    bool nextEnabled() const;
 
 signals:
     /// 点击上一页
