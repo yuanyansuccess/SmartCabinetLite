@@ -25,6 +25,9 @@ public:
      */
     bool checkinTool(const QJsonObject& data);
 
+    /// 错放工具按实况入库：只把工具状态改为在库，不改动位置映射表（供"按当前实况写库"分支用）
+    bool checkinMisplacedTool(int toolId);
+
     /// 单据一行与柜内实况的比对结论（识别结果类型，驱动结果页红绿字）
     enum class RecogItemResult {
         Matched,        ///< 通过：入库项货位有正确工具；出库项货位已空

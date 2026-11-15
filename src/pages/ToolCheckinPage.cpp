@@ -1405,6 +1405,11 @@ void ToolCheckinPage::loadCheckinRecords() {
         QRegularExpressionMatch m3 = re3.match(content);
         if (m1.hasMatch()) toolName = m1.captured(1);
         if (m3.hasMatch()) supplier = m3.captured(1);
+        // 错放入库记录：工具名后补标记，与正常入库区分，提示现场该工具正放在错误货位
+        if (r["opType"].toString() == common::operationTypeToString(common::OperationType::Misplaced)
+            && !toolName.isEmpty()) {
+            toolName += QStringLiteral("（错误入库）");
+        }
 
         m_recordTable->setItem(i, 1, new QTableWidgetItem(toolName.isEmpty() ? QStringLiteral("--") : toolName));
         QString toolCode = r["targetId"].toString();

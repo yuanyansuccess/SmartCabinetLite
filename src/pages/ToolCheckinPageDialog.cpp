@@ -207,6 +207,7 @@ static QString misplacedText(const ToolService::RecogMisplaced& m) {
  * @brief 出入库核对发现错放时写一条操作告警
  * @param userId    当前操作人 ID
  * @param misplaced 本轮识别出的错放明细（含货位与异常工具）
+ * @return 无
  * @note  复用流程校验类告警类型，经告警服务写入，页面不直接访问数据库；
  *        与"识别清单为空或覆盖不全"的识别故障告警语义不同，两者互不替代
  */
@@ -218,6 +219,21 @@ static void writeMisplacedAlert(int userId, const QList<ToolService::RecogMispla
     }
     const QString message = QStringLiteral("出入库核对检测到错放：") + tips.join(QStringLiteral("；"));
     AlertService().recordVerifyAlert(userId, 0, message);
+}
+
+/**
+ * @brief 错放工具按错误位置写库后的强提醒弹窗
+ * @param parent 父窗口
+ * @param count 已按错误位置更新为在库状态的工具件数
+ * @return 无
+ * @note 只在确有工具状态被改动时弹出：让操作人当场知晓"库已更新但货位映射未改"，必须人工整理
+ */
+static void showMisplacedWriteWarning(QWidget* parent, int count) {
+    if (count <= 0) return;
+    MessageDialog::showWarning(parent, QStringLiteral("工具已按错误位置入库"),
+        QStringLiteral("库已更新，但有 %1 件按错误位置入库（货位映射未改）。\n"
+                       "请人工移到正确货位。")
+            .arg(count));
 }
 
 /**
@@ -337,6 +353,49 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         m_orderItems.clear();
         m_currentRound = 1;
         m_roundState = RoundState::Running;
+    };
+
+    // 错放项登记（全过与按实况写库两个出口共用同一口径）：
+    // 本单入库工具被识别在"非目标货位"上=本单错放，把工具状态改为在库并写错放日志，
+    // 但只改 tool_info.status、不动位置映射表——正确位置映射保持原样，也不拿错误位置建新映射；
+    // 边缘机判错放但非本单工具的（编号对不回单据行）没有本单 toolId，只写错放日志、不动库存。
+    struct MisplacedWriteStat {
+        int statusWritten = 0;  // 已把工具状态改为在库的错放数（仅本单错放）
+        int logWritten = 0;     // 已写错放操作日志的条数（含本单与非本单）
+    };
+    auto writeMisplacedRecords = [&]() -> MisplacedWriteStat {
+        MisplacedWriteStat stat;
+        if (misplaced.isEmpty()) return stat;
+        ToolService misplacedSvc;
+        db::RecordDAO misplacedDao;
+        for (const ToolService::RecogMisplaced& mp : misplaced) {
+            // 本单错放：按编号对回本单入库行，取到 toolId 才能改状态
+            int rowToolId = 0;
+            for (const OrderRow& row : items) {
+                if (row.type != QStringLiteral("in")) continue;
+                if (row.toolCode != mp.toolCode) continue;
+                rowToolId = row.toolId;
+                break;
+            }
+            const bool isOrderItem = (rowToolId > 0 && !mp.expectedPosition.isEmpty());
+            // 工具名缺失（识别不出名称）时用编号占位，保证入库记录里能看出是哪件工具
+            const QString toolText = mp.toolName.isEmpty() ? mp.toolCode : mp.toolName;
+            QString content;
+            if (isOrderItem) {
+                if (!misplacedSvc.checkinMisplacedTool(rowToolId)) continue;
+                content = QStringLiteral("错误入库工具「%1」（应放%2实际在%3，货位映射未改需人工整理）编号[%4]×1件 位置%3")
+                    .arg(toolText, mp.expectedPosition, mp.actualPosition, mp.toolCode);
+                ++stat.statusWritten;
+            } else {
+                content = QStringLiteral("错误入库工具「%1」（非本单要入库的工具，实际在%2，库存未改动）编号[%3]×1件 位置%2")
+                    .arg(toolText, mp.actualPosition, mp.toolCode);
+            }
+            misplacedDao.insertOperationLog(userId,
+                common::operationTypeToString(common::OperationType::Misplaced),
+                QStringLiteral("tool"), mp.toolCode, content);
+            ++stat.logWritten;
+        }
+        return stat;
     };
 
     // 全柜核对提示行：库内全量在库货位 vs 边缘机实况清单（本单目标货位不参与）
@@ -489,6 +548,10 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         dlg.bodyLayout()->addWidget(buildResultTable(true, okIdx));
         dlg.addFinishButtonRow(QStringLiteral("完成"), StyleHelper::buttonPrimary(), 140);
         dlg.exec();
+        // 错放项登记：全过时错放均为非本单工具（本单错放会判未过、进不了全过分支），只写错放日志；
+        // 防御场景下若确有本单错放改了状态，同样强提醒人工整理
+        const MisplacedWriteStat mpStat = writeMisplacedRecords();
+        showMisplacedWriteWarning(this, mpStat.statusWritten);
         finishAndRefresh(okIdx);
         return;
     }
@@ -588,6 +651,10 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
     // 按当前实况写库（本轮通过项写入，未过项保持原状）
     QSet<int> okIdx = commitByIndices(matchedIdx);
 
+    // 错放项按当前实况登记：本单错放改状态为在库+写错放日志；非本单错放只写日志不动库存
+    const MisplacedWriteStat mpStat = writeMisplacedRecords();
+    const int misplacedWritten = mpStat.statusWritten;  // 改状态数：驱动强提醒与单据清理
+
     // 全柜核对发现的 Missing 货位（库内在库、柜内已空=实际被拿走）：信任边缘机实况，
     // 与"按当前实况写库"同一口径，把多出的货位也补记出库，不再"铲除"账实
     QList<ToolService::RecogStockDiff> missingDiffs;
@@ -631,19 +698,35 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         AlertService().recordVerifyAlert(userId, 0, mismatchText);
     }
 
-    // 保底结果如实呈现：一项未写也必须明确告知，避免操作人误以为已入库
+    // 错放项按错误位置写库后强提醒：库已更新，但货位映射未改，必须让操作人当场知晓并人工整理
+    showMisplacedWriteWarning(this, misplacedWritten);
+
+    // 零写入必须明确告知，避免操作人误以为已入库；文案按 8 寸屏精简到三行内
     const int expectWrite = matchedIdx.size();
-    if (expectWrite == 0 && missingWritten == 0) {
-        MessageDialog::showWarning(this, QStringLiteral("本次未写入任何记录"),
-            QStringLiteral("本轮没有任何一项通过核对，未写入任何记录。\n工具状态保持原样，请重新发起本次出入库。"));
+    if (expectWrite == 0 && missingWritten == 0 && misplacedWritten == 0) {
+        if (!misplaced.isEmpty()) {
+            QStringList misplacedDesc;
+            for (const ToolService::RecogMisplaced& mp : misplaced) {
+                misplacedDesc << misplacedText(mp);
+            }
+            MessageDialog::showWarning(this, QStringLiteral("本单未入库"),
+                QStringLiteral("检测到错放：%1\n"
+                               "错放已写入入库记录；本单工具未入库。\n"
+                               "请挪正货位后重新发起。")
+                    .arg(misplacedDesc.join(QStringLiteral("；"))));
+        } else {
+            MessageDialog::showWarning(this, QStringLiteral("本次未写入任何记录"),
+                QStringLiteral("没有工具通过核对，未写入记录。\n请整理后重新发起。"));
+        }
     } else if (okIdx.size() < expectWrite) {
         MessageDialog::showWarning(this, QStringLiteral("本次未全部写入"),
-            QStringLiteral("按当前实况写库：单据计划写入 %1 项，实际写入 %2 项。\n未写入项保持原状，可重新发起本次出入库。")
+            QStringLiteral("单据 %1 项，实际写入 %2 项。\n未写入项保持原状，可重新发起。")
                 .arg(expectWrite).arg(okIdx.size()));
     }
-    // 只要有任何实际写入（单据项或按实况补记的货位），就清空本次单据，避免重复发起
+    // 只要有任何实际写入（单据项/按实况补记的货位/错放项），就清空本次单据，避免重复发起
     QSet<int> writeResult = okIdx;
     if (missingWritten > 0) writeResult.insert(-1);
+    if (misplacedWritten > 0) writeResult.insert(-2);
     finishAndRefresh(writeResult);
 }
 

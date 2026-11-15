@@ -115,6 +115,27 @@ bool ToolService::checkinTool(const QJsonObject& data) {
 }
 
 /**
+ * @brief 错放工具按当前实况入库：只更新工具状态，不改动位置映射表
+ * @param toolId 本单入库行对应的工具数字ID（必须大于0）
+ * @return true=工具状态已更新为在库；false=工具ID无效或写库失败
+ * @note 供"按当前实况写库"分支处理错放项使用：承认工具已回到柜内（状态改为在库），
+ *       但正确位置映射保持原样、也不拿错误位置建新映射；账实位置差异靠日志标识与结果页提示交人工整理
+ */
+bool ToolService::checkinMisplacedTool(int toolId) {
+    if (toolId <= 0) {
+        qWarning() << "[ToolService] checkinMisplacedTool: 无效工具ID" << toolId;
+        return false;
+    }
+    ToolDAO dao;
+    QJsonObject existing = dao.findById(toolId);
+    if (existing.isEmpty()) {
+        qWarning() << "[ToolService] checkinMisplacedTool: 工具不存在 toolId=" << toolId;
+        return false;
+    }
+    return dao.updateStatus(toolId, SC::TOOL_IN_STOCK);
+}
+
+/**
  * @brief 单据与边缘机实况比对（静态纯函数：不读库不写库不碰界面）
  * @param items   待比对的单据指令列表（入库项已分配好目标货位）
  * @param result  边缘机返回的全柜实况清单（recognize_ack 解析结果）

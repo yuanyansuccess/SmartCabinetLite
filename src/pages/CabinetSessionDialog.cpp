@@ -813,6 +813,7 @@ void CabinetSessionDialog::applyResult()
 
     m_borrowItems.clear();
     m_returnItems.clear();
+    m_misplacedItems.clear();
     m_alertItems.clear();
 
     for (const ToolService::RecogStockDiff& d : outcome.diffs) {
@@ -842,6 +843,17 @@ void CabinetSessionDialog::applyResult()
                 // 识别清单没给货位时改用登记货位，归还记录不允许没有位置
                 ri.position = d.position.isEmpty() ? codeToPos.value(d.toolCode) : d.position;
                 m_returnItems.append(ri);
+                // 归还错放明细：借出工具被放在非登记货位（与 detectReturnMisplaced 同一判定口径），
+                // 确认关柜归还写库成功后补写错放日志，保证入库记录里能追溯这笔错放
+                const QString regPos = codeToPos.value(d.toolCode);
+                if (!d.position.isEmpty() && !regPos.isEmpty() && d.position != regPos) {
+                    SessionMisplaced mp;
+                    mp.toolCode = d.toolCode;
+                    mp.toolName = rec.toolName;
+                    mp.actualPosition = d.position;
+                    mp.expectedPosition = regPos;
+                    m_misplacedItems.append(mp);
+                }
             } else if (!baselineCodes.contains(d.toolCode)) {
                 // 库内/借用记录均无此工具：未登记工具出现在柜内
                 m_alertItems.append(
@@ -1020,6 +1032,16 @@ void CabinetSessionDialog::onConfirmCloseClicked()
                     ? QStringLiteral("自助归还工具「%1」编号[%2]").arg(it.toolName, it.toolCode)
                     : QStringLiteral("自助归还工具「%1」编号[%2] 位置%3").arg(it.toolName, it.toolCode, it.position);
                 db::RecordDAO().insertOperationLog(m_userId, common::operationTypeToString(common::OperationType::Return), "tool", it.toolCode, content);
+            }
+            // 归还错放补写错放日志（与出入库侧同口径）：工具已归还入库但位置账实不符，
+            // 映射表登记货位未动，错放记录写入库记录（错放入库）供人工整理追溯
+            for (const SessionMisplaced& mp : m_misplacedItems) {
+                const QString nameText = mp.toolName.isEmpty() ? mp.toolCode : mp.toolName;
+                const QString content = QStringLiteral("错误入库工具「%1」（应放%2实际在%3，货位映射未改需人工整理）编号[%4]×1件 位置%3")
+                    .arg(nameText, mp.expectedPosition, mp.actualPosition, mp.toolCode);
+                db::RecordDAO().insertOperationLog(m_userId,
+                    common::operationTypeToString(common::OperationType::Misplaced),
+                    QStringLiteral("tool"), mp.toolCode, content);
             }
         } else {
             MessageDialog::showWarning(this, QStringLiteral("归还写库失败"), r.message);

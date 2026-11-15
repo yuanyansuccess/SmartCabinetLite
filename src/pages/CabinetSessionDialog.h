@@ -109,8 +109,15 @@ private:
     // 本次识别结论（供确认关闭写库）
     struct BorrowItem { int toolId = 0; int mappingId = 0; QString toolCode; QString toolName; QString position; };
     struct ReturnItem { int recordId = 0; QString toolCode; QString toolName; QString position; };
+    struct SessionMisplaced {                // 归还错放明细：归还工具被放在非登记货位
+        QString toolCode;
+        QString toolName;
+        QString actualPosition;              // 实际识别货位
+        QString expectedPosition;            // 登记货位（应放位置）
+    };
     QList<BorrowItem> m_borrowItems;         // 借出（在库→缺失）
     QList<ReturnItem> m_returnItems;         // 归还（用户已借出→柜内复现）
+    QList<SessionMisplaced> m_misplacedItems; // 归还错放（确认关柜归还写库成功后补写错放日志）
     QStringList m_alertItems;                // 告警（错放/未登记工具）
 
     QJsonObject m_user;              // 当前登录用户

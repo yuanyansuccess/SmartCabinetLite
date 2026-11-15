@@ -10,6 +10,7 @@
 #include <QSqlError>
 #include <QDebug>
 #include "common/Constants.h"
+#include "common/StatusDisplay.h"  // 入库记录查询按操作类型枚举取值（checkin/misplaced）
 #include <functional>
 
 namespace db {
@@ -549,10 +550,14 @@ QJsonObject RecordDAO::findOperationLogsAll(int page, int pageSize)
  * @brief 入库记录分页查询（含位置信息，入库记录Tab专用）
  * @param page 页码（从1开始）
  * @param pageSize 每页条数
- * @return 对象含 total 与 list
+ * @return 对象含 total 与 list（列表项附 opType 供展示层区分正常入库与错放入库）
+ * @note 查询范围=正常入库(checkin)与错放入库(misplaced)：错放只改工具状态不记货位映射，
+ *       但台账必须能看到这条记录，供现场追溯错放工具与人工整理
  */
 QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
 {
+    const QString checkinType   = common::operationTypeToString(common::OperationType::CheckIn);
+    const QString misplacedType = common::operationTypeToString(common::OperationType::Misplaced);
     QSqlDatabase db = getDb();
     auto mapRow = [&](QSqlQuery& q) -> QJsonObject {
         QJsonObject r;
@@ -569,11 +574,12 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
         r["mpmCabName"] = q.value(10).toString();
         r["mpmLayer"]   = q.value(11).toString();
         r["mpmPos"]     = q.value(12).toString();
+        r["opType"]     = q.value(13).toString();
         return r;
     };
     return pagedOperationLogs(db,
-        "SELECT COUNT(*) FROM sys_operation_log WHERE operation_type='checkin'",
-        {},
+        "SELECT COUNT(*) FROM sys_operation_log WHERE operation_type IN (?,?)",
+        { checkinType, misplacedType },
         "SELECT log.created_at, log.content, log.target_id, "
         "       u.real_name, u.work_no, "
         "       mpm.cabinet_id  AS ti_cab_id, "
@@ -583,7 +589,8 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
         "       mpm.cabinet_id  AS mpm_cab_id, "
         "       cb.cabinet_name AS mpm_cab_name, "
         "       mpm.layer       AS mpm_layer, "
-        "       mpm.position    AS mpm_pos "
+        "       mpm.position    AS mpm_pos, "
+        "       log.operation_type "
         "FROM sys_operation_log log "
         "LEFT JOIN sys_user u ON log.user_id = u.user_id "
         "LEFT JOIN tool_info ti ON ti.tool_code = log.target_id "
@@ -591,10 +598,10 @@ QJsonObject RecordDAO::findCheckinLogs(int page, int pageSize)
         "       ON mpm.mapping_id = (SELECT MIN(m.mapping_id) FROM tool_position_mapping m "
         "                            WHERE m.tool_id = ti.tool_id AND m.status = 'in_stock') "
         "LEFT JOIN tool_cabinet cb ON mpm.cabinet_id = cb.cabinet_id "
-        "WHERE log.operation_type = 'checkin' "
+        "WHERE log.operation_type IN (?,?) "
         "ORDER BY log.created_at DESC "
         "LIMIT ? OFFSET ?",
-        {},
+        { checkinType, misplacedType },
         page, pageSize, mapRow);
 }
 

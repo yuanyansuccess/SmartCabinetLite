@@ -25,6 +25,7 @@ enum class OperationType {
     Return,        // 归还
     CheckInRound,  // 出入库识别轮次日志（入库）
     CheckOutRound, // 出入库识别轮次日志（出库）
+    Misplaced,     // 错放：按实况记录工具放错货位，不改库存与映射
     Unknown        // 未识别类型
 };
 
@@ -41,6 +42,7 @@ inline QString operationTypeToString(OperationType type)
     case OperationType::Return:        return QStringLiteral("return");
     case OperationType::CheckInRound:  return QStringLiteral("checkin_round");
     case OperationType::CheckOutRound: return QStringLiteral("checkout_round");
+    case OperationType::Misplaced:     return QStringLiteral("misplaced");
     case OperationType::Unknown:
     default:                            return QString();
     }
@@ -57,6 +59,7 @@ inline OperationType toOperationType(const QString& type)
     if (type == operationTypeToString(OperationType::Return))         return OperationType::Return;
     if (type == operationTypeToString(OperationType::CheckInRound))   return OperationType::CheckInRound;
     if (type == operationTypeToString(OperationType::CheckOutRound))  return OperationType::CheckOutRound;
+    if (type == operationTypeToString(OperationType::Misplaced))      return OperationType::Misplaced;
     return OperationType::Unknown;
 }
 
@@ -76,6 +79,8 @@ inline QString operationTypeText(const QString& type)
         return QStringLiteral("借用");
     case OperationType::Return:
         return QStringLiteral("归还");
+    case OperationType::Misplaced:
+        return QStringLiteral("错放入库");
     default:
         return type;
     }
@@ -97,6 +102,8 @@ inline QString operationTypeColor(const QString& type)
         return StyleHelper::warningColor();
     case OperationType::Return:
         return StyleHelper::primaryColor();
+    case OperationType::Misplaced:
+        return StyleHelper::warningColor();
     default:
         return StyleHelper::textSecondary();
     }

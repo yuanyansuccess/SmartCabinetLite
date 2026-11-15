@@ -61,7 +61,7 @@ public:
     QJsonObject findOperationLogsByType(const QString& operationType, int page, int pageSize);
     // 分页查询全部类型的操作日志（含操作人信息），返回 {list, total}
     QJsonObject findOperationLogsAll(int page, int pageSize);
-    // 分页查询入库类操作日志（operation_type='checkin'），返回 {list, total}
+    // 分页查询入库类操作日志（正常入库 checkin + 错放入库 misplaced），返回 {list, total}
     QJsonObject findCheckinLogs(int page, int pageSize);
     // 台账统计（LedgerStatsPage数据源）
     // 返回：QJsonObject含totalBorrows/totalReturns/currentBorrowed/overdueCount/activeUsers
