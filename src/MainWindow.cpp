@@ -94,12 +94,19 @@ const QString kActionOpLog        = QStringLiteral("oplog");          // 操作�
 /**
  * @brief 把通信层识别清单转成页面中立的货位实况列表
  * @param result 通信层识别结果，items 为全柜货位清单
- * @return 货位实况列表，每项含位置、工具编号与置信度；工具编号为空表示该货位无工具
+ * @return 货位实况列表，每项含位置、工具编号、置信度与协议告警类型；
+ *         工具编号为空表示该货位无工具
  */
 static QList<ToolService::RecogSpot> toRecogSpots(const RecognizeResult& result) {
     QList<ToolService::RecogSpot> spots;
-    for (const RecognizeItem& item : result.items)
-        spots.append(ToolService::RecogSpot{item.position, item.toolId, item.confidence});
+    for (const RecognizeItem& item : result.items) {
+        ToolService::RecogSpot spot;
+        spot.position   = item.position;
+        spot.toolCode   = item.toolId;
+        spot.confidence = item.confidence;
+        spot.alertType  = item.alertType;
+        spots.append(spot);
+    }
     return spots;
 }
 } // namespace
@@ -451,7 +458,7 @@ void MainWindow::setEdgeService(EdgeService* svc) {
     // 避免识别/开箱结果晚到时打进已销毁的页面
     connect(m_edgeService, &EdgeService::recognizeFinished, m_checkinPage,
         [this](const QString& requestId, const RecognizeResult& result) {
-            // 工具编号为空即货位无工具；alertType 只做协议解析与结构校验，业务层不据此写告警
+            // 工具编号为空即货位无工具；alertType 一并转发，misplaced 参与单据比对判定与错放提示
             m_checkinPage->onRecognitionResult(requestId, toRecogSpots(result));
         });
 

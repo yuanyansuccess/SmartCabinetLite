@@ -41,6 +41,7 @@ public:
         QString position;    ///< 货位（A-01-02）
         QString toolCode;    ///< 识别出的工具编号（空串=认不出）
         double  confidence = 0.0;  ///< 置信度 0~1
+        QString alertType = QStringLiteral("none");  ///< 协议告警类型：none/misplaced/unknown/missing/low_confidence
         ///< 工具编号为空表示该货位无工具；清单未回报该货位由列表中无此货位表示
     };
 
@@ -65,12 +66,12 @@ public:
         QString detail;                                     ///< 附加说明（货位上为XX/置信度xx%）
     };
 
-    /// 错放明细（结果页提示行用：本单工具出现在了非目标货位）
+    /// 错放明细（结果页提示行用：本单工具出现在了非目标货位，或边缘机判为错放的货位）
     struct RecogMisplaced {
         QString toolCode;         ///< 工具编号
         QString toolName;         ///< 工具名称
         QString actualPosition;   ///< 实际出现的货位
-        QString expectedPosition; ///< 本单目标货位（入库项）
+        QString expectedPosition; ///< 应放货位；空串表示应放货位未知（非本单工具）
     };
 
     /// 比对总输出：逐行结论 + 错放明细
@@ -80,11 +81,20 @@ public:
     };
 
     /**
+     * @brief 判断协议告警类型是否为"错放"（出入库与借用归还两侧共用同一判定口径）
+     * @param alertType 边缘机上报的 alert_type 原文（可能为空串）
+     * @return true=该货位被边缘机判定放错了位置
+     */
+    static bool isMisplacedAlert(const QString& alertType);
+
+    /**
      * @brief 单据与边缘机实况比对（纯函数：不读库不写库不碰界面，供单测直接覆盖）
      * @param items   待比对的单据指令列表（入库项已分配好目标货位）
      * @param result  边缘机返回的全柜实况清单（recognize_ack 解析结果）
      * @return 逐行结论与错放明细；结论顺序与 items 一致
-     * @note  入库项：目标货位须识别出"正是本工具"且置信度达门槛；出库项：目标货位须已空
+     * @note  入库项：目标货位须识别出"正是本工具"且置信度达门槛；出库项：目标货位须已空。
+     *        边缘机对某货位判为错放（alert_type=misplaced）时，该货位即使识别出本单工具也判未通过，
+     *        并把该货位计入错放明细，交人工二次确认后重新开柜整理。
      */
     static RecogCompareOutcome compareOrderWithRecognition(
         const QList<RecogOrderItem>& items, const RecognizeResult& result);
@@ -118,6 +128,8 @@ public:
     /// 全柜核对单条异常（货位 + 库内工具 + 人读说明）
     struct RecogStockDiff {
         RecogStockDiffType type = RecogStockDiffType::Missing;  ///< 异常类型
+        int     mappingId = 0;  ///< 货位映射ID（位置唯一标识；Extra 类为0）
+        int     toolId = 0;     ///< 工具ID（Extra 类为0）
         QString position;      ///< 货位（A-01-02）
         QString toolCode;      ///< 库内工具编号（Extra 类为识别出的编号）
         QString toolName;      ///< 工具名称（空串时界面显示编号）
@@ -154,8 +166,9 @@ public:
      * @return 错放告警文案列表（每条可直接上结果页，与在库工具错放同一口径）
      * @note  错放由"实际货位 ≠ 登记/目标货位"判定；本函数只返回提示文案，
      *        由调用方在结果页展示并写一条操作告警。
-     *        通信层 RecognizeItem.alertType 保留解析与结构校验，业务层不据此写告警。
-     *        识别清单按表13 只含货位/工具编号/置信度/告警类型，工具编号为空即货位无工具。
+     *        边缘机 alert_type=misplaced 属视觉判定，由调用方经 isMisplacedAlert 与账本判定两路合流，
+     *        统一在结果页展示并写操作告警。识别清单按表13 只含货位/工具编号/置信度/告警类型，
+     *        工具编号为空即货位无工具。
      */
     static QStringList detectReturnMisplaced(
         const QList<RecogStockDiff>& diffs,

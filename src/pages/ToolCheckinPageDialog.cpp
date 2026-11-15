@@ -191,6 +191,19 @@ static ResultDialogSize calcResultDialogSize(int rowCount, int extraLabelHeight)
 }
 
 /**
+ * @brief 把一条错放明细拼成界面与告警共用的文案
+ * @param m 错放明细
+ * @return 文案；应放货位为空表示该工具不属于本单、无从给出应放货位，只报"某货位有错放工具"
+ */
+static QString misplacedText(const ToolService::RecogMisplaced& m) {
+    const QString toolText = m.toolName.isEmpty() ? m.toolCode : m.toolName;
+    if (m.expectedPosition.isEmpty()) {
+        return QStringLiteral("%1 货位有错放工具（%2）").arg(m.actualPosition, toolText);
+    }
+    return QStringLiteral("「%1」实际在 %2，应放 %3").arg(toolText, m.actualPosition, m.expectedPosition);
+}
+
+/**
  * @brief 出入库核对发现错放时写一条操作告警
  * @param userId    当前操作人 ID
  * @param misplaced 本轮识别出的错放明细（含货位与异常工具）
@@ -201,10 +214,7 @@ static void writeMisplacedAlert(int userId, const QList<ToolService::RecogMispla
     if (misplaced.isEmpty()) return;
     QStringList tips;
     for (const auto& m : misplaced) {
-        tips << QStringLiteral("%1 货位有异常工具（%2 应放 %3）")
-                .arg(m.actualPosition,
-                     m.toolName.isEmpty() ? m.toolCode : m.toolName,
-                     m.expectedPosition);
+        tips << misplacedText(m);
     }
     const QString message = QStringLiteral("出入库核对检测到错放：") + tips.join(QStringLiteral("；"));
     AlertService().recordVerifyAlert(userId, 0, message);
@@ -457,10 +467,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
         if (!misplaced.isEmpty()) {
             QStringList tips;
             for (const auto& m : misplaced) {
-                tips << QStringLiteral("%1 货位有异常工具（%2 应放 %3）")
-                    .arg(m.actualPosition,
-                         m.toolName.isEmpty() ? m.toolCode : m.toolName,
-                         m.expectedPosition);
+                tips << misplacedText(m);
             }
             const int misplacedCount = tips.size();
             if (tips.size() > 2) {
@@ -511,9 +518,7 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
     if (!misplaced.isEmpty()) {
         QStringList tips;
         for (const auto& m : misplaced) {
-            tips << QStringLiteral("「%1」实际在 %2，应放 %3")
-                .arg(m.toolName.isEmpty() ? m.toolCode : m.toolName,
-                     m.actualPosition, m.expectedPosition);
+            tips << misplacedText(m);
         }
         const int misplacedCount = tips.size();
         if (tips.size() > 2) {
@@ -582,21 +587,64 @@ void ToolCheckinPage::showCheckResultDialog(const QList<OrderRow>& items,
 
     // 按当前实况写库（本轮通过项写入，未过项保持原状）
     QSet<int> okIdx = commitByIndices(matchedIdx);
+
+    // 全柜核对发现的 Missing 货位（库内在库、柜内已空=实际被拿走）：信任边缘机实况，
+    // 与"按当前实况写库"同一口径，把多出的货位也补记出库，不再"铲除"账实
+    QList<ToolService::RecogStockDiff> missingDiffs;
+    for (const auto& d : stockOutcome.diffs) {
+        if (d.type == ToolService::RecogStockDiffType::Missing) missingDiffs.append(d);
+    }
+    int missingWritten = 0;
+    if (!missingDiffs.isEmpty()) {
+        CheckoutService missingCheckout;
+        QList<CheckoutItem> missingItems;
+        for (const auto& d : missingDiffs) {
+            CheckoutItem it;
+            it.mappingId  = d.mappingId;
+            it.toolId     = d.toolId;
+            it.toolCode   = d.toolCode;
+            it.toolName   = d.toolName;
+            it.position   = d.position;
+            it.quantity   = 1;
+            it.reason     = QStringLiteral("全柜核对：货位已空、库内为在库工具，按实况补记出库");
+            it.fromBorrow = false;
+            missingItems.append(it);
+        }
+        auto mr = missingCheckout.executeCheckout(userId, missingItems);
+        if (mr.success) missingWritten = mr.succeeded;
+    }
+
     // 本轮识别发现错放，落一条操作告警；用户放弃或重新开柜整理（零写库）不写
     writeMisplacedAlert(userId, misplaced);
     // 保底轮次同样写日志：结果记 fail，便于事后追溯为何按实况写入
     writeRoundLog(round, items, compareItems, misplaced, false);
+
+    // 预计出库 vs 实际出库 不一致告警：实际拿走的工具多于单据（含按实况补记的货位）
+    int expectedOut = 0;
+    for (const OrderRow& it : items) if (it.type == QStringLiteral("out")) ++expectedOut;
+    int actualOut = 0;
+    for (int i : okIdx) if (items[i].type == QStringLiteral("out")) ++actualOut;
+    actualOut += missingWritten;
+    if (actualOut > expectedOut) {
+        const QString mismatchText = QStringLiteral("出库核对不一致：预计出库 %1 件/品种，实际出库 %2 件/品种（含账实不符按实况补记 %3 件），请核查")
+            .arg(expectedOut).arg(actualOut).arg(missingWritten);
+        AlertService().recordVerifyAlert(userId, 0, mismatchText);
+    }
+
     // 保底结果如实呈现：一项未写也必须明确告知，避免操作人误以为已入库
     const int expectWrite = matchedIdx.size();
-    if (expectWrite == 0) {
+    if (expectWrite == 0 && missingWritten == 0) {
         MessageDialog::showWarning(this, QStringLiteral("本次未写入任何记录"),
             QStringLiteral("本轮没有任何一项通过核对，未写入任何记录。\n工具状态保持原样，请重新发起本次出入库。"));
     } else if (okIdx.size() < expectWrite) {
         MessageDialog::showWarning(this, QStringLiteral("本次未全部写入"),
-            QStringLiteral("按当前实况写库：计划写入 %1 项，实际写入 %2 项。\n未写入项保持原状，可重新发起本次出入库。")
+            QStringLiteral("按当前实况写库：单据计划写入 %1 项，实际写入 %2 项。\n未写入项保持原状，可重新发起本次出入库。")
                 .arg(expectWrite).arg(okIdx.size()));
     }
-    finishAndRefresh(okIdx);
+    // 只要有任何实际写入（单据项或按实况补记的货位），就清空本次单据，避免重复发起
+    QSet<int> writeResult = okIdx;
+    if (missingWritten > 0) writeResult.insert(-1);
+    finishAndRefresh(writeResult);
 }
 
 /**

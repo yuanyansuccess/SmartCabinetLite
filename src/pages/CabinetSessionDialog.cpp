@@ -863,18 +863,33 @@ void CabinetSessionDialog::applyResult()
     m_alertItems.append(returnMisplaced);
     QStringList misplacedTips = returnMisplaced;
 
-    // 错放检测：识别到某在库工具但不在其登记货位
+    // 错放检测两路合流（与出入库侧 compareOrderWithRecognition 同一口径）：
+    // ① 账本可判：在库工具出现在非登记货位，能给出应放货位；
+    // ② 边缘机判：alert_type=misplaced 的货位，视觉判定账本位置可能一致，应放货位未知。
+    // 归还工具在非登记货位已由 detectReturnMisplaced 处理，此处跳过避免重复；
+    // 用 position|toolCode 去重，避免同一货位在两路都被记一次。
+    QSet<QString> misplacedKeys;
     for (const ToolService::RecogSpot& s : m_spots) {
         if (s.toolCode.isEmpty()) continue;
-        if (baselineCodes.contains(s.toolCode)) {
-            const QString exp = codeToPos.value(s.toolCode);
-            if (!exp.isEmpty() && s.position != exp) {
-                const QString tip = QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）")
-                                        .arg(s.toolCode, exp, s.position);
-                m_alertItems.append(tip);
-                misplacedTips.append(tip);
-            }
-        }
+        const bool baseline = baselineCodes.contains(s.toolCode);
+        const QString regPos = codeToPos.value(s.toolCode);
+        const bool putInWrongPosition = baseline && !regPos.isEmpty() && s.position != regPos;
+        const bool edgeSaysMisplaced = ToolService::isMisplacedAlert(s.alertType);
+        const bool reportedAsReturn = !baseline && borrowingByCode.contains(s.toolCode)
+            && !regPos.isEmpty() && s.position != regPos;
+        if ((!putInWrongPosition && !edgeSaysMisplaced) || reportedAsReturn) continue;
+
+        const QString key = s.position + QLatin1Char('|') + s.toolCode;
+        if (misplacedKeys.contains(key)) continue;
+        misplacedKeys.insert(key);
+
+        const QString tip = putInWrongPosition
+            ? QStringLiteral("工具 %1 应位于 %2，实际位于 %3（错放）")
+                  .arg(s.toolCode, regPos, s.position)
+            : QStringLiteral("货位 %1 上的工具 %2 被边缘机判为错放，请确认")
+                  .arg(s.position, s.toolCode);
+        m_alertItems.append(tip);
+        misplacedTips.append(tip);
     }
 
     // 错放属于操作告警：结果页提示之外再写一条，运维在"操作告警"入口能查到

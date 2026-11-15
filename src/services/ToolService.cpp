@@ -11,10 +11,21 @@
 #include <QDateTime>
 #include <QDebug>
 #include "common/Constants.h"
+#include "common/ProtocolAlertTypes.h"
 
 using db::ToolDAO;
 
 ToolService::ToolService() {}
+
+/**
+ * @brief 判断协议告警类型是否为"错放"
+ * @param alertType 边缘机上报的 alert_type 原文（可能为空串）
+ * @return true=边缘机判定该货位上的工具放错了位置
+ * @note  出入库与借用归还两侧共用此判定，保证错放口径一致
+ */
+bool ToolService::isMisplacedAlert(const QString& alertType) {
+    return alertType == Proto::ALERT_TYPE_MISPLACED;
+}
 
 /**
  * @brief 工具入库
@@ -169,7 +180,14 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
                 cmp.detail = QStringLiteral("%1 货位无工具或物品无法识别").arg(it.position);
             } else if (spot->toolId != it.toolCode) {
                 cmp.result = RecogItemResult::WrongTool;
-                cmp.detail = QStringLiteral("货位上为%1").arg(spot->toolId);
+                cmp.detail = isMisplacedAlert(spot->alertType)
+                    ? QStringLiteral("货位上为%1（边缘机判为错放）").arg(spot->toolId)
+                    : QStringLiteral("货位上为%1").arg(spot->toolId);
+            } else if (isMisplacedAlert(spot->alertType)) {
+                // 编号对得上、但边缘机判该货位上的工具是错放的：工具不是这个货位的登记工具，
+                // 若按编号判通过会把错放直接写进库存，必须判未通过交人工重新整理
+                cmp.result = RecogItemResult::WrongTool;
+                cmp.detail = QStringLiteral("货位上为本工具，但边缘机判为错放，请确认是否放错货位");
             } else if (spot->confidence < SC::RECOG_MIN_CONFIDENCE) {
                 cmp.result = RecogItemResult::LowConfidence;
                 cmp.detail = QStringLiteral("置信度%1%，未达%2%门槛")
@@ -192,26 +210,37 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
                 cmp.result = RecogItemResult::Matched;
             } else {
                 cmp.result = RecogItemResult::StillThere;
-                cmp.detail = QStringLiteral("货位上仍有%1").arg(spot->toolId);
+                cmp.detail = isMisplacedAlert(spot->alertType)
+                    ? QStringLiteral("货位上仍有%1（边缘机判为错放）").arg(spot->toolId)
+                    : QStringLiteral("货位上仍有%1").arg(spot->toolId);
             }
         }
         outcome.items.append(cmp);
     }
 
-    // 错放扫描：本单入库工具出现在非目标货位
+    // 错放扫描两路合流：
+    // ① 本单入库工具出现在非目标货位（能给出应放货位）
+    // ② 边缘机在 alert_type 上明确判为错放的货位（非本单工具也有，应放货位未知留空）
     // 错放是一次识别事件而非货位状态：只单独记明细（结果页提示行），
     // 不改写逐项判定（那一条仍按"目标货位为空/放着别的工具"如实呈现）
+    QSet<QString> misplacedKeys;
     for (const RecognizeItem& s : result.items) {
         if (s.toolId.isEmpty()) continue;
-        auto expected = expectedPosByCode.constFind(s.toolId);
-        if (expected != expectedPosByCode.constEnd() && expected.value() != s.position) {
-            RecogMisplaced misplaced;
-            misplaced.toolCode         = s.toolId;
-            misplaced.toolName         = nameByCode.value(s.toolId);
-            misplaced.actualPosition   = s.position;
-            misplaced.expectedPosition = expected.value();
-            outcome.misplaced.append(misplaced);
-        }
+        const auto expected = expectedPosByCode.constFind(s.toolId);
+        const bool putInWrongPosition = (expected != expectedPosByCode.constEnd()
+                                         && expected.value() != s.position);
+        if (!putInWrongPosition && !isMisplacedAlert(s.alertType)) continue;
+
+        const QString key = s.position + QLatin1Char('|') + s.toolId;
+        if (misplacedKeys.contains(key)) continue;
+        misplacedKeys.insert(key);
+
+        RecogMisplaced misplaced;
+        misplaced.toolCode         = s.toolId;
+        misplaced.toolName         = nameByCode.value(s.toolId);
+        misplaced.actualPosition   = s.position;
+        misplaced.expectedPosition = putInWrongPosition ? expected.value() : QString();
+        outcome.misplaced.append(misplaced);
     }
 
     return outcome;
@@ -233,6 +262,7 @@ ToolService::RecogCompareOutcome ToolService::compareOrderWithRecognition(
         item.position   = s.position;
         item.toolId     = s.toolCode;
         item.confidence = s.confidence;
+        item.alertType  = s.alertType;
         result.items.append(item);
     }
     return compareOrderWithRecognition(items, result);
@@ -304,6 +334,9 @@ ToolService::RecogStockOutcome ToolService::compareStockWithRecognition(
         if (spot->toolCode.isEmpty()) {
             RecogStockDiff diff;
             diff.type      = RecogStockDiffType::Missing;
+            // 回填货位映射ID与工具ID：该货位确属库内在库工具，按实况补记出库时据此定位
+            diff.mappingId = st.mappingId;
+            diff.toolId    = st.toolId;
             diff.position  = st.position;
             diff.toolCode  = st.toolCode;
             diff.toolName  = st.toolName;
