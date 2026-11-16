@@ -271,7 +271,7 @@ QString EdgeService::requestRecognize()
 {
     if (!m_online || m_activeClient == 0) {
         // 协议第5章⑤：离线禁止下发识别请求
-        emit recognizeFailed(QString(), QStringLiteral("边缘计算机连接已断开，暂时无法核对柜内工具。\n请检查边缘计算机连接后重试。"));
+        emit recognizeFailed(QString(), QStringLiteral("边缘机连接已断开，无法核对柜内工具，请检查连接后重试。"));
         return QString();
     }
 
@@ -297,7 +297,7 @@ QString EdgeService::requestRecognize()
         // 失败通知用空串编号，与"离线未发出"同一口径：上层据此统一弹提示，
         // 否则上层按编号配对失败会直接丢弃原因，用户点了"我已关柜"界面毫无反应
         m_pending[requestId].failed = true;
-        emit recognizeFailed(QString(), QStringLiteral("识别请求发送失败，已保留待链路恢复后自动补发。\n请检查边缘计算机连接后重试。"));
+        emit recognizeFailed(QString(), QStringLiteral("识别请求发送失败，连接恢复后会自动补发，请检查连接。"));
         return QString();
     }
     return requestId;
@@ -313,7 +313,7 @@ QString EdgeService::requestOpen()
 {
     if (!m_online || m_activeClient == 0) {
         // 协议第5章⑤：离线禁止下发开箱请求
-        emit openFailed(QString(), QStringLiteral("边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
+        emit openFailed(QString(), QStringLiteral("边缘机连接已断开，无法开箱，请检查连接后重试。"));
         return QString();
     }
 
@@ -344,7 +344,7 @@ QString EdgeService::requestOpen()
         // 写入失败：条目保留等待链路恢复补发（第5章③）；失败通知用空串编号，
         // 与"离线未发出"同一口径，上层才能统一把真实原因弹给用户
         m_pending[requestId].failed = true;
-        emit openFailed(QString(), QStringLiteral("开箱请求发送失败，已保留待链路恢复后自动补发。\n请检查边缘计算机连接后重试。"));
+        emit openFailed(QString(), QStringLiteral("开箱请求发送失败，连接恢复后会自动补发，请检查连接。"));
         return QString();
     }
     return requestId;

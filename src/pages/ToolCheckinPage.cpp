@@ -847,7 +847,7 @@ void ToolCheckinPage::onSubmit() {
     // 避免"门开了但没人记录"——离线时柜体实际无法开锁，UI 也不应谎称已打开
     if (!m_edgeOnline) {
         MessageDialog::showWarning(this, QStringLiteral("无法开箱"),
-            QStringLiteral("边缘机链路离线：边缘计算机连接已断开，暂时无法开箱。\n请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机连接已断开，无法开箱，请检查连接后重试。"));
         return;
     }
 
@@ -1224,7 +1224,7 @@ void ToolCheckinPage::onEdgeOnlineChanged(bool online) {
         m_pendingItems.clear();
         m_lastSpots.clear();
         MessageDialog::showWarning(this, QStringLiteral("链路中断"),
-            QStringLiteral("边缘机链路已断开，本次不出入库。\n请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机连接已断开，本次不出入库，请检查连接后重试。"));
     }
 
     // 开柜等待期间链路掉线：关闭统一弹窗并终止本次（柜体已打开后不打断取放流程）
@@ -1233,7 +1233,7 @@ void ToolCheckinPage::onEdgeOnlineChanged(bool online) {
         m_openRequestId.clear();
         m_pendingOpenItems.clear();
         MessageDialog::showWarning(this, QStringLiteral("链路中断"),
-            QStringLiteral("边缘机链路已断开，开箱已终止。\n请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机连接已断开，开箱已终止，请检查连接后重试。"));
     }
 }
 

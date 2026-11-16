@@ -121,7 +121,7 @@ bool CabinetSessionDialog::passEntryGate()
     }
     if (!m_edge->isOnline()) {
         MessageDialog::showWarning(parentWidget(), QStringLiteral("无法进入会话"),
-            QStringLiteral("边缘计算机连接已断开，暂时无法借用归还。请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机连接已断开，无法借用归还，请检查连接后重试。"));
         return false;
     }
     if (!m_edge->allCamerasOk()) {
@@ -733,7 +733,7 @@ void CabinetSessionDialog::onEdgeOnlineChanged(bool online)
     if (!online && m_waitDlg) {
         closeWait();
         MessageDialog::showWarning(this, QStringLiteral("链路中断"),
-            QStringLiteral("边缘机链路已断开，请检查边缘计算机连接后重试。"));
+            QStringLiteral("边缘机连接已断开，请检查连接后重试。"));
     }
 }
 

@@ -79,7 +79,7 @@ void AlertService::recordEdgeOffline() {
     AlertLog alert;
     alert.typeId = typeId;
     // 两条离线路径（TCP断开立即判/周期帧15秒超时判）共用本方法，文案不写具体判定方式
-    alert.message = QStringLiteral("与边缘计算机通信中断，出入库核对功能暂不可用，请检查边缘计算机");
+    alert.message = QStringLiteral("与边缘机通信中断，出入库核对暂不可用，请检查连接");
     alert.status = SC::ALERT_UNHANDLED;
     dao.insertAlert(alert);
 }
@@ -101,7 +101,7 @@ void AlertService::recordRecognizeTimeout(const QString& requestId) {
     AlertLog alert;
     alert.typeId = typeId;
     // 链路正常但已发送3次（1次首发+2次重发）仍无回应：提示检查边缘计算机
-    alert.message = QString(QStringLiteral("与边缘计算机识别请求超时：链路正常但已发送3次仍无回应（请求编号：%1），已保留待链路恢复后自动补发。请检查边缘计算机。"))
+    alert.message = QString(QStringLiteral("识别请求超时（编号%1），连接恢复后会自动补发，请检查边缘机连接。"))
                         .arg(requestId);
     alert.status = SC::ALERT_UNHANDLED;
     dao.insertAlert(alert);
