@@ -111,10 +111,12 @@ void AlertService::recordRecognizeTimeout(const QString& requestId) {
  * @brief 记录关柜失败告警（IO 板回报柜门未关到位，归系统告警大类）
  * @param userId  触发会话的当前用户ID
  * @param message IO 板回报的失败原因，为空时用默认文案
+ * @param scene   业务场景（"借用归还"/"出入库"），写入告警文案便于区分来源
  * @note  复用已激活的硬件故障类型（hw_fault）；字典查不回 type_id 时只告警不写库，
  *        避免字典停用产生坏数据
  */
-void AlertService::recordCabinetCloseFailed(int userId, const QString& message) {
+void AlertService::recordCabinetCloseFailed(int userId, const QString& message,
+                                            const QString& scene) {
     db::AlertDAO dao;
     const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_HW_FAULT);
     if (typeId <= 0) {
