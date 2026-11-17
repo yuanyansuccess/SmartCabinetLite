@@ -58,6 +58,15 @@ public:
      */
     void recordRecognizeTimeout(const QString& requestId);
 
+    /**
+     * @brief 记录关柜失败告警（IO 板回报柜门未关到位，归系统告警大类）
+     * @param userId  触发会话的当前用户ID
+     * @param message IO 板回报的失败原因（为空时用默认文案）
+     * @note  复用已激活的硬件故障类型（hw_fault），不新建字典；
+     *        类型字典被停用（is_active=0）时跳过写入并告警，不产生坏数据
+     */
+    void recordCabinetCloseFailed(int userId, const QString& message);
+
     // ── 读路径（告警域查询统一入口） ──
 
     /// 所有启用的告警类型（筛选下拉）

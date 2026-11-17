@@ -608,6 +608,7 @@ void CabinetSessionDialog::onOpenFinished(const QString& requestId, bool success
         }
         m_opened = true;
         m_closeAckHandled = false;   // 新一轮取放：允许接收本次关柜信号或按钮触发核对
+        m_closeFailPrompted = false; // 新一轮取放：清掉上一轮的失败弹窗防重标记
         m_openReady->show();
         m_titleLabel->setText(QStringLiteral("智能柜已开启"));
         m_stack->setCurrentIndex(0);
@@ -664,24 +665,35 @@ void CabinetSessionDialog::onCloseCabinetClicked()
 void CabinetSessionDialog::onCabinetCloseResult(const QString& requestId, bool success, const QString& message)
 {
     Q_UNUSED(requestId);
-    // 未在取放阶段，或本次关柜已有入口触发核对：忽略，避免重复核对
-    if (!m_opened || m_closeAckHandled) return;
-    m_closeAckHandled = true;
+    if (!m_opened) return;
 
     if (success) {
+        // 成功帧才占核对锁：与「关闭智能柜」按钮二选一发起全柜识别，避免重复核对
+        if (m_closeAckHandled) return;
+        m_closeAckHandled = true;
         onCloseCabinetClicked();   // 停关柜计时 → 发起全柜识别 → 进入核对等待
         return;
     }
 
-    // 柜门未关到位：不发起核对、不写任何记录；关柜等待计时继续跑，用户仍可重新关柜
+    // 柜门未关到位：不发起核对、不写任何记录。
+    // 失败帧不受 m_closeAckHandled 拦截——该锁只互斥"发起核对"，若用它挡失败帧，
+    // 按钮已抢先发起核对时到达的失败帧会被静默丢弃（表现为上位机无提示）。
+    // 改用独立标志防连续失败帧重复弹窗。
+    if (m_closeFailPrompted) return;
+    m_closeFailPrompted = true;
+    if (m_closeWaitTimer) m_closeWaitTimer->stop();   // 与出入库页一致：停计时，避免超时提示叠加
+
     const QString text = message.isEmpty()
-        ? QStringLiteral("柜门未关到位，请重新关柜后再试") : message;
-    QTimer::singleShot(0, this, [this, text]() {
+        ? QStringLiteral("柜门未关到位，本次借用归还已取消，未写入任何记录。请关好柜门后重新发起") : message;
+    QTimer::singleShot(0, this, [this, text, message]() {
         // 提示排到事件循环下一轮弹出（防模态假死）
         MessageDialog::showWarning(this, QStringLiteral("柜门未关到位"), text);
-        // 用户看完提示后才解锁：弹窗显示期间迟到的失败帧不会重复弹；
-        // 解锁后重新关柜再次收到关柜信号仍可正常发起核对
-        m_closeAckHandled = false;
+        // 用户看完提示后记一条系统告警：关柜失败记为硬件故障，提示检查 IO 板（本次会话不写任何借还记录）
+        AlertService().recordCabinetCloseFailed(m_userId, message);
+        // 失败帧从未占用核对锁，这里也不释放它——避免把按钮已发起的核对锁误清、放行重复核对。
+        m_closeFailPrompted = false;
+        // 本次会话到此结束：关掉弹窗后退出会话，回到功能导航主页
+        reject();
     });
 }
 

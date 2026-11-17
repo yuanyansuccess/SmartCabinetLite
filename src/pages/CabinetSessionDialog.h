@@ -150,7 +150,8 @@ private:
     int m_round = 1;                  // 当前轮次（错放重开柜，上限见 kMaxRounds）
     bool m_opened = false;            // 是否已真实开柜
     QTimer* m_closeWaitTimer = nullptr; // 关柜等待计时（柜体打开起算，超时提示确认柜门已关）
-    bool m_closeAckHandled = false;   // 本次开柜会话是否已触发关柜核对（按钮与关柜信号共用，避免重复核对）
+    bool m_closeAckHandled = false;   // 本次开柜会话是否已触发关柜核对（按钮与关柜成功帧共用，避免重复核对）
+    bool m_closeFailPrompted = false; // 关柜失败提示是否已弹出：失败帧不受核对锁拦截，用本标志防连续失败帧重复弹窗
 
     static const int kMaxRounds = 3;  // 错放重开柜次数上限（含首次共 3 轮）
 };

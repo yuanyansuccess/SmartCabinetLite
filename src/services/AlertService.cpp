@@ -108,6 +108,31 @@ void AlertService::recordRecognizeTimeout(const QString& requestId) {
 }
 
 /**
+ * @brief 记录关柜失败告警（IO 板回报柜门未关到位，归系统告警大类）
+ * @param userId  触发会话的当前用户ID
+ * @param message IO 板回报的失败原因，为空时用默认文案
+ * @note  复用已激活的硬件故障类型（hw_fault）；字典查不回 type_id 时只告警不写库，
+ *        避免字典停用产生坏数据
+ */
+void AlertService::recordCabinetCloseFailed(int userId, const QString& message) {
+    db::AlertDAO dao;
+    const int typeId = dao.findTypeIdByCode(SC::ALERT_TYPE_HW_FAULT);
+    if (typeId <= 0) {
+        qWarning() << "[AlertService] 关柜失败告警跳过：字典中找不到已启用类型"
+                   << SC::ALERT_TYPE_HW_FAULT;
+        return;
+    }
+    AlertLog alert;
+    alert.typeId = typeId;
+    alert.userId = userId;
+    // 文案明确故障来源与处置方向：柜门未关到位是 IO 板回报结果，提示检查 IO 板
+    alert.message = QStringLiteral("借用归还会话关柜失败：%1。可能是 IO 板异常或柜门未关到位，请检查 IO 板。")
+                        .arg(message.isEmpty() ? QStringLiteral("IO 板回报柜门未关到位") : message);
+    alert.status = SC::ALERT_UNHANDLED;
+    dao.insertAlert(alert);
+}
+
+/**
  * @brief 记录识别故障告警（边缘机识别结果异常，归系统告警大类）
  * @param userId  触发会话的当前用户ID
  * @param message 告警内容（含货位数量对比等故障细节）
