@@ -126,7 +126,8 @@ void AlertService::recordCabinetCloseFailed(int userId, const QString& message) 
     alert.typeId = typeId;
     alert.userId = userId;
     // 文案明确故障来源与处置方向：柜门未关到位是 IO 板回报结果，提示检查 IO 板
-    alert.message = QStringLiteral("借用归还会话关柜失败：%1。可能是 IO 板异常或柜门未关到位，请检查 IO 板。")
+    alert.message = QStringLiteral("%1关柜失败：%2。可能是 IO 板异常或柜门未关到位，请检查 IO 板。")
+                        .arg(scene)
                         .arg(message.isEmpty() ? QStringLiteral("IO 板回报柜门未关到位") : message);
     alert.status = SC::ALERT_UNHANDLED;
     dao.insertAlert(alert);

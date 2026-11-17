@@ -1085,8 +1085,12 @@ void ToolCheckinPage::onCabinetCloseResult(const QString& requestId, bool succes
     // 柜门未关到位：不发起核对、不写任何记录，提示用户重新关柜后再试
     const QString text = message.isEmpty()
         ? QStringLiteral("柜门未关到位，本次出入库已取消，未写入任何记录。请关好柜门后重新发起") : message;
-    QTimer::singleShot(0, this, [this, text]() {
+    QTimer::singleShot(0, this, [this, text, message]() {
         MessageDialog::showWarning(this, QStringLiteral("柜门未关到位"), text);
+        // 与借还页同一入口记系统告警：关柜失败归硬件故障，提示检查 IO 板（本次不写任何库存记录）
+        int userId = m_user["userId"].toInt();
+        if (userId <= 0) userId = 1;
+        AlertService().recordCabinetCloseFailed(userId, message, QStringLiteral("出入库"));
     });
 }
 

@@ -689,7 +689,7 @@ void CabinetSessionDialog::onCabinetCloseResult(const QString& requestId, bool s
         // 提示排到事件循环下一轮弹出（防模态假死）
         MessageDialog::showWarning(this, QStringLiteral("柜门未关到位"), text);
         // 用户看完提示后记一条系统告警：关柜失败记为硬件故障，提示检查 IO 板（本次会话不写任何借还记录）
-        AlertService().recordCabinetCloseFailed(m_userId, message);
+        AlertService().recordCabinetCloseFailed(m_userId, message, QStringLiteral("借用归还"));
         // 失败帧从未占用核对锁，这里也不释放它——避免把按钮已发起的核对锁误清、放行重复核对。
         m_closeFailPrompted = false;
         // 本次会话到此结束：关掉弹窗后退出会话，回到功能导航主页
