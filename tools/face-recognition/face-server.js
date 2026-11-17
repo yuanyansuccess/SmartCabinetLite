@@ -427,6 +427,7 @@ async function detectPosture(imageBase64) {
 
     const t0 = Date.now();
     const { tensor } = decodeJpegToTensor(imageBase64);
+    const tDecode = Date.now() - t0;   // 段1：base64解码+jpeg解码+张量构建
     let tDetect = 0, tLandmarks = 0;
     try {
         // 只检测landmarks，不提取descriptor，速度更快
