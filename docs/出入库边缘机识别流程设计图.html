@@ -92,7 +92,7 @@
     <text x="555" y="255" class="node-title">③ 单据校验</text>
     <text x="555" y="274" class="node-sub">未选工具 / 空单 / 同工具查重 / 位置实时核对</text>
     <text x="555" y="355" class="node-title">④ 边缘机链路 + 摄像头在线检查</text>
-    <text x="555" y="374" class="node-sub">EdgeService.m_online（周期帧15秒判活）+ 8 路摄像头自检（任一非 ok→拒开柜）</text>
+    <text x="555" y="374" class="node-sub">边缘机链路在线检测（周期信息15秒判活）+ 8 路摄像头自检（任一非 ok→拒开柜）</text>
     <text x="555" y="455" class="node-title">⑤ 下发开锁指令</text>
     <text x="555" y="474" class="node-sub">IO 板 TCP 接口</text>
     <text x="555" y="555" class="node-title">⑥ 开箱弹窗：柜体动画 + 单据摘要</text>
@@ -358,7 +358,7 @@
     <text x="392" y="192" class="edge-label">校验：空单/同工具查重/位置实时核对（现有逻辑）</text>
     <!-- M3 页->边缘机 在线检查 -->
     <line x1="320" y1="240" x2="616" y2="240" stroke="#7a8aa0" marker-end="url(#arr2)"/>
-    <text x="468" y="232" class="edge-label" text-anchor="middle">在线检查 m_online</text>
+    <text x="468" y="232" class="edge-label" text-anchor="middle">在线检查链路</text>
     <line x1="616" y1="258" x2="324" y2="258" stroke="#3da33d" stroke-dasharray="5 4" marker-end="url(#arrG)"/>
     <text x="468" y="252" class="edge-label" text-anchor="middle" fill="#3da33d">离线 → 拒绝本次，不写库</text>
     <!-- M4 页->IO板 开锁 -->
@@ -415,7 +415,7 @@
       <td>4-1</td><td>单据里借出工具已被归还或再次出库</td><td>validateOrderItems（借出行按借出状态核对）</td><td>弹窗"已不在借出中，请删除该行后重新添加"，零写库</td><td><span class="tag t-new">本次新增</span></td></tr>
   <tr><td>4-2</td><td>借出工具与在库工具混在同一单</td><td>orderNeedsOpening</td><td>仍走开箱流程；借出行不参与柜内核对，核对结束后与在库行一并写入</td><td><span class="tag t-new">本次新增</span></td></tr>
   <tr><td rowspan="6"><b>B 通信</b><br/><span style="font-size:12px;color:#888;">流程进行中</span></td>
-      <td>5</td><td>边缘机链路离线</td><td>点确认时查 m_online</td><td>拒绝本次，不写库，提示"边缘机链路离线"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
+      <td>5</td><td>边缘机链路离线</td><td>点确认时查链路</td><td>拒绝本次，不写库，提示"边缘机链路离线"</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>6</td><td>关柜信号超时（不关门/IO板故障）</td><td>关柜等待计时器</td><td>提示"请确认柜门已关"，提供【取消】</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>7</td><td>识别请求超时（3秒×3次重发全失败）</td><td>EdgeService 扫描器</td><td>等待态给【重新核对】重发请求，不用开箱</td><td><span class="tag t-ok">已覆盖</span></td></tr>
   <tr><td>8</td><td>在途请求期间链路中断</td><td>EdgeService 登记表</td><td>记通信异常，链路恢复按原 request_id 补发一次；页面表现为超时→重新核对</td><td><span class="tag t-new">本次标注</span></td></tr>
