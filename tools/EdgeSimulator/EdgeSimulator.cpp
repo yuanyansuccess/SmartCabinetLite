@@ -687,9 +687,7 @@ QWidget* EdgeSimulator::buildPeriodicTab()
     auto* g = new QGridLayout(w);
 
     // 8 路摄像头自检状态（CAM1..CAM8，与真实边缘机一一对应）
-    const QStringList camStates = {QStringLiteral("ok"), QStringLiteral("offline"),
-                                   QStringLiteral("low_light"), QStringLiteral("dirty"),
-                                   QStringLiteral("comm_error"), kCamEmpty};
+    const QStringList camStates = {QStringLiteral("ok"), QStringLiteral("offline"), kCamEmpty};
     for (int i = 1; i <= 8; ++i) {
         auto* c = new QComboBox;
         c->addItems(camStates);
@@ -718,9 +716,9 @@ QWidget* EdgeSimulator::buildPeriodicTab()
     g->addWidget(m_btnPeriodic, rowUptime + 1, 0, 1, 2);
     g->addWidget(m_periodicOn, rowUptime + 2, 0);
     g->addWidget(m_periodicMs, rowUptime + 2, 1);
-    auto* camTip = new QLabel(QStringLiteral("8 路摄像头（CAM1..CAM8）状态含义：\nok=正常 offline=掉线 low_light=光照不足\n"
-                                             "dirty=镜头脏污 comm_error=通信异常\n(空-不报自检)：该相机不出现在清单，全部选空则 camera_status 为空数组\n"
-                                             "安全策略：任一状态非 ok → 上位机与模拟器两端都拒绝开柜"));
+    auto* camTip = new QLabel(QStringLiteral("8 路摄像头（CAM1..CAM8）状态含义：\nok=正常 offline=掉线\n"
+                                             "(空-不报自检)：该相机不出现在清单，全部选空则 camera_status 为空数组\n"
+                                             "安全策略：状态为 offline → 上位机与模拟器两端都拒绝开柜"));
     camTip->setWordWrap(true);
     camTip->setMaximumWidth(460);
     g->addWidget(camTip, rowUptime + 3, 1, 1, 1);
@@ -1751,8 +1749,8 @@ void EdgeSimulator::executeSilenceDrop()
 // ─────────────────────── 协议3.5 版本 ───────────────────────
 
 /**
- * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
- * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
+ * @brief 取当前 8 路摄像头中状态异常的摘要（状态为 offline，且非"不报自检"）
+ * @return 形如 "CAM3(offline) CAM5(offline)"；全部正常或均为空时返回空串
  */
 QString EdgeSimulator::cameraAbnormalText() const
 {

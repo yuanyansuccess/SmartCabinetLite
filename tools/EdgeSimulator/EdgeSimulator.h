@@ -89,8 +89,8 @@ public:
     static bool parseFrameText(const QString& text, QJsonObject& frame);
 
     /**
-     * @brief 取当前 8 路摄像头中状态异常的摘要（非 ok 且非"不报自检"）
-     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或均为空时返回空串
+     * @brief 取当前 8 路摄像头中状态异常的摘要（状态为 offline，且非"不报自检"）
+     * @return 形如 "CAM3(offline) CAM5(offline)"；全部正常或均为空时返回空串
      */
     QString cameraAbnormalText() const;
 

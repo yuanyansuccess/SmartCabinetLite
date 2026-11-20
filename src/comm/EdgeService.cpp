@@ -248,7 +248,7 @@ bool EdgeService::allCamerasOk() const
 
 /**
  * @brief 取异常摄像头摘要文本（供界面提示与开柜拒绝原因）
- * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或自检缺席时返回空串
+ * @return 形如 "CAM3(offline) CAM5(offline)"；全部正常或自检缺席时返回空串
  */
 QString EdgeService::cameraAbnormalText() const
 {

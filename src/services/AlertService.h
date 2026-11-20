@@ -31,7 +31,7 @@ public:
     /**
      * @brief 记录边缘机摄像头自检状态异常变化告警（周期帧逐帧对比触发）
      * @param cameraId   摄像头编号，如 "CAM3"
-     * @param oldStatus  变化前状态（ok/offline/low_light/dirty/comm_error）
+     * @param oldStatus  变化前状态（ok/offline）
      * @param newStatus  变化后状态（触发方保证非 ok，恢复不触发）
      * @note  复用已激活的硬件故障类型（hw_fault），无需新增字典；
      *        类型字典被停用（is_active=0）时跳过写入并告警，不产生坏数据

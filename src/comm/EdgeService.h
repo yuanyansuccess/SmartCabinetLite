@@ -36,14 +36,14 @@ public:
     /**
      * @brief 查询当前边缘机 8 路摄像头自检是否全部正常（开柜前置安全闸门）
      * @return true=全部正常，或周期帧未上报自检（兼容未启用自检的硬件，不拦开柜）；
-     *         false=存在任一状态非 "ok" 的摄像头（offline/low_light/dirty/comm_error）
+     *         false=存在状态为 "offline" 的摄像头
      * @note  摄像头异常属安全红线：货位识别可信度下降，禁止开锁
      */
     bool allCamerasOk() const;
 
     /**
      * @brief 取异常摄像头摘要文本（供界面提示与开柜拒绝原因）
-     * @return 形如 "CAM3(offline) CAM5(dirty)"；全部正常或自检缺席时返回空串
+     * @return 形如 "CAM3(offline) CAM5(offline)"；全部正常或自检缺席时返回空串
      */
     QString cameraAbnormalText() const;
 
@@ -109,7 +109,7 @@ signals:
     /**
      * @brief 某一路摄像头自检状态变为异常时发一次（协议3.4；相对上一帧有变化且新状态非 ok）
      * @param cameraId   摄像头编号，如 "CAM3"
-     * @param oldStatus  上一帧状态（ok/offline/low_light/dirty/comm_error）
+     * @param oldStatus  上一帧状态（ok/offline）
      * @param newStatus  本帧状态（必为异常态，ok 的恢复不触发）
      * @note  首帧只建立基线不发送（服务重启不应刷出一批历史状态告警）；
      *        恢复正常（→ok）不发送——告警只记异常出现，不记恢复

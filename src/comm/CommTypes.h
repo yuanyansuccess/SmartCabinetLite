@@ -64,7 +64,7 @@ struct CloseResult {
 // ---------- periodic：周期帧（边缘机健康状态） ----------
 struct CameraStatusItem {
     QString cameraId;      // CAM1
-    QString status;        // ok/offline/low_light/dirty/comm_error（依赖硬件选型，可缺席）
+    QString status;        // ok/offline 两态（可缺席）
 };
 
 struct PeriodicInfo {
